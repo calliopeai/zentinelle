@@ -1,7 +1,12 @@
-import graphene
+"""
+GraphQL schema for Zentinelle standalone.
 
-# Schema will be populated during extraction.
-# For now, provide a minimal valid schema so Django can boot.
+# TODO: decouple - full schema (types, queries, mutations) depends on
+# client-cove models (Deployment, JunoHubConfig, etc.). The raw files
+# are preserved in this directory for future reference. This stub
+# provides a minimal health-check schema so Django/Graphene boots cleanly.
+"""
+import graphene
 
 
 class Query(graphene.ObjectType):
@@ -9,6 +14,10 @@ class Query(graphene.ObjectType):
 
     def resolve_health(root, info):
         return "ok"
+
+
+class Mutation(graphene.ObjectType):
+    pass
 
 
 schema = graphene.Schema(query=Query)
