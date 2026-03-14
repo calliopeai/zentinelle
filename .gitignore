@@ -1,0 +1,38 @@
+# Internal — never commit
+calliope.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.env
+.venv
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Node
+node_modules/
+.next/
+out/
+*.local
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.pem
+*.key
+secrets.json
