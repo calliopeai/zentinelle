@@ -1,0 +1,24 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django = ">=5.0,<6.0"
+graphene-django = ">=3.2"
+djangorestframework = ">=3.14"
+django-cors-headers = ">=4.3"
+celery = ">=5.4"
+redis = ">=5.0"
+psycopg2-binary = ">=2.9"
+gunicorn = ">=23.0"
+python-dotenv = ">=1.0"
+cryptography = ">=42.0"
+
+[dev-packages]
+pytest-django = "*"
+flake8 = "*"
+isort = "*"
+
+[requires]
+python_version = "3.12"
