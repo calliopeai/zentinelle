@@ -161,6 +161,29 @@ pipenv run isort --check-only .
 - No rebasing, no force-push
 - Commit directly to `main`
 
+## Impact Table
+
+Use this before making changes. Columns: **d=1** = direct callers that WILL break; **d=2** = indirect that SHOULD be tested; **d=3** = transitive that MAY be affected.
+
+| Component | d=1 (WILL BREAK) | d=2 (SHOULD TEST) | d=3 (MAY BREAK) | Risk |
+|-----------|-----------------|-------------------|-----------------|------|
+| `TenantResolver` interface | All auth flows, every resolver | Entire API surface (every query/mutation) | All compliance state | CRITICAL |
+| GraphQL type ordering | Django startup — entire service | All portal features | — | CRITICAL |
+| `PolicyEngine.evaluate()` | `/api/evaluate`, all agent enforcement | Rate limits, cost control, PII/jailbreak blocking | Compliance state, incident creation | CRITICAL |
+| `tenant_id` field on any model | That model's queries and mutations | Cross-model queries (events for endpoint, etc.) | Compliance aggregations | CRITICAL |
+| `AgentEndpoint.api_key_hash` | `/api/register`, all agent auth | All agent API calls | Endpoint health tracking | HIGH |
+| `Event` model schema | `/api/events` ingestion | Retention TTL enforcement, SIEM export | Compliance reports | HIGH |
+| `InteractionLog` model | Audit trail writes | Usage metrics, cost metering | Compliance dashboard | HIGH |
+| `RetentionPolicy.enforce_ttl()` | TTL Celery task | Event and log cleanup | SIEM completeness | HIGH |
+| `Policy` scope hierarchy | Policy resolution order | All multi-scope tenant evaluations | — | HIGH |
+| `ContentScan` model | `/api/evaluate` content scanning | PII detection reports | GDPR/HIPAA compliance controls | MEDIUM |
+| `Risk` model | Risk register CRUD | Incident creation | Compliance gap scoring | MEDIUM |
+| `check_budget()` in PolicyEngine | Token budget enforcement | Cost metering | Billing accuracy | MEDIUM |
+
+**How to use:** Find your component row. If d=1 is non-empty, run the full test suite. If Risk = CRITICAL, do not commit without passing the full pre-commit checklist.
+
+---
+
 ## Wiki
 
 - [Architecture](docs/wiki/architecture.md)

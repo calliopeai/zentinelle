@@ -1,4 +1,4 @@
-.PHONY: up down build migrate createsuperuser test lint schema compile shell logs
+.PHONY: up down build migrate createsuperuser test lint schema compile shell logs kf-docs kf-list kf-check
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 up:
@@ -46,3 +46,13 @@ dev-frontend:
 
 dev-celery:
 	cd backend && pipenv run celery -A config worker -l info
+
+# ── Knowledge Framework ───────────────────────────────────────────────────────
+kf-docs:
+	python3 scripts/kf.py docs
+
+kf-list:
+	python3 scripts/kf.py list
+
+kf-check:
+	python3 scripts/kf.py check
