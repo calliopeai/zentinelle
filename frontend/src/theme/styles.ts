@@ -138,20 +138,20 @@ export const globalStyles = {
       900: '#1B2559',  // primary text in light mode (dark navy)
     },
     red: {
-      100: '#2D1B1B',
+      100: '#FED7D7',  // light pink — Chakra Badge bg in light mode
       500: '#EE5D50',
       600: '#E31A1A',
     },
     blue: {
-      50: '#0D1B2A',
+      50: '#EBF8FF',   // light blue — info box bg in light mode
       500: '#3B5CAA',
     },
     orange: {
-      100: '#2D2614',
+      100: '#FEEBC8',  // light orange — Chakra Badge bg in light mode
       500: '#FFB547',
     },
     green: {
-      100: '#0D2922',
+      100: '#C6F6D5',  // light green — Chakra Badge bg in light mode
       500: '#0AF0CF',
     },
     navy: {
