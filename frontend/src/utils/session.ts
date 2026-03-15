@@ -7,6 +7,10 @@ const SESSION_STORAGE_KEY = 'django_session_key';
 // API base URL for the Zentinelle backend service
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost/api/zentinelle';
 
+// Standalone mode: bypass Auth0, use a fixed dev token the backend accepts in DEBUG mode
+const isStandalone = process.env.NEXT_PUBLIC_AUTH_MODE === 'standalone';
+const STANDALONE_TOKEN = 'standalone-dev';
+
 /**
  * Exchange an Auth0 access token for a Django session key.
  */
@@ -54,9 +58,8 @@ export async function exchangeTokenForSession(auth0Token: {
  * Get the current Django session key from storage.
  */
 export function getSessionKey(): string | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
+  if (isStandalone) return STANDALONE_TOKEN;
+  if (typeof window === 'undefined') return null;
   return sessionStorage.getItem(SESSION_STORAGE_KEY);
 }
 

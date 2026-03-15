@@ -2,20 +2,46 @@
 
 import { useUser } from '@auth0/nextjs-auth0/client';
 import { useEffect, useState, useCallback } from 'react';
-import { exchangeTokenForSession, getSessionKey, clearSessionKey, hasSession } from '../utils/session';
+import { exchangeTokenForSession, getSessionKey, clearSessionKey } from '../utils/session';
+
+const isStandalone = process.env.NEXT_PUBLIC_AUTH_MODE === 'standalone';
+
+// In standalone mode the backend (DEBUG=true) accepts any non-empty token.
+const STANDALONE_TOKEN = 'standalone-dev';
 
 /**
- * Hook to manage backend Django session from Auth0 authentication.
+ * Manages the backend Django session.
  *
- * When the user is authenticated with Auth0, this hook will automatically
- * exchange the Auth0 token for a Django session key.
+ * Standalone mode (NEXT_PUBLIC_AUTH_MODE=standalone): skips Auth0 entirely,
+ * uses a fixed dev token that the backend accepts in DEBUG mode.
+ *
+ * Client-cove mode: exchanges an Auth0 access token for a Django session key.
  */
 export function useBackendSession() {
+  // Standalone: skip Auth0 entirely
+  if (isStandalone) {
+    return {
+      user: { name: 'Dev User', email: 'dev@localhost' },
+      sessionKey: STANDALONE_TOKEN,
+      isLoading: false,
+      isAuthenticated: true,
+      error: null,
+      refreshSession: async () => {},
+      clearSession: () => {},
+    };
+  }
+
+  // Client-cove mode: Auth0 → Django session exchange
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { user, isLoading: isAuth0Loading, error: auth0Error } = useUser();
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const [sessionKey, setSessionKey] = useState<string | null>(null);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const [isLoading, setIsLoading] = useState(true);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const [error, setError] = useState<Error | null>(null);
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const refreshSession = useCallback(async () => {
     if (!user) {
       clearSessionKey();
@@ -24,7 +50,6 @@ export function useBackendSession() {
       return;
     }
 
-    // Check if we already have a valid session
     const existingSession = getSessionKey();
     if (existingSession) {
       setSessionKey(existingSession);
@@ -32,20 +57,14 @@ export function useBackendSession() {
       return;
     }
 
-    // Fetch access token from our API route and exchange for session
     try {
       setIsLoading(true);
       setError(null);
 
-      // Fetch the access token from our Next.js API route
       const tokenResponse = await fetch('/zentinelle/api/auth/token');
-      if (!tokenResponse.ok) {
-        throw new Error('Failed to get access token');
-      }
+      if (!tokenResponse.ok) throw new Error('Failed to get access token');
 
       const tokenData = await tokenResponse.json();
-
-      // Exchange for Django session
       const newSessionKey = await exchangeTokenForSession({
         access_token: tokenData.accessToken,
         id_token: tokenData.idToken,
@@ -65,10 +84,9 @@ export function useBackendSession() {
     }
   }, [user]);
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
-    if (!isAuth0Loading) {
-      refreshSession();
-    }
+    if (!isAuth0Loading) refreshSession();
   }, [user, isAuth0Loading, refreshSession]);
 
   return {

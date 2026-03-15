@@ -1,6 +1,10 @@
-import { withMiddlewareAuthRequired } from '@auth0/nextjs-auth0/edge';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export default withMiddlewareAuthRequired();
+// Dev mode: bypass auth so the UI can be tested locally without Auth0 credentials
+export function middleware(_request: NextRequest) {
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [
