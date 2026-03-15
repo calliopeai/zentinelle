@@ -810,12 +810,13 @@ class ComplianceAlert(Tracking):
         choices=Status.choices,
         default=Status.OPEN
     )
-    # TODO: decouple - acknowledged_by FK removed (use user_id instead)
     acknowledged_at = models.DateTimeField(null=True, blank=True)
-    # TODO: decouple - resolved_by FK removed (use user_id/ext_user_id instead)
+    acknowledged_by = models.CharField(max_length=255, blank=True, default="",
+                                       help_text="user_id who acknowledged")
     resolved_at = models.DateTimeField(null=True, blank=True)
     resolution_notes = models.TextField(blank=True)
-    user_id = models.CharField(max_length=255, db_index=True, blank=True, default="")
+    user_id = models.CharField(max_length=255, db_index=True, blank=True, default="",
+                               help_text="user_id who resolved (or last acted)")
 
     # Linked scans
     scans = models.ManyToManyField(ContentScan, related_name='alerts')

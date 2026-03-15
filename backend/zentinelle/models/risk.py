@@ -130,7 +130,7 @@ class Risk(models.Model):
 
     # Review tracking
     last_reviewed_at = models.DateTimeField(null=True, blank=True)
-    # TODO: decouple - last_reviewed_by FK removed (use user_id/ext_user_id instead)
+    reviewer_id = models.CharField(max_length=255, blank=True, default="")
     next_review_date = models.DateField(null=True, blank=True)
 
     # Additional metadata
@@ -206,9 +206,10 @@ class Incident(models.Model):
     )
 
     # Assignment
-    # TODO: decouple - assigned_to FK removed (use user_id/ext_user_id instead)
-    # TODO: decouple - reported_by FK removed (use user_id/ext_user_id instead)
-    user_id = models.CharField(max_length=255, db_index=True, blank=True, default="")
+    user_id = models.CharField(max_length=255, db_index=True, blank=True, default="",
+                               help_text="Assigned to (user_id)")
+    reporter_id = models.CharField(max_length=255, blank=True, default="",
+                                   help_text="Reported by (user_id)")
 
     # Related entities
     endpoint = models.ForeignKey(

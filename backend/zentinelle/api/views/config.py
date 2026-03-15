@@ -86,8 +86,8 @@ def invalidate_config_cache(agent_id: str):
     cache.delete(cache_key)
 
 
-def invalidate_org_config_cache(organization_id):
-    """Invalidate config cache for all endpoints in an org."""
+def invalidate_org_config_cache(tenant_id):
+    """Invalidate config cache for all endpoints in a tenant."""
     endpoints = AgentEndpoint.objects.filter(
         tenant_id=tenant_id
     ).values_list('agent_id', flat=True)

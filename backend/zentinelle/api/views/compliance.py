@@ -85,7 +85,7 @@ class ScanContentView(APIView):
         endpoint = get_endpoint_from_request(request)
 
         # Create scanner
-        scanner = ContentScanner(endpoint.organization)
+        scanner = ContentScanner(endpoint.tenant_id)
 
         # Run scan
         try:

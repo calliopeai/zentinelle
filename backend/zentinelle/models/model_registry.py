@@ -218,12 +218,11 @@ class OrganizationModelApproval(Tracking):
     )
 
     # Review tracking
-    # TODO: decouple - reviewed_by FK removed (use user_id/ext_user_id instead)
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewer_id = models.CharField(max_length=255, blank=True, default="")
     review_notes = models.TextField(blank=True)
 
-    # Audit
-    # TODO: decouple - requested_by FK removed (use user_id/ext_user_id instead)
+    # Audit — who requested the approval
     user_id = models.CharField(max_length=255, db_index=True, blank=True, default="")
 
     class Meta:

@@ -38,12 +38,14 @@ class BootstrapTokenPermission(BasePermission):
     message = 'Invalid or missing bootstrap token.'
 
     def has_permission(self, request, view):
+        import os
         bootstrap_token = request.META.get('HTTP_X_ZENTINELLE_BOOTSTRAP', '')
 
         if not bootstrap_token:
             return False
 
-        # Bootstrap token format: bt_<tenant_id>_<secret>
+        # Bootstrap token format: bt_<tenant_id>_<hmac_sha256>
+        # The HMAC is computed as: HMAC-SHA256(key=BOOTSTRAP_SECRET, msg=tenant_id)
         if not bootstrap_token.startswith('bt_'):
             return False
 
@@ -52,11 +54,28 @@ class BootstrapTokenPermission(BasePermission):
             if len(parts) != 3:
                 return False
 
-            _, tenant_id, secret = parts
+            _, tenant_id, provided_sig = parts
 
-            # Hash the provided token and compare against known hashes
-            # TODO: decouple - implement standalone bootstrap token verification
-            # For now, store the tenant_id on the request
+            if not tenant_id:
+                return False
+
+            secret = os.environ.get('ZENTINELLE_BOOTSTRAP_SECRET', '')
+            if not secret:
+                logger.warning(
+                    'ZENTINELLE_BOOTSTRAP_SECRET not set; bootstrap registration disabled'
+                )
+                return False
+
+            expected_sig = hmac.new(
+                secret.encode(),
+                tenant_id.encode(),
+                hashlib.sha256,
+            ).hexdigest()
+
+            if not hmac.compare_digest(expected_sig, provided_sig):
+                logger.warning(f'Bootstrap token signature mismatch for tenant: {tenant_id}')
+                return False
+
             request._zentinelle_tenant_id = tenant_id
             return True
 
