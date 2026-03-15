@@ -281,6 +281,13 @@ class PolicyEngine:
             OutputFilterEvaluator,
             AgentCapabilityEvaluator,
             HumanOversightEvaluator,
+            SystemPromptEvaluator,
+            AIGuardrailEvaluator,
+            AgentMemoryEvaluator,
+            AuditPolicyEvaluator,
+            SessionPolicyEvaluator,
+            DataAccessEvaluator,
+            DataRetentionEvaluator,
             NoOpEvaluator,
         )
 
@@ -296,13 +303,13 @@ class PolicyEngine:
             Policy.PolicyType.OUTPUT_FILTER: OutputFilterEvaluator(),
             Policy.PolicyType.AGENT_CAPABILITY: AgentCapabilityEvaluator(),
             Policy.PolicyType.HUMAN_OVERSIGHT: HumanOversightEvaluator(),
-            # These policy types don't block actions, just configure behavior
-            Policy.PolicyType.SYSTEM_PROMPT: NoOpEvaluator(),
-            Policy.PolicyType.AI_GUARDRAIL: NoOpEvaluator(),
-            Policy.PolicyType.AUDIT_POLICY: NoOpEvaluator(),
-            Policy.PolicyType.SESSION_POLICY: NoOpEvaluator(),
-            Policy.PolicyType.DATA_ACCESS: NoOpEvaluator(),
-            Policy.PolicyType.DATA_RETENTION: NoOpEvaluator(),
+            Policy.PolicyType.SYSTEM_PROMPT: SystemPromptEvaluator(),
+            Policy.PolicyType.AI_GUARDRAIL: AIGuardrailEvaluator(),
+            Policy.PolicyType.AGENT_MEMORY: AgentMemoryEvaluator(),
+            Policy.PolicyType.AUDIT_POLICY: AuditPolicyEvaluator(),
+            Policy.PolicyType.SESSION_POLICY: SessionPolicyEvaluator(),
+            Policy.PolicyType.DATA_ACCESS: DataAccessEvaluator(),
+            Policy.PolicyType.DATA_RETENTION: DataRetentionEvaluator(),
         }
         return evaluators.get(policy_type, NoOpEvaluator())
 
