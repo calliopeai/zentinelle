@@ -5,6 +5,7 @@ Agent governance and compliance endpoints:
 
 Agent-facing REST endpoints:
 - POST /api/zentinelle/v1/register
+- POST /api/zentinelle/v1/deregister
 - GET  /api/zentinelle/v1/config/{agent_id}
 - POST /api/zentinelle/v1/events
 - POST /api/zentinelle/v1/heartbeat
@@ -38,6 +39,7 @@ from zentinelle.api.views import (
     EventsView,
     HeartbeatView,
     EvaluateView,
+    DeregisterView,
     EffectivePolicyView,
     SystemPromptsView,
     ScanContentView,
@@ -59,6 +61,7 @@ app_name = 'zentinelle'
 urlpatterns = [
     # Agent-facing endpoints
     path('register', RegisterView.as_view(), name='register'),
+    path('deregister', DeregisterView.as_view(), name='deregister'),
     path('config/<str:agent_id>', ConfigView.as_view(), name='config'),
     path('events', EventsView.as_view(), name='events'),
     path('heartbeat', HeartbeatView.as_view(), name='heartbeat'),

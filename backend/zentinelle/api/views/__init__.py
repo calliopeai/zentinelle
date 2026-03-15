@@ -9,6 +9,7 @@ from zentinelle.api.views.config import ConfigView
 from zentinelle.api.views.events import EventsView
 from zentinelle.api.views.heartbeat import HeartbeatView
 from zentinelle.api.views.evaluate import EvaluateView
+from zentinelle.api.views.deregister import DeregisterView
 from zentinelle.api.views.policy import (
     EffectivePolicyView,
     SystemPromptsView,
@@ -34,6 +35,7 @@ __all__ = [
     'EventsView',
     'HeartbeatView',
     'EvaluateView',
+    'DeregisterView',
     'EffectivePolicyView',
     'SystemPromptsView',
     # Compliance
