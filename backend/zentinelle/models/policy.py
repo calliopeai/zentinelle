@@ -34,6 +34,7 @@ class Policy(Tracking):
         # Agent Controls
         AGENT_CAPABILITY = 'agent_capability', 'Agent Capability'
         AGENT_MEMORY = 'agent_memory', 'Agent Memory'
+        AGENT_DELEGATION = 'agent_delegation', 'Agent Delegation'
         HUMAN_OVERSIGHT = 'human_oversight', 'Human Oversight'
 
         # Resource controls

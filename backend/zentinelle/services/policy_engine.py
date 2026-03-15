@@ -289,6 +289,7 @@ class PolicyEngine:
             DataAccessEvaluator,
             DataRetentionEvaluator,
             PromptInjectionEvaluator,
+            AgentDelegationEvaluator,
             NoOpEvaluator,
         )
 
@@ -312,6 +313,7 @@ class PolicyEngine:
             Policy.PolicyType.DATA_ACCESS: DataAccessEvaluator(),
             Policy.PolicyType.DATA_RETENTION: DataRetentionEvaluator(),
             Policy.PolicyType.PROMPT_INJECTION: PromptInjectionEvaluator(),
+            Policy.PolicyType.AGENT_DELEGATION: AgentDelegationEvaluator(),
         }
         return evaluators.get(policy_type, NoOpEvaluator())
 

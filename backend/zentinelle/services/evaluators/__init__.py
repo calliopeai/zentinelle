@@ -18,6 +18,7 @@ from zentinelle.services.evaluators.session_policy import SessionPolicyEvaluator
 from zentinelle.services.evaluators.data_access import DataAccessEvaluator
 from zentinelle.services.evaluators.data_retention import DataRetentionEvaluator
 from zentinelle.services.evaluators.prompt_injection import PromptInjectionEvaluator
+from zentinelle.services.evaluators.agent_delegation import AgentDelegationEvaluator
 
 __all__ = [
     'BasePolicyEvaluator',
@@ -42,4 +43,5 @@ __all__ = [
     'DataAccessEvaluator',
     'DataRetentionEvaluator',
     'PromptInjectionEvaluator',
+    'AgentDelegationEvaluator',
 ]
