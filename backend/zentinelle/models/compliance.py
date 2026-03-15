@@ -1110,6 +1110,28 @@ class ComplianceAssessment(Tracking):
         return f"Assessment: {self.tenant_id} - {self.overall_score:.1f}% @ {self.assessed_at}"
 
 
+class ComplianceFrameworkConfig(models.Model):
+    """
+    Per-tenant toggle for each compliance framework.
+    Controls whether a framework is active in the compliance dashboard.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant_id = models.CharField(max_length=255, db_index=True)
+    framework_id = models.CharField(max_length=50, help_text='Framework slug, e.g. soc2, gdpr, hipaa')
+    is_enabled = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['tenant_id', 'framework_id']
+        verbose_name = 'Compliance Framework Config'
+        verbose_name_plural = 'Compliance Framework Configs'
+
+    def __str__(self):
+        state = 'enabled' if self.is_enabled else 'disabled'
+        return f"{self.framework_id} ({state}) — {self.tenant_id}"
+
+
 # ============================================================================
 # Rule Configuration Schemas (for reference)
 # ============================================================================

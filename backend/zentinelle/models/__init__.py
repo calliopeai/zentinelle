@@ -28,6 +28,7 @@ from zentinelle.models.compliance import (
     InteractionLog,
     UsageSummary,
     ComplianceAssessment,
+    ComplianceFrameworkConfig,
 )
 
 # Usage tracking (agent-level)
@@ -96,6 +97,7 @@ __all__ = [
     'InteractionLog',
     'UsageSummary',
     'ComplianceAssessment',
+    'ComplianceFrameworkConfig',
     # Usage
     'UsageMetric',
     'UsageAggregate',

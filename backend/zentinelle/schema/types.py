@@ -835,7 +835,7 @@ class LegalHoldType(DjangoObjectType):
         return self.status == 'active'
 
     def resolve_custodian_name(self, info):
-        return None  # Model doesn't have custodian_name, only custodian_email
+        return self.custodian_email or None
 
     def resolve_created_by_name(self, info):
         return self.user_id or None
@@ -1129,6 +1129,12 @@ class PromptCategoryType(graphene.ObjectType):
     sort_order = graphene.Int()
     prompt_count = graphene.Int()
 
+    def resolve_id(self, info):
+        return str(self.id)
+
+    def resolve_prompt_count(self, info):
+        return self.prompts.filter(status='active').count()
+
 
 class PromptTagType(graphene.ObjectType):
     id = graphene.ID()
@@ -1136,6 +1142,9 @@ class PromptTagType(graphene.ObjectType):
     slug = graphene.String()
     tag_type = graphene.String()
     color = graphene.String()
+
+    def resolve_id(self, info):
+        return str(self.id)
 
 
 class PromptTagConnection(graphene.relay.Connection):
@@ -1152,7 +1161,7 @@ class SystemPromptType(graphene.ObjectType):
     prompt_type = graphene.String()
     prompt_type_display = graphene.String()
     category = graphene.Field(PromptCategoryType)
-    tags = graphene.Field(PromptTagConnection)
+    tags = graphene.List(PromptTagType)
     compatible_providers = graphene.List(graphene.String)
     compatible_models = graphene.List(graphene.String)
     recommended_temperature = graphene.Float()
@@ -1179,6 +1188,34 @@ class SystemPromptType(graphene.ObjectType):
     created_at = graphene.DateTime()
     updated_at = graphene.DateTime()
 
+    def resolve_id(self, info):
+        return str(self.id)
+
+    def resolve_prompt_type_display(self, info):
+        return self.get_prompt_type_display()
+
+    def resolve_status_display(self, info):
+        return self.get_status_display()
+
+    def resolve_visibility_display(self, info):
+        return self.get_visibility_display()
+
+    def resolve_tags(self, info):
+        return list(self.tags.all())
+
+    def resolve_is_favorited(self, info):
+        return False  # User-specific favorites not tracked in standalone mode
+
+    def resolve_user_rating(self, info):
+        return None
+
+    def resolve_created_by_username(self, info):
+        return self.user_id or ''
+
+    def resolve_variable_defaults(self, info):
+        import json
+        return json.dumps(self.variable_defaults) if self.variable_defaults else '{}'
+
 
 class SystemPromptConnection(graphene.relay.Connection):
     class Meta:
@@ -1188,6 +1225,11 @@ class SystemPromptConnection(graphene.relay.Connection):
 
     @staticmethod
     def resolve_total_count(root, info, **kwargs):
+        if root.iterable is not None:
+            try:
+                return root.iterable.count()
+            except (AttributeError, TypeError):
+                return len(list(root.iterable))
         return 0
 
 
@@ -1260,6 +1302,7 @@ class UsageAlertConnection(graphene.relay.Connection):
 
 
 class ComplianceReportType(graphene.ObjectType):
+    """Maps ComplianceAssessment model instances to the report list type."""
     id = graphene.ID()
     name = graphene.String()
     framework = graphene.String()
@@ -1267,6 +1310,27 @@ class ComplianceReportType(graphene.ObjectType):
     period = graphene.String()
     status = graphene.String()
     download_url = graphene.String()
+
+    def resolve_id(self, info):
+        return str(self.id)
+
+    def resolve_name(self, info):
+        return f"Compliance Report {self.assessed_at.strftime('%Y-%m-%d')}"
+
+    def resolve_framework(self, info):
+        return self.framework_id or 'all'
+
+    def resolve_generated_at(self, info):
+        return self.assessed_at
+
+    def resolve_period(self, info):
+        return self.assessment_type
+
+    def resolve_status(self, info):
+        return self.status
+
+    def resolve_download_url(self, info):
+        return f'/api/zentinelle/v1/export/summary.json?assessment={self.id}'
 
 
 class ComplianceReportConnection(graphene.relay.Connection):
@@ -1277,6 +1341,11 @@ class ComplianceReportConnection(graphene.relay.Connection):
 
     @staticmethod
     def resolve_total_count(root, info, **kwargs):
+        if root.iterable is not None:
+            try:
+                return root.iterable.count()
+            except (AttributeError, TypeError):
+                return len(list(root.iterable))
         return 0
 
 
@@ -1303,4 +1372,9 @@ class EffectivePolicyConnection(graphene.relay.Connection):
 
     @staticmethod
     def resolve_total_count(root, info, **kwargs):
+        if root.iterable is not None:
+            try:
+                return len(list(root.iterable))
+            except (AttributeError, TypeError):
+                pass
         return 0

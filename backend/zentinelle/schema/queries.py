@@ -87,8 +87,14 @@ from .types import (
     UsageMetricsSummaryType,
     CreatePortalSessionPayload,
     UsageAlertConnection,
+    UsageAlertType,
+    UsageTimeSeriesPointType,
+    UsageByAgentType,
+    UsageByEndpointType,
     ComplianceReportConnection,
+    ComplianceReportType,
     EffectivePolicyConnection,
+    EffectivePolicyType,
     DeploymentType,
     DeploymentConnection,
     PromptCategoryType,
@@ -3035,17 +3041,83 @@ class Query(graphene.ObjectType):
 
     @staticmethod
     def resolve_usage_metrics(root, info, start_date=None, end_date=None, granularity=None):
-        """Stub resolver — returns empty usage metrics in standalone mode."""
+        from zentinelle.models import InteractionLog, AgentEndpoint
+        from django.db.models import Sum, Count
+        from django.db.models.functions import TruncDay
+        from django.utils import timezone
+        from datetime import timedelta
+
+        if not info.context.user.is_authenticated:
+            return UsageMetricsType(
+                summary=UsageMetricsSummaryType(total_api_calls=0, total_tokens=0, total_cost=0.0, active_agents=0, storage_used_mb=0.0),
+                time_series=[], by_agent=[], by_endpoint=[],
+            )
+
+        tenant_id = get_request_tenant_id(info.context.user)
+
+        end_dt = timezone.now()
+        start_dt = end_dt - timedelta(days=30)
+        if start_date:
+            start_dt = start_date if timezone.is_aware(start_date) else timezone.make_aware(start_date)
+        if end_date:
+            end_dt = end_date if timezone.is_aware(end_date) else timezone.make_aware(end_date)
+
+        logs = InteractionLog.objects.filter(
+            tenant_id=tenant_id,
+            created_at__gte=start_dt,
+            created_at__lte=end_dt,
+        )
+
+        agg = logs.aggregate(
+            total_api_calls=Count('id'),
+            total_tokens=Sum('total_tokens'),
+            total_cost=Sum('estimated_cost_usd'),
+        )
+
+        active_agents = AgentEndpoint.objects.filter(tenant_id=tenant_id, status='active').count()
+
+        by_agent_qs = (
+            logs.values('endpoint__agent_id', 'endpoint__name')
+            .annotate(api_calls=Count('id'), tokens=Sum('total_tokens'), cost=Sum('estimated_cost_usd'))
+            .order_by('-api_calls')[:10]
+        )
+        by_agent = [
+            UsageByAgentType(
+                agent_id=row['endpoint__agent_id'] or '',
+                agent_name=row['endpoint__name'] or row['endpoint__agent_id'] or 'Unknown',
+                api_calls=row['api_calls'] or 0,
+                tokens=row['tokens'] or 0,
+                cost=float(row['cost'] or 0),
+            )
+            for row in by_agent_qs
+        ]
+
+        ts_qs = (
+            logs.annotate(day=TruncDay('created_at'))
+            .values('day')
+            .annotate(api_calls=Count('id'), tokens=Sum('total_tokens'), cost=Sum('estimated_cost_usd'))
+            .order_by('day')
+        )
+        time_series = [
+            UsageTimeSeriesPointType(
+                date=row['day'].strftime('%Y-%m-%d'),
+                api_calls=row['api_calls'] or 0,
+                tokens=row['tokens'] or 0,
+                cost=float(row['cost'] or 0),
+            )
+            for row in ts_qs
+        ]
+
         return UsageMetricsType(
             summary=UsageMetricsSummaryType(
-                total_api_calls=0,
-                total_tokens=0,
-                total_cost=0.0,
-                active_agents=0,
+                total_api_calls=agg['total_api_calls'] or 0,
+                total_tokens=agg['total_tokens'] or 0,
+                total_cost=float(agg['total_cost'] or 0),
+                active_agents=active_agents,
                 storage_used_mb=0.0,
             ),
-            time_series=[],
-            by_agent=[],
+            time_series=time_series,
+            by_agent=by_agent,
             by_endpoint=[],
         )
 
@@ -3061,30 +3133,179 @@ class Query(graphene.ObjectType):
 
     @staticmethod
     def resolve_prompt_categories(root, info, active_only=None):
-        """Stub resolver — prompt library not yet implemented in standalone mode."""
-        return []
+        from zentinelle.models import PromptCategory
+        qs = PromptCategory.objects.all()
+        if active_only:
+            qs = qs.filter(is_active=True)
+        return list(qs)
 
     @staticmethod
-    def resolve_system_prompts(root, info, **kwargs):
-        """Stub resolver — prompt library not yet implemented in standalone mode."""
-        return None
+    def resolve_system_prompts(
+        root, info,
+        first=None, after=None,
+        search=None, category_slug=None, system_prompt_type=None,
+        provider=None, tag_slugs=None, featured_only=None, verified_only=None,
+        favorites_only=None,
+    ):
+        from zentinelle.models import SystemPrompt
+        from django.db.models import Q
+
+        if not info.context.user.is_authenticated:
+            return SystemPrompt.objects.none()
+
+        tenant_id = get_request_tenant_id(info.context.user)
+
+        # Public library prompts + this tenant's own prompts
+        qs = SystemPrompt.objects.filter(
+            Q(visibility='public', status='active') |
+            Q(tenant_id=tenant_id)
+        ).distinct()
+
+        if search:
+            qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search))
+        if category_slug:
+            qs = qs.filter(category__slug=category_slug)
+        if system_prompt_type:
+            qs = qs.filter(prompt_type=system_prompt_type)
+        if provider:
+            qs = qs.filter(compatible_providers__contains=[provider])
+        if tag_slugs:
+            qs = qs.filter(tags__slug__in=tag_slugs).distinct()
+        if featured_only:
+            qs = qs.filter(is_featured=True)
+        if verified_only:
+            qs = qs.filter(is_verified=True)
+
+        return qs.order_by('-is_featured', '-created_at')
 
     @staticmethod
     def resolve_system_prompt(root, info, id=None, slug=None):
-        """Stub resolver — prompt library not yet implemented in standalone mode."""
+        from zentinelle.models import SystemPrompt
+        from django.db.models import Q
+
+        if not info.context.user.is_authenticated:
+            return None
+
+        tenant_id = get_request_tenant_id(info.context.user)
+        visible = Q(visibility='public', status='active') | Q(tenant_id=tenant_id)
+
+        try:
+            if id:
+                return SystemPrompt.objects.filter(visible, pk=id).first()
+            if slug:
+                return SystemPrompt.objects.filter(visible, slug=slug).first()
+        except Exception:
+            return None
         return None
 
     @staticmethod
     def resolve_usage_alerts(root, info, alert_type=None, severity=None, acknowledged=None, resolved=None, first=None, after=None):
-        """Stub resolver — usage alerts not yet implemented in standalone mode."""
-        return None
+        from zentinelle.models import InteractionLog, Policy
+        from django.db.models import Sum
+        from django.utils import timezone
+        from datetime import timedelta
+        import uuid as _uuid
+
+        if not info.context.user.is_authenticated:
+            return []
+
+        tenant_id = get_request_tenant_id(info.context.user)
+        if not tenant_id:
+            return []
+
+        now = timezone.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        alerts = []
+
+        # Check budget-limit policies vs current month usage
+        budget_policies = Policy.objects.filter(
+            tenant_id=tenant_id,
+            policy_type='BUDGET_LIMIT',
+            enabled=True,
+        )
+        if budget_policies.exists():
+            current_cost = (
+                InteractionLog.objects.filter(tenant_id=tenant_id, created_at__gte=month_start)
+                .aggregate(total=Sum('estimated_cost_usd'))['total'] or 0
+            )
+            for policy in budget_policies:
+                config = policy.config or {}
+                threshold = config.get('monthly_limit_usd', 0)
+                if not threshold:
+                    continue
+                threshold = float(threshold)
+                current = float(current_cost)
+                ratio = current / threshold if threshold else 0
+                if ratio >= 0.8:
+                    sev = 'critical' if ratio >= 1.0 else 'warning'
+                    if severity and sev != severity:
+                        continue
+                    if acknowledged is not None and acknowledged:
+                        continue  # No stored acknowledgements — skip filter
+                    if resolved is not None and resolved:
+                        continue
+                    alerts.append(UsageAlertType(
+                        id=str(_uuid.uuid5(_uuid.NAMESPACE_DNS, f"{tenant_id}_{policy.id}_budget")),
+                        alert_type='budget_threshold',
+                        alert_type_display='Budget Threshold',
+                        severity=sev,
+                        severity_display=sev.title(),
+                        title=f"Monthly budget {'exceeded' if ratio >= 1.0 else 'approaching'} ({ratio * 100:.0f}%)",
+                        message=f"Spend ${current:.2f} vs ${threshold:.2f} limit for {policy.name}",
+                        threshold_value=threshold,
+                        current_value=current,
+                        acknowledged=False,
+                        resolved=False,
+                        created_at=now,
+                    ))
+
+        return alerts
 
     @staticmethod
     def resolve_compliance_reports(root, info, first=None, after=None):
-        """Stub resolver — compliance reports not yet implemented in standalone mode."""
-        return None
+        from zentinelle.models import ComplianceAssessment
+
+        if not info.context.user.is_authenticated:
+            return ComplianceAssessment.objects.none()
+
+        tenant_id = get_request_tenant_id(info.context.user)
+        return ComplianceAssessment.objects.filter(tenant_id=tenant_id).order_by('-assessed_at')
 
     @staticmethod
     def resolve_effective_policies(root, info, deployment_id=None, endpoint_id=None, user_id=None, first=None, after=None):
-        """Stub resolver — effective policy inheritance not yet implemented in standalone mode."""
-        return None
+        import json
+        from zentinelle.models import Policy
+
+        if not info.context.user.is_authenticated:
+            return []
+
+        tenant_id = get_request_tenant_id(info.context.user)
+        if not tenant_id:
+            return []
+
+        qs = Policy.objects.filter(tenant_id=tenant_id, enabled=True)
+        if endpoint_id:
+            qs = qs.filter(scope_type__in=['organization', 'sub_organization', 'deployment', 'endpoint'])
+        if deployment_id and not endpoint_id:
+            qs = qs.filter(scope_type__in=['organization', 'sub_organization', 'deployment'])
+
+        SCOPE_PRIORITY = {'user': 1, 'endpoint': 2, 'deployment': 3, 'sub_organization': 4, 'organization': 5}
+
+        results = []
+        for p in qs.order_by('policy_type', 'scope_type'):
+            results.append(EffectivePolicyType(
+                id=str(p.id),
+                name=p.name,
+                description=getattr(p, 'description', '') or '',
+                policy_type=p.policy_type,
+                scope_type=p.scope_type,
+                scope_name=p.scope_id or p.scope_type,
+                config=json.dumps(p.config) if p.config else '{}',
+                priority=SCOPE_PRIORITY.get(p.scope_type, 10),
+                enforcement='hard' if not getattr(p, 'fail_open', True) else 'soft',
+                enabled=p.enabled,
+                inherited_from=None,
+                overrides=None,
+            ))
+        return results

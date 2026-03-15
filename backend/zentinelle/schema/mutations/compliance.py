@@ -155,12 +155,19 @@ class ToggleFramework(graphene.Mutation):
         if not info.context.user.is_authenticated:
             return cls(framework=None, errors=['Authentication required'])
 
-        # For now, return stub response - in production this would
-        # update a ComplianceFramework model
+        from zentinelle.models import ComplianceFrameworkConfig
+        from zentinelle.schema.auth_helpers import get_request_tenant_id
+        tenant_id = get_request_tenant_id(info.context.user) or 'default'
+
+        config, _ = ComplianceFrameworkConfig.objects.update_or_create(
+            tenant_id=tenant_id,
+            framework_id=framework_id,
+            defaults={'is_enabled': enabled},
+        )
         return cls(
             framework=ComplianceFrameworkOutput(
-                id=framework_id,
-                enabled=enabled,
+                id=str(config.id),
+                enabled=config.is_enabled,
             ),
             errors=None,
         )
