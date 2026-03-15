@@ -76,6 +76,13 @@ from .types import (
     TeamMemberConnection,
     # Impersonation (stub)
     ImpersonationStatusType,
+    # Billing (stubs)
+    BillingOverviewType,
+    BillingSubscriptionType,
+    BillingPlanType,
+    UsageMetricsType,
+    UsageMetricsSummaryType,
+    CreatePortalSessionPayload,
 )
 
 
@@ -961,6 +968,17 @@ class Query(graphene.ObjectType):
 
     # Impersonation (stub — not available in standalone)
     impersonation_status = graphene.Field(ImpersonationStatusType)
+
+    # Billing (stubs — not available in standalone)
+    billing_overview = graphene.Field(BillingOverviewType)
+    usage_metrics = graphene.Field(
+        UsageMetricsType,
+        start_date=graphene.DateTime(),
+        end_date=graphene.DateTime(),
+        granularity=graphene.String(),
+    )
+    subscription = graphene.Field(BillingSubscriptionType)
+    available_plans = graphene.List(BillingPlanType)
 
     # Resolvers
     @staticmethod
@@ -2867,3 +2885,34 @@ class Query(graphene.ObjectType):
             minutes_remaining=None,
             session=None,
         )
+
+    @staticmethod
+    def resolve_billing_overview(root, info):
+        """Stub resolver — billing not available in standalone mode."""
+        return None
+
+    @staticmethod
+    def resolve_usage_metrics(root, info, start_date=None, end_date=None, granularity=None):
+        """Stub resolver — returns empty usage metrics in standalone mode."""
+        return UsageMetricsType(
+            summary=UsageMetricsSummaryType(
+                total_api_calls=0,
+                total_tokens=0,
+                total_cost=0.0,
+                active_agents=0,
+                storage_used_mb=0.0,
+            ),
+            time_series=[],
+            by_agent=[],
+            by_endpoint=[],
+        )
+
+    @staticmethod
+    def resolve_subscription(root, info):
+        """Stub resolver — subscription not available in standalone mode."""
+        return None
+
+    @staticmethod
+    def resolve_available_plans(root, info):
+        """Stub resolver — available plans not applicable in standalone mode."""
+        return []

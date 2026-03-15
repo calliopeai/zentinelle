@@ -893,3 +893,124 @@ class ImpersonationStatusType(graphene.ObjectType):
     expires_at = graphene.DateTime()
     minutes_remaining = graphene.Int()
     session = graphene.Field(ImpersonationSessionType)
+
+
+# ---------------------------------------------------------------------------
+# Billing (stubs — billing not available in standalone mode)
+# ---------------------------------------------------------------------------
+
+class BillingPlanType(graphene.ObjectType):
+    id = graphene.ID()
+    name = graphene.String()
+    description = graphene.String()
+    price = graphene.Float()
+    interval = graphene.String()
+    features = graphene.List(graphene.String)
+    recommended = graphene.Boolean()
+    monthly_price_cents = graphene.Int()
+    annual_price_cents = graphene.Int()
+    annual_monthly_price_cents = graphene.Int()
+    annual_savings_cents = graphene.Int()
+    annual_savings_percent = graphene.Float()
+    allows_monthly = graphene.Boolean()
+    limits = graphene.JSONString()
+
+
+class BillingSubscriptionType(graphene.ObjectType):
+    id = graphene.ID()
+    status = graphene.String()
+    billing_interval = graphene.String()
+    plan = graphene.Field(BillingPlanType)
+    current_period_start = graphene.DateTime()
+    current_period_end = graphene.DateTime()
+    cancel_at_period_end = graphene.Boolean()
+    trial_end = graphene.DateTime()
+    can_switch_to_monthly = graphene.Boolean()
+    can_switch_to_annual = graphene.Boolean()
+    days_until_period_end = graphene.Int()
+    active_coupon = graphene.JSONString()
+    coupon_discount_display = graphene.String()
+    coupon_months_remaining = graphene.Int()
+    has_active_discount = graphene.Boolean()
+    list_monthly_price_cents = graphene.Int()
+    effective_monthly_price_cents = graphene.Int()
+    discount_amount_cents = graphene.Int()
+    discount_percent = graphene.Float()
+    partner_name = graphene.String()
+    partner_tier = graphene.String()
+    is_enterprise = graphene.Boolean()
+    contract_end_date = graphene.Date()
+
+
+class BillingCurrentUsageType(graphene.ObjectType):
+    total_spend = graphene.Float()
+    api_calls = graphene.Int()
+    agents = graphene.Int()
+    storage = graphene.Float()
+    period_start = graphene.DateTime()
+    period_end = graphene.DateTime()
+
+
+class BillingPaymentMethodType(graphene.ObjectType):
+    id = graphene.ID()
+    brand = graphene.String()
+    last4 = graphene.String()
+    exp_month = graphene.Int()
+    exp_year = graphene.Int()
+
+
+class BillingInvoiceType(graphene.ObjectType):
+    id = graphene.ID()
+    amount = graphene.Float()
+    status = graphene.String()
+    date = graphene.DateTime()
+    invoice_url = graphene.String()
+
+
+class BillingOverviewType(graphene.ObjectType):
+    current_plan = graphene.Field(BillingPlanType)
+    subscription = graphene.Field(BillingSubscriptionType)
+    current_usage = graphene.Field(BillingCurrentUsageType)
+    payment_method = graphene.Field(BillingPaymentMethodType)
+    invoices = graphene.List(BillingInvoiceType)
+
+
+class UsageMetricsSummaryType(graphene.ObjectType):
+    total_api_calls = graphene.Int()
+    total_tokens = graphene.BigInt()
+    total_cost = graphene.Float()
+    active_agents = graphene.Int()
+    storage_used_mb = graphene.Float()
+
+
+class UsageTimeSeriesPointType(graphene.ObjectType):
+    date = graphene.String()
+    api_calls = graphene.Int()
+    tokens = graphene.BigInt()
+    cost = graphene.Float()
+
+
+class UsageByAgentType(graphene.ObjectType):
+    agent_id = graphene.String()
+    agent_name = graphene.String()
+    api_calls = graphene.Int()
+    tokens = graphene.BigInt()
+    cost = graphene.Float()
+
+
+class UsageByEndpointType(graphene.ObjectType):
+    endpoint = graphene.String()
+    api_calls = graphene.Int()
+    avg_latency_ms = graphene.Float()
+
+
+class UsageMetricsType(graphene.ObjectType):
+    summary = graphene.Field(UsageMetricsSummaryType)
+    time_series = graphene.List(UsageTimeSeriesPointType)
+    by_agent = graphene.List(UsageByAgentType)
+    by_endpoint = graphene.List(UsageByEndpointType)
+
+
+class CreatePortalSessionPayload(graphene.ObjectType):
+    portal_url = graphene.String()
+    errors = graphene.List(graphene.String)

@@ -92,6 +92,7 @@ from zentinelle.schema.types import (
     SecretBundleType,
     DeleteSecretBundlePayload,
     RotateSecretBundlePayload,
+    CreatePortalSessionPayload,
 )
 
 
@@ -166,6 +167,19 @@ class RotateSecretBundle(graphene.Mutation):
             secret_bundle=None,
             success=False,
             error="Secret bundles are not available in standalone mode.",
+        )
+
+
+class CreatePortalSession(graphene.Mutation):
+    """Stub mutation — billing portal not available in standalone mode."""
+
+    Output = CreatePortalSessionPayload
+
+    @staticmethod
+    def mutate(root, info):
+        return CreatePortalSessionPayload(
+            portal_url=None,
+            errors=["Billing portal is not available in standalone mode."],
         )
 
 
@@ -261,3 +275,6 @@ class Mutation(graphene.ObjectType):
     # Secret Bundles (stub)
     delete_secret_bundle = DeleteSecretBundle.Field()
     rotate_secret_bundle = RotateSecretBundle.Field()
+
+    # Billing (stub)
+    create_portal_session = CreatePortalSession.Field()
