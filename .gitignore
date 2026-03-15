@@ -36,3 +36,5 @@ Thumbs.db
 *.pem
 *.key
 secrets.json
+celerybeat-schedule
+*.db

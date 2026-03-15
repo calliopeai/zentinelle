@@ -1,0 +1,142 @@
+# Zentinelle Pricing Configuration
+# Version: 1.0
+# Last updated: 2026-03-14
+#
+# This file is the source of truth for Zentinelle pricing.
+# Run `make sync-pricing` to push changes to Stripe and the database.
+# All monetary values in USD cents unless noted.
+
+version: "1.0"
+last_updated: "2026-03-14"
+
+# ---------------------------------------------------------------------------
+# TIERS
+# ---------------------------------------------------------------------------
+#
+# Tier 1: Self-hosted (open source)
+#   - Customer runs Zentinelle in their own infra
+#   - Free core — adoption driver
+#   - Optionally connects to Calliope cloud for managed features (see cloud_ingest below)
+#
+# Tier 2: Managed / Hybrid
+#   - Managed: Calliope hosts Zentinelle fully
+#   - Hybrid: Customer's infra, Calliope manages it
+#   - Subscription + ingest billing
+#
+# Tier 3: Enterprise
+#   - Custom pricing — multi-region, compliance, forward-deployed engineers
+#   - Everything else
+
+tiers:
+  self_hosted:
+    name: "Self-Hosted"
+    description: "Run Zentinelle in your own infrastructure. Open source core, free forever."
+    is_active: true
+    pricing:
+      base_monthly: 0        # Free
+      billing_model: "flat"
+
+    # Optional: connect to Calliope cloud for cloud-managed features
+    # (e.g. managed dashboard, cross-org benchmarks, Calliope support)
+    # If enabled, cloud_ingest rates apply
+    cloud_ingest_enabled: true
+
+    includes:
+      data_points_per_day: 0         # Local only — no cloud ingest in base
+      gb_ingested_per_day: 0         # Local only
+      gb_stored: 0                   # Customer's own storage
+      retention_days: -1             # Unlimited — customer manages their own
+
+    overages: null                   # N/A — self-hosted, customer pays own infra
+
+  managed:
+    name: "Managed"
+    description: "Calliope hosts and manages your Zentinelle instance. Subscription + ingest billing."
+    is_active: true
+    pricing:
+      base_monthly: 49900            # $499/month base
+      billing_model: "subscription_plus_usage"
+      allows_monthly: true
+      monthly_premium_percent: 15    # Month-to-month +15%
+      stripe_product_id: ""          # TODO: set after Stripe product created
+      stripe_price_id_annual: ""     # TODO
+      stripe_price_id_monthly: ""    # TODO
+
+    includes:
+      data_points_per_day: 500000    # 500K data points/day included
+      gb_ingested_per_day: 5         # 5 GB/day ingested
+      gb_stored: 100                 # 100 GB stored
+      retention_days: 30             # 30-day retention base
+
+    overages:
+      data_points_per_1k_per_day: 10      # $0.10 per 1K data points/day over base
+      gb_ingested_per_day: 50             # $0.50 per GB/day over base
+      gb_stored_per_month: 20             # $0.20 per GB/month over base
+
+      # Stripe meter IDs (set after meters created)
+      meter_id_data_points: ""
+      meter_id_gb_ingested: ""
+      meter_id_gb_stored: ""
+
+    retention_addons:
+      days_90:
+        price_monthly: 9900          # $99/month
+        stripe_price_id: ""
+      days_365:
+        price_monthly: 29900         # $299/month
+        stripe_price_id: ""
+      unlimited:
+        price_monthly: 0             # Enterprise only — custom
+        enterprise_only: true
+
+  enterprise:
+    name: "Enterprise"
+    description: "Custom pricing. Multi-region, compliance retention, air-gapped, forward-deployed engineers."
+    is_active: true
+    pricing:
+      base_monthly: 0                # Custom — contact sales
+      billing_model: "custom"
+
+    # All features included, custom limits negotiated per contract
+    includes:
+      data_points_per_day: -1        # Unlimited (custom cap in contract)
+      gb_ingested_per_day: -1
+      gb_stored: -1
+      retention_days: -1             # Custom per contract
+
+    # Enterprise add-ons (priced per contract)
+    enterprise_addons:
+      multi_region:
+        description: "Additional data residency regions (EU, APAC, US-Gov)"
+        price_per_region_monthly: 0  # Custom
+      backup_pitr:
+        description: "Daily snapshots + point-in-time recovery"
+        price_monthly: 0             # Custom
+      compliance_pack:
+        description: "SOC2 / HIPAA / FedRAMP data handling, immutable storage (S3 Object Lock)"
+        price_monthly: 0             # Custom
+      forward_deployed_engineer:
+        description: "Dedicated Calliope engineer embedded with customer team"
+        price_monthly: 0             # $15K-$25K/month — negotiated
+        price_range_low: 1500000     # $15,000
+        price_range_high: 2500000    # $25,000
+
+# ---------------------------------------------------------------------------
+# CLOUD INGEST (Self-hosted orgs connecting to Calliope cloud)
+# ---------------------------------------------------------------------------
+# Self-hosted customers can optionally pay for cloud-managed features
+# by streaming a portion of their data to Calliope. Priced per ingest only.
+
+cloud_ingest:
+  enabled: true
+  pricing:
+    data_points_per_1k_per_day: 5        # $0.05 per 1K data points/day
+    gb_ingested_per_day: 30              # $0.30 per GB/day
+
+    # Includes a free tier for self-hosted orgs to get started
+    free_tier:
+      data_points_per_day: 50000         # 50K data points/day free
+      gb_ingested_per_day: 1             # 1 GB/day free
+
+    meter_id_data_points: ""             # TODO: Stripe meter
+    meter_id_gb_ingested: ""             # TODO: Stripe meter
