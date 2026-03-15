@@ -52,7 +52,7 @@ docs/wiki/        # deep technical documentation
 | Milestone | Description | Status |
 |-----------|-------------|--------|
 | M1: Bootstrap | Repo scaffold, wiki, docs, MIT license, DB schema isolation | ✅ Done |
-| M2: Extraction | Code extracted from client-cove, standalone service running | In progress |
+| M2: Extraction | Code extracted from client-cove, standalone service running | ✅ Done |
 | M3: Decoupled | No client-cove Django model imports, auth callout working | ✅ Done (in client-cove) |
 | M4: v0.1.0 OSS | Feature complete, public release | Todo |
 
