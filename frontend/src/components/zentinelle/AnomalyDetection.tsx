@@ -256,7 +256,7 @@ export default function AnomalyDetection({
               <Icon as={MdOutlineAnalytics} color="white" boxSize="24px" />
             </Flex>
             <VStack align="start" spacing="0">
-              <Text fontSize="2xl" fontWeight="700" color={textColor}>
+              <Text as="div" fontSize="2xl" fontWeight="700" color={textColor}>
                 {loading ? <Spinner size="sm" /> : stats.total}
               </Text>
               <Text fontSize="sm" color={subtleText}>Total Alerts</Text>
@@ -276,7 +276,7 @@ export default function AnomalyDetection({
               <Icon as={MdNotificationsActive} color="white" boxSize="24px" />
             </Flex>
             <VStack align="start" spacing="0">
-              <Text fontSize="2xl" fontWeight="700" color="orange.500">
+              <Text as="div" fontSize="2xl" fontWeight="700" color="orange.500">
                 {loading ? <Spinner size="sm" /> : stats.active}
               </Text>
               <Text fontSize="sm" color={subtleText}>Active</Text>
@@ -296,7 +296,7 @@ export default function AnomalyDetection({
               <Icon as={MdError} color="white" boxSize="24px" />
             </Flex>
             <VStack align="start" spacing="0">
-              <Text fontSize="2xl" fontWeight="700" color="red.500">
+              <Text as="div" fontSize="2xl" fontWeight="700" color="red.500">
                 {loading ? <Spinner size="sm" /> : stats.critical}
               </Text>
               <Text fontSize="sm" color={subtleText}>Critical/High</Text>
@@ -316,7 +316,7 @@ export default function AnomalyDetection({
               <Icon as={MdWarning} color="white" boxSize="24px" />
             </Flex>
             <VStack align="start" spacing="0">
-              <Text fontSize="2xl" fontWeight="700" color="yellow.600">
+              <Text as="div" fontSize="2xl" fontWeight="700" color="yellow.600">
                 {loading ? <Spinner size="sm" /> : stats.warning}
               </Text>
               <Text fontSize="sm" color={subtleText}>Warnings</Text>
