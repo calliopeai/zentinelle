@@ -800,11 +800,79 @@ class ContentScanner:
     # Profanity Filter
     # =========================================================================
 
+    # -------------------------------------------------------------------------
+    # LIGHTWEIGHT REGEX-BASED PROFANITY / TOXICITY PATTERNS
+    # NOTE: This is a lightweight regex-based implementation for basic coverage.
+    #       Replace with a proper ML classifier (e.g. Perspective API,
+    #       better_profanity, or detoxify) for production use.
+    # -------------------------------------------------------------------------
+    TOXICITY_PATTERNS = [
+        # Common profanity (single-token, word-boundary matched)
+        r'\bf+u+c+k+(?:ing|er|s|ed)?\b',
+        r'\bs+h+i+t+(?:ty|ter|s)?\b',
+        r'\ba+s+s+h+o+l+e+s?\b',
+        r'\bb+i+t+c+h+(?:es|ing|y)?\b',
+        r'\bc+u+n+t+s?\b',
+        r'\bd+i+c+k+(?:s|head)?\b',
+        r'\bp+u+s+s+y+\b',
+        r'\bn+i+g+(?:g+(?:er|a|ers|as))?\b',  # racial slur
+        r'\bf+a+g+(?:g+(?:ot|s))?\b',           # homophobic slur
+        r'\br+e+t+a+r+d+(?:ed|s)?\b',           # ableist slur
+        # Harassment / threats
+        r'\bi\s+(?:will|am\s+going\s+to)\s+(?:kill|murder|hurt|rape)\s+you\b',
+        r'\bkill\s+yourself\b',
+        r'\bkys\b',
+        r'\bgo\s+(?:die|hang\s+yourself|kill\s+yourself)\b',
+        # Explicit violence instructions
+        r'\bhow\s+to\s+(?:make\s+a\s+bomb|build\s+a\s+bomb|synthesize\s+\w+\s+poison)\b',
+        r'\bstep[- ]by[- ]step\s+(?:guide\s+to\s+)?(?:killing|murder|making\s+explosives)\b',
+        r'\b(?:instructions?|tutorial)\s+(?:for|on)\s+(?:making|building)\s+(?:weapons?|explosives?|poison)\b',
+        # Slurs (additional)
+        r'\bspic+s?\b',    # ethnic slur
+        r'\bchink+s?\b',   # ethnic slur
+        r'\bwetback+s?\b', # ethnic slur
+    ]
+    _compiled_toxicity_patterns = [
+        re.compile(p, re.IGNORECASE) for p in TOXICITY_PATTERNS
+    ]
+
     def _detect_profanity(self, rule: ContentRule, content: str) -> List[DetectionResult]:
-        """Detect profanity (placeholder - would use a proper library)."""
-        # In production, use a library like better_profanity or profanity_check
+        """
+        Detect profanity and toxic content using lightweight regex patterns.
+
+        NOTE: Lightweight regex-based; replace with a proper ML classifier
+        (e.g. Perspective API, detoxify, or better_profanity) for production use.
+        """
         results = []
-        # Placeholder implementation
+        config = rule.config or {}
+
+        # Allow rule-level config to override the default compiled patterns
+        custom_patterns = config.get('custom_patterns', [])
+        patterns_to_check = list(self._compiled_toxicity_patterns)
+        for p in custom_patterns:
+            try:
+                patterns_to_check.append(re.compile(p, re.IGNORECASE))
+            except re.error as e:
+                logger.warning(f"Invalid custom toxicity pattern '{p}': {e}")
+
+        for compiled in patterns_to_check:
+            try:
+                for match in compiled.finditer(content):
+                    results.append(DetectionResult(
+                        detected=True,
+                        rule_type=ContentRule.RuleType.PROFANITY_FILTER,
+                        severity=rule.severity,
+                        category='toxicity',
+                        matched_text=match.group(),
+                        matched_pattern=compiled.pattern,
+                        match_start=match.start(),
+                        match_end=match.end(),
+                        confidence=0.85,
+                        metadata={'note': 'regex-based; consider ML classifier for production'},
+                    ))
+            except Exception as e:
+                logger.warning(f"Error running toxicity pattern '{compiled.pattern}': {e}")
+
         return results
 
     # =========================================================================

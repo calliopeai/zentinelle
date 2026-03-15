@@ -8,6 +8,8 @@ from zentinelle.services.evaluators.model_restriction import ModelRestrictionEva
 from zentinelle.services.evaluators.context_limit import ContextLimitEvaluator
 from zentinelle.services.evaluators.network_policy import NetworkPolicyEvaluator
 from zentinelle.services.evaluators.output_filter import OutputFilterEvaluator
+from zentinelle.services.evaluators.agent_capability import AgentCapabilityEvaluator
+from zentinelle.services.evaluators.human_oversight import HumanOversightEvaluator
 
 __all__ = [
     'BasePolicyEvaluator',
@@ -22,4 +24,6 @@ __all__ = [
     'ContextLimitEvaluator',
     'NetworkPolicyEvaluator',
     'OutputFilterEvaluator',
+    'AgentCapabilityEvaluator',
+    'HumanOversightEvaluator',
 ]

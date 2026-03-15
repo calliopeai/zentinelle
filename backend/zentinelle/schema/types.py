@@ -11,6 +11,7 @@ from graphene_django import DjangoObjectType
 from zentinelle.models import (
     AgentEndpoint,
     Policy,
+    PolicyRevision,
     Event,
     AuditLog,
     # AI Provider Registry
@@ -80,6 +81,19 @@ class PolicyType(DjangoObjectType):
 
     def resolve_created_by_username(self, info):
         return self.user_id or None
+
+
+class PolicyRevisionType(DjangoObjectType):
+    """GraphQL type for PolicyRevision — immutable snapshot of a Policy at a point in time."""
+    class Meta:
+        model = PolicyRevision
+        interfaces = (relay.Node,)
+        fields = [
+            'id', 'policy', 'version',
+            'name', 'policy_type', 'enforcement',
+            'config', 'scope_type', 'enabled', 'priority',
+            'changed_by', 'change_summary', 'created_at',
+        ]
 
 
 class EventType(DjangoObjectType):

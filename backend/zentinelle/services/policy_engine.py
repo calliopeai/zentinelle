@@ -279,6 +279,8 @@ class PolicyEngine:
             ContextLimitEvaluator,
             NetworkPolicyEvaluator,
             OutputFilterEvaluator,
+            AgentCapabilityEvaluator,
+            HumanOversightEvaluator,
             NoOpEvaluator,
         )
 
@@ -292,6 +294,8 @@ class PolicyEngine:
             Policy.PolicyType.CONTEXT_LIMIT: ContextLimitEvaluator(),
             Policy.PolicyType.NETWORK_POLICY: NetworkPolicyEvaluator(),
             Policy.PolicyType.OUTPUT_FILTER: OutputFilterEvaluator(),
+            Policy.PolicyType.AGENT_CAPABILITY: AgentCapabilityEvaluator(),
+            Policy.PolicyType.HUMAN_OVERSIGHT: HumanOversightEvaluator(),
             # These policy types don't block actions, just configure behavior
             Policy.PolicyType.SYSTEM_PROMPT: NoOpEvaluator(),
             Policy.PolicyType.AI_GUARDRAIL: NoOpEvaluator(),

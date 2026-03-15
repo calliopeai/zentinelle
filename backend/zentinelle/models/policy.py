@@ -2,6 +2,8 @@ import uuid
 
 from django.db import models
 from zentinelle.models.base import Tracking
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
 class Policy(Tracking):
@@ -115,6 +117,9 @@ class Policy(Tracking):
     # TODO: decouple - created_by FK removed (use user_id field)
     user_id = models.CharField(max_length=255, db_index=True, blank=True, default="")
 
+    # Version tracking
+    version = models.PositiveIntegerField(default=1, help_text='Current version number, incremented on each save')
+
     class Meta:
         verbose_name_plural = 'Policies'
         ordering = ['tenant_id', '-priority', 'name']
@@ -161,7 +166,66 @@ class Policy(Tracking):
 
     def save(self, *args, **kwargs):
         self.clean()
-        super().save(*args, **kwargs)
+        # Increment version on updates (not on initial creation)
+        if self.pk:
+            self.version = models.F('version') + 1
+            super().save(*args, **kwargs)
+            self.refresh_from_db(fields=['version'])
+        else:
+            super().save(*args, **kwargs)
+
+
+class PolicyRevision(models.Model):
+    """
+    Immutable snapshot of a Policy at a point in time.
+    Created automatically on every Policy save (via post_save signal).
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    policy = models.ForeignKey(
+        Policy,
+        on_delete=models.CASCADE,
+        related_name='revisions',
+    )
+    version = models.PositiveIntegerField()
+    # Snapshot of key fields
+    name = models.CharField(max_length=255)
+    policy_type = models.CharField(max_length=50)
+    enforcement = models.CharField(max_length=20)
+    config = models.JSONField(default=dict)
+    scope_type = models.CharField(max_length=30)
+    enabled = models.BooleanField(default=True)
+    priority = models.IntegerField(default=0)
+    # Who changed it
+    changed_by = models.CharField(max_length=255, blank=True, default='')
+    change_summary = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-version']
+        unique_together = ['policy', 'version']
+        verbose_name = 'Policy Revision'
+        verbose_name_plural = 'Policy Revisions'
+
+    def __str__(self):
+        return f"{self.policy.name} v{self.version}"
+
+
+@receiver(post_save, sender=Policy)
+def create_policy_revision(sender, instance, created, **kwargs):
+    """Create a revision snapshot whenever a policy is saved."""
+    PolicyRevision.objects.get_or_create(
+        policy=instance,
+        version=instance.version,
+        defaults={
+            'name': instance.name,
+            'policy_type': instance.policy_type,
+            'enforcement': instance.enforcement,
+            'config': instance.config,
+            'scope_type': instance.scope_type,
+            'enabled': instance.enabled,
+            'priority': instance.priority,
+        }
+    )
 
 
 # Policy config schemas for reference (validated at application level)

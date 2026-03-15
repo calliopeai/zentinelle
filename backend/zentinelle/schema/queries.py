@@ -11,6 +11,7 @@ from django.db.models import Q, Count
 from zentinelle.models import (
     AgentEndpoint,
     Policy,
+    PolicyRevision,
     Event,
     AuditLog,
     # AI Provider models
@@ -38,6 +39,7 @@ from zentinelle.models import (
 from .types import (
     AgentEndpointType,
     PolicyType,
+    PolicyRevisionType,
     EventType,
     AuditLogType,
     # AI Provider types
@@ -673,6 +675,11 @@ class Query(graphene.ObjectType):
         policy_type=graphene.String(),
         scope_type=graphene.String(),
     )
+    policy_revisions = graphene.List(
+        PolicyRevisionType,
+        policy_id=graphene.UUID(required=True),
+        description="Return all revisions for a given policy, ordered by version descending.",
+    )
 
     # Events
     events = DjangoConnectionField(
@@ -1206,6 +1213,17 @@ class Query(graphene.ObjectType):
         if scope_type:
             qs = qs.filter(scope_type=scope_type)
         return qs
+
+    @staticmethod
+    def resolve_policy_revisions(root, info, policy_id, **kwargs):
+        """Return all revisions for a given policy, ordered by version descending."""
+        if not info.context.user.is_authenticated:
+            return PolicyRevision.objects.none()
+        # Ensure the caller can see the parent policy
+        policy_qs = filter_by_org(Policy.objects.all(), info.context.user)
+        if not policy_qs.filter(id=policy_id).exists():
+            return PolicyRevision.objects.none()
+        return PolicyRevision.objects.filter(policy_id=policy_id).order_by('-version')
 
     @staticmethod
     def resolve_events(root, info, event_type=None, category=None, endpoint_id=None, user_id=None, **kwargs):
