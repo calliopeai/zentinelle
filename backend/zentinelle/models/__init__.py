@@ -45,7 +45,7 @@ from zentinelle.models.usage import (
 )
 
 # Risk Management
-from zentinelle.models.risk import Risk, Incident
+from zentinelle.models.risk import Risk, Incident, IncidentComment, NotificationConfig
 
 # Retention Policies
 from zentinelle.models.retention_policy import RetentionPolicy, LegalHold, DataArchive
@@ -107,6 +107,8 @@ __all__ = [
     # Risk
     'Risk',
     'Incident',
+    'IncidentComment',
+    'NotificationConfig',
     # Retention
     'RetentionPolicy',
     'LegalHold',

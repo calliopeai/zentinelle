@@ -264,7 +264,7 @@ class PolicyEngine:
         scorer = RiskScorer()
         risk_score, risk_factors = scorer.compute(action, context, results, warnings)
 
-        return EvaluationResult(
+        evaluation_result = EvaluationResult(
             allowed=True if dry_run else allowed,
             reason=None if dry_run else denial_reason,
             policies_evaluated=results,
@@ -274,6 +274,20 @@ class PolicyEngine:
             risk_score=risk_score,
             risk_factors=risk_factors,
         )
+
+        # Auto-create incidents for policy violations (skipped in dry_run mode)
+        if not dry_run and not allowed:
+            try:
+                from zentinelle.services.incident_service import _maybe_create_incident
+                _maybe_create_incident(
+                    tenant_id=endpoint.tenant_id,
+                    result=evaluation_result,
+                    policies=policies,
+                )
+            except Exception as exc:
+                logger.warning("incident_service._maybe_create_incident failed: %s", exc)
+
+        return evaluation_result
 
     def _get_evaluator(self, policy_type: str) -> 'BasePolicyEvaluator':
         """Get the appropriate evaluator for a policy type."""

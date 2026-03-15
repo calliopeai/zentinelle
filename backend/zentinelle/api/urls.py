@@ -56,6 +56,9 @@ from zentinelle.api.views import (
     AuditChainVerifyView,
     PolicyHistoryListView,
     PolicyDiffView,
+    IncidentListView,
+    IncidentDetailView,
+    IncidentCommentView,
 )
 
 app_name = 'zentinelle'
@@ -96,4 +99,9 @@ urlpatterns = [
     # Policy version history & diff
     path('policies/<int:policy_id>/history/', PolicyHistoryListView.as_view(), name='policy-history'),
     path('policies/<int:policy_id>/diff/', PolicyDiffView.as_view(), name='policy-diff'),
+
+    # Incident management
+    path('incidents/', IncidentListView.as_view(), name='incident-list'),
+    path('incidents/<int:incident_id>/', IncidentDetailView.as_view(), name='incident-detail'),
+    path('incidents/<int:incident_id>/comments/', IncidentCommentView.as_view(), name='incident-comments'),
 ]

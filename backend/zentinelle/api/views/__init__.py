@@ -32,6 +32,11 @@ from zentinelle.api.views.policy_history import (
     PolicyHistoryListView,
     PolicyDiffView,
 )
+from zentinelle.api.views.incidents import (
+    IncidentListView,
+    IncidentDetailView,
+    IncidentCommentView,
+)
 
 __all__ = [
     'RegisterView',
@@ -60,4 +65,8 @@ __all__ = [
     # Policy History
     'PolicyHistoryListView',
     'PolicyDiffView',
+    # Incidents
+    'IncidentListView',
+    'IncidentDetailView',
+    'IncidentCommentView',
 ]

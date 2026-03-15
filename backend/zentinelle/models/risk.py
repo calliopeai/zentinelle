@@ -182,6 +182,11 @@ class Incident(models.Model):
         HARMFUL_OUTPUT = 'harmful_output', 'Harmful Output'
         OTHER = 'other', 'Other'
 
+    class Source(models.TextChoices):
+        POLICY_VIOLATION = 'policy_violation', 'Policy Violation'
+        MANUAL = 'manual', 'Manual'
+        ANOMALY = 'anomaly', 'Anomaly'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # TODO: decouple - organization FK removed (use tenant_id instead)
     tenant_id = models.CharField(max_length=255, db_index=True, blank=True, default="")
@@ -208,8 +213,23 @@ class Incident(models.Model):
     # Assignment
     user_id = models.CharField(max_length=255, db_index=True, blank=True, default="",
                                help_text="Assigned to (user_id)")
+    assignee_id = models.CharField(max_length=255, blank=True, default="",
+                                   help_text="Assignee (user_id) — alias for user_id, used by incident API")
     reporter_id = models.CharField(max_length=255, blank=True, default="",
                                    help_text="Reported by (user_id)")
+
+    # Source tracking
+    source = models.CharField(
+        max_length=30,
+        choices=Source.choices,
+        default=Source.MANUAL,
+    )
+    source_ref = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text='Reference to the originating record (audit log ID, event ID, etc.)',
+    )
 
     # Related entities
     endpoint = models.ForeignKey(
@@ -335,3 +355,56 @@ class Incident(models.Model):
         }
         self.timeline_events.append(event)
         self.save(update_fields=['timeline_events', 'updated_at'])
+
+
+class IncidentComment(models.Model):
+    """A threaded comment on an incident, written by a user or the system."""
+
+    incident = models.ForeignKey(
+        Incident,
+        on_delete=models.CASCADE,
+        related_name='comments',
+    )
+    author_id = models.CharField(max_length=255, default='system')
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'zentinelle'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Comment on incident {self.incident_id} by {self.author_id}"
+
+
+class NotificationConfig(models.Model):
+    """
+    Tenant-level notification dispatch configuration for incident alerts.
+
+    Each record describes a channel (email, webhook, Slack) with its
+    connection details and the severity levels that should trigger it.
+    """
+
+    class Channel(models.TextChoices):
+        EMAIL = 'email', 'Email'
+        WEBHOOK = 'webhook', 'Webhook'
+        SLACK = 'slack', 'Slack'
+
+    tenant_id = models.CharField(max_length=255, db_index=True)
+    channel = models.CharField(max_length=20, choices=Channel.choices)
+    config = models.JSONField(
+        default=dict,
+        help_text='Channel-specific connection details (url, email, etc.)',
+    )
+    trigger_severities = models.JSONField(
+        default=list,
+        help_text='List of severity values that trigger this config, e.g. ["critical", "high"]',
+    )
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'zentinelle'
+
+    def __str__(self):
+        return f"{self.channel} notification for {self.tenant_id}"
