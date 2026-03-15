@@ -2567,9 +2567,9 @@ class Query(graphene.ObjectType):
 
     @staticmethod
     def resolve_retention_policies(root, info, search=None, entity_type=None, enabled=None, **kwargs):
+        from zentinelle.models import RetentionPolicy
         if not info.context.user.is_authenticated:
             return RetentionPolicy.objects.none()
-        from zentinelle.models import RetentionPolicy
         qs = filter_by_org(RetentionPolicy.objects.all(), info.context.user)
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search))
@@ -2590,9 +2590,9 @@ class Query(graphene.ObjectType):
 
     @staticmethod
     def resolve_legal_holds(root, info, hold_type=None, status=None, **kwargs):
+        from zentinelle.models import LegalHold
         if not info.context.user.is_authenticated:
             return LegalHold.objects.none()
-        from zentinelle.models import LegalHold
         qs = filter_by_org(LegalHold.objects.all(), info.context.user)
         if hold_type:
             qs = qs.filter(hold_type=hold_type)
