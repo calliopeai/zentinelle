@@ -29,6 +29,10 @@ Compliance Export endpoints:
 - GET /api/zentinelle/v1/export/compliance-report.csv
 - GET /api/zentinelle/v1/export/summary.json
 
+SIEM & Retention endpoints:
+- GET /api/zentinelle/v1/audit/export/
+- GET /api/zentinelle/v1/retention/status/
+
 Note: Deployment operations and provisioner callbacks have moved to:
 - /api/deployments/v1/...
 """
@@ -54,6 +58,8 @@ from zentinelle.api.views import (
     ExportComplianceReportCSVView,
     ComplianceReportSummaryView,
     AuditChainVerifyView,
+    AuditExportView,
+    RetentionStatusView,
     PolicyHistoryListView,
     PolicyDiffView,
     IncidentListView,
@@ -95,6 +101,12 @@ urlpatterns = [
 
     # Audit chain verification
     path('audit/verify', AuditChainVerifyView.as_view(), name='audit-verify'),
+
+    # SIEM audit export
+    path('audit/export/', AuditExportView.as_view(), name='audit-export'),
+
+    # Retention status
+    path('retention/status/', RetentionStatusView.as_view(), name='retention-status'),
 
     # Policy version history & diff
     path('policies/<int:policy_id>/history/', PolicyHistoryListView.as_view(), name='policy-history'),

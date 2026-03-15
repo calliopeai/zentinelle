@@ -220,6 +220,13 @@ CELERY_TASK_ROUTES = {
     "zentinelle.services.*": {"queue": "zentinelle-events"},
 }
 
+CELERY_BEAT_SCHEDULE = {
+    'zentinelle-enforce-retention-policies': {
+        'task': 'zentinelle.enforce_retention_policies',
+        'schedule': 86400,  # once per day (24 hours in seconds)
+    },
+}
+
 # =============================================================================
 # Encryption
 # =============================================================================

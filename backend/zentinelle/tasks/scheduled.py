@@ -262,6 +262,130 @@ def update_agent_baselines(window_days: int = 14, batch_size: int = 200):
     return {'updated': updated, 'skipped': skipped}
 
 
+@shared_task(name='zentinelle.enforce_retention_policies')
+def enforce_retention_policies():
+    """
+    Nightly task: delete Event and AuditLog records beyond each tenant's
+    configured data_retention window.
+
+    For each active data_retention policy:
+    - Deletes Event records older than event_retention_days
+    - Deletes AuditLog records older than audit_log_retention_days
+    - If auto_delete_user_data is True, nulls out user-identifying fields
+      in remaining records for that tenant
+
+    Fails per-tenant rather than globally so one bad tenant doesn't
+    abort the whole run.
+    """
+    from django.utils import timezone
+    from datetime import timedelta
+    from zentinelle.models import Policy, AuditLog
+
+    try:
+        from zentinelle.models import Event
+        event_model_available = True
+    except ImportError:
+        event_model_available = False
+
+    retention_policies = Policy.objects.filter(
+        policy_type=Policy.PolicyType.DATA_RETENTION,
+        enabled=True,
+        enforcement=Policy.Enforcement.ENFORCE,
+    )
+
+    total_events_deleted = 0
+    total_audit_deleted = 0
+    tenants_failed = 0
+
+    for policy in retention_policies:
+        tenant_id = policy.tenant_id
+        config = policy.config or {}
+
+        event_retention_days = config.get('event_retention_days')
+        audit_log_retention_days = config.get('audit_log_retention_days')
+        auto_delete_user_data = config.get('auto_delete_user_data', False)
+
+        try:
+            now = timezone.now()
+
+            # Delete old Event records
+            if event_model_available and event_retention_days:
+                event_cutoff = now - timedelta(days=event_retention_days)
+                deleted, _ = Event.objects.filter(
+                    tenant_id=tenant_id,
+                    occurred_at__lt=event_cutoff,
+                ).delete()
+                total_events_deleted += deleted
+                logger.info(
+                    "Retention[%s]: deleted %d Event records older than %d days",
+                    tenant_id, deleted, event_retention_days,
+                )
+
+            # Delete old AuditLog records
+            if audit_log_retention_days:
+                audit_cutoff = now - timedelta(days=audit_log_retention_days)
+                deleted, _ = AuditLog.objects.filter(
+                    tenant_id=tenant_id,
+                    timestamp__lt=audit_cutoff,
+                ).delete()
+                total_audit_deleted += deleted
+                logger.info(
+                    "Retention[%s]: deleted %d AuditLog records older than %d days",
+                    tenant_id, deleted, audit_log_retention_days,
+                )
+
+            # Null out user-identifying fields in remaining records
+            if auto_delete_user_data:
+                if event_model_available:
+                    Event.objects.filter(tenant_id=tenant_id).update(
+                        user_identifier='',
+                    )
+                AuditLog.objects.filter(tenant_id=tenant_id).update(
+                    ext_user_id='',
+                    ip_address=None,
+                    user_agent='',
+                )
+                logger.info(
+                    "Retention[%s]: nulled out user-identifying fields (auto_delete_user_data=True)",
+                    tenant_id,
+                )
+
+        except Exception as exc:
+            tenants_failed += 1
+            logger.error(
+                "Retention enforcement failed for tenant %s: %s",
+                tenant_id, exc,
+            )
+
+    # Write a summary AuditLog entry
+    try:
+        AuditLog.objects.create(
+            tenant_id='system',
+            action=AuditLog.Action.DELETE,
+            resource_type='retention_enforcement',
+            resource_id='nightly',
+            resource_name='Nightly Retention Enforcement',
+            metadata={
+                'events_deleted': total_events_deleted,
+                'audit_logs_deleted': total_audit_deleted,
+                'tenants_failed': tenants_failed,
+            },
+        )
+    except Exception as exc:
+        logger.warning("Failed to write retention enforcement audit entry: %s", exc)
+
+    logger.info(
+        "Retention enforcement complete: %d events deleted, %d audit logs deleted, %d tenants failed",
+        total_events_deleted, total_audit_deleted, tenants_failed,
+    )
+
+    return {
+        'events_deleted': total_events_deleted,
+        'audit_logs_deleted': total_audit_deleted,
+        'tenants_failed': tenants_failed,
+    }
+
+
 @shared_task
 def retry_failed_events():
     """
