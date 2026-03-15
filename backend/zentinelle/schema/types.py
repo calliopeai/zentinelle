@@ -264,7 +264,7 @@ class AIModelType(DjangoObjectType):
         interfaces = (relay.Node,)
         fields = [
             'id', 'model_id', 'name', 'description',
-            'model_type', 'risk_level', 'capabilities',
+            'model_type', 'risk_level',
             'context_window', 'max_output_tokens',
             'input_price_per_million', 'output_price_per_million',
             'is_available', 'deprecated', 'deprecation_date',
@@ -272,6 +272,11 @@ class AIModelType(DjangoObjectType):
             'created_at', 'updated_at',
         ]
 
+    # Return capabilities as a proper list, not a JSON string
+    capabilities = graphene.List(graphene.String)
+    # Serialize DecimalFields as floats so frontend can call .toFixed()
+    input_price_per_million = graphene.Float()
+    output_price_per_million = graphene.Float()
     provider_slug = graphene.String()
     provider_name = graphene.String()
     model_type_display = graphene.String()
@@ -279,6 +284,24 @@ class AIModelType(DjangoObjectType):
     full_model_id = graphene.String()
     replacement_model_id = graphene.UUID()
     replacement_model_name = graphene.String()
+
+    def resolve_input_price_per_million(self, info):
+        return float(self.input_price_per_million) if self.input_price_per_million is not None else None
+
+    def resolve_output_price_per_million(self, info):
+        return float(self.output_price_per_million) if self.output_price_per_million is not None else None
+
+    def resolve_capabilities(self, info):
+        caps = self.capabilities
+        if isinstance(caps, list):
+            return caps
+        if isinstance(caps, str):
+            import json
+            try:
+                return json.loads(caps)
+            except (ValueError, TypeError):
+                return []
+        return caps or []
 
     def resolve_provider_slug(self, info):
         return self.provider.slug if self.provider else None

@@ -113,10 +113,12 @@ function formatNumber(num: number | null): string {
   return num.toString();
 }
 
-function formatPrice(price: number | null): string {
-  if (price === null) return '-';
-  if (price < 1) return `$${price.toFixed(3)}`;
-  return `$${price.toFixed(2)}`;
+function formatPrice(price: number | string | null | undefined): string {
+  if (price === null || price === undefined) return '-';
+  const p = Number(price);
+  if (isNaN(p)) return '-';
+  if (p < 1) return `$${p.toFixed(3)}`;
+  return `$${p.toFixed(2)}`;
 }
 
 function ModelRegistryTab({
