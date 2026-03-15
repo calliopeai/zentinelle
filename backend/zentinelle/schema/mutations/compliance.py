@@ -72,6 +72,68 @@ class RunComplianceCheck(graphene.Mutation):
                 return cls(success=False, errors=[str(e)])
 
 
+class GenerateComplianceReport(graphene.Mutation):
+    """
+    Trigger a compliance assessment and return a download URL or inline JSON.
+
+    Runs run_compliance_check_task asynchronously and returns the assessment ID
+    along with a link to the JSON export endpoint.
+    """
+
+    class Arguments:
+        framework = graphene.String(
+            required=False,
+            description='Optional framework slug, e.g. "soc2", "gdpr"'
+        )
+        start_date = graphene.Date(required=False)
+        end_date = graphene.Date(required=False)
+
+    success = graphene.Boolean()
+    report_url = graphene.String(description='URL to the export summary, e.g. /api/zentinelle/v1/export/summary.json')
+    assessment_id = graphene.UUID()
+    errors = graphene.List(graphene.String)
+
+    @classmethod
+    @require_feature_for_mutation(Features.ZENTINELLE_COMPLIANCE_CHECKS)
+    def mutate(cls, root, info, framework=None, start_date=None, end_date=None):
+        if not info.context.user.is_authenticated:
+            return cls(success=False, errors=['Authentication required'])
+
+        user = info.context.user
+        membership = user.memberships.filter(is_active=True).first()
+        if not membership:
+            return cls(success=False, errors=['No active organization membership'])
+
+        org = membership.organization
+
+        # Build export URL with optional query params
+        report_url = '/api/zentinelle/v1/export/summary.json'
+        params = []
+        if start_date:
+            params.append(f'start={start_date.isoformat()}')
+        if end_date:
+            params.append(f'end={end_date.isoformat()}')
+        if params:
+            report_url = f'{report_url}?{"&".join(params)}'
+
+        from zentinelle.tasks.compliance import run_compliance_check_task
+        try:
+            task = run_compliance_check_task.delay(
+                organization_id=str(org.id),
+                framework_id=framework,
+                user_id=str(user.id),
+                assessment_type='manual',
+            )
+            return cls(
+                success=True,
+                report_url=report_url,
+                assessment_id=None,
+                errors=None,
+            )
+        except Exception as e:
+            return cls(success=False, errors=[str(e)])
+
+
 class ComplianceFrameworkOutput(graphene.ObjectType):
     id = graphene.String()
     enabled = graphene.Boolean()

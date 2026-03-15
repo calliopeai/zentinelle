@@ -9,8 +9,22 @@ GET  /api/zentinelle/v1/alerts - List compliance alerts
 POST /api/zentinelle/v1/alerts/{alert_id}/acknowledge - Acknowledge alert
 POST /api/zentinelle/v1/alerts/{alert_id}/resolve - Resolve alert
 POST /api/zentinelle/v1/interaction - Log an interaction
+
+Export endpoints:
+GET /api/zentinelle/v1/export/violations.csv - Export violations as CSV
+GET /api/zentinelle/v1/export/compliance-report.csv - Export assessments as CSV
+GET /api/zentinelle/v1/export/summary.json - Export JSON compliance summary
 """
+import csv
+import io
+import json
 import logging
+from datetime import timedelta
+from collections import defaultdict
+
+from django.http import StreamingHttpResponse
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 from rest_framework import status
 from rest_framework.views import APIView
@@ -22,9 +36,10 @@ from zentinelle.models import (
     ContentScan,
     ContentViolation,
     ComplianceAlert,
+    ComplianceAssessment,
     InteractionLog,
 )
-from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_endpoint_from_request
+from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_endpoint_from_request, get_tenant_id_from_request
 from zentinelle.services.content_scanner import ContentScanner
 
 logger = logging.getLogger(__name__)
@@ -600,3 +615,341 @@ class LogInteractionView(APIView):
         if x_forwarded_for:
             return x_forwarded_for.split(',')[0].strip()
         return request.META.get('REMOTE_ADDR')
+
+
+# ---------------------------------------------------------------------------
+# Export Views
+# ---------------------------------------------------------------------------
+
+def _parse_date_range(request, default_days=30):
+    """
+    Parse start/end query params as aware datetimes.
+
+    Returns (start_dt, end_dt) tuple.
+    """
+    now = timezone.now()
+    default_start = now - timedelta(days=default_days)
+
+    raw_start = request.query_params.get('start')
+    raw_end = request.query_params.get('end')
+
+    start_dt = parse_datetime(raw_start) if raw_start else default_start
+    end_dt = parse_datetime(raw_end) if raw_end else now
+
+    # Fallback to defaults on bad parse
+    if start_dt is None:
+        start_dt = default_start
+    if end_dt is None:
+        end_dt = now
+
+    # Make aware if naive
+    if timezone.is_naive(start_dt):
+        start_dt = timezone.make_aware(start_dt)
+    if timezone.is_naive(end_dt):
+        end_dt = timezone.make_aware(end_dt)
+
+    return start_dt, end_dt
+
+
+class ExportViolationsCSVView(APIView):
+    """
+    Export violations as a streaming CSV download.
+
+    GET /api/zentinelle/v1/export/violations.csv
+
+    Query params:
+        - start: ISO8601 datetime (default: 30 days ago)
+        - end:   ISO8601 datetime (default: now)
+        - severity: low|medium|high|critical (optional)
+        - rule_type: filter by rule type (optional)
+    """
+
+    authentication_classes = [ZentinelleAPIKeyAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant_id = get_tenant_id_from_request(request)
+        if not tenant_id:
+            return Response(
+                {'error': 'Unable to determine tenant'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        start_dt, end_dt = _parse_date_range(request)
+
+        queryset = (
+            ContentViolation.objects
+            .filter(
+                scan__tenant_id=tenant_id,
+                created_at__gte=start_dt,
+                created_at__lte=end_dt,
+            )
+            .select_related('scan')
+            .order_by('created_at')
+        )
+
+        severity = request.query_params.get('severity')
+        if severity:
+            queryset = queryset.filter(severity=severity)
+
+        rule_type = request.query_params.get('rule_type')
+        if rule_type:
+            queryset = queryset.filter(rule_type=rule_type)
+
+        start_str = start_dt.date().isoformat()
+        end_str = end_dt.date().isoformat()
+        filename = f"violations-{start_str}-{end_str}.csv"
+
+        def generate_rows():
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+
+            # Header
+            writer.writerow([
+                'id',
+                'timestamp',
+                'rule_type',
+                'severity',
+                'matched_text',
+                'enforcement_action',
+                'scan_id',
+                'endpoint_id',
+                'user_identifier',
+                'session_id',
+            ])
+            yield buf.getvalue()
+            buf.seek(0)
+            buf.truncate(0)
+
+            for v in queryset.iterator(chunk_size=500):
+                matched_text = (v.matched_text or '')[:100]
+                endpoint_id = str(v.scan.endpoint_id) if v.scan.endpoint_id else ''
+                writer.writerow([
+                    str(v.id),
+                    v.created_at.isoformat(),
+                    v.rule_type,
+                    v.severity,
+                    matched_text,
+                    v.enforcement,
+                    str(v.scan_id),
+                    endpoint_id,
+                    v.scan.user_identifier,
+                    v.scan.session_id,
+                ])
+                yield buf.getvalue()
+                buf.seek(0)
+                buf.truncate(0)
+
+        response = StreamingHttpResponse(generate_rows(), content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+
+class ExportComplianceReportCSVView(APIView):
+    """
+    Export ComplianceAssessment records as a streaming CSV download.
+
+    GET /api/zentinelle/v1/export/compliance-report.csv
+
+    Query params:
+        - start:     ISO8601 datetime (default: 30 days ago)
+        - end:       ISO8601 datetime (default: now)
+        - framework: filter by framework slug (optional)
+    """
+
+    authentication_classes = [ZentinelleAPIKeyAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant_id = get_tenant_id_from_request(request)
+        if not tenant_id:
+            return Response(
+                {'error': 'Unable to determine tenant'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        start_dt, end_dt = _parse_date_range(request)
+
+        queryset = (
+            ComplianceAssessment.objects
+            .filter(
+                tenant_id=tenant_id,
+                assessed_at__gte=start_dt,
+                assessed_at__lte=end_dt,
+            )
+            .order_by('assessed_at')
+        )
+
+        framework = request.query_params.get('framework')
+        if framework:
+            queryset = queryset.filter(framework_id=framework)
+
+        start_str = start_dt.date().isoformat()
+        end_str = end_dt.date().isoformat()
+        filename = f"compliance-report-{start_str}-{end_str}.csv"
+
+        def generate_rows():
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+
+            writer.writerow([
+                'id',
+                'assessed_at',
+                'framework',
+                'coverage_percent',
+                'gaps_count',
+                'overall_score',
+            ])
+            yield buf.getvalue()
+            buf.seek(0)
+            buf.truncate(0)
+
+            for a in queryset.iterator(chunk_size=500):
+                # Derive per-framework coverage_percent from framework_scores if available
+                fw_scores = a.framework_scores or {}
+                if framework and framework in fw_scores:
+                    fw_data = fw_scores[framework]
+                    coverage_pct = fw_data.get('score', a.overall_score)
+                    gaps_count = fw_data.get('gaps', a.total_gaps)
+                else:
+                    coverage_pct = a.overall_score
+                    gaps_count = a.total_gaps
+
+                writer.writerow([
+                    str(a.id),
+                    a.assessed_at.isoformat(),
+                    a.framework_id or 'all',
+                    round(coverage_pct, 2),
+                    gaps_count,
+                    round(a.overall_score, 2),
+                ])
+                yield buf.getvalue()
+                buf.seek(0)
+                buf.truncate(0)
+
+        response = StreamingHttpResponse(generate_rows(), content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+
+class ComplianceReportSummaryView(APIView):
+    """
+    Return a JSON compliance summary suitable for embedding in reports.
+
+    GET /api/zentinelle/v1/export/summary.json
+
+    Query params:
+        - start: ISO8601 datetime (default: 30 days ago)
+        - end:   ISO8601 datetime (default: now)
+    """
+
+    authentication_classes = [ZentinelleAPIKeyAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant_id = get_tenant_id_from_request(request)
+        if not tenant_id:
+            return Response(
+                {'error': 'Unable to determine tenant'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        start_dt, end_dt = _parse_date_range(request)
+
+        # --- Violations ---
+        violations_qs = ContentViolation.objects.filter(
+            scan__tenant_id=tenant_id,
+            created_at__gte=start_dt,
+            created_at__lte=end_dt,
+        ).select_related('scan')
+
+        by_severity = defaultdict(int)
+        by_rule_type = defaultdict(int)
+        endpoint_counts = defaultdict(int)
+        rule_counts = defaultdict(int)
+
+        for v in violations_qs.iterator(chunk_size=1000):
+            by_severity[v.severity] += 1
+            by_rule_type[v.rule_type] += 1
+            if v.scan.endpoint_id:
+                endpoint_counts[str(v.scan.endpoint_id)] += 1
+            rule_counts[v.rule_type] += 1
+
+        violations_total = sum(by_severity.values())
+
+        # --- Scans ---
+        scans_qs = ContentScan.objects.filter(
+            tenant_id=tenant_id,
+            created_at__gte=start_dt,
+            created_at__lte=end_dt,
+        )
+        scans_total = scans_qs.count()
+        scans_blocked = scans_qs.filter(was_blocked=True).count()
+        scans_warned = scans_qs.filter(
+            action_taken=ContentRule.Enforcement.WARN,
+            was_blocked=False,
+        ).count()
+        scans_passed = scans_qs.filter(has_violations=False).count()
+
+        # --- Compliance assessments ---
+        assessments_qs = ComplianceAssessment.objects.filter(
+            tenant_id=tenant_id,
+            assessed_at__gte=start_dt,
+            assessed_at__lte=end_dt,
+        ).order_by('-assessed_at')
+
+        latest = assessments_qs.first()
+        overall_score = round(latest.overall_score, 2) if latest else None
+
+        frameworks_list = []
+        if latest and latest.framework_scores:
+            for fw_id, fw_data in latest.framework_scores.items():
+                frameworks_list.append({
+                    'framework': fw_id,
+                    'score': round(fw_data.get('score', 0), 2),
+                    'covered': fw_data.get('covered', 0),
+                    'total': fw_data.get('total', 0),
+                    'gaps': fw_data.get('gaps', 0),
+                })
+
+        # Top endpoints by violation count (top 10)
+        top_endpoints = sorted(
+            [{'endpoint_id': eid, 'violation_count': cnt} for eid, cnt in endpoint_counts.items()],
+            key=lambda x: x['violation_count'],
+            reverse=True,
+        )[:10]
+
+        # Top violated rules (top 10)
+        top_rules = sorted(
+            [{'rule_type': rt, 'violation_count': cnt} for rt, cnt in rule_counts.items()],
+            key=lambda x: x['violation_count'],
+            reverse=True,
+        )[:10]
+
+        summary = {
+            'generated_at': timezone.now().isoformat(),
+            'period': {
+                'start': start_dt.isoformat(),
+                'end': end_dt.isoformat(),
+            },
+            'tenant_id': tenant_id,
+            'violations': {
+                'total': violations_total,
+                'by_severity': dict(by_severity),
+                'by_rule_type': dict(by_rule_type),
+            },
+            'scans': {
+                'total': scans_total,
+                'blocked': scans_blocked,
+                'warned': scans_warned,
+                'passed': scans_passed,
+            },
+            'compliance': {
+                'frameworks': frameworks_list,
+                'overall_score': overall_score,
+            },
+            'top_endpoints': top_endpoints,
+            'top_violated_rules': top_rules,
+        }
+
+        return Response(summary, status=status.HTTP_200_OK)

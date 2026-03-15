@@ -25,6 +25,7 @@ from .policy import (
 from .compliance import (
     RunComplianceCheck,
     ToggleFramework,
+    GenerateComplianceReport,
 )
 from .compliance_alerts import (
     AcknowledgeComplianceAlert,
@@ -104,6 +105,7 @@ class Mutation(graphene.ObjectType):
     # Compliance
     run_compliance_check = RunComplianceCheck.Field()
     toggle_framework = ToggleFramework.Field()
+    generate_compliance_report = GenerateComplianceReport.Field()
 
     # Compliance Alerts
     acknowledge_compliance_alert = AcknowledgeComplianceAlert.Field()

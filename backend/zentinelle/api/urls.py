@@ -23,6 +23,11 @@ Compliance & Content Scanning endpoints:
 - POST /api/zentinelle/v1/alerts/{alert_id}/resolve
 - POST /api/zentinelle/v1/interaction
 
+Compliance Export endpoints:
+- GET /api/zentinelle/v1/export/violations.csv
+- GET /api/zentinelle/v1/export/compliance-report.csv
+- GET /api/zentinelle/v1/export/summary.json
+
 Note: Deployment operations and provisioner callbacks have moved to:
 - /api/deployments/v1/...
 """
@@ -43,6 +48,9 @@ from zentinelle.api.views import (
     AcknowledgeAlertView,
     ResolveAlertView,
     LogInteractionView,
+    ExportViolationsCSVView,
+    ExportComplianceReportCSVView,
+    ComplianceReportSummaryView,
 )
 
 app_name = 'zentinelle'
@@ -70,4 +78,9 @@ urlpatterns = [
     path('alerts/<uuid:alert_id>/acknowledge', AcknowledgeAlertView.as_view(), name='alert-acknowledge'),
     path('alerts/<uuid:alert_id>/resolve', ResolveAlertView.as_view(), name='alert-resolve'),
     path('interaction', LogInteractionView.as_view(), name='interaction'),
+
+    # Compliance export endpoints
+    path('export/violations.csv', ExportViolationsCSVView.as_view(), name='export-violations-csv'),
+    path('export/compliance-report.csv', ExportComplianceReportCSVView.as_view(), name='export-compliance-csv'),
+    path('export/summary.json', ComplianceReportSummaryView.as_view(), name='export-summary'),
 ]
