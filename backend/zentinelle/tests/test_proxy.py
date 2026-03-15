@@ -5,12 +5,14 @@ import json
 import uuid
 from unittest.mock import MagicMock, patch
 
-from django.test import TestCase, RequestFactory
+import unittest
+
+from django.test import RequestFactory
 
 from zentinelle.proxy.views import ProxyView
 
 
-class TestProxyView(TestCase):
+class TestProxyView(unittest.TestCase):
     """Tests for ProxyView."""
 
     def setUp(self):

@@ -75,7 +75,7 @@ class TestGetPack(unittest.TestCase):
 class TestActivatePack(unittest.TestCase):
     """test_activate_pack_creates_policies and test_activate_pack_unknown_raises"""
 
-    @patch('zentinelle.services.compliance_packs.Policy')
+    @patch('zentinelle.models.Policy')
     def test_activate_pack_creates_policies(self, MockPolicy):
         from zentinelle.services.compliance_packs import activate_pack, get_pack
 
@@ -93,7 +93,7 @@ class TestActivatePack(unittest.TestCase):
         self.assertEqual(result['policies_updated'], 0)
         self.assertEqual(MockPolicy.objects.update_or_create.call_count, expected_policy_count)
 
-    @patch('zentinelle.services.compliance_packs.Policy')
+    @patch('zentinelle.models.Policy')
     def test_activate_pack_updates_existing_policies(self, MockPolicy):
         from zentinelle.services.compliance_packs import activate_pack, get_pack
 
@@ -108,7 +108,7 @@ class TestActivatePack(unittest.TestCase):
         self.assertEqual(result['policies_created'], 0)
         self.assertEqual(result['policies_updated'], expected_policy_count)
 
-    @patch('zentinelle.services.compliance_packs.Policy')
+    @patch('zentinelle.models.Policy')
     def test_activate_pack_passes_tenant_id(self, MockPolicy):
         from zentinelle.services.compliance_packs import activate_pack
 
@@ -119,7 +119,7 @@ class TestActivatePack(unittest.TestCase):
             kwargs = c.kwargs if c.kwargs else c[1]
             self.assertEqual(kwargs.get('tenant_id'), 'my-tenant')
 
-    @patch('zentinelle.services.compliance_packs.Policy')
+    @patch('zentinelle.models.Policy')
     def test_activate_pack_enforcement_override(self, MockPolicy):
         from zentinelle.services.compliance_packs import activate_pack
 

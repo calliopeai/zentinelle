@@ -64,7 +64,7 @@ def _chain_hash_for(prev_chain, entry_hash):
 class TestVerifyChainEmpty(unittest.TestCase):
     """test_verify_chain_empty_returns_valid"""
 
-    @patch('zentinelle.services.audit_chain.AuditLog')
+    @patch('zentinelle.models.AuditLog')
     def test_verify_chain_empty_returns_valid(self, MockAuditLog):
         from zentinelle.services.audit_chain import verify_chain
 
@@ -75,7 +75,7 @@ class TestVerifyChainEmpty(unittest.TestCase):
         MockAuditLog.objects.filter.return_value = mock_qs
 
         # list() needs to work on the qs
-        with patch('zentinelle.services.audit_chain.AuditLog.objects') as mock_mgr:
+        with patch('zentinelle.models.AuditLog.objects') as mock_mgr:
             mock_mgr.filter.return_value.filter.return_value = []
             mock_mgr.filter.return_value.order_by.return_value.filter.return_value = []
             # Simplest approach: patch the whole filter chain to return []
@@ -92,15 +92,14 @@ class TestVerifyChainEmpty(unittest.TestCase):
 class TestVerifySingleRecordValid(unittest.TestCase):
     """test_verify_single_record_valid"""
 
-    @patch('zentinelle.services.audit_chain.AuditLog')
+    @patch('zentinelle.models.AuditLog')
     def test_verify_single_record_valid(self, MockAuditLog):
         from zentinelle.services.audit_chain import verify_chain
 
         record = _make_record(chain_sequence=1)
 
-        with patch('zentinelle.services.audit_chain.AuditLog.objects') as mock_mgr:
+        with patch('zentinelle.models.AuditLog.objects') as mock_mgr:
             mock_mgr.filter.return_value.order_by.return_value = [record]
-            mock_mgr.filter.return_value.order_by.return_value.filter.return_value = [record]
 
             result = verify_chain(tenant_id='tenant1')
 
@@ -113,16 +112,15 @@ class TestVerifySingleRecordValid(unittest.TestCase):
 class TestVerifyChainTamperedRecord(unittest.TestCase):
     """test_verify_chain_tampered_record — record with wrong entry_hash -> broken_at_sequence"""
 
-    @patch('zentinelle.services.audit_chain.AuditLog')
+    @patch('zentinelle.models.AuditLog')
     def test_verify_chain_tampered_record(self, MockAuditLog):
         from zentinelle.services.audit_chain import verify_chain
 
         # Create a record but corrupt its entry_hash
         record = _make_record(chain_sequence=1, entry_hash='deadbeef' * 8)
 
-        with patch('zentinelle.services.audit_chain.AuditLog.objects') as mock_mgr:
+        with patch('zentinelle.models.AuditLog.objects') as mock_mgr:
             mock_mgr.filter.return_value.order_by.return_value = [record]
-            mock_mgr.filter.return_value.order_by.return_value.filter.return_value = [record]
 
             result = verify_chain(tenant_id='tenant1')
 
@@ -174,7 +172,7 @@ class TestChainLinksToGenesisForFirstRecord(unittest.TestCase):
 class TestVerifyMultiRecordChain(unittest.TestCase):
     """Integration-style test: two properly-linked records verify as valid."""
 
-    @patch('zentinelle.services.audit_chain.AuditLog')
+    @patch('zentinelle.models.AuditLog')
     def test_two_linked_records_valid(self, MockAuditLog):
         from zentinelle.services.audit_chain import verify_chain, _compute_entry_hash
 
@@ -192,9 +190,8 @@ class TestVerifyMultiRecordChain(unittest.TestCase):
             entry_hash=r2_entry, chain_hash=r2_chain,
         )
 
-        with patch('zentinelle.services.audit_chain.AuditLog.objects') as mock_mgr:
+        with patch('zentinelle.models.AuditLog.objects') as mock_mgr:
             mock_mgr.filter.return_value.order_by.return_value = [r1, r2]
-            mock_mgr.filter.return_value.order_by.return_value.filter.return_value = [r1, r2]
 
             result = verify_chain(tenant_id='tenant1')
 
@@ -202,7 +199,7 @@ class TestVerifyMultiRecordChain(unittest.TestCase):
         self.assertEqual(result['records_checked'], 2)
         self.assertEqual(result['root_hash'], r2.chain_hash)
 
-    @patch('zentinelle.services.audit_chain.AuditLog')
+    @patch('zentinelle.models.AuditLog')
     def test_broken_chain_hash_detected(self, MockAuditLog):
         """Second record with wrong chain_hash is detected."""
         from zentinelle.services.audit_chain import verify_chain, _compute_entry_hash
@@ -219,9 +216,8 @@ class TestVerifyMultiRecordChain(unittest.TestCase):
             chain_hash='00' * 32,  # 64-char wrong hash
         )
 
-        with patch('zentinelle.services.audit_chain.AuditLog.objects') as mock_mgr:
+        with patch('zentinelle.models.AuditLog.objects') as mock_mgr:
             mock_mgr.filter.return_value.order_by.return_value = [r1, r2]
-            mock_mgr.filter.return_value.order_by.return_value.filter.return_value = [r1, r2]
 
             result = verify_chain(tenant_id='tenant1')
 
