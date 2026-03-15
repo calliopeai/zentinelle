@@ -17,9 +17,9 @@ VALID_POLICY_TYPES = {
 
 
 class TestListPacks(unittest.TestCase):
-    """test_list_packs_returns_four_packs"""
+    """test_list_packs_returns_five_packs"""
 
-    def test_list_packs_returns_four_packs(self):
+    def test_list_packs_returns_five_packs(self):
         from zentinelle.services.compliance_packs import list_packs
 
         packs = list_packs()
@@ -28,7 +28,8 @@ class TestListPacks(unittest.TestCase):
         self.assertIn('soc2', names)
         self.assertIn('gdpr', names)
         self.assertIn('eu_ai_act', names)
-        self.assertEqual(len(packs), 4)
+        self.assertIn('nist_ai_rmf', names)
+        self.assertEqual(len(packs), 5)
 
     def test_list_packs_metadata_shape(self):
         """Each pack metadata entry has the expected keys and no policy list."""

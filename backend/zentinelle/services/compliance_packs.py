@@ -296,6 +296,95 @@ COMPLIANCE_PACKS: Dict[str, dict] = {
             },
         ],
     },
+
+    "nist_ai_rmf": {
+        "name": "nist_ai_rmf",
+        "display_name": "NIST AI RMF 1.0",
+        "version": "2023-01",
+        "description": (
+            "Baseline policies for NIST AI Risk Management Framework 1.0 compliance. "
+            "Covers governance (GOVERN), risk mapping (MAP), measurement (MEASURE), "
+            "and risk management (MANAGE) functions for trustworthy AI systems."
+        ),
+        "policies": [
+            # GOVERN 1.1 — Organizational practices for AI risk governance
+            {
+                "name": "NIST AI RMF: Governance Audit Logging",
+                "policy_type": "audit_policy",
+                "enforcement": "enforce",
+                "priority": 90,
+                "config": {
+                    "log_all_prompts": True,
+                    "log_all_responses": True,
+                    "log_tool_calls": True,
+                    "retention_days": 1095,  # 3 years
+                },
+            },
+            # GOVERN 2.2 — AI risk tolerance thresholds
+            {
+                "name": "NIST AI RMF: AI Risk Guardrails",
+                "policy_type": "ai_guardrail",
+                "enforcement": "enforce",
+                "priority": 85,
+                "config": {
+                    "blocked_topics": [],
+                    "pii_redaction": True,
+                    "toxicity_threshold": 0.7,
+                    "prompt_injection_detection": True,
+                },
+            },
+            # MAP 2.3 — Scientific validity via approved model allowlist
+            {
+                "name": "NIST AI RMF: Approved Model Restriction",
+                "policy_type": "model_restriction",
+                "enforcement": "audit",
+                "priority": 80,
+                "config": {
+                    "allowed_models": [],
+                    "blocked_models": [],
+                    "allowed_providers": [],
+                    "blocked_providers": [],
+                },
+            },
+            # MEASURE 2.5 — Bias and fairness: PII/demographic output filtering
+            {
+                "name": "NIST AI RMF: Output Fairness Filter",
+                "policy_type": "output_filter",
+                "enforcement": "enforce",
+                "priority": 75,
+                "config": {
+                    "block_pii": True,
+                    "block_secrets": False,
+                    "blocked_patterns": [],
+                    "filter_code_blocks": False,
+                },
+            },
+            # MANAGE 2.4 — Risk treatment: data retention for high-risk AI
+            {
+                "name": "NIST AI RMF: Data Retention",
+                "policy_type": "data_retention",
+                "enforcement": "enforce",
+                "priority": 70,
+                "config": {
+                    "event_retention_days": 1095,  # 3 years
+                    "audit_log_retention_days": 1095,
+                    "auto_delete_user_data": False,
+                },
+            },
+            # MANAGE 1.3 — Human oversight for consequential AI decisions
+            {
+                "name": "NIST AI RMF: Session Security Controls",
+                "policy_type": "session_policy",
+                "enforcement": "enforce",
+                "priority": 65,
+                "config": {
+                    "max_session_duration_hours": 12,
+                    "idle_timeout_minutes": 30,
+                    "require_mfa": False,
+                },
+            },
+        ],
+    },
 }
 
 
