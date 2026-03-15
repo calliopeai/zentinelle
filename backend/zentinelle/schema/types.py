@@ -42,6 +42,9 @@ from zentinelle.models import (
     # Risk Management
     Risk,
     Incident,
+    # Retention
+    RetentionPolicy,
+    LegalHold,
     # License Compliance
     LicenseComplianceReport,
     LicenseComplianceViolation,
@@ -736,6 +739,83 @@ class LicenseComplianceViolationGraphType(DjangoObjectType):
 
     def resolve_is_resolved(self, info):
         return self.is_resolved
+
+
+# ---------------------------------------------------------------------------
+# Retention Policies & Legal Holds
+# ---------------------------------------------------------------------------
+
+class RetentionPolicyType(DjangoObjectType):
+    """GraphQL type for Retention Policy."""
+    class Meta:
+        model = RetentionPolicy
+        interfaces = (relay.Node,)
+        fields = [
+            'id', 'name', 'description', 'entity_type',
+            'deployment_id_ext', 'retention_days', 'minimum_retention_days',
+            'expiration_action', 'archive_location',
+            'compliance_requirement', 'compliance_notes',
+            'enabled', 'priority', 'created_at', 'updated_at',
+        ]
+
+    entity_type_display = graphene.String()
+    expiration_action_display = graphene.String()
+    compliance_requirement_display = graphene.String()
+    deployment_name = graphene.String()
+    created_by_name = graphene.String()
+
+    def resolve_entity_type_display(self, info):
+        return self.get_entity_type_display()
+
+    def resolve_expiration_action_display(self, info):
+        return self.get_expiration_action_display()
+
+    def resolve_compliance_requirement_display(self, info):
+        return self.get_compliance_requirement_display()
+
+    def resolve_deployment_name(self, info):
+        return self.deployment_id_ext or None
+
+    def resolve_created_by_name(self, info):
+        return self.user_id or None
+
+
+class LegalHoldType(DjangoObjectType):
+    """GraphQL type for Legal Hold."""
+    class Meta:
+        model = LegalHold
+        interfaces = (relay.Node,)
+        fields = [
+            'id', 'name', 'description', 'reference_number',
+            'hold_type', 'status',
+            'applies_to_all', 'entity_types', 'user_identifiers',
+            'data_from', 'data_to',
+            'effective_date', 'expiration_date', 'released_at',
+            'custodian_email',
+            'notify_on_access', 'notification_emails',
+            'created_at', 'updated_at',
+        ]
+
+    hold_type_display = graphene.String()
+    status_display = graphene.String()
+    is_active = graphene.Boolean()
+    custodian_name = graphene.String()
+    created_by_name = graphene.String()
+
+    def resolve_hold_type_display(self, info):
+        return self.get_hold_type_display()
+
+    def resolve_status_display(self, info):
+        return self.get_status_display()
+
+    def resolve_is_active(self, info):
+        return self.status == 'active'
+
+    def resolve_custodian_name(self, info):
+        return None  # Model doesn't have custodian_name, only custodian_email
+
+    def resolve_created_by_name(self, info):
+        return self.user_id or None
 
 
 # ---------------------------------------------------------------------------

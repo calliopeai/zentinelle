@@ -58,6 +58,9 @@ from .types import (
     # Risk Management types
     RiskType,
     IncidentType,
+    # Retention
+    RetentionPolicyType,
+    LegalHoldType,
     # License Compliance types
     LicenseComplianceReportType,
     LicenseComplianceViolationGraphType,
@@ -878,6 +881,23 @@ class Query(graphene.ObjectType):
         end_date=graphene.DateTime(),
     )
     risk_stats = graphene.Field('zentinelle.schema.queries.RiskStatsType')
+
+    # Retention Policies
+    retention_policy = graphene.Field(RetentionPolicyType, id=graphene.ID())
+    retention_policies = DjangoConnectionField(
+        RetentionPolicyType,
+        search=graphene.String(),
+        entity_type=graphene.String(),
+        enabled=graphene.Boolean(),
+    )
+
+    # Legal Holds
+    legal_hold = graphene.Field(LegalHoldType, id=graphene.ID())
+    legal_holds = DjangoConnectionField(
+        LegalHoldType,
+        hold_type=graphene.String(),
+        status=graphene.String(),
+    )
 
     # Policy Documents
     policy_document = graphene.Field(
@@ -2457,6 +2477,50 @@ class Query(graphene.ObjectType):
             sla_met_count=sla_met,
             sla_breached_count=sla_breached,
         )
+
+    # Retention Policy resolvers
+    @staticmethod
+    def resolve_retention_policy(root, info, id=None):
+        if not info.context.user.is_authenticated:
+            return None
+        from zentinelle.models import RetentionPolicy
+        qs = filter_by_org(RetentionPolicy.objects.all(), info.context.user)
+        return qs.filter(id=id).first() if id else None
+
+    @staticmethod
+    def resolve_retention_policies(root, info, search=None, entity_type=None, enabled=None, **kwargs):
+        if not info.context.user.is_authenticated:
+            return RetentionPolicy.objects.none()
+        from zentinelle.models import RetentionPolicy
+        qs = filter_by_org(RetentionPolicy.objects.all(), info.context.user)
+        if search:
+            qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search))
+        if entity_type:
+            qs = qs.filter(entity_type=entity_type)
+        if enabled is not None:
+            qs = qs.filter(enabled=enabled)
+        return qs
+
+    # Legal Hold resolvers
+    @staticmethod
+    def resolve_legal_hold(root, info, id=None):
+        if not info.context.user.is_authenticated:
+            return None
+        from zentinelle.models import LegalHold
+        qs = filter_by_org(LegalHold.objects.all(), info.context.user)
+        return qs.filter(id=id).first() if id else None
+
+    @staticmethod
+    def resolve_legal_holds(root, info, hold_type=None, status=None, **kwargs):
+        if not info.context.user.is_authenticated:
+            return LegalHold.objects.none()
+        from zentinelle.models import LegalHold
+        qs = filter_by_org(LegalHold.objects.all(), info.context.user)
+        if hold_type:
+            qs = qs.filter(hold_type=hold_type)
+        if status:
+            qs = qs.filter(status=status)
+        return qs
 
     # Policy Document resolvers
     @staticmethod
