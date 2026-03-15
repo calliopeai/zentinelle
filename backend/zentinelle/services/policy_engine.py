@@ -288,6 +288,7 @@ class PolicyEngine:
             SessionPolicyEvaluator,
             DataAccessEvaluator,
             DataRetentionEvaluator,
+            PromptInjectionEvaluator,
             NoOpEvaluator,
         )
 
@@ -310,6 +311,7 @@ class PolicyEngine:
             Policy.PolicyType.SESSION_POLICY: SessionPolicyEvaluator(),
             Policy.PolicyType.DATA_ACCESS: DataAccessEvaluator(),
             Policy.PolicyType.DATA_RETENTION: DataRetentionEvaluator(),
+            Policy.PolicyType.PROMPT_INJECTION: PromptInjectionEvaluator(),
         }
         return evaluators.get(policy_type, NoOpEvaluator())
 

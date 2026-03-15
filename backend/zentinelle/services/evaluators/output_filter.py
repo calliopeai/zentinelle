@@ -1,6 +1,10 @@
 """
 Output Filter Evaluator.
 Enforces content filtering on agent output (PII, secrets, custom regex patterns).
+
+When `block_secrets: true` and `output_text` is provided, built-in secret
+patterns are scanned automatically — no pre-computed scan_result required.
+Pattern library is shared with ContentScanner to avoid duplication.
 """
 import re
 import logging
@@ -10,6 +14,21 @@ from zentinelle.models import Policy
 from zentinelle.services.evaluators.base import BasePolicyEvaluator, PolicyResult
 
 logger = logging.getLogger(__name__)
+
+
+def _get_secret_patterns() -> List[tuple]:
+    """
+    Return compiled (name, pattern, description) tuples from ContentScanner.
+    Lazy-loaded to avoid circular imports.
+    """
+    from zentinelle.services.content_scanner import ContentScanner
+    compiled = []
+    for name, (raw, description) in ContentScanner.SECRET_PATTERNS.items():
+        try:
+            compiled.append((name, re.compile(raw, re.IGNORECASE), description))
+        except re.error:
+            logger.warning("OutputFilterEvaluator: could not compile secret pattern '%s'", name)
+    return compiled
 
 # Severity ordering for comparison
 SEVERITY_ORDER = {
@@ -71,12 +90,23 @@ class OutputFilterEvaluator(BasePolicyEvaluator):
                 return result
             warnings.extend(result.warnings)
 
-        # Path 2: raw output text — check blocked_patterns via regex
-        elif output_text is not None:
-            result = self._evaluate_blocked_patterns(config, output_text)
-            if not result.passed:
-                return result
-            warnings.extend(result.warnings)
+        # Path 2: raw output text
+        if output_text is not None:
+            # 2a. Built-in secret patterns (runs whenever block_secrets is true,
+            #     regardless of whether a scan_result was also provided)
+            if config.get('block_secrets', False):
+                result = self._evaluate_builtin_secrets(config, output_text)
+                if not result.passed:
+                    return result
+                warnings.extend(result.warnings)
+
+            # 2b. User-defined blocked_patterns (only when no scan_result,
+            #     to avoid double-processing)
+            if scan_result is None:
+                result = self._evaluate_blocked_patterns(config, output_text)
+                if not result.passed:
+                    return result
+                warnings.extend(result.warnings)
 
         return PolicyResult(passed=True, warnings=warnings)
 
@@ -133,6 +163,42 @@ class OutputFilterEvaluator(BasePolicyEvaluator):
                 )
 
         return PolicyResult(passed=True, warnings=warnings)
+
+    def _evaluate_builtin_secrets(
+        self,
+        config: Dict[str, Any],
+        output_text: str,
+    ) -> PolicyResult:
+        """
+        Scan output_text against the built-in secret pattern library from
+        ContentScanner. Fires automatically when block_secrets=true without
+        requiring a pre-computed scan_result.
+
+        Config options:
+            disabled_secret_patterns: list[str] — pattern names to skip
+                e.g. ["bearer_token", "jwt_token"] to suppress noisy patterns
+        """
+        disabled = set(config.get('disabled_secret_patterns', []))
+        patterns = _get_secret_patterns()
+
+        for name, compiled, description in patterns:
+            if name in disabled:
+                continue
+            try:
+                if compiled.search(output_text):
+                    # Do NOT include the matched value in the message — avoid
+                    # logging the secret itself.
+                    return PolicyResult(
+                        passed=False,
+                        message=(
+                            f"Output blocked: {description} detected in agent output. "
+                            f"Pattern category: '{name}'."
+                        ),
+                    )
+            except Exception:
+                continue
+
+        return PolicyResult(passed=True)
 
     def _evaluate_blocked_patterns(
         self,

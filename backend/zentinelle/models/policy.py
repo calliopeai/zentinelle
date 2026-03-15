@@ -24,6 +24,7 @@ class Policy(Tracking):
         # Prompts & AI behavior
         SYSTEM_PROMPT = 'system_prompt', 'System Prompt'
         AI_GUARDRAIL = 'ai_guardrail', 'AI Guardrail'
+        PROMPT_INJECTION = 'prompt_injection', 'Prompt Injection'
 
         # LLM Controls
         MODEL_RESTRICTION = 'model_restriction', 'Model Restriction'
