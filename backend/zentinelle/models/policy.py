@@ -42,6 +42,9 @@ class Policy(Tracking):
         BUDGET_LIMIT = 'budget_limit', 'Budget Limit'
         RATE_LIMIT = 'rate_limit', 'Rate Limit'
 
+        # Behavioral
+        BEHAVIORAL_BASELINE = 'behavioral_baseline', 'Behavioral Baseline'
+
         # Security
         TOOL_PERMISSION = 'tool_permission', 'Tool Permission'
         NETWORK_POLICY = 'network_policy', 'Network Policy'

@@ -290,6 +290,7 @@ class PolicyEngine:
             DataRetentionEvaluator,
             PromptInjectionEvaluator,
             AgentDelegationEvaluator,
+            BehavioralBaselineEvaluator,
             NoOpEvaluator,
         )
 
@@ -314,6 +315,7 @@ class PolicyEngine:
             Policy.PolicyType.DATA_RETENTION: DataRetentionEvaluator(),
             Policy.PolicyType.PROMPT_INJECTION: PromptInjectionEvaluator(),
             Policy.PolicyType.AGENT_DELEGATION: AgentDelegationEvaluator(),
+            Policy.PolicyType.BEHAVIORAL_BASELINE: BehavioralBaselineEvaluator(),
         }
         return evaluators.get(policy_type, NoOpEvaluator())
 

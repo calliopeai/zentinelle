@@ -215,6 +215,54 @@ def sync_deployment_health():
 
 
 @shared_task
+def update_agent_baselines(window_days: int = 14, batch_size: int = 200):
+    """
+    Recompute behavioral baselines for all active agents.
+    Run every 15 minutes via Celery Beat.
+
+    Discovers active agents from the last 24h of events, then recomputes
+    rolling p95 stats for each. Results are stored in Redis with a 48h TTL.
+    """
+    from zentinelle.models import AgentEndpoint
+    from zentinelle.services.behavioral_baseline import recompute_baseline
+
+    # Discover active agents: any endpoint that has had recent activity
+    active_endpoints = (
+        AgentEndpoint.objects
+        .filter(status=AgentEndpoint.Status.ACTIVE)
+        .values('tenant_id', 'agent_id')
+        .distinct()[:batch_size]
+    )
+
+    updated = 0
+    skipped = 0
+
+    for ep in active_endpoints:
+        try:
+            result = recompute_baseline(
+                tenant_id=ep['tenant_id'],
+                agent_id=ep['agent_id'],
+                window_days=window_days,
+            )
+            if result is not None:
+                updated += 1
+            else:
+                skipped += 1
+        except Exception as exc:
+            logger.warning(
+                "Failed to recompute baseline for agent %s/%s: %s",
+                ep['tenant_id'], ep['agent_id'], exc,
+            )
+            skipped += 1
+
+    logger.info(
+        "Behavioral baseline update complete: %d updated, %d skipped (insufficient data)",
+        updated, skipped,
+    )
+    return {'updated': updated, 'skipped': skipped}
+
+
+@shared_task
 def retry_failed_events():
     """
     Retry failed events that haven't exceeded max retries.
