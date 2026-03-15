@@ -9,7 +9,15 @@ import graphene
 from graphql import GraphQLError
 from graphql_relay import from_global_id
 
-from billing.features import Features, require_feature_for_mutation
+try:
+    from billing.features import Features, require_feature_for_mutation
+except ImportError:
+    class Features:
+        MONITORING_CUSTOM_RULES = 'monitoring_custom_rules'
+    def require_feature_for_mutation(feature):
+        def decorator(fn):
+            return fn
+        return decorator
 from zentinelle.models import ContentRule
 from zentinelle.schema.auth_helpers import user_has_org_access
 

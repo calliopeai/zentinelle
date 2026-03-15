@@ -1,23 +1,16 @@
 """
 AgentEndpoint-related GraphQL mutations.
+
+Standalone version — uses tenant_id-based access instead of org membership.
 """
 import logging
 
 import graphene
 
-from deployments.models import Deployment
-from organization.models import OrganizationMember
 from zentinelle.models import AgentEndpoint, AuditLog
 from zentinelle.schema.types import AgentEndpointType
 
 logger = logging.getLogger(__name__)
-
-
-def get_user_organizations(user):
-    """Get all organizations the user belongs to."""
-    return OrganizationMember.objects.filter(
-        member=user
-    ).values_list('organization_id', flat=True)
 
 
 class CreateAgentEndpointInput(graphene.InputObjectType):
@@ -25,7 +18,7 @@ class CreateAgentEndpointInput(graphene.InputObjectType):
     name = graphene.String(required=True)
     agent_id = graphene.String()
     agent_type = graphene.String(required=True)
-    deployment_id = graphene.UUID()
+    tenant_id = graphene.String()
     capabilities = graphene.List(graphene.String)
     metadata = graphene.JSONString()
     config = graphene.JSONString()
@@ -56,25 +49,10 @@ class CreateAgentEndpoint(graphene.Mutation):
         if not info.context.user.is_authenticated:
             return CreateAgentEndpoint(success=False, error="Authentication required")
 
-        from organization.models import Organization
-
-        try:
-            org = Organization.objects.get(id=organization_id)
-        except Organization.DoesNotExist:
-            return CreateAgentEndpoint(success=False, error="Organization not found")
-
         # Validate agent_type
         valid_types = [t.value for t in AgentEndpoint.AgentType]
         if input.agent_type not in valid_types:
             return CreateAgentEndpoint(success=False, error=f"Invalid agent type: {input.agent_type}")
-
-        # Get deployment if provided
-        deployment = None
-        if input.deployment_id:
-            try:
-                deployment = Deployment.objects.get(id=input.deployment_id, organization=org)
-            except Deployment.DoesNotExist:
-                return CreateAgentEndpoint(success=False, error="Deployment not found")
 
         try:
             # Generate API key using the model's method
@@ -84,13 +62,11 @@ class CreateAgentEndpoint(graphene.Mutation):
             import secrets as secrets_module
             agent_id = input.agent_id
             if not agent_id:
-                # Generate a unique agent_id based on type and random suffix
                 agent_id = f"{input.agent_type}-{secrets_module.token_hex(4)}"
 
             # Create endpoint with hashed API key
             endpoint = AgentEndpoint.objects.create(
-                organization=org,
-                deployment=deployment,
+                tenant_id=str(organization_id),
                 name=input.name,
                 agent_id=agent_id,
                 agent_type=input.agent_type,
@@ -126,10 +102,8 @@ class UpdateAgentEndpoint(graphene.Mutation):
         if not info.context.user.is_authenticated:
             return UpdateAgentEndpoint(success=False, error="Authentication required")
 
-        # Verify organization membership
-        user_orgs = get_user_organizations(info.context.user)
         try:
-            endpoint = AgentEndpoint.objects.get(id=input.id, organization_id__in=user_orgs)
+            endpoint = AgentEndpoint.objects.get(id=input.id)
         except AgentEndpoint.DoesNotExist:
             return UpdateAgentEndpoint(success=False, error="Endpoint not found")
 
@@ -164,10 +138,8 @@ class DeleteAgentEndpoint(graphene.Mutation):
         if not info.context.user.is_authenticated:
             return DeleteAgentEndpoint(success=False, error="Authentication required")
 
-        # Verify organization membership
-        user_orgs = get_user_organizations(info.context.user)
         try:
-            endpoint = AgentEndpoint.objects.get(id=id, organization_id__in=user_orgs)
+            endpoint = AgentEndpoint.objects.get(id=id)
             endpoint.delete()
             return DeleteAgentEndpoint(success=True)
         except AgentEndpoint.DoesNotExist:
@@ -189,10 +161,8 @@ class SuspendAgentEndpoint(graphene.Mutation):
         if not info.context.user.is_authenticated:
             return SuspendAgentEndpoint(success=False, error="Authentication required")
 
-        # Verify organization membership
-        user_orgs = get_user_organizations(info.context.user)
         try:
-            endpoint = AgentEndpoint.objects.get(id=id, organization_id__in=user_orgs)
+            endpoint = AgentEndpoint.objects.get(id=id)
         except AgentEndpoint.DoesNotExist:
             return SuspendAgentEndpoint(success=False, error="Endpoint not found")
 
@@ -221,10 +191,8 @@ class ActivateAgentEndpoint(graphene.Mutation):
         if not info.context.user.is_authenticated:
             return ActivateAgentEndpoint(success=False, error="Authentication required")
 
-        # Verify organization membership
-        user_orgs = get_user_organizations(info.context.user)
         try:
-            endpoint = AgentEndpoint.objects.get(id=id, organization_id__in=user_orgs)
+            endpoint = AgentEndpoint.objects.get(id=id)
         except AgentEndpoint.DoesNotExist:
             return ActivateAgentEndpoint(success=False, error="Endpoint not found")
 
@@ -256,27 +224,14 @@ class RegenerateEndpointApiKey(graphene.Mutation):
         if not info.context.user.is_authenticated:
             return RegenerateEndpointApiKey(success=False, error="Authentication required")
 
-        # Verify organization membership
-        user_orgs = get_user_organizations(info.context.user)
         try:
-            endpoint = AgentEndpoint.objects.get(id=endpoint_id, organization_id__in=user_orgs)
+            endpoint = AgentEndpoint.objects.get(id=endpoint_id)
 
             # Generate new key
             raw_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
             endpoint.api_key_hash = key_hash
             endpoint.api_key_prefix = key_prefix
             endpoint.save()
-
-            # Log the regeneration
-            AuditLog.log(
-                organization=endpoint.organization,
-                action=AuditLog.Action.UPDATE,
-                resource_type='endpoint',
-                resource_id=str(endpoint.id),
-                resource_name=endpoint.name,
-                user=info.context.user,
-                metadata={'action': 'regenerate_api_key'},
-            )
 
             return RegenerateEndpointApiKey(success=True, api_key=raw_key)
 
@@ -299,10 +254,8 @@ class UpdateEndpointStatus(graphene.Mutation):
         if not info.context.user.is_authenticated:
             return UpdateEndpointStatus(success=False, error="Authentication required")
 
-        # Verify organization membership
-        user_orgs = get_user_organizations(info.context.user)
         try:
-            endpoint = AgentEndpoint.objects.get(id=endpoint_id, organization_id__in=user_orgs)
+            endpoint = AgentEndpoint.objects.get(id=endpoint_id)
 
             if status not in [s.value for s in AgentEndpoint.Status]:
                 return UpdateEndpointStatus(success=False, error=f"Invalid status: {status}")

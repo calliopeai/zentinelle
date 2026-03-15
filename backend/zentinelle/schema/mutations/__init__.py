@@ -1,8 +1,8 @@
 """
 Zentinelle GraphQL Mutations.
 
-Note: Deployment-related mutations (CreateDeployment, JunoHubConfig, TerraformProvision, etc.)
-are now in deployments.schema.mutations and registered via DeploymentsMutation in config/schema.py.
+Standalone version — deployment-related mutations (ai_keys, deployment,
+deployment_ops, junohub) are excluded as they depend on external apps.
 """
 import graphene
 
@@ -78,11 +78,7 @@ from .license_hierarchy import (
 
 
 class Mutation(graphene.ObjectType):
-    """Zentinelle GraphQL mutations.
-
-    Note: Deployment-related mutations (CreateDeployment, JunoHubConfig, TerraformProvision, etc.)
-    are now in deployments.schema.mutations and registered via DeploymentsMutation in config/schema.py.
-    """
+    """Zentinelle GraphQL mutations (standalone)."""
 
     # Endpoints
     create_agent_endpoint = CreateAgentEndpoint.Field()

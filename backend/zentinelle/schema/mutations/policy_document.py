@@ -7,7 +7,15 @@ import base64
 import graphene
 from graphene_django import DjangoObjectType
 
-from billing.features import Features, require_feature_for_mutation
+try:
+    from billing.features import Features, require_feature_for_mutation
+except ImportError:
+    class Features:
+        ZENTINELLE_POLICY_DOCUMENTS = 'zentinelle_policy_documents'
+    def require_feature_for_mutation(feature):
+        def decorator(fn):
+            return fn
+        return decorator
 from zentinelle.models import PolicyDocument
 
 

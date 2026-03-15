@@ -1,18 +1,11 @@
 """
-GraphQL Queries for Zentinelle Admin Portal.
+GraphQL Queries for Zentinelle GRC Portal.
+
+Standalone version — no dependency on deployments, organization, or billing apps.
 """
 import graphene
 from graphene_django import DjangoConnectionField
 from django.db.models import Q, Count
-
-# Note: Deployment-level models (Deployment, JunoHubConfig, TerraformProvision)
-# are now queried via deployments.schema.queries.DeploymentsQuery
-from deployments.models import Deployment  # Still needed for dashboard stats
-from deployments.models.ai_keys import (
-    OrganizationAIAdminKey,
-    DeploymentAIKey,
-    AIProvider as AIProviderChoices,
-)  # Still needed for AI usage/budget queries
 
 # Agent-level models (from zentinelle)
 from zentinelle.models import (
@@ -43,9 +36,6 @@ from zentinelle.models import (
     LicenseComplianceViolation,
 )
 from .types import (
-    # Note: DeploymentType, JunoHubConfigType, TerraformProvisionType
-    # are now in deployments.schema.types
-    DeploymentType,  # Still needed for dashboard stats
     AgentEndpointType,
     PolicyType,
     EventType,
@@ -1289,16 +1279,11 @@ class Query(graphene.ObjectType):
             ],
         )
 
-        # Deployment stats - filtered by org
-        deployments = filter_by_org(Deployment.objects.all(), user)
-        env_counts = deployments.values('environment').annotate(count=Count('id'))
+        # Deployment stats - not available in standalone mode
         deployment_stats = DeploymentStatsType(
-            total=deployments.count(),
-            active=deployments.filter(status=Deployment.Status.ACTIVE).count(),
-            by_environment=[
-                DeploymentByEnvType(environment=item['environment'], count=item['count'])
-                for item in env_counts
-            ],
+            total=0,
+            active=0,
+            by_environment=[],
         )
 
         # API Usage - from Events - filtered by org
@@ -1336,7 +1321,7 @@ class Query(graphene.ObjectType):
                 type=log.action,
                 description=f"{log.action} {log.resource_type}: {log.resource_name}",
                 timestamp=log.timestamp,
-                actor=log.user.username if log.user else 'System',
+                actor=log.ext_user_id or 'System',
             )
             for log in recent_logs
         ]
@@ -1344,13 +1329,7 @@ class Query(graphene.ObjectType):
         # Alerts - for now return empty list
         alerts = []
 
-        # Team stats - get organization membership info
-        from organization.models import OrganizationMember
-        user_membership = OrganizationMember.objects.filter(
-            member=user,
-            is_active=True
-        ).select_related('organization').first()
-
+        # Team stats - not available in standalone mode
         team_stats = TeamStatsType(total=0, active=0, invited=0)
         billing_stats = BillingStatsType(
             has_subscription=False,
@@ -1358,57 +1337,8 @@ class Query(graphene.ObjectType):
             plan_name=None
         )
 
-        if user_membership:
-            org = user_membership.organization
-            members = OrganizationMember.objects.filter(
-                organization=org,
-                is_active=True
-            )
-            team_stats = TeamStatsType(
-                total=members.count(),
-                active=members.filter(status='active').count(),
-                invited=members.filter(status='invited').count(),
-            )
-
-            # Billing stats - check subscription
-            try:
-                from billing.models import Subscription
-                subscription = Subscription.objects.filter(
-                    organization=org,
-                    status__in=['active', 'trialing']
-                ).select_related('plan').first()
-                if subscription:
-                    billing_stats = BillingStatsType(
-                        has_subscription=True,
-                        has_payment_method=bool(subscription.stripe_subscription_id),
-                        plan_name=subscription.plan.name if subscription.plan else None
-                    )
-            except Exception:
-                pass  # billing module may not exist
-
-        # Getting started checklist
+        # Getting started checklist - not available in standalone mode
         checklist_stats = None
-        if user_membership:
-            try:
-                from organization.models import GettingStartedChecklist
-                checklist = GettingStartedChecklist.get_or_create_for_org(org)
-                checklist_items = []
-                for key, field in GettingStartedChecklist.ITEM_FIELDS.items():
-                    checklist_items.append(ChecklistItemStatsType(
-                        key=key,
-                        is_complete=getattr(checklist, field),
-                        completed_at=getattr(checklist, f'{field}_completed_at'),
-                    ))
-                checklist_stats = ChecklistStatsType(
-                    items=checklist_items,
-                    completed_count=checklist.completed_count,
-                    total_count=checklist.total_count,
-                    progress_percent=checklist.progress_percent,
-                    is_all_complete=checklist.is_all_complete,
-                    dismissed=checklist.dismissed,
-                )
-            except Exception:
-                pass  # checklist may not exist yet
 
         return DashboardStatsType(
             agents=agent_stats,
@@ -2446,11 +2376,15 @@ class Query(graphene.ObjectType):
 
     @staticmethod
     def resolve_ai_usage_summary(root, info, organization_id, deployment_id=None, days=30, **kwargs):
-        """Get AI usage summary for organization or deployment."""
+        """Get AI usage summary. Not available in standalone mode (requires billing app)."""
+        return None
+
+    @staticmethod
+    def _resolve_ai_usage_summary_DISABLED(root, info, organization_id, deployment_id=None, days=30, **kwargs):
+        """DISABLED: Original resolver depends on billing.models.AIUsage."""
         if not info.context.user.is_authenticated:
             return None
 
-        # Decode Relay global ID if necessary (frontend sends encoded IDs)
         org_id_str = str(organization_id)
         try:
             import uuid
@@ -2463,7 +2397,6 @@ class Query(graphene.ObjectType):
             except Exception:
                 return None
 
-        # Authorization: user must belong to the organization
         user = info.context.user
         org_ids = get_user_org_ids(user)
         if org_ids is not None and str(organization_id) not in [str(oid) for oid in org_ids]:
@@ -2472,7 +2405,7 @@ class Query(graphene.ObjectType):
         from django.utils import timezone
         from datetime import timedelta
         from django.db.models import Sum, Count
-        from billing.models import AIUsage
+        AIUsage = None  # billing.models.AIUsage not available
 
         now = timezone.now()
         period_start = now - timedelta(days=days)
@@ -2590,47 +2523,8 @@ class Query(graphene.ObjectType):
 
     @staticmethod
     def resolve_ai_budget_status(root, info, organization_id, **kwargs):
-        """Get AI budget status for organization."""
-        if not info.context.user.is_authenticated:
-            return None
-
-        # Decode Relay global ID if necessary (frontend sends encoded IDs)
-        org_id_str = str(organization_id)
-        try:
-            import uuid
-            uuid.UUID(org_id_str)
-        except ValueError:
-            try:
-                from graphql_relay import from_global_id
-                _, org_id_str = from_global_id(org_id_str)
-                organization_id = org_id_str
-            except Exception:
-                return None
-
-        from organization.models import Organization
-
-        # Authorization: user must belong to the organization
-        user = info.context.user
-        org = filter_by_org(Organization.objects.all(), user, org_field='id').filter(id=organization_id).first()
-        if not org:
-            return None
-
-        return AIBudgetStatusType(
-            budget_usd=float(org.ai_budget_usd) if org.ai_budget_usd else None,
-            spent_usd=float(org.ai_budget_spent_usd),
-            remaining_usd=float(org.ai_budget_remaining) if org.has_ai_budget else None,
-            percentage_used=org.ai_budget_percentage_used,
-            has_budget=org.has_ai_budget,
-            is_exceeded=org.is_ai_budget_exceeded,
-            should_block=org.should_block_ai_requests,
-            overage_policy=org.overage_policy,
-            overage_policy_display=org.get_overage_policy_display(),
-            has_payment_method=bool(org.stripe_payment_method_id),
-            alert_threshold=org.ai_budget_alert_threshold,
-            alert_sent=org.ai_budget_alert_sent,
-            period_start=org.ai_budget_period_start,
-            provider_limits=org.ai_provider_limits or {},
-        )
+        """Get AI budget status. Not available in standalone mode (requires organization app)."""
+        return None
 
     # ==========================================================================
     # License Compliance Resolvers
@@ -2638,19 +2532,22 @@ class Query(graphene.ObjectType):
 
     @staticmethod
     def resolve_license_compliance_summary(root, info, organization_id=None):
-        """Get license compliance summary for organization."""
+        """Get license compliance summary. Not available in standalone mode (requires organization app)."""
+        return None
+
+    @staticmethod
+    def _resolve_license_compliance_summary_DISABLED(root, info, organization_id=None):
+        """DISABLED: Original resolver depends on organization.models."""
         if not info.context.user.is_authenticated:
             return None
 
-        from organization.models import Organization
-        from zentinelle.services.license_compliance_service import license_compliance_service
+        return None  # organization.models not available
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
+        membership = None
         if not membership:
             return None
 
-        # Use specified org or user's current org
         if organization_id:
             org_ids = get_user_org_ids(user)
             if org_ids is not None and str(organization_id) not in [str(oid) for oid in org_ids]:
@@ -2775,13 +2672,17 @@ class Query(graphene.ObjectType):
 
     @staticmethod
     def resolve_license_violation_summary(root, info, organization_id=None, days=30):
-        """Get violation summary for organization."""
+        """Get violation summary. Not available in standalone mode (requires organization app)."""
+        return None
+
+    @staticmethod
+    def _resolve_license_violation_summary_DISABLED(root, info, organization_id=None, days=30):
+        """DISABLED: Original resolver depends on organization.models."""
         if not info.context.user.is_authenticated:
             return None
 
         from django.utils import timezone
         from datetime import timedelta
-        from organization.models import Organization
 
         user = info.context.user
         membership = user.memberships.filter(is_active=True).first()

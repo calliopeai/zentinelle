@@ -6,7 +6,15 @@ These mutations require the ZENTINELLE_COMPLIANCE_CHECKS feature (Enterprise pla
 import graphene
 from graphene import relay
 
-from billing.features import Features, require_feature_for_mutation
+try:
+    from billing.features import Features, require_feature_for_mutation
+except ImportError:
+    class Features:
+        ZENTINELLE_COMPLIANCE_CHECKS = 'zentinelle_compliance_checks'
+    def require_feature_for_mutation(feature):
+        def decorator(fn):
+            return fn
+        return decorator
 
 
 class RunComplianceCheck(graphene.Mutation):

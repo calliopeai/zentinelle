@@ -1,23 +1,21 @@
 """
 GraphQL schema for Zentinelle standalone.
 
-# TODO: decouple - full schema (types, queries, mutations) depends on
-# client-cove models (Deployment, JunoHubConfig, etc.). The raw files
-# are preserved in this directory for future reference. This stub
-# provides a minimal health-check schema so Django/Graphene boots cleanly.
+Composes the full schema from queries, mutations, and the prompt library.
 """
 import graphene
 
-
-class Query(graphene.ObjectType):
-    health = graphene.String(description="Health check")
-
-    def resolve_health(root, info):
-        return "ok"
+from .queries import Query as ZentinelleQuery
+from .mutations import Mutation as ZentinelleMutation
+from .system_prompt import PromptLibraryQuery, PromptLibraryMutation
 
 
-class Mutation(graphene.ObjectType):
+class Query(ZentinelleQuery, PromptLibraryQuery, graphene.ObjectType):
     pass
 
 
-schema = graphene.Schema(query=Query)
+class Mutation(ZentinelleMutation, PromptLibraryMutation, graphene.ObjectType):
+    pass
+
+
+schema = graphene.Schema(query=Query, mutation=Mutation)

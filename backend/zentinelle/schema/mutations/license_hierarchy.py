@@ -8,19 +8,24 @@ import logging
 import graphene
 from graphene import relay
 
-from billing.features import require_feature_for_mutation, Features
-from organization.models import Organization, OrganizationMember
 from zentinelle.models import License
-from zentinelle.services.license_hierarchy_service import license_hierarchy_service
+
+try:
+    from billing.features import require_feature_for_mutation, Features
+except ImportError:
+    class Features:
+        KEYS_BULK_PROVISIONING = 'keys_bulk_provisioning'
+    def require_feature_for_mutation(feature):
+        def decorator(fn):
+            return fn
+        return decorator
+
+try:
+    from zentinelle.services.license_hierarchy_service import license_hierarchy_service
+except ImportError:
+    license_hierarchy_service = None
 
 logger = logging.getLogger(__name__)
-
-
-def get_user_organizations(user):
-    """Get all organizations the user belongs to."""
-    return OrganizationMember.objects.filter(
-        member=user
-    ).values_list('organization_id', flat=True)
 
 
 # =============================================================================

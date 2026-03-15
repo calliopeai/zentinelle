@@ -11,7 +11,16 @@ from graphql import GraphQLError
 from graphql_relay import from_global_id
 from django.utils import timezone
 
-from billing.features import Features, require_feature_for_mutation
+try:
+    from billing.features import Features, require_feature_for_mutation
+except ImportError:
+    class Features:
+        ZENTINELLE_RETENTION_POLICIES = 'zentinelle_retention_policies'
+        ZENTINELLE_LEGAL_HOLDS = 'zentinelle_legal_holds'
+    def require_feature_for_mutation(feature):
+        def decorator(fn):
+            return fn
+        return decorator
 from zentinelle.models import RetentionPolicy, LegalHold
 from zentinelle.schema.auth_helpers import user_has_org_access
 

@@ -1,19 +1,11 @@
 """
-GraphQL Types for Zentinelle Admin Portal.
+GraphQL Types for Zentinelle GRC Portal.
 
-Note: Deployment types (DeploymentType, JunoHubConfigType, TerraformProvisionType)
-are now defined in deployments.schema.types and re-exported here for backwards compatibility.
+Standalone version — no dependency on deployments app.
 """
 import graphene
 from graphene import relay
 from graphene_django import DjangoObjectType
-
-# Import deployment types from deployments app (for backwards compatibility)
-from deployments.schema.types import (
-    DeploymentType,
-    JunoHubConfigType,
-    TerraformProvisionType,
-)
 
 # Agent-level models (from zentinelle)
 from zentinelle.models import (
@@ -58,7 +50,7 @@ class AgentEndpointType(DjangoObjectType):
     deployment_name = graphene.String()
 
     def resolve_deployment_name(self, info):
-        return self.deployment.name if self.deployment else None
+        return self.deployment_id_ext or None
 
 
 class PolicyType(DjangoObjectType):
@@ -76,20 +68,18 @@ class PolicyType(DjangoObjectType):
     created_by_username = graphene.String()
 
     def resolve_scope_name(self, info):
-        if self.scope_sub_organization:
-            return f"Team: {self.scope_sub_organization.name}"
-        elif self.scope_deployment:
-            return f"Deployment: {self.scope_deployment.name}"
+        if self.scope_sub_organization_id_ext:
+            return f"Team: {self.scope_sub_organization_id_ext}"
+        elif self.scope_deployment_id_ext:
+            return f"Deployment: {self.scope_deployment_id_ext}"
         elif self.scope_endpoint:
             return f"Endpoint: {self.scope_endpoint.name}"
-        elif self.scope_user_id:
-            return f"User: {self.scope_user_id}"
+        elif self.scope_user_id_ext:
+            return f"User: {self.scope_user_id_ext}"
         return "Organization"
 
     def resolve_created_by_username(self, info):
-        if self.created_by:
-            return self.created_by.username
-        return None
+        return self.user_id or None
 
 
 class EventType(DjangoObjectType):
@@ -239,8 +229,6 @@ class OrganizationModelApprovalType(DjangoObjectType):
     model_risk_level = graphene.String()
     status_display = graphene.String()
     is_usable = graphene.Boolean()
-    reviewed_by_username = graphene.String()
-    requested_by_username = graphene.String()
 
     def resolve_model_id(self, info):
         return self.model_id
@@ -259,12 +247,6 @@ class OrganizationModelApprovalType(DjangoObjectType):
 
     def resolve_is_usable(self, info):
         return self.is_usable
-
-    def resolve_reviewed_by_username(self, info):
-        return self.reviewed_by.username if self.reviewed_by else None
-
-    def resolve_requested_by_username(self, info):
-        return self.requested_by.username if self.requested_by else None
 
 
 # =============================================================================
@@ -301,14 +283,8 @@ class ContentRuleType(DjangoObjectType):
         return self.get_enforcement_display()
 
     def resolve_scope_name(self, info):
-        if self.scope_sub_organization:
-            return f"Team: {self.scope_sub_organization.name}"
-        if self.scope_deployment:
-            return f"Deployment: {self.scope_deployment.name}"
         if self.scope_endpoint:
             return f"Endpoint: {self.scope_endpoint.name}"
-        if self.scope_user:
-            return f"User: {self.scope_user.username}"
         return "Organization"
 
     def resolve_violation_count(self, info):
@@ -375,7 +351,7 @@ class ContentScanType(DjangoObjectType):
         return self.endpoint.name if self.endpoint else None
 
     def resolve_deployment_name(self, info):
-        return self.deployment.name if self.deployment else None
+        return self.deployment_id_ext or None
 
     def resolve_violations(self, info):
         return self.violations.all()
@@ -398,8 +374,6 @@ class ComplianceAlertType(DjangoObjectType):
     severity_display = graphene.String()
     status_display = graphene.String()
     endpoint_name = graphene.String()
-    acknowledged_by_username = graphene.String()
-    resolved_by_username = graphene.String()
 
     def resolve_alert_type_display(self, info):
         return self.get_alert_type_display()
@@ -412,12 +386,6 @@ class ComplianceAlertType(DjangoObjectType):
 
     def resolve_endpoint_name(self, info):
         return self.endpoint.name if self.endpoint else None
-
-    def resolve_acknowledged_by_username(self, info):
-        return self.acknowledged_by.username if self.acknowledged_by else None
-
-    def resolve_resolved_by_username(self, info):
-        return self.resolved_by.username if self.resolved_by else None
 
 
 class InteractionLogType(DjangoObjectType):
@@ -451,7 +419,7 @@ class InteractionLogType(DjangoObjectType):
         return self.endpoint.name if self.endpoint else None
 
     def resolve_deployment_name(self, info):
-        return self.deployment.name if self.deployment else None
+        return self.deployment_id_ext or None
 
     def resolve_has_violations(self, info):
         if self.scan:
@@ -496,7 +464,6 @@ class RiskType(DjangoObjectType):
     risk_level = graphene.String()
     residual_risk_score = graphene.Int()
     owner_name = graphene.String()
-    last_reviewed_by_name = graphene.String()
     incident_count = graphene.Int()
 
     def resolve_category_display(self, info):
@@ -521,10 +488,7 @@ class RiskType(DjangoObjectType):
         return self.residual_risk_score
 
     def resolve_owner_name(self, info):
-        return self.owner.get_full_name() if self.owner else None
-
-    def resolve_last_reviewed_by_name(self, info):
-        return self.last_reviewed_by.get_full_name() if self.last_reviewed_by else None
+        return self.user_id or None
 
     def resolve_incident_count(self, info):
         return self.incidents.count()
@@ -551,8 +515,6 @@ class IncidentType(DjangoObjectType):
     sla_status = graphene.String()
     time_to_acknowledge_seconds = graphene.Int()
     time_to_resolve_seconds = graphene.Int()
-    assigned_to_name = graphene.String()
-    reported_by_name = graphene.String()
     endpoint_name = graphene.String()
     deployment_name = graphene.String()
     related_risk_name = graphene.String()
@@ -578,17 +540,11 @@ class IncidentType(DjangoObjectType):
         ttr = self.time_to_resolve
         return int(ttr.total_seconds()) if ttr else None
 
-    def resolve_assigned_to_name(self, info):
-        return self.assigned_to.get_full_name() if self.assigned_to else None
-
-    def resolve_reported_by_name(self, info):
-        return self.reported_by.get_full_name() if self.reported_by else None
-
     def resolve_endpoint_name(self, info):
         return self.endpoint.name if self.endpoint else None
 
     def resolve_deployment_name(self, info):
-        return self.deployment.name if self.deployment else None
+        return self.deployment_id_ext or None
 
     def resolve_related_risk_name(self, info):
         return self.related_risk.name if self.related_risk else None
@@ -616,16 +572,12 @@ class LicenseComplianceReportType(DjangoObjectType):
 
     report_type_display = graphene.String()
     status_display = graphene.String()
-    generated_by_username = graphene.String()
 
     def resolve_report_type_display(self, info):
         return self.get_report_type_display()
 
     def resolve_status_display(self, info):
         return self.get_status_display()
-
-    def resolve_generated_by_username(self, info):
-        return self.generated_by.username if self.generated_by else None
 
 
 class LicenseComplianceViolationGraphType(DjangoObjectType):
@@ -645,7 +597,6 @@ class LicenseComplianceViolationGraphType(DjangoObjectType):
     severity_display = graphene.String()
     status_display = graphene.String()
     license_key = graphene.String()
-    resolved_by_username = graphene.String()
     is_open = graphene.Boolean()
     is_resolved = graphene.Boolean()
 
@@ -664,13 +615,8 @@ class LicenseComplianceViolationGraphType(DjangoObjectType):
             return f"{self.license.license_key[:12]}..."
         return None
 
-    def resolve_resolved_by_username(self, info):
-        return self.resolved_by.username if self.resolved_by else None
-
     def resolve_is_open(self, info):
         return self.is_open
 
     def resolve_is_resolved(self, info):
         return self.is_resolved
-
-

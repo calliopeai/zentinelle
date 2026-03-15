@@ -1,26 +1,16 @@
 """
 Policy-related GraphQL mutations.
 
-These mutations require Zentinelle access (any tier: basic, pro, or enterprise).
+Standalone version — uses tenant_id-based access.
 """
 import logging
 
 import graphene
 
-from billing.features import require_zentinelle_access
-from deployments.models import Deployment
-from organization.models import OrganizationMember
 from zentinelle.models import Policy, AgentEndpoint
 from zentinelle.schema.types import PolicyType
 
 logger = logging.getLogger(__name__)
-
-
-def get_user_organizations(user):
-    """Get all organizations the user belongs to."""
-    return OrganizationMember.objects.filter(
-        member=user
-    ).values_list('organization_id', flat=True)
 
 
 class CreatePolicyInput(graphene.InputObjectType):
@@ -29,10 +19,8 @@ class CreatePolicyInput(graphene.InputObjectType):
     description = graphene.String()
     policy_type = graphene.String(required=True)
     scope_type = graphene.String()
-    scope_sub_organization_id = graphene.ID()
-    scope_deployment_id = graphene.ID()
     scope_endpoint_id = graphene.ID()
-    scope_user_id = graphene.ID()
+    scope_user_id = graphene.String()
     config = graphene.JSONString()
     priority = graphene.Int()
     enforcement = graphene.String()
@@ -51,7 +39,7 @@ class UpdatePolicyInput(graphene.InputObjectType):
 
 
 class CreatePolicy(graphene.Mutation):
-    """Create a new policy. Requires Zentinelle access."""
+    """Create a new policy."""
     class Arguments:
         organization_id = graphene.UUID(required=True)
         input = CreatePolicyInput(required=True)
@@ -61,17 +49,9 @@ class CreatePolicy(graphene.Mutation):
     error = graphene.String()
 
     @classmethod
-    @require_zentinelle_access
     def mutate(cls, root, info, organization_id, input):
         if not info.context.user.is_authenticated:
             return CreatePolicy(success=False, error="Authentication required")
-
-        from organization.models import Organization
-
-        try:
-            org = Organization.objects.get(id=organization_id)
-        except Organization.DoesNotExist:
-            return CreatePolicy(success=False, error="Organization not found")
 
         # Validate policy_type
         valid_types = [t.value for t in Policy.PolicyType]
@@ -80,49 +60,29 @@ class CreatePolicy(graphene.Mutation):
 
         # Build policy data
         policy_data = {
-            'organization': org,
+            'tenant_id': str(organization_id),
             'name': input.name,
             'policy_type': input.policy_type,
             'description': input.description or '',
             'config': input.config or {},
             'priority': input.priority or 0,
             'enabled': input.enabled if input.enabled is not None else True,
+            'user_id': str(info.context.user.id) if info.context.user.is_authenticated else '',
         }
 
         # Handle scope
         scope_type = input.scope_type or Policy.ScopeType.ORGANIZATION
         policy_data['scope_type'] = scope_type
 
-        if scope_type == Policy.ScopeType.SUB_ORGANIZATION and input.scope_sub_organization_id:
-            from organization.models import SubOrganization
+        if scope_type == Policy.ScopeType.ENDPOINT and input.scope_endpoint_id:
             try:
-                sub_org = SubOrganization.objects.get(id=input.scope_sub_organization_id, organization=org)
-                policy_data['scope_sub_organization'] = sub_org
-            except SubOrganization.DoesNotExist:
-                return CreatePolicy(success=False, error="Sub-organization not found")
-
-        elif scope_type == Policy.ScopeType.DEPLOYMENT and input.scope_deployment_id:
-            try:
-                deployment = Deployment.objects.get(id=input.scope_deployment_id, organization=org)
-                policy_data['scope_deployment'] = deployment
-            except Deployment.DoesNotExist:
-                return CreatePolicy(success=False, error="Deployment not found")
-
-        elif scope_type == Policy.ScopeType.ENDPOINT and input.scope_endpoint_id:
-            try:
-                endpoint = AgentEndpoint.objects.get(id=input.scope_endpoint_id, organization=org)
+                endpoint = AgentEndpoint.objects.get(id=input.scope_endpoint_id)
                 policy_data['scope_endpoint'] = endpoint
             except AgentEndpoint.DoesNotExist:
                 return CreatePolicy(success=False, error="Endpoint not found")
 
         elif scope_type == Policy.ScopeType.USER and input.scope_user_id:
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            try:
-                user = User.objects.get(id=input.scope_user_id)
-                policy_data['scope_user'] = user
-            except User.DoesNotExist:
-                return CreatePolicy(success=False, error="User not found")
+            policy_data['scope_user_id_ext'] = input.scope_user_id
 
         # Handle enforcement
         if input.enforcement:
@@ -130,10 +90,6 @@ class CreatePolicy(graphene.Mutation):
             if input.enforcement not in valid_enforcement:
                 return CreatePolicy(success=False, error=f"Invalid enforcement: {input.enforcement}")
             policy_data['enforcement'] = input.enforcement
-
-        # Set created_by to current user
-        if info.context.user.is_authenticated:
-            policy_data['created_by'] = info.context.user
 
         try:
             policy = Policy.objects.create(**policy_data)
@@ -144,7 +100,7 @@ class CreatePolicy(graphene.Mutation):
 
 
 class UpdatePolicy(graphene.Mutation):
-    """Update an existing policy. Requires Zentinelle access."""
+    """Update an existing policy."""
     class Arguments:
         input = UpdatePolicyInput(required=True)
 
@@ -153,15 +109,12 @@ class UpdatePolicy(graphene.Mutation):
     error = graphene.String()
 
     @classmethod
-    @require_zentinelle_access
     def mutate(cls, root, info, input):
         if not info.context.user.is_authenticated:
             return UpdatePolicy(success=False, error="Authentication required")
 
-        # Get policy and verify organization membership
-        user_orgs = get_user_organizations(info.context.user)
         try:
-            policy = Policy.objects.get(id=input.id, organization_id__in=user_orgs)
+            policy = Policy.objects.get(id=input.id)
         except Policy.DoesNotExist:
             return UpdatePolicy(success=False, error="Policy not found")
 
@@ -191,7 +144,7 @@ class UpdatePolicy(graphene.Mutation):
 
 
 class DeletePolicy(graphene.Mutation):
-    """Delete a policy. Requires Zentinelle access."""
+    """Delete a policy."""
     class Arguments:
         id = graphene.ID(required=True)
 
@@ -199,15 +152,12 @@ class DeletePolicy(graphene.Mutation):
     error = graphene.String()
 
     @classmethod
-    @require_zentinelle_access
     def mutate(cls, root, info, id):
         if not info.context.user.is_authenticated:
             return DeletePolicy(success=False, error="Authentication required")
 
-        # Verify organization membership
-        user_orgs = get_user_organizations(info.context.user)
         try:
-            policy = Policy.objects.get(id=id, organization_id__in=user_orgs)
+            policy = Policy.objects.get(id=id)
             policy.delete()
             return DeletePolicy(success=True)
         except Policy.DoesNotExist:
@@ -215,7 +165,7 @@ class DeletePolicy(graphene.Mutation):
 
 
 class DuplicatePolicy(graphene.Mutation):
-    """Duplicate a policy (useful for creating similar policies). Requires Zentinelle access."""
+    """Duplicate a policy (useful for creating similar policies)."""
     class Arguments:
         id = graphene.ID(required=True)
         new_name = graphene.String()
@@ -225,29 +175,26 @@ class DuplicatePolicy(graphene.Mutation):
     error = graphene.String()
 
     @classmethod
-    @require_zentinelle_access
     def mutate(cls, root, info, id, new_name=None):
         if not info.context.user.is_authenticated:
             return DuplicatePolicy(success=False, error="Authentication required")
 
-        # Verify organization membership
-        user_orgs = get_user_organizations(info.context.user)
         try:
-            original = Policy.objects.get(id=id, organization_id__in=user_orgs)
+            original = Policy.objects.get(id=id)
         except Policy.DoesNotExist:
             return DuplicatePolicy(success=False, error="Policy not found")
 
         # Create copy
         new_policy = Policy.objects.create(
-            organization=original.organization,
+            tenant_id=original.tenant_id,
             name=new_name or f"{original.name} (Copy)",
             description=original.description,
             policy_type=original.policy_type,
             scope_type=original.scope_type,
-            scope_sub_organization=original.scope_sub_organization,
-            scope_deployment=original.scope_deployment,
+            scope_sub_organization_id_ext=original.scope_sub_organization_id_ext,
+            scope_deployment_id_ext=original.scope_deployment_id_ext,
             scope_endpoint=original.scope_endpoint,
-            scope_user=original.scope_user,
+            scope_user_id_ext=original.scope_user_id_ext,
             config=original.config.copy(),
             priority=original.priority,
             enforcement=original.enforcement,
@@ -271,10 +218,8 @@ class TogglePolicyEnabled(graphene.Mutation):
         if not info.context.user.is_authenticated:
             return TogglePolicyEnabled(success=False, error="Authentication required")
 
-        # Verify organization membership
-        user_orgs = get_user_organizations(info.context.user)
         try:
-            policy = Policy.objects.get(id=id, organization_id__in=user_orgs)
+            policy = Policy.objects.get(id=id)
             policy.enabled = not policy.enabled
             policy.save(update_fields=['enabled', 'updated_at'])
             return TogglePolicyEnabled(success=True, policy=policy)
