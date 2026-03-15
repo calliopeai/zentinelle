@@ -51,6 +51,7 @@ from zentinelle.api.views import (
     ExportViolationsCSVView,
     ExportComplianceReportCSVView,
     ComplianceReportSummaryView,
+    AuditChainVerifyView,
 )
 
 app_name = 'zentinelle'
@@ -83,4 +84,7 @@ urlpatterns = [
     path('export/violations.csv', ExportViolationsCSVView.as_view(), name='export-violations-csv'),
     path('export/compliance-report.csv', ExportComplianceReportCSVView.as_view(), name='export-compliance-csv'),
     path('export/summary.json', ComplianceReportSummaryView.as_view(), name='export-summary'),
+
+    # Audit chain verification
+    path('audit/verify', AuditChainVerifyView.as_view(), name='audit-verify'),
 ]
