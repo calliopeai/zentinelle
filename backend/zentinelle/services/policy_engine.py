@@ -34,6 +34,8 @@ class EvaluationResult:
     warnings: List[str] = field(default_factory=list)
     context: Dict[str, Any] = field(default_factory=dict)
     dry_run: bool = False
+    risk_score: int = 0
+    risk_factors: List[Dict] = field(default_factory=list)
 
 
 class PolicyEngine:
@@ -258,6 +260,10 @@ class PolicyEngine:
             if result.warnings:
                 warnings.extend(result.warnings)
 
+        from zentinelle.services.risk_scorer import RiskScorer
+        scorer = RiskScorer()
+        risk_score, risk_factors = scorer.compute(action, context, results, warnings)
+
         return EvaluationResult(
             allowed=True if dry_run else allowed,
             reason=None if dry_run else denial_reason,
@@ -265,6 +271,8 @@ class PolicyEngine:
             warnings=warnings,
             context=context,
             dry_run=dry_run,
+            risk_score=risk_score,
+            risk_factors=risk_factors,
         )
 
     def _get_evaluator(self, policy_type: str) -> 'BasePolicyEvaluator':
@@ -281,6 +289,7 @@ class PolicyEngine:
             OutputFilterEvaluator,
             AgentCapabilityEvaluator,
             HumanOversightEvaluator,
+            SessionQuotaEvaluator,
             NoOpEvaluator,
         )
 
@@ -296,6 +305,7 @@ class PolicyEngine:
             Policy.PolicyType.OUTPUT_FILTER: OutputFilterEvaluator(),
             Policy.PolicyType.AGENT_CAPABILITY: AgentCapabilityEvaluator(),
             Policy.PolicyType.HUMAN_OVERSIGHT: HumanOversightEvaluator(),
+            Policy.PolicyType.SESSION_QUOTA: SessionQuotaEvaluator(),
             # These policy types don't block actions, just configure behavior
             Policy.PolicyType.SYSTEM_PROMPT: NoOpEvaluator(),
             Policy.PolicyType.AI_GUARDRAIL: NoOpEvaluator(),

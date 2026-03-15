@@ -10,6 +10,7 @@ from zentinelle.services.evaluators.network_policy import NetworkPolicyEvaluator
 from zentinelle.services.evaluators.output_filter import OutputFilterEvaluator
 from zentinelle.services.evaluators.agent_capability import AgentCapabilityEvaluator
 from zentinelle.services.evaluators.human_oversight import HumanOversightEvaluator
+from zentinelle.services.evaluators.session_quota import SessionQuotaEvaluator
 
 __all__ = [
     'BasePolicyEvaluator',
@@ -26,4 +27,5 @@ __all__ = [
     'OutputFilterEvaluator',
     'AgentCapabilityEvaluator',
     'HumanOversightEvaluator',
+    'SessionQuotaEvaluator',
 ]

@@ -49,6 +49,7 @@ class Policy(Tracking):
         # Compliance
         AUDIT_POLICY = 'audit_policy', 'Audit Policy'
         SESSION_POLICY = 'session_policy', 'Session Policy'
+        SESSION_QUOTA = 'session_quota', 'Session Quota'
         DATA_RETENTION = 'data_retention', 'Data Retention'
 
     class Enforcement(models.TextChoices):
