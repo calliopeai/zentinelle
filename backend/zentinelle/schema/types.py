@@ -7,6 +7,18 @@ import graphene
 from graphene import relay
 from graphene_django import DjangoObjectType
 
+
+class CountableConnection(relay.Connection):
+    """Connection base that adds a totalCount field."""
+    class Meta:
+        abstract = True
+
+    total_count = graphene.Int()
+
+    @staticmethod
+    def resolve_total_count(root, info, **kwargs):
+        return root.length
+
 # Agent-level models (from zentinelle)
 from zentinelle.models import (
     AgentEndpoint,
@@ -113,16 +125,78 @@ class EventType(DjangoObjectType):
         return self.endpoint.name if self.endpoint else None
 
 
+class AuditActorType(graphene.ObjectType):
+    """Actor who performed an audit action."""
+    id = graphene.String()
+    email = graphene.String()
+    name = graphene.String()
+    type = graphene.String()  # 'user' or 'api_key'
+
+
+class AuditChangeType(graphene.ObjectType):
+    """A field-level change recorded in an audit log entry."""
+    field = graphene.String()
+    old_value = graphene.String()
+    new_value = graphene.String()
+
+
 class AuditLogType(DjangoObjectType):
     """GraphQL type for AuditLog."""
     class Meta:
         model = AuditLog
         interfaces = (relay.Node,)
+        connection_class = CountableConnection
         fields = [
             'id', 'action', 'resource_type', 'resource_id', 'resource_name',
             'metadata', 'api_key_prefix', 'ip_address', 'user_agent',
             'timestamp',
         ]
+
+    # Aliases / computed fields to match frontend expectations
+    actor = graphene.Field(AuditActorType)
+    resource = graphene.String()
+    status = graphene.String()
+    details = graphene.JSONString()
+    changes = graphene.List(AuditChangeType)
+
+    def resolve_actor(self, info):
+        if self.api_key_prefix:
+            return AuditActorType(
+                id=self.api_key_prefix,
+                email=None,
+                name=f"API Key ({self.api_key_prefix})",
+                type='api_key',
+            )
+        if self.ext_user_id:
+            return AuditActorType(
+                id=self.ext_user_id,
+                email=self.ext_user_id if '@' in self.ext_user_id else None,
+                name=self.ext_user_id,
+                type='user',
+            )
+        return None
+
+    def resolve_resource(self, info):
+        return self.resource_type
+
+    def resolve_status(self, info):
+        # AuditLog doesn't have a status field — return 'success' as a sensible default
+        return 'success'
+
+    def resolve_details(self, info):
+        return self.metadata or {}
+
+    def resolve_changes(self, info):
+        raw = self.changes or {}
+        result = []
+        for field_name, change in raw.items():
+            if isinstance(change, dict):
+                result.append(AuditChangeType(
+                    field=field_name,
+                    old_value=str(change.get('old', '')) if change.get('old') is not None else None,
+                    new_value=str(change.get('new', '')) if change.get('new') is not None else None,
+                ))
+        return result
 
 
 # =============================================================================
@@ -243,6 +317,8 @@ class OrganizationModelApprovalType(DjangoObjectType):
     model_risk_level = graphene.String()
     status_display = graphene.String()
     is_usable = graphene.Boolean()
+    reviewed_by_username = graphene.String()
+    requested_by_username = graphene.String()
 
     def resolve_model_id(self, info):
         return self.model_id
@@ -261,6 +337,12 @@ class OrganizationModelApprovalType(DjangoObjectType):
 
     def resolve_is_usable(self, info):
         return self.is_usable
+
+    def resolve_reviewed_by_username(self, info):
+        return self.reviewer_id or None
+
+    def resolve_requested_by_username(self, info):
+        return self.user_id or None
 
 
 # =============================================================================
@@ -388,6 +470,8 @@ class ComplianceAlertType(DjangoObjectType):
     severity_display = graphene.String()
     status_display = graphene.String()
     endpoint_name = graphene.String()
+    acknowledged_by_username = graphene.String()
+    resolved_by_username = graphene.String()
 
     def resolve_alert_type_display(self, info):
         return self.get_alert_type_display()
@@ -400,6 +484,12 @@ class ComplianceAlertType(DjangoObjectType):
 
     def resolve_endpoint_name(self, info):
         return self.endpoint.name if self.endpoint else None
+
+    def resolve_acknowledged_by_username(self, info):
+        return self.acknowledged_by or None
+
+    def resolve_resolved_by_username(self, info):
+        return getattr(self, 'resolved_by', None) or None
 
 
 class InteractionLogType(DjangoObjectType):
@@ -478,6 +568,7 @@ class RiskType(DjangoObjectType):
     risk_level = graphene.String()
     residual_risk_score = graphene.Int()
     owner_name = graphene.String()
+    last_reviewed_by_name = graphene.String()
     incident_count = graphene.Int()
 
     def resolve_category_display(self, info):
@@ -504,6 +595,9 @@ class RiskType(DjangoObjectType):
     def resolve_owner_name(self, info):
         return self.user_id or None
 
+    def resolve_last_reviewed_by_name(self, info):
+        return self.reviewer_id or None
+
     def resolve_incident_count(self, info):
         return self.incidents.count()
 
@@ -529,6 +623,8 @@ class IncidentType(DjangoObjectType):
     sla_status = graphene.String()
     time_to_acknowledge_seconds = graphene.Int()
     time_to_resolve_seconds = graphene.Int()
+    assigned_to_name = graphene.String()
+    reported_by_name = graphene.String()
     endpoint_name = graphene.String()
     deployment_name = graphene.String()
     related_risk_name = graphene.String()
@@ -553,6 +649,12 @@ class IncidentType(DjangoObjectType):
     def resolve_time_to_resolve_seconds(self, info):
         ttr = self.time_to_resolve
         return int(ttr.total_seconds()) if ttr else None
+
+    def resolve_assigned_to_name(self, info):
+        return self.assignee_id or self.user_id or None
+
+    def resolve_reported_by_name(self, info):
+        return self.reporter_id or None
 
     def resolve_endpoint_name(self, info):
         return self.endpoint.name if self.endpoint else None

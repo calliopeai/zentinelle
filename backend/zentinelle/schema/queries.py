@@ -705,8 +705,14 @@ class Query(graphene.ObjectType):
     # Audit Logs
     audit_logs = DjangoConnectionField(
         AuditLogType,
+        search=graphene.String(),
+        actor=graphene.String(),
         action=graphene.String(),
+        resource=graphene.String(),
         resource_type=graphene.String(),
+        resource_id=graphene.String(),
+        start_date=graphene.DateTime(),
+        end_date=graphene.DateTime(),
     )
 
     # Dashboard Stats
@@ -1304,15 +1310,38 @@ class Query(graphene.ObjectType):
         return qs
 
     @staticmethod
-    def resolve_audit_logs(root, info, action=None, resource_type=None, **kwargs):
+    def resolve_audit_logs(
+        root, info,
+        search=None, actor=None, action=None,
+        resource=None, resource_type=None, resource_id=None,
+        start_date=None, end_date=None,
+        **kwargs
+    ):
         if not info.context.user.is_authenticated:
             return AuditLog.objects.none()
 
         qs = filter_by_org(AuditLog.objects.all(), info.context.user).order_by('-timestamp')
+        if search:
+            qs = qs.filter(
+                Q(resource_name__icontains=search) |
+                Q(resource_type__icontains=search) |
+                Q(action__icontains=search) |
+                Q(ext_user_id__icontains=search)
+            )
+        if actor:
+            qs = qs.filter(Q(ext_user_id__icontains=actor) | Q(api_key_prefix__icontains=actor))
         if action:
             qs = qs.filter(action=action)
+        if resource:
+            qs = qs.filter(resource_type=resource)
         if resource_type:
             qs = qs.filter(resource_type=resource_type)
+        if resource_id:
+            qs = qs.filter(resource_id=resource_id)
+        if start_date:
+            qs = qs.filter(timestamp__gte=start_date)
+        if end_date:
+            qs = qs.filter(timestamp__lte=end_date)
         return qs
 
     # Note: resolve_junohub_config, resolve_junohub_configs, resolve_terraform_provision,
@@ -2277,16 +2306,10 @@ class Query(graphene.ObjectType):
     @staticmethod
     def resolve_risk_stats(root, info):
         """Get aggregated risk and incident statistics."""
-        if not info.context.user.is_authenticated:
-            return None
-
         from django.utils import timezone
         from datetime import timedelta
 
         user = info.context.user
-        tenant_id = get_request_tenant_id(user)
-        if not tenant_id:
-            return None
 
         now = timezone.now()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
