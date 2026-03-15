@@ -39,6 +39,11 @@ from zentinelle.api.views.incidents import (
     IncidentDetailView,
     IncidentCommentView,
 )
+from zentinelle.api.views.reports import (
+    ReportCreateView,
+    ReportStatusView,
+    ReportDownloadView,
+)
 
 __all__ = [
     'RegisterView',
@@ -74,4 +79,8 @@ __all__ = [
     'IncidentListView',
     'IncidentDetailView',
     'IncidentCommentView',
+    # Reports
+    'ReportCreateView',
+    'ReportStatusView',
+    'ReportDownloadView',
 ]

@@ -65,6 +65,9 @@ from zentinelle.api.views import (
     IncidentListView,
     IncidentDetailView,
     IncidentCommentView,
+    ReportCreateView,
+    ReportStatusView,
+    ReportDownloadView,
 )
 
 app_name = 'zentinelle'
@@ -116,4 +119,9 @@ urlpatterns = [
     path('incidents/', IncidentListView.as_view(), name='incident-list'),
     path('incidents/<int:incident_id>/', IncidentDetailView.as_view(), name='incident-detail'),
     path('incidents/<int:incident_id>/comments/', IncidentCommentView.as_view(), name='incident-comments'),
+
+    # Compliance report export
+    path('reports/', ReportCreateView.as_view(), name='report-create'),
+    path('reports/<int:report_id>/', ReportStatusView.as_view(), name='report-status'),
+    path('reports/<int:report_id>/download/', ReportDownloadView.as_view(), name='report-download'),
 ]

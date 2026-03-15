@@ -76,6 +76,9 @@ from zentinelle.models.system_prompt import (
 # Zentinelle License & Agent Entitlements
 from zentinelle.models.license import ZentinelleLicense, AgentEntitlement
 
+# Compliance Report Export
+from zentinelle.models.reporting import Report
+
 __all__ = [
     # Agent-level
     'AgentEndpoint',
@@ -132,4 +135,6 @@ __all__ = [
     # Zentinelle License & Agent Entitlements
     'ZentinelleLicense',
     'AgentEntitlement',
+    # Compliance Report Export
+    'Report',
 ]
