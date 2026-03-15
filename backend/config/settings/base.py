@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "graphene_django",
+    "django_filters",
     # Zentinelle
     "zentinelle",
 ]

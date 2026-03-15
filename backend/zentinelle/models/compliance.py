@@ -1027,7 +1027,7 @@ class UsageSummary(Tracking):
             models.Index(fields=['user_identifier', 'period', '-period_start']),
         ]
         unique_together = [
-            ['organization', 'period', 'period_start', 'user_identifier',
+            ['tenant_id', 'period', 'period_start', 'user_identifier',
              'endpoint_id', 'deployment_id', 'ai_provider', 'ai_model']
         ]
 
