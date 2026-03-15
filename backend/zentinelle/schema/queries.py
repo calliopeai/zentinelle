@@ -91,6 +91,9 @@ from .types import (
     EffectivePolicyConnection,
     DeploymentType,
     DeploymentConnection,
+    PromptCategoryType,
+    SystemPromptType,
+    SystemPromptConnection,
 )
 
 
@@ -1015,6 +1018,30 @@ class Query(graphene.ObjectType):
     )
     subscription = graphene.Field(BillingSubscriptionType)
     available_plans = graphene.List(BillingPlanType)
+
+    # System Prompts (stub — prompt library not yet implemented in standalone)
+    prompt_categories = graphene.List(
+        PromptCategoryType,
+        active_only=graphene.Boolean(),
+    )
+    system_prompts = graphene.Field(
+        SystemPromptConnection,
+        first=graphene.Int(),
+        after=graphene.String(),
+        search=graphene.String(),
+        category_slug=graphene.String(),
+        system_prompt_type=graphene.String(),
+        provider=graphene.String(),
+        tag_slugs=graphene.List(graphene.String),
+        featured_only=graphene.Boolean(),
+        verified_only=graphene.Boolean(),
+        favorites_only=graphene.Boolean(),
+    )
+    system_prompt = graphene.Field(
+        SystemPromptType,
+        id=graphene.UUID(),
+        slug=graphene.String(),
+    )
 
     # Usage Alerts (stub)
     usage_alerts = graphene.Field(
@@ -3031,6 +3058,21 @@ class Query(graphene.ObjectType):
     def resolve_available_plans(root, info):
         """Stub resolver — available plans not applicable in standalone mode."""
         return []
+
+    @staticmethod
+    def resolve_prompt_categories(root, info, active_only=None):
+        """Stub resolver — prompt library not yet implemented in standalone mode."""
+        return []
+
+    @staticmethod
+    def resolve_system_prompts(root, info, **kwargs):
+        """Stub resolver — prompt library not yet implemented in standalone mode."""
+        return None
+
+    @staticmethod
+    def resolve_system_prompt(root, info, id=None, slug=None):
+        """Stub resolver — prompt library not yet implemented in standalone mode."""
+        return None
 
     @staticmethod
     def resolve_usage_alerts(root, info, alert_type=None, severity=None, acknowledged=None, resolved=None, first=None, after=None):

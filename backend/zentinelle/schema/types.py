@@ -1096,6 +1096,78 @@ class CreatePortalSessionPayload(graphene.ObjectType):
     errors = graphene.List(graphene.String)
 
 
+class PromptCategoryType(graphene.ObjectType):
+    id = graphene.ID()
+    name = graphene.String()
+    slug = graphene.String()
+    description = graphene.String()
+    icon = graphene.String()
+    color = graphene.String()
+    sort_order = graphene.Int()
+    prompt_count = graphene.Int()
+
+
+class PromptTagType(graphene.ObjectType):
+    id = graphene.ID()
+    name = graphene.String()
+    slug = graphene.String()
+    tag_type = graphene.String()
+    color = graphene.String()
+
+
+class PromptTagConnection(graphene.relay.Connection):
+    class Meta:
+        node = PromptTagType
+
+
+class SystemPromptType(graphene.ObjectType):
+    id = graphene.ID()
+    name = graphene.String()
+    slug = graphene.String()
+    description = graphene.String()
+    prompt_text = graphene.String()
+    prompt_type = graphene.String()
+    prompt_type_display = graphene.String()
+    category = graphene.Field(PromptCategoryType)
+    tags = graphene.Field(PromptTagConnection)
+    compatible_providers = graphene.List(graphene.String)
+    compatible_models = graphene.List(graphene.String)
+    recommended_temperature = graphene.Float()
+    recommended_max_tokens = graphene.Int()
+    template_variables = graphene.List(graphene.String)
+    variable_defaults = graphene.JSONString()
+    example_input = graphene.String()
+    example_output = graphene.String()
+    use_cases = graphene.List(graphene.String)
+    version = graphene.Int()
+    status = graphene.String()
+    status_display = graphene.String()
+    visibility = graphene.String()
+    visibility_display = graphene.String()
+    is_featured = graphene.Boolean()
+    is_verified = graphene.Boolean()
+    usage_count = graphene.Int()
+    favorite_count = graphene.Int()
+    fork_count = graphene.Int()
+    avg_rating = graphene.Float()
+    is_favorited = graphene.Boolean()
+    user_rating = graphene.Float()
+    created_by_username = graphene.String()
+    created_at = graphene.DateTime()
+    updated_at = graphene.DateTime()
+
+
+class SystemPromptConnection(graphene.relay.Connection):
+    class Meta:
+        node = SystemPromptType
+
+    total_count = graphene.Int()
+
+    @staticmethod
+    def resolve_total_count(root, info, **kwargs):
+        return 0
+
+
 class DeploymentType(graphene.ObjectType):
     """Stub type — deployments are a managed/cloud feature, not available in standalone mode."""
     id = graphene.ID()
