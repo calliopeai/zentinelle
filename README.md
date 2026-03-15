@@ -21,12 +21,18 @@ Zentinelle gives you policy enforcement, audit logging, content scanning, and co
 ```bash
 git clone https://github.com/calliopeai/zentinelle
 cd zentinelle
-cp .env.example .env       # fill in your values
-docker compose up
+cp .env.example .env                    # fill in SECRET_KEY, POSTGRES_PASSWORD
+docker compose up -d
+
+# First run: create tables and an admin user
+docker compose exec backend python manage.py migrate --database=zentinelle
+docker compose exec backend python manage.py migrate
+docker compose exec backend python manage.py createsuperuser
 ```
 
-The GRC portal runs at `http://localhost:3002`.
-The API runs at `http://localhost:8000/api/zentinelle/`.
+The GRC portal runs at `http://localhost:8080`.
+The GraphQL API runs at `http://localhost:8080/gql/zentinelle/`.
+The agent REST API runs at `http://localhost:8080/api/zentinelle/`.
 
 ## SDK
 

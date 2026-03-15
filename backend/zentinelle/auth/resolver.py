@@ -210,9 +210,105 @@ class StandaloneTenantResolver(TenantResolver):
         return AuthContext(valid=False, error="invalid_credentials")
 
 
+class ClientCoveTenantResolver(TenantResolver):
+    """
+    Resolver for Calliope-managed deployments.
+
+    Delegates tenant resolution and token validation to Client Cove's
+    internal service-to-service API. Responses are cached in Redis to
+    avoid hammering Client Cove on every request.
+
+    Required env vars (set via calliope.md / managed deployment secrets):
+      CALLIOPE_INTERNAL_API_URL   — base URL of Client Cove internal API
+      CALLIOPE_INTERNAL_API_KEY   — service-to-service bearer token
+      CALLIOPE_TENANT_CACHE_TTL   — cache TTL in seconds (default: 300)
+    """
+
+    def __init__(self):
+        import os
+        self._base_url = os.environ.get("CALLIOPE_INTERNAL_API_URL", "").rstrip("/")
+        self._api_key = os.environ.get("CALLIOPE_INTERNAL_API_KEY", "")
+        self._cache_ttl = int(os.environ.get("CALLIOPE_TENANT_CACHE_TTL", "300"))
+
+        if not self._base_url or not self._api_key:
+            raise RuntimeError(
+                "ClientCoveTenantResolver requires CALLIOPE_INTERNAL_API_URL "
+                "and CALLIOPE_INTERNAL_API_KEY env vars"
+            )
+
+    def _headers(self) -> dict:
+        return {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+            "X-Service": "zentinelle",
+        }
+
+    def get_tenant(self, tenant_id: str) -> Optional[TenantContext]:
+        from django.core.cache import cache
+        import httpx
+
+        cache_key = f"cove:tenant:{tenant_id}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        try:
+            resp = httpx.get(
+                f"{self._base_url}/internal/zentinelle/tenant/{tenant_id}/",
+                headers=self._headers(),
+                timeout=5.0,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            ctx = TenantContext(
+                tenant_id=data["tenant_id"],
+                name=data.get("name", tenant_id),
+                status=data.get("status", "active"),
+                features=data.get("features", []),
+                agent_limit=data.get("agent_limit", 1000),
+                plan=data.get("plan", "managed"),
+            )
+            cache.set(cache_key, ctx, timeout=self._cache_ttl)
+            return ctx
+        except Exception:
+            return None
+
+    def validate_token(self, token: str) -> AuthContext:
+        from django.core.cache import cache
+        import hashlib
+        import httpx
+
+        cache_key = f"cove:auth:{hashlib.sha256(token.encode()).hexdigest()[:16]}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        try:
+            resp = httpx.post(
+                f"{self._base_url}/internal/zentinelle/validate-token/",
+                headers=self._headers(),
+                json={"token": token},
+                timeout=5.0,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            ctx = AuthContext(
+                valid=data.get("valid", False),
+                tenant_id=data.get("tenant_id"),
+                user_id=data.get("user_id"),
+                scopes=data.get("scopes", []),
+                error=data.get("error"),
+            )
+            if ctx.valid:
+                cache.set(cache_key, ctx, timeout=60)  # short TTL for auth
+            return ctx
+        except Exception as exc:
+            return AuthContext(valid=False, error=f"upstream_error: {exc}")
+
+
 def get_resolver() -> TenantResolver:
     """
-    Factory function -- returns the configured TenantResolver.
+    Factory function — returns the configured TenantResolver.
     Set AUTH_MODE env var to select implementation.
     """
     import os
@@ -221,6 +317,6 @@ def get_resolver() -> TenantResolver:
 
     if mode == "standalone":
         return StandaloneTenantResolver()
-    # Other modes (e.g. "client_cove") are configured via calliope.md
-    # and loaded by the managed deployment layer
+    if mode == "client_cove":
+        return ClientCoveTenantResolver()
     raise ValueError(f"Unknown AUTH_MODE: {mode}")
