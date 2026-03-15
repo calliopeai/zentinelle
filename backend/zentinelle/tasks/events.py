@@ -92,19 +92,23 @@ def _send_to_stripe(event):
     """Send billable event to Stripe billing meters."""
     import stripe
     from django.conf import settings
-    from billing.models import Subscription
+
+    try:
+        from billing.models import Subscription
+    except ImportError:
+        return  # Managed-only feature, skip in standalone mode
 
     stripe.api_key = getattr(settings, 'STRIPE_SECRET_KEY', '')
     if not stripe.api_key:
         return
 
     try:
-        # Get subscription for this org
-        if not event.organization:
+        # Get subscription for this tenant
+        if not event.tenant_id:
             return
 
         subscription = Subscription.objects.filter(
-            organization=event.organization,
+            organization_id=event.tenant_id,
             status__in=[Subscription.Status.ACTIVE, Subscription.Status.TRIALING]
         ).first()
 
@@ -176,9 +180,12 @@ def _record_ai_usage(event):
     }
     """
     from decimal import Decimal
-    from billing.models import AIUsage
+    try:
+        from billing.models import AIUsage
+    except ImportError:
+        return  # Managed-only feature, skip in standalone mode
 
-    if not event.organization:
+    if not event.tenant_id:
         return
 
     payload = event.payload or {}
@@ -208,7 +215,7 @@ def _record_ai_usage(event):
 
     try:
         AIUsage.record_usage(
-            organization=event.organization,
+            organization=event.tenant_id,
             deployment=event.deployment,
             user_identifier=user_identifier,
             provider=provider,
@@ -290,14 +297,10 @@ def process_dead_letter_queue(organization_id: str):
     blocked by temporary issues.
     """
     from zentinelle.models import Event
-    from organization.models import Organization
 
-    try:
-        organization = Organization.objects.get(id=organization_id)
-    except Organization.DoesNotExist:
-        return
+    tenant_id = organization_id
 
-    dlq_events = dead_letter_queue.get_dlq_events(organization, limit=50)
+    dlq_events = dead_letter_queue.get_dlq_events(tenant_id, limit=50)
     reprocessed = 0
     failed = 0
 
@@ -308,7 +311,7 @@ def process_dead_letter_queue(organization_id: str):
             failed += 1
 
     logger.info(
-        f"DLQ processing for org {organization_id}: "
+        f"DLQ processing for tenant {tenant_id}: "
         f"{reprocessed} reprocessed, {failed} failed"
     )
 
@@ -327,13 +330,8 @@ def replay_events_for_projection(
     after deploying new projection logic.
     """
     from datetime import datetime
-    from organization.models import Organization
 
-    try:
-        organization = Organization.objects.get(id=organization_id)
-    except Organization.DoesNotExist:
-        logger.error(f"Organization {organization_id} not found")
-        return
+    tenant_id = organization_id
 
     handler = event_store._projections.get(projection_name)
     if not handler:
@@ -348,7 +346,7 @@ def replay_events_for_projection(
         to_dt = datetime.fromisoformat(to_timestamp)
 
     count = event_store.replay(
-        organization=organization,
+        organization=tenant_id,
         from_timestamp=from_dt,
         to_timestamp=to_dt,
         handler=handler,
@@ -356,5 +354,5 @@ def replay_events_for_projection(
 
     logger.info(
         f"Replayed {count} events through projection {projection_name} "
-        f"for org {organization_id}"
+        f"for tenant {tenant_id}"
     )

@@ -39,7 +39,7 @@ def check_endpoint_health():
 
         # Create alert event
         Event.objects.create(
-            organization=endpoint.organization,
+            tenant_id=endpoint.tenant_id,
             endpoint=endpoint,
             deployment=endpoint.deployment,
             event_type=Event.EventType.ENDPOINT_UNHEALTHY,
@@ -134,7 +134,7 @@ def sync_deployment_health():
             Deployment.Status.ACTIVE,
             Deployment.Status.DEGRADED,
         ]
-    ).select_related('organization')
+    )
 
     results = {
         'checked': 0,

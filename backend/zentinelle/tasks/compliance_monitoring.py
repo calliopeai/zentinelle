@@ -30,12 +30,13 @@ def check_compliance_drift():
     - Disabled controls that should be active
     - New violations since last check
     """
-    from organization.models import Organization
     from zentinelle.models import (
         Policy,
         ComplianceAssessment,
         ComplianceAlert,
         ContentRule,
+        ZentinelleLicense,
+        AgentEndpoint,
     )
     from zentinelle.models.compliance import (
         COMPLIANCE_FRAMEWORKS,
@@ -48,26 +49,35 @@ def check_compliance_drift():
         'alerts_created': 0,
     }
 
-    # Check each organization
-    for org in Organization.objects.filter(is_active=True):
+    # Get active tenant IDs
+    tenant_ids = list(ZentinelleLicense.objects.filter(
+        status__in=['active', 'trial']
+    ).values_list('tenant_id', flat=True).distinct())
+    if not tenant_ids:
+        tenant_ids = list(AgentEndpoint.objects.filter(
+            status='active'
+        ).values_list('tenant_id', flat=True).distinct())
+
+    # Check each tenant
+    for tenant_id in tenant_ids:
         results['organizations_checked'] += 1
 
         try:
-            drift_issues = _check_org_compliance_drift(org)
+            drift_issues = _check_org_compliance_drift(tenant_id)
 
             if drift_issues:
                 results['drift_detected'] += 1
 
                 for issue in drift_issues:
-                    _create_drift_alert(org, issue)
+                    _create_drift_alert(tenant_id, issue)
                     results['alerts_created'] += 1
 
                 logger.warning(
-                    f"Compliance drift detected for {org.name}: {len(drift_issues)} issue(s)"
+                    f"Compliance drift detected for tenant {tenant_id}: {len(drift_issues)} issue(s)"
                 )
 
         except Exception as e:
-            logger.error(f"Error checking compliance drift for {org.name}: {e}")
+            logger.error(f"Error checking compliance drift for tenant {tenant_id}: {e}")
 
     logger.info(
         f"Compliance drift check complete: "
@@ -79,16 +89,16 @@ def check_compliance_drift():
     return results
 
 
-def _check_org_compliance_drift(org) -> List[Dict[str, Any]]:
-    """Check a single organization for compliance drift."""
+def _check_org_compliance_drift(tenant_id: str) -> List[Dict[str, Any]]:
+    """Check a single tenant for compliance drift."""
     from zentinelle.models import Policy, ContentRule, ComplianceAssessment
     from zentinelle.models.compliance import COMPLIANCE_FRAMEWORKS, COMPLIANCE_CAPABILITIES
 
     issues = []
 
-    # Get organization's enabled frameworks
+    # Get tenant's enabled frameworks
     assessments = ComplianceAssessment.objects.filter(
-        organization=org,
+        tenant_id=tenant_id,
         framework__in=COMPLIANCE_FRAMEWORKS.keys(),
     )
 
@@ -106,7 +116,7 @@ def _check_org_compliance_drift(org) -> List[Dict[str, Any]]:
             # Check for required policy types
             for policy_type in required_policy_types:
                 has_active_policy = Policy.objects.filter(
-                    organization=org,
+                    tenant_id=tenant_id,
                     policy_type=policy_type,
                     enabled=True,
                 ).exists()
@@ -126,7 +136,7 @@ def _check_org_compliance_drift(org) -> List[Dict[str, Any]]:
             # Check for required rule types
             for rule_type in required_rule_types:
                 has_active_rule = ContentRule.objects.filter(
-                    organization=org,
+                    tenant_id=tenant_id,
                     rule_type=rule_type,
                     enabled=True,
                 ).exists()
@@ -145,7 +155,7 @@ def _check_org_compliance_drift(org) -> List[Dict[str, Any]]:
 
     # Check for disabled policies that were previously enabled
     recently_disabled = Policy.objects.filter(
-        organization=org,
+        tenant_id=tenant_id,
         enabled=False,
         updated_at__gte=timezone.now() - timedelta(hours=24),
     )
@@ -163,13 +173,13 @@ def _check_org_compliance_drift(org) -> List[Dict[str, Any]]:
     return issues
 
 
-def _create_drift_alert(org, issue: Dict[str, Any]):
+def _create_drift_alert(tenant_id: str, issue: Dict[str, Any]):
     """Create a compliance alert for detected drift."""
     from zentinelle.models import ComplianceAlert
 
     # Check if similar alert already exists (prevent duplicates)
     existing = ComplianceAlert.objects.filter(
-        organization=org,
+        tenant_id=tenant_id,
         alert_type='compliance_drift',
         resolved_at__isnull=True,
         metadata__type=issue['type'],
@@ -186,7 +196,7 @@ def _create_drift_alert(org, issue: Dict[str, Any]):
         return  # Alert already exists
 
     ComplianceAlert.objects.create(
-        organization=org,
+        tenant_id=tenant_id,
         alert_type='compliance_drift',
         severity=issue['severity'],
         title=issue['message'],
@@ -209,8 +219,7 @@ def monitor_violation_rates():
     - New violation types
     - Repeated violations from same source
     """
-    from organization.models import Organization
-    from zentinelle.models import ContentViolation, ContentScan, ComplianceAlert
+    from zentinelle.models import ContentViolation, ContentScan, ComplianceAlert, ZentinelleLicense, AgentEndpoint
 
     results = {
         'organizations_checked': 0,
@@ -223,19 +232,28 @@ def monitor_violation_rates():
     previous_window_start = now - timedelta(hours=2)
     previous_window_end = now - timedelta(hours=1)
 
-    for org in Organization.objects.filter(is_active=True):
+    # Get active tenant IDs
+    tenant_ids = list(ZentinelleLicense.objects.filter(
+        status__in=['active', 'trial']
+    ).values_list('tenant_id', flat=True).distinct())
+    if not tenant_ids:
+        tenant_ids = list(AgentEndpoint.objects.filter(
+            status='active'
+        ).values_list('tenant_id', flat=True).distinct())
+
+    for tenant_id in tenant_ids:
         results['organizations_checked'] += 1
 
         try:
             # Get current violation count
             current_violations = ContentViolation.objects.filter(
-                organization=org,
+                tenant_id=tenant_id,
                 created_at__gte=current_window,
             ).count()
 
             # Get previous period for comparison
             previous_violations = ContentViolation.objects.filter(
-                organization=org,
+                tenant_id=tenant_id,
                 created_at__gte=previous_window_start,
                 created_at__lt=previous_window_end,
             ).count()
@@ -254,7 +272,7 @@ def monitor_violation_rates():
 
                 # Create alert if not already exists
                 existing_alert = ComplianceAlert.objects.filter(
-                    organization=org,
+                    tenant_id=tenant_id,
                     alert_type='violation_spike',
                     created_at__gte=now - timedelta(hours=2),
                     resolved_at__isnull=True,
@@ -262,7 +280,7 @@ def monitor_violation_rates():
 
                 if not existing_alert:
                     ComplianceAlert.objects.create(
-                        organization=org,
+                        tenant_id=tenant_id,
                         alert_type='violation_spike',
                         severity='high',
                         title=f"Violation spike detected: {current_violations} violations in last hour",
@@ -281,7 +299,7 @@ def monitor_violation_rates():
 
             # Check for repeated violations from same user
             repeat_offenders = ContentViolation.objects.filter(
-                organization=org,
+                tenant_id=tenant_id,
                 created_at__gte=current_window,
             ).values('user_identifier').annotate(
                 count=Count('id')
@@ -293,7 +311,7 @@ def monitor_violation_rates():
                     continue
 
                 existing_alert = ComplianceAlert.objects.filter(
-                    organization=org,
+                    tenant_id=tenant_id,
                     alert_type='repeat_violations',
                     metadata__user_identifier=user_id,
                     created_at__gte=now - timedelta(hours=6),
@@ -302,7 +320,7 @@ def monitor_violation_rates():
 
                 if not existing_alert:
                     ComplianceAlert.objects.create(
-                        organization=org,
+                        tenant_id=tenant_id,
                         alert_type='repeat_violations',
                         severity='medium',
                         title=f"Repeat violations from user: {offender['count']} in last hour",
@@ -315,7 +333,7 @@ def monitor_violation_rates():
                     results['alerts_created'] += 1
 
         except Exception as e:
-            logger.error(f"Error monitoring violations for {org.name}: {e}")
+            logger.error(f"Error monitoring violations for tenant {tenant_id}: {e}")
 
     logger.info(f"Violation monitoring complete: {results}")
     return results
@@ -336,8 +354,7 @@ def check_policy_health():
     - Orphaned policies (no scope target)
     - Policies approaching expiration
     """
-    from organization.models import Organization
-    from zentinelle.models import Policy, ComplianceAlert
+    from zentinelle.models import Policy, ComplianceAlert, ZentinelleLicense, AgentEndpoint
 
     results = {
         'organizations_checked': 0,
@@ -345,7 +362,16 @@ def check_policy_health():
         'alerts_created': 0,
     }
 
-    for org in Organization.objects.filter(is_active=True):
+    # Get active tenant IDs
+    tenant_ids = list(ZentinelleLicense.objects.filter(
+        status__in=['active', 'trial']
+    ).values_list('tenant_id', flat=True).distinct())
+    if not tenant_ids:
+        tenant_ids = list(AgentEndpoint.objects.filter(
+            status='active'
+        ).values_list('tenant_id', flat=True).distinct())
+
+    for tenant_id in tenant_ids:
         results['organizations_checked'] += 1
 
         try:
@@ -353,7 +379,7 @@ def check_policy_health():
 
             # Check for conflicting policies (same scope, same type, different configs)
             policies = Policy.objects.filter(
-                organization=org,
+                tenant_id=tenant_id,
                 enabled=True,
             ).order_by('scope_type', 'policy_type', '-priority')
 
@@ -376,7 +402,7 @@ def check_policy_health():
 
             # Check for orphaned deployment-scoped policies
             orphaned = Policy.objects.filter(
-                organization=org,
+                tenant_id=tenant_id,
                 scope_type=Policy.ScopeType.DEPLOYMENT,
                 scope_deployment__isnull=True,
                 enabled=True,
@@ -396,7 +422,7 @@ def check_policy_health():
 
                 # Check for existing alert
                 existing = ComplianceAlert.objects.filter(
-                    organization=org,
+                    tenant_id=tenant_id,
                     alert_type='policy_health',
                     metadata__type=issue['type'],
                     resolved_at__isnull=True,
@@ -404,7 +430,7 @@ def check_policy_health():
 
                 if not existing:
                     ComplianceAlert.objects.create(
-                        organization=org,
+                        tenant_id=tenant_id,
                         alert_type='policy_health',
                         severity=issue['severity'],
                         title=issue['message'],
@@ -414,7 +440,7 @@ def check_policy_health():
                     results['alerts_created'] += 1
 
         except Exception as e:
-            logger.error(f"Error checking policy health for {org.name}: {e}")
+            logger.error(f"Error checking policy health for tenant {tenant_id}: {e}")
 
     logger.info(f"Policy health check complete: {results}")
     return results
@@ -435,8 +461,7 @@ def detect_usage_anomalies():
     - Off-hours activity
     - Unusual model usage
     """
-    from organization.models import Organization
-    from zentinelle.models import InteractionLog, ComplianceAlert, UsageAlert
+    from zentinelle.models import InteractionLog, ComplianceAlert, ZentinelleLicense, AgentEndpoint
 
     results = {
         'organizations_checked': 0,
@@ -449,13 +474,22 @@ def detect_usage_anomalies():
     baseline_start = now - timedelta(days=7)
     baseline_end = now - timedelta(hours=1)
 
-    for org in Organization.objects.filter(is_active=True):
+    # Get active tenant IDs
+    tenant_ids = list(ZentinelleLicense.objects.filter(
+        status__in=['active', 'trial']
+    ).values_list('tenant_id', flat=True).distinct())
+    if not tenant_ids:
+        tenant_ids = list(AgentEndpoint.objects.filter(
+            status='active'
+        ).values_list('tenant_id', flat=True).distinct())
+
+    for tenant_id in tenant_ids:
         results['organizations_checked'] += 1
 
         try:
             # Get current hour metrics
             current_interactions = InteractionLog.objects.filter(
-                organization=org,
+                tenant_id=tenant_id,
                 created_at__gte=current_hour,
             )
             current_count = current_interactions.count()
@@ -466,7 +500,7 @@ def detect_usage_anomalies():
 
             # Get baseline (average over past week, same hour of day)
             baseline_interactions = InteractionLog.objects.filter(
-                organization=org,
+                tenant_id=tenant_id,
                 created_at__gte=baseline_start,
                 created_at__lt=baseline_end,
             )
@@ -483,31 +517,33 @@ def detect_usage_anomalies():
                 # 3x spike in requests
                 results['anomalies_detected'] += 1
 
-                existing = UsageAlert.objects.filter(
-                    organization=org,
+                existing = ComplianceAlert.objects.filter(
+                    tenant_id=tenant_id,
                     alert_type='anomaly_detected',
-                    acknowledged_at__isnull=True,
+                    resolved_at__isnull=True,
                     created_at__gte=now - timedelta(hours=4),
                 ).exists()
 
                 if not existing:
-                    UsageAlert.objects.create(
-                        organization=org,
+                    ComplianceAlert.objects.create(
+                        tenant_id=tenant_id,
                         alert_type='anomaly_detected',
                         severity='high',
                         title=f"Request spike: {current_count} requests in last hour",
-                        message=(
+                        description=(
                             f"Current: {current_count} requests\n"
                             f"Average: {avg_hourly_count:.0f} requests/hour\n"
                             f"Spike: {current_count/avg_hourly_count:.1f}x normal"
                         ),
-                        threshold_value=avg_hourly_count,
-                        current_value=current_count,
+                        metadata={
+                            'threshold_value': avg_hourly_count,
+                            'current_value': current_count,
+                        },
                     )
                     results['alerts_created'] += 1
 
         except Exception as e:
-            logger.error(f"Error detecting anomalies for {org.name}: {e}")
+            logger.error(f"Error detecting anomalies for tenant {tenant_id}: {e}")
 
     logger.info(f"Usage anomaly detection complete: {results}")
     return results

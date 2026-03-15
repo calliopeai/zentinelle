@@ -30,7 +30,12 @@ def detect_license_violations_all_orgs():
     - Expired license violations
     - Deployment/agent limit violations
     """
-    from organization.models import Organization
+    try:
+        from organization.models import Organization
+    except ImportError:
+        logger.info("Managed-only task skipped in standalone mode")
+        return
+
     from zentinelle.services.license_compliance_service import license_compliance_service
 
     results = {
@@ -84,7 +89,12 @@ def generate_weekly_compliance_summaries():
     Runs every Monday at 6:00 AM UTC.
     Generates a usage report for the past week.
     """
-    from organization.models import Organization
+    try:
+        from organization.models import Organization
+    except ImportError:
+        logger.info("Managed-only task skipped in standalone mode")
+        return
+
     from zentinelle.models import License
     from zentinelle.services.license_compliance_service import license_compliance_service
 
@@ -161,7 +171,12 @@ def auto_resolve_violations():
     Runs every 6 hours.
     Checks if the condition causing the violation has been fixed.
     """
-    from organization.models import Organization
+    try:
+        from organization.models import Organization
+    except ImportError:
+        logger.info("Managed-only task skipped in standalone mode")
+        return
+
     from zentinelle.models import License, LicensedUser, LicenseComplianceViolation, AgentEndpoint
     from deployments.models import Deployment
 
@@ -261,7 +276,12 @@ def generate_monthly_compliance_reports():
     - Violations report
     - Audit trail report
     """
-    from organization.models import Organization
+    try:
+        from organization.models import Organization
+    except ImportError:
+        logger.info("Managed-only task skipped in standalone mode")
+        return
+
     from zentinelle.models import License, LicenseComplianceReport
     from zentinelle.services.license_compliance_service import license_compliance_service
     from dateutil.relativedelta import relativedelta

@@ -33,7 +33,6 @@ def run_compliance_check_task(
     Creates a ComplianceAssessment record with current compliance state.
     Generates alerts for critical gaps if any frameworks have <50% coverage.
     """
-    from organization.models import Organization
     from zentinelle.models.compliance import (
         get_capability_status,
         get_framework_coverage,
@@ -45,11 +44,7 @@ def run_compliance_check_task(
 
     User = get_user_model()
 
-    try:
-        org = Organization.objects.get(id=organization_id)
-    except Organization.DoesNotExist:
-        logger.error(f"Organization {organization_id} not found")
-        return None
+    tenant_id = organization_id
 
     user = None
     if user_id:
@@ -60,12 +55,12 @@ def run_compliance_check_task(
 
     try:
         # Get current capability status
-        capability_status = get_capability_status(org)
+        capability_status = get_capability_status(tenant_id)
         enabled_count = sum(1 for s in capability_status.values() if s['enabled'])
         total_count = len(capability_status)
 
         # Get framework coverage
-        coverage = get_framework_coverage(org)
+        coverage = get_framework_coverage(tenant_id)
 
         # Filter if specific framework requested
         if framework_id:
@@ -109,7 +104,7 @@ def run_compliance_check_task(
 
         # Create assessment record
         assessment = ComplianceAssessment.objects.create(
-            organization=org,
+            tenant_id=tenant_id,
             framework_id=framework_id or '',
             triggered_by=user,
             assessment_type=assessment_type,
@@ -124,7 +119,7 @@ def run_compliance_check_task(
         )
 
         logger.info(
-            f"Compliance assessment for {org.name}: "
+            f"Compliance assessment for tenant {tenant_id}: "
             f"score={overall_score:.1f}%, gaps={total_gaps} "
             f"(critical={critical_gaps}, high={high_gaps})"
         )
@@ -134,7 +129,7 @@ def run_compliance_check_task(
             if fw_data['score'] < 50 and fw_data['gaps']:
                 # Check if similar alert exists recently (last 24 hours)
                 existing = ComplianceAlert.objects.filter(
-                    organization=org,
+                    tenant_id=tenant_id,
                     alert_type=ComplianceAlert.AlertType.THRESHOLD_EXCEEDED,
                     title__contains=fw_id,
                     created_at__gte=timezone.now() - timezone.timedelta(hours=24),
@@ -143,7 +138,7 @@ def run_compliance_check_task(
 
                 if not existing:
                     ComplianceAlert.objects.create(
-                        organization=org,
+                        tenant_id=tenant_id,
                         alert_type=ComplianceAlert.AlertType.THRESHOLD_EXCEEDED,
                         severity='high',
                         title=f"Critical compliance gap: {fw_data['name']}",
@@ -163,10 +158,10 @@ def run_compliance_check_task(
         return str(assessment.id)
 
     except Exception as e:
-        logger.error(f"Compliance check failed for {org.name}: {e}")
+        logger.error(f"Compliance check failed for tenant {tenant_id}: {e}")
         # Create failed assessment record
         ComplianceAssessment.objects.create(
-            organization=org,
+            tenant_id=tenant_id,
             framework_id=framework_id or '',
             triggered_by=user,
             assessment_type=assessment_type,
@@ -200,7 +195,7 @@ def process_async_scan(self, scan_id: str, content: str):
     from zentinelle.services.content_scanner import ContentScanner
 
     try:
-        scanner = ContentScanner(scan.organization)
+        scanner = ContentScanner(scan.tenant_id)
 
         # Run scan
         result, updated_scan = scanner.scan(
@@ -241,7 +236,7 @@ def scan_interaction(self, interaction_id: str):
     """
     try:
         interaction = InteractionLog.objects.select_related(
-            'organization', 'endpoint'
+            'endpoint'
         ).get(id=interaction_id)
     except InteractionLog.DoesNotExist:
         logger.error(f"Interaction {interaction_id} not found")
@@ -249,7 +244,7 @@ def scan_interaction(self, interaction_id: str):
 
     from zentinelle.services.content_scanner import ContentScanner
 
-    scanner = ContentScanner(interaction.organization)
+    scanner = ContentScanner(interaction.tenant_id)
 
     # Scan input
     if interaction.input_content:
@@ -282,7 +277,7 @@ def scan_interaction(self, interaction_id: str):
         try:
             # Get rules that scan output
             output_rules = ContentRule.objects.filter(
-                organization=interaction.organization,
+                tenant_id=interaction.tenant_id,
                 scan_output=True,
                 enabled=True,
             ).exists()
@@ -318,14 +313,9 @@ def aggregate_usage_summary(organization_id: str, period: str = 'hourly'):
     from django.utils import timezone
     from datetime import timedelta
     from django.db.models import Count, Sum, Q
-    from organization.models import Organization
     from zentinelle.models import UsageSummary
 
-    try:
-        org = Organization.objects.get(id=organization_id)
-    except Organization.DoesNotExist:
-        logger.error(f"Organization {organization_id} not found")
-        return
+    tenant_id = organization_id
 
     now = timezone.now()
 
@@ -342,7 +332,7 @@ def aggregate_usage_summary(organization_id: str, period: str = 'hourly'):
 
     # Aggregate scans
     scan_stats = ContentScan.objects.filter(
-        organization=org,
+        tenant_id=tenant_id,
         created_at__gte=period_start,
         created_at__lt=period_end,
     ).aggregate(
@@ -353,7 +343,7 @@ def aggregate_usage_summary(organization_id: str, period: str = 'hourly'):
 
     # Aggregate interactions
     interaction_stats = InteractionLog.objects.filter(
-        organization=org,
+        tenant_id=tenant_id,
         occurred_at__gte=period_start,
         occurred_at__lt=period_end,
     ).aggregate(
@@ -369,10 +359,10 @@ def aggregate_usage_summary(organization_id: str, period: str = 'hourly'):
 
     # Create or update summary
     summary, created = UsageSummary.objects.update_or_create(
-        organization=org,
+        tenant_id=tenant_id,
         period=period,
         period_start=period_start,
-        user_identifier='',  # Org-wide summary
+        user_identifier='',  # Tenant-wide summary
         endpoint_id=None,
         deployment_id=None,
         ai_provider='',
@@ -394,7 +384,7 @@ def aggregate_usage_summary(organization_id: str, period: str = 'hourly'):
     )
 
     logger.info(
-        f"Usage summary for {org.name} ({period}): "
+        f"Usage summary for tenant {tenant_id} ({period}): "
         f"scans={scan_stats['scan_count']}, "
         f"violations={scan_stats['violation_count']}, "
         f"interactions={interaction_stats['interaction_count']}"

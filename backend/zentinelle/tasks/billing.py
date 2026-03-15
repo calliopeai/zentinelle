@@ -32,8 +32,13 @@ def aggregate_hourly_usage(self, hour: str = None):
     Args:
         hour: ISO format hour to aggregate (default: previous hour)
     """
+    try:
+        from organization.models import Organization
+    except ImportError:
+        logger.info("Managed-only task skipped in standalone mode")
+        return
+
     from zentinelle.models import UsageMetric, UsageAggregate
-    from organization.models import Organization
 
     # Default to previous hour
     if hour:
@@ -77,8 +82,13 @@ def aggregate_daily_usage(self, date: str = None):
     Args:
         date: ISO format date to aggregate (default: yesterday)
     """
+    try:
+        from organization.models import Organization
+    except ImportError:
+        logger.info("Managed-only task skipped in standalone mode")
+        return
+
     from zentinelle.models import UsageAggregate
-    from organization.models import Organization
 
     # Default to yesterday
     if date:
@@ -144,8 +154,13 @@ def generate_monthly_user_counts(self, year: int = None, month: int = None):
         year: Year to generate for (default: previous month's year)
         month: Month to generate for (default: previous month)
     """
+    try:
+        from organization.models import Organization
+    except ImportError:
+        logger.info("Managed-only task skipped in standalone mode")
+        return
+
     from zentinelle.models import License, MonthlyUserCount
-    from organization.models import Organization
 
     # Default to previous month
     if year is None or month is None:
@@ -193,9 +208,14 @@ def send_usage_to_stripe(self, aggregate_ids: list = None):
     Args:
         aggregate_ids: Optional list of specific aggregate IDs to send
     """
+    try:
+        from billing.models import Subscription
+    except ImportError:
+        logger.info("Managed-only task skipped in standalone mode")
+        return
+
     import stripe
     from zentinelle.models import UsageAggregate, License
-    from billing.models import Subscription
 
     stripe.api_key = getattr(settings, 'STRIPE_SECRET_KEY', '')
     if not stripe.api_key:
@@ -314,9 +334,14 @@ def send_monthly_user_counts_to_stripe(self, year: int = None, month: int = None
 
     Called after generate_monthly_user_counts.
     """
+    try:
+        from billing.models import Subscription
+    except ImportError:
+        logger.info("Managed-only task skipped in standalone mode")
+        return
+
     import stripe
     from zentinelle.models import MonthlyUserCount
-    from billing.models import Subscription
 
     stripe.api_key = getattr(settings, 'STRIPE_SECRET_KEY', '')
     if not stripe.api_key:
@@ -387,6 +412,12 @@ def check_license_limits(self):
     For managed deployments, this is enforced at user creation.
     For BYOC, this is informational for billing purposes.
     """
+    try:
+        from organization.models import Organization
+    except ImportError:
+        logger.info("Managed-only task skipped in standalone mode")
+        return
+
     from deployments.models import Deployment
     from zentinelle.models import License, LicensedUser, AgentEndpoint
 
@@ -449,8 +480,13 @@ def record_user_activity(self, organization_id: str, user_identifier: str, email
 
     This is queued from heartbeat/event processing to avoid blocking.
     """
+    try:
+        from organization.models import Organization
+    except ImportError:
+        logger.info("Managed-only task skipped in standalone mode")
+        return
+
     from zentinelle.models import License, LicensedUser
-    from organization.models import Organization
 
     try:
         org = Organization.objects.get(id=organization_id)
