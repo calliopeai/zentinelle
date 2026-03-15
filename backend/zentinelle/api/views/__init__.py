@@ -26,6 +26,7 @@ from zentinelle.api.views.compliance import (
     ExportComplianceReportCSVView,
     ComplianceReportSummaryView,
 )
+from zentinelle.api.views.audit import AuditChainVerifyView
 
 __all__ = [
     'RegisterView',
@@ -48,4 +49,6 @@ __all__ = [
     'ExportViolationsCSVView',
     'ExportComplianceReportCSVView',
     'ComplianceReportSummaryView',
+    # Audit
+    'AuditChainVerifyView',
 ]

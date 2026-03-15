@@ -60,6 +60,25 @@ class AuditLog(models.Model):
     # Timestamp
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
 
+    # Tamper-evident hash chain fields
+    entry_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        help_text='SHA-256 of this record content',
+    )
+    chain_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        help_text='SHA-256(prev_chain_hash + entry_hash) — links to previous record',
+    )
+    chain_sequence = models.BigIntegerField(
+        default=0,
+        db_index=True,
+        help_text='Monotonically increasing per-tenant sequence number',
+    )
+
     class Meta:
         ordering = ['-timestamp']
         indexes = [
@@ -67,10 +86,52 @@ class AuditLog(models.Model):
             models.Index(fields=['resource_type', 'resource_id']),
             models.Index(fields=['ext_user_id', 'timestamp']),
             models.Index(fields=['action', 'timestamp']),
+            models.Index(fields=['tenant_id', 'chain_sequence']),
         ]
 
     def __str__(self):
         return f"{self.action} {self.resource_type} - {self.timestamp}"
+
+    def compute_hashes(self):
+        import hashlib
+        # Content to hash: deterministic, includes all meaningful fields
+        content = '|'.join([
+            str(self.tenant_id or ''),
+            str(self.action or ''),
+            self.timestamp.isoformat() if self.timestamp else '',
+            str(self.ext_user_id or ''),
+            str(self.action or ''),
+            str(self.resource_type or ''),
+            str(self.resource_id or ''),
+        ])
+        self.entry_hash = hashlib.sha256(content.encode()).hexdigest()
+
+        # Chain: link to previous record for this tenant
+        prev = AuditLog.objects.filter(
+            tenant_id=self.tenant_id,
+            chain_sequence__lt=self.chain_sequence,
+        ).order_by('-chain_sequence').first()
+        prev_chain = prev.chain_hash if prev and prev.chain_hash else 'genesis'
+        self.chain_hash = hashlib.sha256((prev_chain + self.entry_hash).encode()).hexdigest()
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            # Assign chain_sequence only on creation
+            self.chain_sequence = AuditLog.objects.filter(
+                tenant_id=self.tenant_id,
+            ).count() + 1
+            # Hashes are computed after super().save() so timestamp is set;
+            # we call super first to persist the record, then update hash fields.
+            super().save(*args, **kwargs)
+            self.compute_hashes()
+            AuditLog.objects.filter(pk=self.pk).update(
+                entry_hash=self.entry_hash,
+                chain_hash=self.chain_hash,
+                chain_sequence=self.chain_sequence,
+            )
+        else:
+            # Updates must not recompute hashes — that would break the chain.
+            super().save(*args, **kwargs)
 
     @classmethod
     def log(

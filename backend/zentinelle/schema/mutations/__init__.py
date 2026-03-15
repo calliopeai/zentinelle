@@ -81,6 +81,10 @@ from .api_keys_platform import (
     RevokeAPIKey,
     DeleteAPIKey,
 )
+from .compliance_packs import (
+    ActivateCompliancePack,
+    ListCompliancePacks,
+)
 
 
 class Mutation(graphene.ObjectType):
@@ -164,3 +168,7 @@ class Mutation(graphene.ObjectType):
     create_platform_api_key = CreatePlatformAPIKey.Field()
     revoke_api_key = RevokeAPIKey.Field()
     delete_api_key = DeleteAPIKey.Field()
+
+    # Compliance Packs
+    activate_compliance_pack = ActivateCompliancePack.Field()
+    list_compliance_packs = ListCompliancePacks.Field()
