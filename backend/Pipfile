@@ -14,6 +14,7 @@ psycopg2-binary = ">=2.9"
 gunicorn = ">=23.0"
 python-dotenv = ">=1.0"
 cryptography = ">=42.0"
+weasyprint = ">=62.0"
 
 [dev-packages]
 pytest-django = "*"

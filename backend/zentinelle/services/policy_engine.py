@@ -349,10 +349,73 @@ class PolicyEngine:
         context: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        Check if tenant budget allows the action.
+        Check BUDGET_LIMIT policies for the tenant against current-month InteractionLog spend.
 
-        In standalone mode, budget enforcement is handled via BudgetLimit policies
-        rather than organization FK lookups. This method is a no-op placeholder.
+        Returns:
+            {'allowed': True}                        — under budget
+            {'allowed': True, 'warning': str}        — approaching limit (>= alert_at_percent)
+            {'allowed': False, 'reason': str}        — over limit + enforcement=enforce
         """
-        # TODO: implement budget check via BudgetLimit policy type
-        return {'allowed': True, 'reason': 'Budget check via policies'}
+        from zentinelle.models import Policy, InteractionLog
+        from django.db.models import Sum
+        from django.utils import timezone
+
+        tenant_id = endpoint.tenant_id
+
+        budget_policies = list(
+            Policy.objects.filter(
+                tenant_id=tenant_id,
+                policy_type=Policy.PolicyType.BUDGET_LIMIT,
+                enabled=True,
+                enforcement=Policy.Enforcement.ENFORCE,
+            ).order_by('priority')
+        )
+
+        if not budget_policies:
+            return {'allowed': True}
+
+        now = timezone.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        current_cost = float(
+            InteractionLog.objects.filter(
+                tenant_id=tenant_id,
+                created_at__gte=month_start,
+            ).aggregate(total=Sum('estimated_cost_usd'))['total'] or 0
+        )
+
+        warning = None
+
+        for policy in budget_policies:
+            config = policy.config or {}
+            monthly_limit = config.get('monthly_limit_usd')
+            if not monthly_limit:
+                continue
+
+            monthly_limit = float(monthly_limit)
+            if monthly_limit <= 0:
+                continue
+
+            ratio = current_cost / monthly_limit
+            alert_threshold = float(config.get('alert_at_percent', 80)) / 100.0
+
+            if ratio >= 1.0:
+                return {
+                    'allowed': False,
+                    'reason': (
+                        f"Monthly AI budget exceeded: ${current_cost:.2f} of "
+                        f"${monthly_limit:.2f} used ({ratio * 100:.0f}%). "
+                        f"Policy: {policy.name}"
+                    ),
+                }
+
+            if ratio >= alert_threshold and warning is None:
+                warning = (
+                    f"AI budget at {ratio * 100:.0f}%: ${current_cost:.2f} of "
+                    f"${monthly_limit:.2f} monthly limit ({policy.name})"
+                )
+
+        if warning:
+            return {'allowed': True, 'warning': warning}
+
+        return {'allowed': True}

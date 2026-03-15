@@ -18,6 +18,48 @@ import logging
 from django.http import JsonResponse, StreamingHttpResponse
 from django.views import View
 
+
+def _extract_sse_text(content: bytes) -> str:
+    """
+    Extract concatenated assistant text from a buffered SSE stream.
+
+    Handles both OpenAI and Anthropic streaming formats:
+    - OpenAI: data: {"choices": [{"delta": {"content": "..."}}]}
+    - Anthropic: data: {"delta": {"type": "text_delta", "text": "..."}}
+    """
+    text_parts = []
+    try:
+        text = content.decode('utf-8', errors='replace')
+    except Exception:
+        return ''
+
+    for line in text.splitlines():
+        if not line.startswith('data: '):
+            continue
+        data_str = line[6:].strip()
+        if data_str == '[DONE]':
+            break
+        try:
+            data = json.loads(data_str)
+        except (ValueError, TypeError):
+            continue
+
+        # OpenAI streaming format
+        for choice in data.get('choices', []):
+            delta = choice.get('delta', {})
+            chunk = delta.get('content') or delta.get('text') or ''
+            if chunk:
+                text_parts.append(chunk)
+
+        # Anthropic streaming format
+        delta = data.get('delta', {})
+        if delta.get('type') == 'text_delta':
+            chunk = delta.get('text') or ''
+            if chunk:
+                text_parts.append(chunk)
+
+    return ''.join(text_parts)
+
 from zentinelle.auth.resolver import StandaloneTenantResolver
 from zentinelle.models import AgentEndpoint
 from zentinelle.services.policy_engine import PolicyEngine
@@ -177,8 +219,9 @@ class ProxyView(View):
                     pass
 
             if is_streaming:
-                # TODO: add OUTPUT_FILTER support for streaming responses
-                # For now pass through without scanning
+                # Buffer the full SSE response so OUTPUT_FILTER can scan before delivery.
+                # This adds latency equal to the full generation time but ensures
+                # output policy enforcement is real — not post-hoc.
                 with httpx.Client(timeout=120.0) as client:
                     with client.stream(
                         request.method,
@@ -186,18 +229,51 @@ class ProxyView(View):
                         headers=forward_headers,
                         content=body_bytes,
                     ) as upstream_response:
-                        def stream_generator():
-                            for chunk in upstream_response.iter_bytes():
-                                yield chunk
-
-                        response = StreamingHttpResponse(
-                            stream_generator(),
-                            status=upstream_response.status_code,
-                            content_type=upstream_response.headers.get(
-                                'content-type', 'application/octet-stream'
-                            ),
+                        upstream_status = upstream_response.status_code
+                        upstream_content_type = upstream_response.headers.get(
+                            'content-type', 'text/event-stream'
                         )
-                        return response
+                        buffered_chunks = list(upstream_response.iter_bytes())
+
+                full_content = b''.join(buffered_chunks)
+
+                # Check for OUTPUT_FILTER policies and scan buffered content
+                from zentinelle.models import Policy as _Policy
+                output_filter_policies = _Policy.objects.filter(
+                    tenant_id=tenant_id,
+                    policy_type=_Policy.PolicyType.OUTPUT_FILTER,
+                    enabled=True,
+                ).exists()
+
+                if output_filter_policies and full_content:
+                    output_text = _extract_sse_text(full_content)
+                    if output_text:
+                        output_context = dict(context)
+                        output_context['output'] = output_text
+                        try:
+                            filter_result = engine.evaluate(
+                                endpoint, 'llm:response', context=output_context
+                            )
+                            if not filter_result.allowed:
+                                return JsonResponse(
+                                    {
+                                        'error': 'output_policy_denied',
+                                        'detail': filter_result.reason or 'Response blocked by output filter',
+                                    },
+                                    status=403,
+                                )
+                        except Exception as exc:
+                            logger.warning('Streaming output filter evaluation failed: %s', exc)
+
+                def stream_generator():
+                    for chunk in buffered_chunks:
+                        yield chunk
+
+                return StreamingHttpResponse(
+                    stream_generator(),
+                    status=upstream_status,
+                    content_type=upstream_content_type,
+                )
             else:
                 with httpx.Client(timeout=120.0) as client:
                     upstream_response = client.request(
