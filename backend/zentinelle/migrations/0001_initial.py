@@ -4325,7 +4325,7 @@ class Migration(migrations.Migration):
                 ],
                 "unique_together": {
                     (
-                        "organization",
+                        "tenant_id",
                         "period",
                         "period_start",
                         "user_identifier",

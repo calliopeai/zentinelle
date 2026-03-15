@@ -65,12 +65,10 @@ class PolicyEngine:
         Optimized to use a single database query with select_related.
         Results are cached for POLICY_CACHE_TTL seconds.
         """
-        from django.contrib.auth import get_user_model
-        from organization.models import SubOrganization
-        User = get_user_model()
+        tenant_id = endpoint.tenant_id
 
         # Build cache key
-        cache_key = f"policies:{endpoint.organization_id}:{endpoint.id}:{user_id}:{sub_organization_id}"
+        cache_key = f"policies:{tenant_id}:{endpoint.id}:{user_id}:{sub_organization_id}"
         if policy_types:
             cache_key += f":{','.join(sorted(policy_types))}"
 
@@ -80,96 +78,46 @@ class PolicyEngine:
             if cached is not None:
                 return cached
 
-        # Resolve user and sub-organization upfront
-        user = None
-        sub_org = None
-        sub_org_ids = []
-
-        if user_id:
-            try:
-                user = User.objects.select_related().get(username=user_id)
-                if not sub_organization_id:
-                    # Get sub_org from user's membership
-                    membership = user.memberships.select_related(
-                        'sub_organization'
-                    ).filter(
-                        organization=endpoint.organization,
-                        is_active=True
-                    ).first()
-                    if membership and membership.sub_organization:
-                        sub_org = membership.sub_organization
-            except User.DoesNotExist:
-                pass
-
-        if sub_organization_id and not sub_org:
-            try:
-                sub_org = SubOrganization.objects.get(
-                    id=sub_organization_id,
-                    organization=endpoint.organization
-                )
-            except SubOrganization.DoesNotExist:
-                pass
-
-        if sub_org:
-            # Get all ancestor sub-org IDs for hierarchy
-            sub_org_ids = [sub_org.id] + [a.id for a in sub_org.get_ancestors()]
-
-        # Build a single optimized query using Q objects
-        # This replaces 5 separate queries with 1
-        query_filter = Q(
-            organization=endpoint.organization,
-            enabled=True,
-        )
-
-        # Build scope conditions (OR together)
+        # Build scope conditions (OR together):
+        # - Tenant-wide (organization scope) policies
+        # - Sub-org policies (by external ID)
+        # - Endpoint-specific policies
+        # - User-specific policies
         scope_conditions = Q(scope_type=Policy.ScopeType.ORGANIZATION)
 
-        if sub_org_ids:
+        if sub_organization_id:
             scope_conditions |= Q(
                 scope_type=Policy.ScopeType.SUB_ORGANIZATION,
-                scope_sub_organization_id__in=sub_org_ids
-            )
-
-        if endpoint.deployment_id:
-            scope_conditions |= Q(
-                scope_type=Policy.ScopeType.DEPLOYMENT,
-                scope_deployment_id=endpoint.deployment_id
+                scope_sub_organization_id_ext=sub_organization_id,
             )
 
         scope_conditions |= Q(
             scope_type=Policy.ScopeType.ENDPOINT,
-            scope_endpoint_id=endpoint.id
+            scope_endpoint=endpoint,
         )
 
-        if user:
+        if user_id:
             scope_conditions |= Q(
                 scope_type=Policy.ScopeType.USER,
-                scope_user_id=user.id
+                scope_user_id_ext=user_id,
             )
 
-        query_filter &= scope_conditions
+        query_filter = Q(tenant_id=tenant_id, enabled=True) & scope_conditions
 
         # Filter by policy types if specified
         if policy_types:
             query_filter &= Q(policy_type__in=policy_types)
 
-        # Execute single optimized query with all related objects
+        # Execute single optimized query
         all_policies = list(
             Policy.objects.filter(query_filter)
-            .select_related(
-                'scope_sub_organization',
-                'scope_deployment',
-                'scope_endpoint',
-                'scope_user',
-                'created_by',
-            )
+            .select_related('scope_endpoint')
             .order_by('priority')
         )
 
         # Group policies by scope for proper merging
         org_policies = []
         sub_org_policies = []
-        deployment_policies = []
         endpoint_policies = []
         user_policies = []
 
@@ -178,25 +126,15 @@ class PolicyEngine:
                 org_policies.append(policy)
             elif policy.scope_type == Policy.ScopeType.SUB_ORGANIZATION:
                 sub_org_policies.append(policy)
-            elif policy.scope_type == Policy.ScopeType.DEPLOYMENT:
-                deployment_policies.append(policy)
             elif policy.scope_type == Policy.ScopeType.ENDPOINT:
                 endpoint_policies.append(policy)
             elif policy.scope_type == Policy.ScopeType.USER:
                 user_policies.append(policy)
 
-        # Sort sub-org policies by hierarchy depth (ancestors first)
-        if sub_org_ids and sub_org_policies:
-            sub_org_depth = {id_: idx for idx, id_ in enumerate(reversed(sub_org_ids))}
-            sub_org_policies.sort(
-                key=lambda p: sub_org_depth.get(p.scope_sub_organization_id, 0)
-            )
-
-        # Merge policies - more specific and higher priority wins
+        # Merge policies — more specific and higher priority wins
         result = self._merge_policies([
             org_policies,
             sub_org_policies,
-            deployment_policies,
             endpoint_policies,
             user_policies,
         ])
@@ -207,14 +145,14 @@ class PolicyEngine:
 
         return result
 
-    def invalidate_cache(self, organization_id: str) -> None:
+    def invalidate_cache(self, tenant_id: str) -> None:
         """
-        Invalidate policy cache for an organization.
+        Invalidate policy cache for a tenant.
         Call this when policies are created/updated/deleted.
         """
         # In production, use cache.delete_pattern for Redis
         # For now, we rely on TTL expiration
-        logger.info(f"Policy cache invalidation requested for org {organization_id}")
+        logger.info(f"Policy cache invalidation requested for tenant {tenant_id}")
 
     def _merge_policies(self, policy_layers: List[List[Policy]]) -> List[Policy]:
         """
@@ -348,50 +286,10 @@ class PolicyEngine:
         context: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        Check if organization budget allows the action.
+        Check if tenant budget allows the action.
 
-        Args:
-            endpoint: The agent endpoint making the request
-            context: Request context (may contain estimated_cost)
-
-        Returns:
-            Dict with 'allowed', 'reason', and optionally 'warning'
+        In standalone mode, budget enforcement is handled via BudgetLimit policies
+        rather than organization FK lookups. This method is a no-op placeholder.
         """
-        from decimal import Decimal
-
-        org = endpoint.organization
-        if not org:
-            return {'allowed': True, 'reason': 'No organization context'}
-
-        # Refresh org to get latest budget values
-        org.refresh_from_db(fields=[
-            'ai_budget_usd',
-            'ai_budget_spent_usd',
-            'overage_policy',
-            'stripe_payment_method_id',
-            'ai_budget_alert_threshold',
-        ])
-
-        # No budget configured = unlimited
-        if not org.has_ai_budget:
-            return {'allowed': True, 'reason': 'No budget limit configured'}
-
-        # Get estimated cost from context if provided
-        estimated_cost = Decimal(str(context.get('estimated_cost', 0)))
-
-        # Check budget
-        allowed, reason = org.check_ai_budget(estimated_cost)
-
-        result = {
-            'allowed': allowed,
-            'reason': reason if not allowed else None,
-        }
-
-        # Add warning if approaching budget threshold
-        if allowed and org.ai_budget_percentage_used >= org.ai_budget_alert_threshold:
-            result['warning'] = (
-                f"Budget alert: {org.ai_budget_percentage_used:.1f}% of "
-                f"${org.ai_budget_usd} budget used (${org.ai_budget_spent_usd} spent)"
-            )
-
-        return result
+        # TODO: implement budget check via BudgetLimit policy type
+        return {'allowed': True, 'reason': 'Budget check via policies'}
