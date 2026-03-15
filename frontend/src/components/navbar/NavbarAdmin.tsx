@@ -55,7 +55,7 @@ export default function AdminNavbar(props: {
     '14px 17px 40px 4px rgba(112, 144, 176, 0.06)',
   );
   const borderColor = useColorModeValue('#E6ECFA', 'rgba(135, 140, 189, 0.3)');
-  const navbarIcon = useColorModeValue('gray.400', 'white');
+  const navbarIcon = useColorModeValue('secondaryGray.600', 'white');
 
   const handleLogout = async () => {
     await clearSessionKey();

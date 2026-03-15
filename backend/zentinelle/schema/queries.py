@@ -1247,7 +1247,7 @@ class Query(graphene.ObjectType):
         if not info.context.user.is_authenticated:
             return None
         qs = filter_by_org(
-            AgentEndpoint.objects.select_related('deployment'),
+            AgentEndpoint.objects.all(),
             info.context.user
         )
         return qs.filter(id=id).first()
@@ -1258,7 +1258,7 @@ class Query(graphene.ObjectType):
             return AgentEndpoint.objects.none()
 
         qs = filter_by_org(
-            AgentEndpoint.objects.select_related('deployment'),
+            AgentEndpoint.objects.all(),
             info.context.user
         )
         if search:
@@ -1414,7 +1414,7 @@ class Query(graphene.ObjectType):
 
         # Agent stats - filtered by org
         agents = filter_by_org(
-            AgentEndpoint.objects.select_related('deployment'),
+            AgentEndpoint.objects.all(),
             user
         )
         agent_stats = AgentStatsType(
@@ -2175,7 +2175,7 @@ class Query(graphene.ObjectType):
 
         user = info.context.user
         qs = filter_by_org(
-            InteractionLog.objects.select_related('endpoint', 'deployment', 'scan'),
+            InteractionLog.objects.select_related('endpoint', 'scan'),
             user
         )
 

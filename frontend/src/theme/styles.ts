@@ -127,15 +127,15 @@ export const globalStyles = {
       900: '#0A1628',
     },
     secondaryGray: {
-      100: '#1A1F2E',
-      200: '#232938',
-      300: '#0D1117',
-      400: '#161B22',
-      500: '#6E7681',
-      600: '#8B949E',
-      700: '#C9D1D9',
-      800: '#C9D1D9',
-      900: '#F0F6FC',
+      100: '#EEF2F7',  // light border / divider
+      200: '#E2E8F2',  // light hover bg
+      300: '#F4F7FC',  // near-white button bg
+      400: '#9BA8BB',  // placeholder / muted
+      500: '#6E7681',  // medium
+      600: '#64748B',  // secondary text (WCAG AA on white)
+      700: '#4A5568',  // dark gray
+      800: '#2D3748',  // darker
+      900: '#1B2559',  // primary text in light mode (dark navy)
     },
     red: {
       100: '#2D1B1B',
@@ -167,7 +167,13 @@ export const globalStyles = {
       900: '#010409',
     },
     gray: {
-      100: '#161B22',
+      100: '#EEF2F7',
+      200: '#E2E8F0',
+      300: '#CBD5E1',
+      400: '#94A3B8',
+      500: '#64748B',
+      600: '#475569',
+      700: '#334155',
     },
     background: {
       100: '#FFFFFF',
