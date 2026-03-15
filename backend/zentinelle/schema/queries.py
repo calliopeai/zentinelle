@@ -89,6 +89,8 @@ from .types import (
     UsageAlertConnection,
     ComplianceReportConnection,
     EffectivePolicyConnection,
+    DeploymentType,
+    DeploymentConnection,
 )
 
 
@@ -696,6 +698,17 @@ class Query(graphene.ObjectType):
     # Note: Deployment queries (deployment, deployments, junohub_config, junohub_configs,
     # terraform_provision, terraform_provisions, organization_ai_keys, deployment_ai_keys,
     # deployment_ai_providers) are now in deployments.schema.queries.DeploymentsQuery
+
+    # Deployments (stub — managed/cloud feature, not available in standalone)
+    deployment = graphene.Field(DeploymentType, id=graphene.ID())
+    deployments = graphene.Field(
+        DeploymentConnection,
+        search=graphene.String(),
+        environment=graphene.String(),
+        first=graphene.Int(),
+        after=graphene.String(),
+        global_view=graphene.Boolean(),
+    )
 
     # Endpoints
     endpoint = graphene.Field(AgentEndpointType, id=graphene.ID())
@@ -1308,8 +1321,15 @@ class Query(graphene.ObjectType):
             statuses=statuses,
         )
 
-    # Note: resolve_deployment and resolve_deployments are now in
-    # deployments.schema.queries.DeploymentsQuery
+    @staticmethod
+    def resolve_deployment(root, info, id=None):
+        """Stub resolver — deployments not available in standalone mode."""
+        return None
+
+    @staticmethod
+    def resolve_deployments(root, info, search=None, environment=None, first=None, after=None, global_view=None):
+        """Stub resolver — deployments not available in standalone mode."""
+        return None
 
     @staticmethod
     def resolve_endpoint(root, info, id):

@@ -1096,6 +1096,44 @@ class CreatePortalSessionPayload(graphene.ObjectType):
     errors = graphene.List(graphene.String)
 
 
+class DeploymentType(graphene.ObjectType):
+    """Stub type — deployments are a managed/cloud feature, not available in standalone mode."""
+    id = graphene.ID()
+    name = graphene.String()
+    slug = graphene.String()
+    description = graphene.String()
+    environment = graphene.String()
+    environment_display = graphene.String()
+    deployment_type = graphene.String()
+    deployment_type_display = graphene.String()
+    hosting_model = graphene.String()
+    hosting_model_display = graphene.String()
+    hub_url = graphene.String()
+    cloud_region = graphene.String()
+    cloud_provider = graphene.String()
+    status = graphene.String()
+    status_display = graphene.String()
+    endpoint_count = graphene.Int()
+    active_endpoint_count = graphene.Int()
+    last_deployed_at = graphene.DateTime()
+    last_healthy_at = graphene.DateTime()
+    created_at = graphene.DateTime()
+    updated_at = graphene.DateTime()
+    cached_status = graphene.String()
+    cached_status_at = graphene.DateTime()
+
+
+class DeploymentConnection(graphene.relay.Connection):
+    class Meta:
+        node = DeploymentType
+
+    total_count = graphene.Int()
+
+    @staticmethod
+    def resolve_total_count(root, info, **kwargs):
+        return 0
+
+
 class UsageAlertType(graphene.ObjectType):
     id = graphene.ID()
     alert_type = graphene.String()
