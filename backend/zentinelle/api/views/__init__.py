@@ -28,6 +28,10 @@ from zentinelle.api.views.compliance import (
     ComplianceReportSummaryView,
 )
 from zentinelle.api.views.audit import AuditChainVerifyView
+from zentinelle.api.views.policy_history import (
+    PolicyHistoryListView,
+    PolicyDiffView,
+)
 
 __all__ = [
     'RegisterView',
@@ -53,4 +57,7 @@ __all__ = [
     'ComplianceReportSummaryView',
     # Audit
     'AuditChainVerifyView',
+    # Policy History
+    'PolicyHistoryListView',
+    'PolicyDiffView',
 ]

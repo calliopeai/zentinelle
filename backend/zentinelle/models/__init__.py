@@ -14,7 +14,7 @@ are in the `deployments` app.
 
 # Agent-level models
 from zentinelle.models.endpoint import AgentEndpoint
-from zentinelle.models.policy import Policy, PolicyRevision
+from zentinelle.models.policy import Policy, PolicyRevision, PolicyHistory
 from zentinelle.models.event import Event
 from zentinelle.models.audit import AuditLog
 from zentinelle.models.policy_document import PolicyDocument
@@ -81,6 +81,7 @@ __all__ = [
     'AgentEndpoint',
     'Policy',
     'PolicyRevision',
+    'PolicyHistory',
     'PolicyDocument',
     'Event',
     'AuditLog',

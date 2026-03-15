@@ -216,9 +216,32 @@ class PolicyRevision(models.Model):
         return f"{self.policy.name} v{self.version}"
 
 
+class PolicyHistory(models.Model):
+    """
+    Immutable JSON snapshot of a Policy at a point in time.
+    Stores the full policy state as a single JSON blob for easy diffing.
+    Created automatically on every Policy save (via post_save signal).
+    """
+    policy = models.ForeignKey(Policy, on_delete=models.CASCADE, related_name='history')
+    tenant_id = models.CharField(max_length=255, db_index=True)
+    version = models.PositiveIntegerField()
+    snapshot = models.JSONField()  # full policy state at this version
+    changed_by = models.CharField(max_length=255, default='system')
+    changed_at = models.DateTimeField(auto_now_add=True)
+    change_summary = models.CharField(max_length=500, blank=True, default='')
+
+    class Meta:
+        app_label = 'zentinelle'
+        ordering = ['-version']
+        unique_together = [('policy', 'version')]
+
+    def __str__(self):
+        return f"{self.policy.name} history v{self.version}"
+
+
 @receiver(post_save, sender=Policy)
 def create_policy_revision(sender, instance, created, **kwargs):
-    """Create a revision snapshot whenever a policy is saved."""
+    """Create a revision snapshot and history record whenever a policy is saved."""
     PolicyRevision.objects.get_or_create(
         policy=instance,
         version=instance.version,
@@ -230,6 +253,29 @@ def create_policy_revision(sender, instance, created, **kwargs):
             'scope_type': instance.scope_type,
             'enabled': instance.enabled,
             'priority': instance.priority,
+        }
+    )
+
+    changed_by = getattr(instance, '_changed_by', 'system') or 'system'
+    change_summary = getattr(instance, '_change_summary', '') or ''
+    snapshot = {
+        'name': instance.name,
+        'policy_type': instance.policy_type,
+        'enforcement': instance.enforcement,
+        'priority': instance.priority,
+        'config': instance.config,
+        'enabled': instance.enabled,
+        'description': instance.description,
+        'version': instance.version,
+    }
+    PolicyHistory.objects.get_or_create(
+        policy=instance,
+        version=instance.version,
+        defaults={
+            'tenant_id': instance.tenant_id,
+            'snapshot': snapshot,
+            'changed_by': changed_by,
+            'change_summary': change_summary,
         }
     )
 
