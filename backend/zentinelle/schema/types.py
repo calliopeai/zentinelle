@@ -1094,3 +1094,80 @@ class UsageMetricsType(graphene.ObjectType):
 class CreatePortalSessionPayload(graphene.ObjectType):
     portal_url = graphene.String()
     errors = graphene.List(graphene.String)
+
+
+class UsageAlertType(graphene.ObjectType):
+    id = graphene.ID()
+    alert_type = graphene.String()
+    alert_type_display = graphene.String()
+    severity = graphene.String()
+    severity_display = graphene.String()
+    title = graphene.String()
+    message = graphene.String()
+    details = graphene.JSONString()
+    threshold_value = graphene.Float()
+    current_value = graphene.Float()
+    acknowledged = graphene.Boolean()
+    acknowledged_at = graphene.DateTime()
+    acknowledged_by_email = graphene.String()
+    resolved = graphene.Boolean()
+    resolved_at = graphene.DateTime()
+    created_at = graphene.DateTime()
+
+
+class UsageAlertConnection(graphene.relay.Connection):
+    class Meta:
+        node = UsageAlertType
+
+    total_count = graphene.Int()
+
+    @staticmethod
+    def resolve_total_count(root, info, **kwargs):
+        return 0
+
+
+class ComplianceReportType(graphene.ObjectType):
+    id = graphene.ID()
+    name = graphene.String()
+    framework = graphene.String()
+    generated_at = graphene.DateTime()
+    period = graphene.String()
+    status = graphene.String()
+    download_url = graphene.String()
+
+
+class ComplianceReportConnection(graphene.relay.Connection):
+    class Meta:
+        node = ComplianceReportType
+
+    total_count = graphene.Int()
+
+    @staticmethod
+    def resolve_total_count(root, info, **kwargs):
+        return 0
+
+
+class EffectivePolicyType(graphene.ObjectType):
+    id = graphene.ID()
+    name = graphene.String()
+    description = graphene.String()
+    policy_type = graphene.String()
+    scope_type = graphene.String()
+    scope_name = graphene.String()
+    config = graphene.JSONString()
+    priority = graphene.Int()
+    enforcement = graphene.String()
+    enabled = graphene.Boolean()
+    inherited_from = graphene.String()
+    overrides = graphene.JSONString()
+
+
+class EffectivePolicyConnection(graphene.relay.Connection):
+    class Meta:
+        node = EffectivePolicyType
+
+    total_count = graphene.Int()
+
+    @staticmethod
+    def resolve_total_count(root, info, **kwargs):
+        return 0

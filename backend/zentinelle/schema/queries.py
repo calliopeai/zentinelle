@@ -86,6 +86,9 @@ from .types import (
     UsageMetricsType,
     UsageMetricsSummaryType,
     CreatePortalSessionPayload,
+    UsageAlertConnection,
+    ComplianceReportConnection,
+    EffectivePolicyConnection,
 )
 
 
@@ -999,6 +1002,34 @@ class Query(graphene.ObjectType):
     )
     subscription = graphene.Field(BillingSubscriptionType)
     available_plans = graphene.List(BillingPlanType)
+
+    # Usage Alerts (stub)
+    usage_alerts = graphene.Field(
+        UsageAlertConnection,
+        alert_type=graphene.String(),
+        severity=graphene.String(),
+        acknowledged=graphene.Boolean(),
+        resolved=graphene.Boolean(),
+        first=graphene.Int(),
+        after=graphene.String(),
+    )
+
+    # Compliance Reports (stub)
+    compliance_reports = graphene.Field(
+        ComplianceReportConnection,
+        first=graphene.Int(),
+        after=graphene.String(),
+    )
+
+    # Effective Policies (stub — computed policy inheritance for a context)
+    effective_policies = graphene.Field(
+        EffectivePolicyConnection,
+        deployment_id=graphene.ID(),
+        endpoint_id=graphene.ID(),
+        user_id=graphene.String(),
+        first=graphene.Int(),
+        after=graphene.String(),
+    )
 
     # Resolvers
     @staticmethod
@@ -2980,3 +3011,18 @@ class Query(graphene.ObjectType):
     def resolve_available_plans(root, info):
         """Stub resolver — available plans not applicable in standalone mode."""
         return []
+
+    @staticmethod
+    def resolve_usage_alerts(root, info, alert_type=None, severity=None, acknowledged=None, resolved=None, first=None, after=None):
+        """Stub resolver — usage alerts not yet implemented in standalone mode."""
+        return None
+
+    @staticmethod
+    def resolve_compliance_reports(root, info, first=None, after=None):
+        """Stub resolver — compliance reports not yet implemented in standalone mode."""
+        return None
+
+    @staticmethod
+    def resolve_effective_policies(root, info, deployment_id=None, endpoint_id=None, user_id=None, first=None, after=None):
+        """Stub resolver — effective policy inheritance not yet implemented in standalone mode."""
+        return None
