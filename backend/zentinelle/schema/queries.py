@@ -634,6 +634,18 @@ class LicenseViolationSummaryType(graphene.ObjectType):
     by_severity = graphene.JSONString()
 
 
+class SimulatePolicyResultType(graphene.ObjectType):
+    """Result of a policy simulation dry-run."""
+    total_events = graphene.Int()
+    would_block = graphene.Int()
+    would_warn = graphene.Int()
+    would_pass = graphene.Int()
+    impact_percent = graphene.Float()
+    blocked_samples = graphene.List(graphene.JSONString)
+    simulated_policy_type = graphene.String()
+    lookback_days = graphene.Int()
+
+
 class Query(graphene.ObjectType):
     """Zentinelle GraphQL queries."""
 
@@ -882,6 +894,16 @@ class Query(graphene.ObjectType):
         organization_id=graphene.UUID(),
         days=graphene.Int(default_value=30),
         description="Get violation summary for an organization"
+    )
+
+    # Policy Simulation (#27)
+    simulate_policy = graphene.Field(
+        SimulatePolicyResultType,
+        policy_type=graphene.String(required=True),
+        config=graphene.JSONString(required=True),
+        enforcement=graphene.String(),
+        lookback_days=graphene.Int(),
+        description="Dry-run a proposed policy config against historical events",
     )
 
     # Resolvers
@@ -1224,6 +1246,46 @@ class Query(graphene.ObjectType):
         if not policy_qs.filter(id=policy_id).exists():
             return PolicyRevision.objects.none()
         return PolicyRevision.objects.filter(policy_id=policy_id).order_by('-version')
+
+    @staticmethod
+    def resolve_simulate_policy(
+        root, info, policy_type, config, enforcement='enforce', lookback_days=7, **kwargs
+    ):
+        """Dry-run a proposed policy against historical events."""
+        if not info.context.user.is_authenticated:
+            return None
+
+        from zentinelle.services.policy_simulator import simulate_policy
+        import json
+
+        tenant_id = get_request_tenant_id(info.context.user)
+        if not tenant_id:
+            return None
+
+        # config may arrive as a JSON string (graphene.JSONString input)
+        if isinstance(config, str):
+            try:
+                config = json.loads(config)
+            except (ValueError, TypeError):
+                config = {}
+
+        policy_config = {
+            'policy_type': policy_type,
+            'config': config,
+            'enforcement': enforcement,
+        }
+
+        result = simulate_policy(tenant_id, policy_config, lookback_days=lookback_days)
+        return SimulatePolicyResultType(
+            total_events=result['total_events'],
+            would_block=result['would_block'],
+            would_warn=result['would_warn'],
+            would_pass=result['would_pass'],
+            impact_percent=result['impact_percent'],
+            blocked_samples=[str(s) for s in result['blocked_samples']],
+            simulated_policy_type=result['simulated_policy_type'],
+            lookback_days=result['lookback_days'],
+        )
 
     @staticmethod
     def resolve_events(root, info, event_type=None, category=None, endpoint_id=None, user_id=None, **kwargs):

@@ -458,6 +458,29 @@ def check_repeated_violations():
             logger.info(f"Created repeated violation alert for {user_id} ({count} violations)")
 
 
+@shared_task(
+    name='zentinelle.compliance.run_policy_simulation',
+    bind=False,
+)
+def run_policy_simulation(tenant_id: str, policy_config: dict, lookback_days: int = 30) -> dict:
+    """
+    Run a policy simulation in the background.
+
+    Useful for large lookback windows where the result would be too slow for
+    a synchronous GraphQL request.
+
+    Args:
+        tenant_id: Tenant to scope the simulation to.
+        policy_config: Dict with keys: policy_type, config, enforcement.
+        lookback_days: Days of history to replay (default 30).
+
+    Returns:
+        Simulation result dict.
+    """
+    from zentinelle.services.policy_simulator import simulate_policy
+    return simulate_policy(tenant_id, policy_config, lookback_days, max_events=5000)
+
+
 @shared_task(name='zentinelle.compliance.classify_interaction')
 def classify_interaction(interaction_id: str):
     """
