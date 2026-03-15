@@ -253,13 +253,13 @@ class SystemPrompt(models.Model):
             text = text.replace(f'{{{{{key}}}}}', str(value))
         return text
 
-    def fork(self, user=None, organization=None):
+    def fork(self, user_id=None):
         """Create a copy of this prompt for modification."""
         new_prompt = SystemPrompt(
             name=f"{self.name} (Fork)",
             slug=f"{self.slug}-fork",
             description=self.description,
-            organization=organization,
+            user_id=user_id or '',
             prompt_text=self.prompt_text,
             prompt_type=self.prompt_type,
             category=self.category,
@@ -276,7 +276,6 @@ class SystemPrompt(models.Model):
             parent_prompt=self,
             status=SystemPrompt.Status.DRAFT,
             visibility=SystemPrompt.Visibility.PRIVATE,
-            created_by=user,
         )
         new_prompt.save()
         new_prompt.tags.set(self.tags.all())

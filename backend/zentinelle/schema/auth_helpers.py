@@ -80,3 +80,21 @@ def filter_by_org(queryset, user, org_field='tenant_id', global_view=False, orga
     # Non-admin users: return nothing in standalone mode
     # (tenant filtering should be handled upstream)
     return queryset.none()
+
+
+def get_request_tenant_id(user):
+    """
+    Get the tenant_id for the current request user.
+    - ZentinelleAgentUser (API key auth): returns user.tenant_id
+    - Django staff user (session auth): returns "default"
+    - Unauthenticated: returns None
+    """
+    if not user or not getattr(user, 'is_authenticated', False):
+        return None
+    # API key auth (ZentinelleAgentUser has tenant_id attribute)
+    if hasattr(user, 'tenant_id') and not hasattr(user, 'is_staff'):
+        return user.tenant_id
+    # Session auth (Django User) - staff only in standalone
+    if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+        return "default"
+    return None

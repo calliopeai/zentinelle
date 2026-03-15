@@ -15,6 +15,7 @@ import {
   MdGroup,
   MdSettings,
   MdBugReport,
+  MdKey,
 } from 'react-icons/md';
 
 import { IRoute } from 'types/navigation';
@@ -84,6 +85,11 @@ const routes: IRoute[] = [
     name: 'Team',
     path: '/team',
     icon: <Icon as={MdGroup} width="20px" height="20px" color="inherit" />,
+  },
+  {
+    name: 'API Keys',
+    path: '/settings/api-keys',
+    icon: <Icon as={MdKey} width="20px" height="20px" color="inherit" />,
   },
   {
     name: 'Settings',

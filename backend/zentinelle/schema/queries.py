@@ -63,7 +63,7 @@ from .types import (
 
 
 # Import authorization helpers from centralized module
-from .auth_helpers import get_user_org_ids, filter_by_org, user_has_org_access
+from .auth_helpers import filter_by_org, get_request_tenant_id, is_internal_admin
 
 
 # Dashboard Stats Types
@@ -1387,11 +1387,12 @@ class Query(graphene.ObjectType):
         if not info.context.user.is_authenticated:
             return None
         user = info.context.user
-        # Get user's organization
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
+        tenant_id = get_request_tenant_id(user)
+        if not tenant_id:
             return None
-        return APIKey.objects.filter(id=id, organization=membership.organization).first()
+        if is_internal_admin(user):
+            return APIKey.objects.filter(id=id).first()
+        return APIKey.objects.filter(id=id, tenant_id=tenant_id).first()
 
     @staticmethod
     def resolve_api_keys(root, info, search=None, status=None, **kwargs):
@@ -1399,11 +1400,11 @@ class Query(graphene.ObjectType):
             return APIKey.objects.none()
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
+        tenant_id = get_request_tenant_id(user)
+        if not tenant_id:
             return APIKey.objects.none()
 
-        qs = APIKey.objects.filter(organization=membership.organization).order_by('-created_at')
+        qs = filter_by_org(APIKey.objects.all(), user).order_by('-created_at')
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search))
         if status:
@@ -1453,13 +1454,14 @@ class Query(graphene.ObjectType):
         if not info.context.user.is_authenticated:
             return None
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
+        tenant_id = get_request_tenant_id(user)
+        if not tenant_id:
             return None
-        return OrganizationModelApproval.objects.filter(
-            id=id,
-            organization=membership.organization
-        ).select_related('model', 'model__provider').first()
+        qs = filter_by_org(
+            OrganizationModelApproval.objects.select_related('model', 'model__provider'),
+            user
+        )
+        return qs.filter(id=id).first()
 
     @staticmethod
     def resolve_model_approvals(root, info, status=None, provider_slug=None, **kwargs):
@@ -1467,13 +1469,10 @@ class Query(graphene.ObjectType):
             return OrganizationModelApproval.objects.none()
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return OrganizationModelApproval.objects.none()
-
-        qs = OrganizationModelApproval.objects.filter(
-            organization=membership.organization
-        ).select_related('model', 'model__provider')
+        qs = filter_by_org(
+            OrganizationModelApproval.objects.select_related('model', 'model__provider'),
+            user
+        )
 
         if status:
             qs = qs.filter(status=status)
@@ -1503,10 +1502,10 @@ class Query(graphene.ObjectType):
             get_framework_coverage,
         )
 
-        # Get user's organization
+        # Get user's tenant
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
+        tenant_id = get_request_tenant_id(user)
+        if not tenant_id:
             # Return empty/default state
             observe_caps = []
             control_caps = []
@@ -1561,7 +1560,7 @@ class Query(graphene.ObjectType):
                 framework_coverage=fw_coverage,
             )
 
-        org = membership.organization
+        org = tenant_id
 
         # Get capability status for this org
         capability_status = get_capability_status(org)
@@ -1819,13 +1818,13 @@ class Query(graphene.ObjectType):
 
         from zentinelle.services.event_store import dead_letter_queue
 
-        # Get org from user context
+        # Get tenant from user context
         user = info.context.user
-        org = getattr(user, 'organization', None)
-        if not org:
+        tenant_id = get_request_tenant_id(user)
+        if not tenant_id:
             return []
 
-        events = dead_letter_queue.get_dlq_events(org, limit=limit)
+        events = dead_letter_queue.get_dlq_events(tenant_id, limit=limit)
         return [
             DeadLetterEventType(
                 id=str(e.id),
@@ -1849,18 +1848,20 @@ class Query(graphene.ObjectType):
         from django.db.models import Count, Min
 
         user = info.context.user
-        org = getattr(user, 'organization', None)
-        if not org:
+        tenant_id = get_request_tenant_id(user)
+        if not tenant_id:
             return DeadLetterQueueStatsType(
                 total_count=0,
                 by_category=[],
                 oldest_event=None,
             )
 
-        dlq_events = Event.objects.filter(
-            organization=org,
-            status=Event.Status.FAILED,
-            retry_count__gte=5,
+        dlq_events = filter_by_org(
+            Event.objects.filter(
+                status=Event.Status.FAILED,
+                retry_count__gte=5,
+            ),
+            user
         )
 
         stats = dlq_events.aggregate(
@@ -1890,13 +1891,8 @@ class Query(graphene.ObjectType):
         if not info.context.user.is_authenticated:
             return None
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return None
-        return ContentRule.objects.filter(
-            id=id,
-            organization=membership.organization
-        ).first()
+        qs = filter_by_org(ContentRule.objects.all(), user)
+        return qs.filter(id=id).first()
 
     @staticmethod
     def resolve_content_rules(
@@ -1907,11 +1903,7 @@ class Query(graphene.ObjectType):
             return ContentRule.objects.none()
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return ContentRule.objects.none()
-
-        qs = ContentRule.objects.filter(organization=membership.organization)
+        qs = filter_by_org(ContentRule.objects.all(), user)
 
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search))
@@ -1931,13 +1923,8 @@ class Query(graphene.ObjectType):
         if not info.context.user.is_authenticated:
             return None
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return None
-        return ContentScan.objects.filter(
-            id=id,
-            organization=membership.organization
-        ).first()
+        qs = filter_by_org(ContentScan.objects.all(), user)
+        return qs.filter(id=id).first()
 
     @staticmethod
     def resolve_content_scans(
@@ -1949,11 +1936,7 @@ class Query(graphene.ObjectType):
             return ContentScan.objects.none()
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return ContentScan.objects.none()
-
-        qs = ContentScan.objects.filter(organization=membership.organization)
+        qs = filter_by_org(ContentScan.objects.all(), user)
 
         if user_identifier:
             qs = qs.filter(user_identifier=user_identifier)
@@ -1979,12 +1962,9 @@ class Query(graphene.ObjectType):
             return ContentViolation.objects.none()
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return ContentViolation.objects.none()
-
-        qs = ContentViolation.objects.filter(
-            scan__organization=membership.organization
+        qs = filter_by_org(
+            ContentViolation.objects.all(), user,
+            org_field='scan__tenant_id'
         )
 
         if rule_type:
@@ -2006,11 +1986,7 @@ class Query(graphene.ObjectType):
             return ComplianceAlert.objects.none()
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return ComplianceAlert.objects.none()
-
-        qs = ComplianceAlert.objects.filter(organization=membership.organization)
+        qs = filter_by_org(ComplianceAlert.objects.all(), user)
 
         if status:
             qs = qs.filter(status=status)
@@ -2026,13 +2002,8 @@ class Query(graphene.ObjectType):
         if not info.context.user.is_authenticated:
             return None
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return None
-        return InteractionLog.objects.filter(
-            id=id,
-            organization=membership.organization
-        ).first()
+        qs = filter_by_org(InteractionLog.objects.all(), user)
+        return qs.filter(id=id).first()
 
     @staticmethod
     def resolve_interaction_logs(
@@ -2044,13 +2015,10 @@ class Query(graphene.ObjectType):
             return InteractionLog.objects.none()
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return InteractionLog.objects.none()
-
-        qs = InteractionLog.objects.filter(
-            organization=membership.organization
-        ).select_related('endpoint', 'deployment', 'scan')
+        qs = filter_by_org(
+            InteractionLog.objects.select_related('endpoint', 'deployment', 'scan'),
+            user
+        )
 
         if user_identifier:
             qs = qs.filter(user_identifier=user_identifier)
@@ -2082,31 +2050,31 @@ class Query(graphene.ObjectType):
         from django.db.models import Avg, Sum
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
+        tenant_id = get_request_tenant_id(user)
+        if not tenant_id:
             return None
 
-        org = membership.organization
         now = timezone.now()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         hour_ago = now - timedelta(hours=1)
 
         # Interaction stats
-        interactions = InteractionLog.objects.filter(organization=org)
+        interactions = filter_by_org(InteractionLog.objects.all(), user)
         total_interactions = interactions.count()
         interactions_today = interactions.filter(occurred_at__gte=today_start).count()
         interactions_this_hour = interactions.filter(occurred_at__gte=hour_ago).count()
 
         # Scan stats
-        scans = ContentScan.objects.filter(organization=org)
+        scans = filter_by_org(ContentScan.objects.all(), user)
         total_scans = scans.count()
         scans_with_violations = scans.filter(has_violations=True).count()
         scans_blocked = scans.filter(was_blocked=True).count()
 
         # Violation breakdowns
-        violations_today = ContentViolation.objects.filter(
-            scan__organization=org,
-            created_at__gte=today_start
+        violations_today = filter_by_org(
+            ContentViolation.objects.filter(created_at__gte=today_start),
+            user,
+            org_field='scan__tenant_id'
         )
 
         by_type = violations_today.values('rule_type').annotate(
@@ -2162,13 +2130,8 @@ class Query(graphene.ObjectType):
         if not info.context.user.is_authenticated:
             return None
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return None
-        return Risk.objects.filter(
-            id=id,
-            organization=membership.organization
-        ).first()
+        qs = filter_by_org(Risk.objects.all(), user)
+        return qs.filter(id=id).first()
 
     @staticmethod
     def resolve_risks(
@@ -2178,11 +2141,7 @@ class Query(graphene.ObjectType):
             return Risk.objects.none()
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return Risk.objects.none()
-
-        qs = Risk.objects.filter(organization=membership.organization)
+        qs = filter_by_org(Risk.objects.all(), user)
 
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search))
@@ -2206,13 +2165,8 @@ class Query(graphene.ObjectType):
         if not info.context.user.is_authenticated:
             return None
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return None
-        return Incident.objects.filter(
-            id=id,
-            organization=membership.organization
-        ).first()
+        qs = filter_by_org(Incident.objects.all(), user)
+        return qs.filter(id=id).first()
 
     @staticmethod
     def resolve_incidents(
@@ -2223,11 +2177,7 @@ class Query(graphene.ObjectType):
             return Incident.objects.none()
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return Incident.objects.none()
-
-        qs = Incident.objects.filter(organization=membership.organization)
+        qs = filter_by_org(Incident.objects.all(), user)
 
         if search:
             qs = qs.filter(Q(title__icontains=search) | Q(description__icontains=search))
@@ -2254,16 +2204,15 @@ class Query(graphene.ObjectType):
         from datetime import timedelta
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
+        tenant_id = get_request_tenant_id(user)
+        if not tenant_id:
             return None
 
-        org = membership.organization
         now = timezone.now()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         # Risk stats
-        risks = Risk.objects.filter(organization=org)
+        risks = filter_by_org(Risk.objects.all(), user)
         total_risks = risks.count()
         open_risks = risks.exclude(status__in=['closed', 'accepted']).count()
 
@@ -2293,7 +2242,7 @@ class Query(graphene.ObjectType):
         ]
 
         # Incident stats
-        incidents = Incident.objects.filter(organization=org)
+        incidents = filter_by_org(Incident.objects.all(), user)
         total_incidents = incidents.count()
         open_incidents = incidents.exclude(status__in=['resolved', 'closed']).count()
         incidents_today = incidents.filter(detected_at__gte=today_start).count()
@@ -2344,13 +2293,8 @@ class Query(graphene.ObjectType):
         if not info.context.user.is_authenticated:
             return None
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return None
-        return PolicyDocument.objects.filter(
-            id=id,
-            organization=membership.organization
-        ).first()
+        qs = filter_by_org(PolicyDocument.objects.all(), user)
+        return qs.filter(id=id).first()
 
     @staticmethod
     def resolve_policy_documents(root, info, search=None, status=None, **kwargs):
@@ -2358,11 +2302,7 @@ class Query(graphene.ObjectType):
             return []
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return []
-
-        qs = PolicyDocument.objects.filter(organization=membership.organization)
+        qs = filter_by_org(PolicyDocument.objects.all(), user)
 
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search))
@@ -2398,8 +2338,8 @@ class Query(graphene.ObjectType):
                 return None
 
         user = info.context.user
-        org_ids = get_user_org_ids(user)
-        if org_ids is not None and str(organization_id) not in [str(oid) for oid in org_ids]:
+        # DISABLED: org_ids check removed (standalone mode)
+        if False:
             return None
 
         from django.utils import timezone
@@ -2599,14 +2539,8 @@ class Query(graphene.ObjectType):
             return None
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return None
-
-        return LicenseComplianceReport.objects.filter(
-            id=id,
-            organization=membership.organization
-        ).first()
+        qs = filter_by_org(LicenseComplianceReport.objects.all(), user)
+        return qs.filter(id=id).first()
 
     @staticmethod
     def resolve_license_compliance_reports(root, info, report_type=None, status=None, start_date=None, end_date=None, **kwargs):
@@ -2615,11 +2549,7 @@ class Query(graphene.ObjectType):
             return LicenseComplianceReport.objects.none()
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return LicenseComplianceReport.objects.none()
-
-        qs = LicenseComplianceReport.objects.filter(organization=membership.organization)
+        qs = filter_by_org(LicenseComplianceReport.objects.all(), user)
 
         if report_type:
             qs = qs.filter(report_type=report_type)
@@ -2639,14 +2569,8 @@ class Query(graphene.ObjectType):
             return None
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return None
-
-        return LicenseComplianceViolation.objects.filter(
-            id=id,
-            organization=membership.organization
-        ).first()
+        qs = filter_by_org(LicenseComplianceViolation.objects.all(), user)
+        return qs.filter(id=id).first()
 
     @staticmethod
     def resolve_license_compliance_violations(root, info, violation_type=None, severity=None, status=None, **kwargs):
@@ -2655,11 +2579,7 @@ class Query(graphene.ObjectType):
             return LicenseComplianceViolation.objects.none()
 
         user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return LicenseComplianceViolation.objects.none()
-
-        qs = LicenseComplianceViolation.objects.filter(organization=membership.organization)
+        qs = filter_by_org(LicenseComplianceViolation.objects.all(), user)
 
         if violation_type:
             qs = qs.filter(violation_type=violation_type)

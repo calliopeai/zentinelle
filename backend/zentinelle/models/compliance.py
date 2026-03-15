@@ -268,9 +268,9 @@ FRAMEWORK_REQUIREMENTS = {
 }
 
 
-def get_capability_status(organization):
+def get_capability_status(tenant_id):
     """
-    Get the status of each capability for an organization.
+    Get the status of each capability for a tenant.
 
     Returns dict of capability_id -> {enabled: bool, policies: [...], rules: [...]}
 
@@ -280,15 +280,15 @@ def get_capability_status(organization):
     from zentinelle.models.policy import Policy
     from zentinelle.models.compliance import ContentRule
 
-    # Get org's enabled policies and rules
+    # Get tenant's enabled policies and rules
     policies = Policy.objects.filter(
-        organization=organization,
+        tenant_id=tenant_id,
         enabled=True
     ).values_list('policy_type', flat=True)
     policy_types = set(policies)
 
     rules = ContentRule.objects.filter(
-        organization=organization,
+        tenant_id=tenant_id,
         enabled=True
     ).values_list('rule_type', flat=True)
     rule_types = set(rules)
@@ -327,9 +327,9 @@ def get_capability_status(organization):
     return status
 
 
-def get_framework_coverage(organization):
+def get_framework_coverage(tenant_id):
     """
-    Get compliance framework coverage for an organization.
+    Get compliance framework coverage for a tenant.
 
     Returns dict of framework_id -> {
         covered: int,
@@ -339,7 +339,7 @@ def get_framework_coverage(organization):
         missing_recommended: [...],
     }
     """
-    capability_status = get_capability_status(organization)
+    capability_status = get_capability_status(tenant_id)
     enabled_caps = {k for k, v in capability_status.items() if v['enabled']}
 
     coverage = {}

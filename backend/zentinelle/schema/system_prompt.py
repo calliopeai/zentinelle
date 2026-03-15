@@ -76,7 +76,7 @@ class SystemPromptType(DjangoObjectType):
             'version', 'parent_prompt', 'change_log',
             'status', 'visibility', 'is_featured', 'is_verified',
             'usage_count', 'favorite_count', 'fork_count', 'avg_rating',
-            'created_by', 'created_at', 'updated_at'
+            'user_id', 'created_at', 'updated_at'
         ]
         interfaces = (relay.Node,)
         filter_fields = {
@@ -109,33 +109,33 @@ class SystemPromptType(DjangoObjectType):
         user = info.context.user
         if not user or not user.is_authenticated:
             return False
-        return PromptFavorite.objects.filter(user=user, prompt=self).exists()
+        return PromptFavorite.objects.filter(ext_user_id=str(user.pk), prompt=self).exists()
 
     def resolve_user_rating(self, info):
         user = info.context.user
         if not user or not user.is_authenticated:
             return None
-        rating = PromptRating.objects.filter(user=user, prompt=self).first()
+        rating = PromptRating.objects.filter(ext_user_id=str(user.pk), prompt=self).first()
         return rating.rating if rating else None
 
     def resolve_rendered_preview(self, info, variables=None):
         return self.render(variables or {})
 
     def resolve_created_by_username(self, info):
-        return self.created_by.email if self.created_by else None
+        return self.user_id or None
 
 
 class PromptFavoriteType(DjangoObjectType):
     class Meta:
         model = PromptFavorite
-        fields = ['id', 'user', 'prompt', 'created_at']
+        fields = ['id', 'ext_user_id', 'prompt', 'created_at']
         interfaces = (relay.Node,)
 
 
 class PromptRatingType(DjangoObjectType):
     class Meta:
         model = PromptRating
-        fields = ['id', 'user', 'prompt', 'rating', 'review', 'created_at', 'updated_at']
+        fields = ['id', 'ext_user_id', 'prompt', 'rating', 'review', 'created_at', 'updated_at']
         interfaces = (relay.Node,)
 
 
@@ -215,12 +215,10 @@ class PromptLibraryQuery(graphene.ObjectType):
 
         # Visibility filter
         if user and user.is_authenticated:
-            # User can see: public, their org's, and their own
-            org_ids = list(user.memberships.values_list('organization_id', flat=True))
+            # User can see: public and their own
             qs = qs.filter(
                 Q(visibility='public') |
-                Q(organization_id__in=org_ids) |
-                Q(created_by=user)
+                Q(user_id=str(user.pk))
             )
         else:
             qs = qs.filter(visibility='public')
@@ -247,10 +245,10 @@ class PromptLibraryQuery(graphene.ObjectType):
         if verified_only:
             qs = qs.filter(is_verified=True)
         if favorites_only and user and user.is_authenticated:
-            favorite_ids = PromptFavorite.objects.filter(user=user).values_list('prompt_id', flat=True)
+            favorite_ids = PromptFavorite.objects.filter(ext_user_id=str(user.pk)).values_list('prompt_id', flat=True)
             qs = qs.filter(id__in=favorite_ids)
 
-        return qs.select_related('category', 'created_by').prefetch_related('tags')
+        return qs.select_related('category').prefetch_related('tags')
 
     @staticmethod
     def resolve_system_prompt(root, info, id=None, slug=None):
@@ -280,14 +278,14 @@ class PromptLibraryQuery(graphene.ObjectType):
         user = info.context.user
         if not user or not user.is_authenticated:
             return SystemPrompt.objects.none()
-        return SystemPrompt.objects.filter(created_by=user)
+        return SystemPrompt.objects.filter(user_id=str(user.pk))
 
     @staticmethod
     def resolve_my_favorites(root, info, **kwargs):
         user = info.context.user
         if not user or not user.is_authenticated:
             return SystemPrompt.objects.none()
-        favorite_ids = PromptFavorite.objects.filter(user=user).values_list('prompt_id', flat=True)
+        favorite_ids = PromptFavorite.objects.filter(ext_user_id=str(user.pk)).values_list('prompt_id', flat=True)
         return SystemPrompt.objects.filter(id__in=favorite_ids)
 
 
@@ -318,7 +316,6 @@ class CreateSystemPromptInput(graphene.InputObjectType):
 
 class CreateSystemPrompt(graphene.Mutation):
     class Arguments:
-        organization_id = graphene.UUID()
         input = CreateSystemPromptInput(required=True)
 
     success = graphene.Boolean()
@@ -326,23 +323,18 @@ class CreateSystemPrompt(graphene.Mutation):
     prompt = graphene.Field(SystemPromptType)
 
     @staticmethod
-    def mutate(root, info, input, organization_id=None):
+    def mutate(root, info, input):
         user = info.context.user
         if not user or not user.is_authenticated:
             return CreateSystemPrompt(success=False, errors=['Authentication required'])
 
         from django.utils.text import slugify
-        from organization.models import Organization
-
-        org = None
-        if organization_id:
-            org = Organization.objects.filter(id=organization_id).first()
 
         # Generate slug
         base_slug = slugify(input.name)
         slug = base_slug
         counter = 1
-        while SystemPrompt.objects.filter(organization=org, slug=slug, version=1).exists():
+        while SystemPrompt.objects.filter(slug=slug, version=1).exists():
             slug = f"{base_slug}-{counter}"
             counter += 1
 
@@ -350,7 +342,7 @@ class CreateSystemPrompt(graphene.Mutation):
             name=input.name,
             slug=slug,
             description=input.description or '',
-            organization=org,
+            user_id=str(user.pk),
             prompt_text=input.prompt_text,
             prompt_type=input.prompt_type or 'system',
             compatible_providers=input.compatible_providers or [],
@@ -364,9 +356,8 @@ class CreateSystemPrompt(graphene.Mutation):
             use_cases=input.use_cases or [],
             best_practices=input.best_practices or '',
             limitations=input.limitations or '',
-            visibility=input.visibility or 'organization',
+            visibility=input.visibility or 'private',
             status='draft',
-            created_by=user,
         )
 
         if input.category_id:
@@ -423,7 +414,7 @@ class UpdateSystemPrompt(graphene.Mutation):
             return UpdateSystemPrompt(success=False, errors=['Prompt not found'])
 
         # Check ownership
-        if prompt.created_by != user and not user.is_superuser:
+        if prompt.user_id != str(user.pk) and not user.is_superuser:
             return UpdateSystemPrompt(success=False, errors=['Permission denied'])
 
         # Update fields
@@ -468,7 +459,7 @@ class DeleteSystemPrompt(graphene.Mutation):
         if not prompt:
             return DeleteSystemPrompt(success=False, errors=['Prompt not found'])
 
-        if prompt.created_by != user and not user.is_superuser:
+        if prompt.user_id != str(user.pk) and not user.is_superuser:
             return DeleteSystemPrompt(success=False, errors=['Permission denied'])
 
         prompt.delete()
@@ -478,29 +469,22 @@ class DeleteSystemPrompt(graphene.Mutation):
 class ForkSystemPrompt(graphene.Mutation):
     class Arguments:
         id = graphene.UUID(required=True)
-        organization_id = graphene.UUID()
 
     success = graphene.Boolean()
     errors = graphene.List(graphene.String)
     prompt = graphene.Field(SystemPromptType)
 
     @staticmethod
-    def mutate(root, info, id, organization_id=None):
+    def mutate(root, info, id):
         user = info.context.user
         if not user or not user.is_authenticated:
             return ForkSystemPrompt(success=False, errors=['Authentication required'])
-
-        from organization.models import Organization
 
         prompt = SystemPrompt.objects.filter(id=id).first()
         if not prompt:
             return ForkSystemPrompt(success=False, errors=['Prompt not found'])
 
-        org = None
-        if organization_id:
-            org = Organization.objects.filter(id=organization_id).first()
-
-        forked = prompt.fork(user=user, organization=org)
+        forked = prompt.fork(user_id=str(user.pk))
         return ForkSystemPrompt(success=True, prompt=forked)
 
 
@@ -521,12 +505,12 @@ class TogglePromptFavorite(graphene.Mutation):
         if not prompt:
             return TogglePromptFavorite(success=False, is_favorited=False)
 
-        favorite = PromptFavorite.objects.filter(user=user, prompt=prompt).first()
+        favorite = PromptFavorite.objects.filter(ext_user_id=str(user.pk), prompt=prompt).first()
         if favorite:
             favorite.delete()
             return TogglePromptFavorite(success=True, is_favorited=False)
         else:
-            PromptFavorite.objects.create(user=user, prompt=prompt)
+            PromptFavorite.objects.create(ext_user_id=str(user.pk), prompt=prompt)
             return TogglePromptFavorite(success=True, is_favorited=True)
 
 
@@ -554,7 +538,7 @@ class RateSystemPrompt(graphene.Mutation):
             return RateSystemPrompt(success=False, errors=['Prompt not found'])
 
         rating_obj, _ = PromptRating.objects.update_or_create(
-            user=user,
+            ext_user_id=str(user.pk),
             prompt=prompt,
             defaults={'rating': rating, 'review': review or ''}
         )

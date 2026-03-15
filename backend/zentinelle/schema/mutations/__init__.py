@@ -75,6 +75,11 @@ from .license_hierarchy import (
     PropagateParentEntitlements,
     GetLicenseHierarchy,
 )
+from .api_keys_platform import (
+    CreatePlatformAPIKey,
+    RevokeAPIKey,
+    DeleteAPIKey,
+)
 
 
 class Mutation(graphene.ObjectType):
@@ -152,3 +157,8 @@ class Mutation(graphene.ObjectType):
     revoke_child_license = RevokeChildLicense.Field()
     propagate_parent_entitlements = PropagateParentEntitlements.Field()
     get_license_hierarchy = GetLicenseHierarchy.Field()
+
+    # Platform API Keys
+    create_platform_api_key = CreatePlatformAPIKey.Field()
+    revoke_api_key = RevokeAPIKey.Field()
+    delete_api_key = DeleteAPIKey.Field()
