@@ -7,4 +7,5 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/zentinelle/", include("zentinelle.api.urls")),
     path("gql/zentinelle/", csrf_exempt(GraphQLView.as_view(graphiql=True))),
+    path("proxy/", include("zentinelle.proxy.urls")),
 ]
