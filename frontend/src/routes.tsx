@@ -16,6 +16,7 @@ import {
   MdSettings,
   MdBugReport,
   MdKey,
+  MdAccountTree,
 } from 'react-icons/md';
 
 import { IRoute } from 'types/navigation';
@@ -55,6 +56,11 @@ const routes: IRoute[] = [
     name: 'Risk',
     path: '/risk',
     icon: <Icon as={MdWarning} width="20px" height="20px" color="inherit" />,
+  },
+  {
+    name: 'Policy Graph',
+    path: '/graph',
+    icon: <Icon as={MdAccountTree} width="20px" height="20px" color="inherit" />,
   },
   {
     name: 'Audit Logs',

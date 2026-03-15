@@ -100,6 +100,9 @@ from .types import (
     PromptCategoryType,
     SystemPromptType,
     SystemPromptConnection,
+    PolicyGraphNodeType,
+    PolicyGraphEdgeType,
+    PolicyGraphType,
 )
 
 
@@ -1075,6 +1078,15 @@ class Query(graphene.ObjectType):
         user_id=graphene.String(),
         first=graphene.Int(),
         after=graphene.String(),
+    )
+
+    # Policy relationship graph
+    policy_graph = graphene.Field(
+        PolicyGraphType,
+        policy_type=graphene.String(),
+        endpoint_status=graphene.String(),
+        risk_severity=graphene.String(),
+        include_incidents=graphene.Boolean(),
     )
 
     # Resolvers
@@ -3309,3 +3321,160 @@ class Query(graphene.ObjectType):
                 overrides=None,
             ))
         return results
+
+    @staticmethod
+    def resolve_policy_graph(root, info, policy_type=None, endpoint_status=None, risk_severity=None, include_incidents=False):
+        import json
+        from zentinelle.models import Policy, AgentEndpoint, Risk, Incident
+
+        if not info.context.user.is_authenticated:
+            return PolicyGraphType(nodes=[], edges=[], node_count=0, edge_count=0)
+
+        tenant_id = get_request_tenant_id(info.context.user)
+        if not tenant_id:
+            return PolicyGraphType(nodes=[], edges=[], node_count=0, edge_count=0)
+
+        TEAL   = '#08D4B8'
+        BLUE   = '#3B5CAA'
+        ORANGE = '#FFB547'
+        RED    = '#EE5D50'
+        DARK_RED = '#E31A1A'
+
+        nodes = []
+        edges = []
+
+        # --- Endpoints ---
+        ep_qs = AgentEndpoint.objects.filter(tenant_id=tenant_id)
+        if endpoint_status:
+            ep_qs = ep_qs.filter(status=endpoint_status)
+        endpoints = list(ep_qs[:60])
+        endpoint_node_ids = {str(ep.id): ep for ep in endpoints}
+
+        for ep in endpoints:
+            nodes.append(PolicyGraphNodeType(
+                id=f"endpoint:{ep.id}",
+                node_type='endpoint',
+                label=ep.name or ep.agent_id,
+                sub_label=ep.status,
+                status=ep.status,
+                color=TEAL,
+                meta=json.dumps({
+                    'agent_id': ep.agent_id,
+                    'health': ep.health,
+                    'status': ep.status,
+                    'href': f'/agents',
+                }),
+            ))
+
+        # --- Policies ---
+        pol_qs = Policy.objects.filter(tenant_id=tenant_id, enabled=True)
+        if policy_type:
+            pol_qs = pol_qs.filter(policy_type=policy_type)
+        policies = list(pol_qs.select_related('scope_endpoint')[:120])
+
+        for pol in policies:
+            nodes.append(PolicyGraphNodeType(
+                id=f"policy:{pol.id}",
+                node_type='policy',
+                label=pol.name,
+                sub_label=pol.policy_type.replace('_', ' ').title(),
+                status='active',
+                color=BLUE,
+                meta=json.dumps({
+                    'policy_type': pol.policy_type,
+                    'scope_type': pol.scope_type,
+                    'enforcement': pol.enforcement,
+                    'href': '/policies',
+                }),
+            ))
+
+            if pol.scope_type == 'endpoint' and pol.scope_endpoint_id:
+                target_id = f"endpoint:{pol.scope_endpoint_id}"
+                if str(pol.scope_endpoint_id) in endpoint_node_ids:
+                    edges.append(PolicyGraphEdgeType(
+                        source=f"policy:{pol.id}",
+                        target=target_id,
+                        relationship='scoped_to',
+                        label='enforces',
+                    ))
+            elif pol.scope_type == 'organization':
+                # Connect org-wide policies to up to 8 endpoints to avoid clutter
+                for ep in endpoints[:8]:
+                    edges.append(PolicyGraphEdgeType(
+                        source=f"policy:{pol.id}",
+                        target=f"endpoint:{ep.id}",
+                        relationship='org_wide',
+                        label='org',
+                    ))
+
+        # --- Risks ---
+        risk_qs = Risk.objects.filter(tenant_id=tenant_id).prefetch_related('affected_endpoints')
+        if risk_severity:
+            impact_map = {'low': 1, 'medium': 3, 'high': 4, 'critical': 5}
+            min_impact = impact_map.get(risk_severity.lower(), 1)
+            risk_qs = risk_qs.filter(impact__gte=min_impact)
+        risks = list(risk_qs[:40])
+
+        for risk in risks:
+            score = (risk.likelihood or 1) * (risk.impact or 1)
+            risk_color = DARK_RED if score >= 20 else RED if score >= 12 else ORANGE
+            nodes.append(PolicyGraphNodeType(
+                id=f"risk:{risk.id}",
+                node_type='risk',
+                label=risk.title,
+                sub_label=f"L{risk.likelihood}×I{risk.impact}",
+                status=risk.status,
+                color=risk_color,
+                meta=json.dumps({
+                    'likelihood': risk.likelihood,
+                    'impact': risk.impact,
+                    'status': risk.status,
+                    'score': score,
+                    'href': '/risk',
+                }),
+            ))
+
+            for ep in risk.affected_endpoints.all():
+                if str(ep.id) in endpoint_node_ids:
+                    edges.append(PolicyGraphEdgeType(
+                        source=f"endpoint:{ep.id}",
+                        target=f"risk:{risk.id}",
+                        relationship='affects',
+                        label='exposes',
+                    ))
+
+        # --- Incidents (optional) ---
+        if include_incidents:
+            inc_qs = Incident.objects.filter(
+                tenant_id=tenant_id,
+                status__in=['open', 'investigating'],
+            ).select_related('risk')[:25]
+            risk_ids_in_graph = {f"risk:{r.id}" for r in risks}
+            for inc in inc_qs:
+                nodes.append(PolicyGraphNodeType(
+                    id=f"incident:{inc.id}",
+                    node_type='incident',
+                    label=inc.title,
+                    sub_label=inc.severity,
+                    status=inc.status,
+                    color=DARK_RED,
+                    meta=json.dumps({
+                        'severity': inc.severity,
+                        'status': inc.status,
+                        'href': '/risk',
+                    }),
+                ))
+                if inc.risk_id and f"risk:{inc.risk_id}" in risk_ids_in_graph:
+                    edges.append(PolicyGraphEdgeType(
+                        source=f"risk:{inc.risk_id}",
+                        target=f"incident:{inc.id}",
+                        relationship='triggered',
+                        label='triggered',
+                    ))
+
+        return PolicyGraphType(
+            nodes=nodes,
+            edges=edges,
+            node_count=len(nodes),
+            edge_count=len(edges),
+        )

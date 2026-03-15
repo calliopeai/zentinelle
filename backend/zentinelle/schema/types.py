@@ -1233,6 +1233,30 @@ class SystemPromptConnection(graphene.relay.Connection):
         return 0
 
 
+class PolicyGraphNodeType(graphene.ObjectType):
+    id = graphene.String()
+    node_type = graphene.String()   # 'policy' | 'endpoint' | 'risk' | 'incident'
+    label = graphene.String()
+    sub_label = graphene.String()   # policy_type, status, etc.
+    status = graphene.String()
+    color = graphene.String()
+    meta = graphene.JSONString()    # JSON with extra details for sidebar
+
+
+class PolicyGraphEdgeType(graphene.ObjectType):
+    source = graphene.String()
+    target = graphene.String()
+    relationship = graphene.String()  # 'scoped_to' | 'org_wide' | 'affects' | 'triggered'
+    label = graphene.String()
+
+
+class PolicyGraphType(graphene.ObjectType):
+    nodes = graphene.List(PolicyGraphNodeType)
+    edges = graphene.List(PolicyGraphEdgeType)
+    node_count = graphene.Int()
+    edge_count = graphene.Int()
+
+
 class DeploymentType(graphene.ObjectType):
     """Stub type — deployments are a managed/cloud feature, not available in standalone mode."""
     id = graphene.ID()
