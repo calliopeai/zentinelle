@@ -29,6 +29,7 @@ class BasePolicyEvaluator(ABC):
         action: str,
         user_id: Optional[str],
         context: Dict[str, Any],
+        dry_run: bool = False,
     ) -> PolicyResult:
         """
         Evaluate a policy for a specific action and context.
@@ -38,6 +39,7 @@ class BasePolicyEvaluator(ABC):
             action: The action being performed (e.g., 'spawn', 'tool_call')
             user_id: The user performing the action (optional)
             context: Additional context for evaluation
+            dry_run: If True, skip side effects (e.g., counter increments)
 
         Returns:
             PolicyResult with passed status and optional message/warnings
@@ -58,5 +60,6 @@ class NoOpEvaluator(BasePolicyEvaluator):
         action: str,
         user_id: Optional[str],
         context: Dict[str, Any],
+        dry_run: bool = False,
     ) -> PolicyResult:
         return PolicyResult(passed=True)

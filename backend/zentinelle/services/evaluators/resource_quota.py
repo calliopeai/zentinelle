@@ -26,6 +26,7 @@ class ResourceQuotaEvaluator(BasePolicyEvaluator):
         action: str,
         user_id: Optional[str],
         context: Dict[str, Any],
+        dry_run: bool = False,
     ) -> PolicyResult:
         config = policy.config
         warnings = []

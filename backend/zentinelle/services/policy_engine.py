@@ -33,6 +33,7 @@ class EvaluationResult:
     policies_evaluated: List[Dict] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     context: Dict[str, Any] = field(default_factory=dict)
+    dry_run: bool = False
 
 
 class PolicyEngine:
@@ -180,16 +181,24 @@ class PolicyEngine:
         action: str,
         user_id: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
+        dry_run: bool = False,
     ) -> EvaluationResult:
         """
         Evaluate policies for an action.
         Returns whether action is allowed and details.
+
+        When dry_run=True:
+        - All policies are evaluated normally (to surface violations)
+        - Counter-incrementing side effects are skipped (rate limits, etc.)
+        - The final result always has allowed=True
+        - The result has dry_run=True so callers can distinguish
         """
         context = context or {}
 
         # Check organization budget first (before policy evaluation)
+        # Skip hard budget denial in dry-run mode
         budget_check = self._check_organization_budget(endpoint, context)
-        if not budget_check['allowed']:
+        if not budget_check['allowed'] and not dry_run:
             return EvaluationResult(
                 allowed=False,
                 reason=budget_check['reason'],
@@ -202,6 +211,7 @@ class PolicyEngine:
                 }],
                 warnings=[],
                 context=context,
+                dry_run=False,
             )
 
         policies = self.get_effective_policies(endpoint, user_id)
@@ -220,7 +230,7 @@ class PolicyEngine:
                 continue
 
             evaluator = self._get_evaluator(policy.policy_type)
-            result = evaluator.evaluate(policy, action, user_id, context)
+            result = evaluator.evaluate(policy, action, user_id, context, dry_run=dry_run)
 
             results.append({
                 'id': str(policy.id),
@@ -232,12 +242,16 @@ class PolicyEngine:
 
             if not result.passed:
                 if policy.enforcement == Policy.Enforcement.ENFORCE:
-                    allowed = False
-                    denial_reason = result.message
+                    if not dry_run:
+                        allowed = False
+                        denial_reason = result.message
                     logger.warning(
-                        f"Policy violation: {policy.name} - {result.message} "
+                        f"Policy violation{'(dry-run)' if dry_run else ''}: "
+                        f"{policy.name} - {result.message} "
                         f"(endpoint={endpoint.agent_id}, action={action}, user={user_id})"
                     )
+                    if dry_run:
+                        warnings.append(f"[Dry-run] Would be denied: {policy.name}: {result.message}")
                 else:  # audit mode
                     warnings.append(f"[Audit] {policy.name}: {result.message}")
 
@@ -245,11 +259,12 @@ class PolicyEngine:
                 warnings.extend(result.warnings)
 
         return EvaluationResult(
-            allowed=allowed,
-            reason=denial_reason,
+            allowed=True if dry_run else allowed,
+            reason=None if dry_run else denial_reason,
             policies_evaluated=results,
             warnings=warnings,
             context=context,
+            dry_run=dry_run,
         )
 
     def _get_evaluator(self, policy_type: str) -> 'BasePolicyEvaluator':
@@ -260,6 +275,10 @@ class PolicyEngine:
             RateLimitEvaluator,
             ToolPermissionEvaluator,
             SecretAccessEvaluator,
+            ModelRestrictionEvaluator,
+            ContextLimitEvaluator,
+            NetworkPolicyEvaluator,
+            OutputFilterEvaluator,
             NoOpEvaluator,
         )
 
@@ -269,12 +288,15 @@ class PolicyEngine:
             Policy.PolicyType.RATE_LIMIT: RateLimitEvaluator(),
             Policy.PolicyType.TOOL_PERMISSION: ToolPermissionEvaluator(),
             Policy.PolicyType.SECRET_ACCESS: SecretAccessEvaluator(),
+            Policy.PolicyType.MODEL_RESTRICTION: ModelRestrictionEvaluator(),
+            Policy.PolicyType.CONTEXT_LIMIT: ContextLimitEvaluator(),
+            Policy.PolicyType.NETWORK_POLICY: NetworkPolicyEvaluator(),
+            Policy.PolicyType.OUTPUT_FILTER: OutputFilterEvaluator(),
             # These policy types don't block actions, just configure behavior
             Policy.PolicyType.SYSTEM_PROMPT: NoOpEvaluator(),
             Policy.PolicyType.AI_GUARDRAIL: NoOpEvaluator(),
             Policy.PolicyType.AUDIT_POLICY: NoOpEvaluator(),
             Policy.PolicyType.SESSION_POLICY: NoOpEvaluator(),
-            Policy.PolicyType.NETWORK_POLICY: NoOpEvaluator(),
             Policy.PolicyType.DATA_ACCESS: NoOpEvaluator(),
             Policy.PolicyType.DATA_RETENTION: NoOpEvaluator(),
         }

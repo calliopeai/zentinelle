@@ -29,6 +29,7 @@ class RateLimitEvaluator(BasePolicyEvaluator):
         action: str,
         user_id: Optional[str],
         context: Dict[str, Any],
+        dry_run: bool = False,
     ) -> PolicyResult:
         config = policy.config
         warnings = []
@@ -46,7 +47,8 @@ class RateLimitEvaluator(BasePolicyEvaluator):
                 key=f"{key_prefix}:rpm",
                 limit=rpm_limit,
                 window_seconds=60,
-                limit_name="requests per minute"
+                limit_name="requests per minute",
+                dry_run=dry_run,
             )
             if not result.passed:
                 return result
@@ -59,7 +61,8 @@ class RateLimitEvaluator(BasePolicyEvaluator):
                 key=f"{key_prefix}:rph",
                 limit=rph_limit,
                 window_seconds=3600,
-                limit_name="requests per hour"
+                limit_name="requests per hour",
+                dry_run=dry_run,
             )
             if not result.passed:
                 return result
@@ -75,7 +78,8 @@ class RateLimitEvaluator(BasePolicyEvaluator):
                     key=f"{key_prefix}:tokens_daily",
                     limit=tokens_limit,
                     tokens=tokens_requested,
-                    limit_name="tokens per day"
+                    limit_name="tokens per day",
+                    dry_run=dry_run,
                 )
                 if not result.passed:
                     return result
@@ -89,6 +93,7 @@ class RateLimitEvaluator(BasePolicyEvaluator):
         limit: int,
         window_seconds: int,
         limit_name: str,
+        dry_run: bool = False,
     ) -> PolicyResult:
         """Check and increment a rate limit counter."""
         warnings = []
@@ -102,14 +107,18 @@ class RateLimitEvaluator(BasePolicyEvaluator):
                 message=f"Rate limit exceeded: {limit} {limit_name}"
             )
 
-        # Increment counter
-        try:
-            # Use atomic increment if available
-            new_count = cache.incr(key)
-        except ValueError:
-            # Key doesn't exist, create it
-            cache.set(key, 1, timeout=window_seconds)
-            new_count = 1
+        if dry_run:
+            # Don't increment counters in dry-run mode
+            new_count = current + 1
+        else:
+            # Increment counter
+            try:
+                # Use atomic increment if available
+                new_count = cache.incr(key)
+            except ValueError:
+                # Key doesn't exist, create it
+                cache.set(key, 1, timeout=window_seconds)
+                new_count = 1
 
         # Warn if approaching limit
         if new_count >= limit * 0.8:
@@ -125,6 +134,7 @@ class RateLimitEvaluator(BasePolicyEvaluator):
         limit: int,
         tokens: int,
         limit_name: str,
+        dry_run: bool = False,
     ) -> PolicyResult:
         """Check token limit (cumulative counter)."""
         warnings = []
@@ -138,10 +148,12 @@ class RateLimitEvaluator(BasePolicyEvaluator):
                 message=f"Token limit exceeded: {limit} {limit_name}. Current: {current}, Requested: {tokens}"
             )
 
-        # Add tokens to counter
         new_count = current + tokens
-        # Set with 24 hour expiry
-        cache.set(key, new_count, timeout=86400)
+
+        if not dry_run:
+            # Add tokens to counter — skip in dry-run mode
+            # Set with 24 hour expiry
+            cache.set(key, new_count, timeout=86400)
 
         # Warn if approaching limit
         if new_count >= limit * 0.8:
