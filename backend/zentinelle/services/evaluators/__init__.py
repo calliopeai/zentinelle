@@ -20,6 +20,7 @@ from zentinelle.services.evaluators.data_retention import DataRetentionEvaluator
 from zentinelle.services.evaluators.prompt_injection import PromptInjectionEvaluator
 from zentinelle.services.evaluators.agent_delegation import AgentDelegationEvaluator
 from zentinelle.services.evaluators.behavioral_baseline import BehavioralBaselineEvaluator
+from zentinelle.services.evaluators.session_quota import SessionQuotaEvaluator
 
 __all__ = [
     'BasePolicyEvaluator',
@@ -46,4 +47,5 @@ __all__ = [
     'PromptInjectionEvaluator',
     'AgentDelegationEvaluator',
     'BehavioralBaselineEvaluator',
+    'SessionQuotaEvaluator',
 ]
