@@ -1,6 +1,5 @@
 // Chakra imports
 import { Flex, Text, useColorModeValue, Box } from '@chakra-ui/react';
-import { Image } from 'components/image/Image';
 
 // Custom components
 import { HSeparator } from 'components/separator/Separator';
@@ -24,18 +23,12 @@ export function SidebarBrand(props: { mini: boolean; hovered: boolean }) {
             : 'none'
         }
       >
-        <Image
-          src="/img/calliope.svg"
-          alt="Calliope AI"
-          w="40px"
-          h="40px"
-        />
         <Box>
-          <Text fontSize="xl" fontWeight="800" color={logoColor}>
-            Calliope AI
-          </Text>
-          <Text fontSize="xs" color={subtitleColor} mt="-2px">
+          <Text fontSize="2xl" fontWeight="800" color={logoColor} lineHeight="1.1">
             Zentinelle
+          </Text>
+          <Text fontSize="xs" color={subtitleColor} mt="1px">
+            by Calliope AI
           </Text>
         </Box>
       </Flex>
@@ -49,12 +42,9 @@ export function SidebarBrand(props: { mini: boolean; hovered: boolean }) {
         }
         my="32px"
       >
-        <Image
-          src="/img/calliope.svg"
-          alt="Calliope AI"
-          w="40px"
-          h="40px"
-        />
+        <Text fontSize="lg" fontWeight="800" color={logoColor}>
+          Z
+        </Text>
       </Flex>
       <HSeparator mb="20px" />
     </Flex>

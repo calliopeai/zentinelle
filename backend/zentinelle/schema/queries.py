@@ -61,6 +61,21 @@ from .types import (
     # License Compliance types
     LicenseComplianceReportType,
     LicenseComplianceViolationGraphType,
+    # Organization & Secrets (stub types for standalone mode)
+    OrganizationType,
+    UpdateOrganizationSettingsPayload,
+    SecretBundleType,
+    SecretBundleConnection,
+    DeleteSecretBundlePayload,
+    RotateSecretBundlePayload,
+    # Notifications, AppAccess, Team (stub types for standalone mode)
+    NotificationType,
+    NotificationConnection,
+    UserAppAccessType,
+    TeamMemberType,
+    TeamMemberConnection,
+    # Impersonation (stub)
+    ImpersonationStatusType,
 )
 
 
@@ -911,6 +926,41 @@ class Query(graphene.ObjectType):
         lookback_days=graphene.Int(),
         description="Dry-run a proposed policy config against historical events",
     )
+
+    # Organization settings (standalone stub)
+    my_organization = graphene.Field(OrganizationType)
+
+    # Secret Bundles (stub — feature not yet implemented in standalone backend)
+    secret_bundles = graphene.Field(
+        SecretBundleConnection,
+        search=graphene.String(),
+        secret_type=graphene.String(),
+        first=graphene.Int(),
+        after=graphene.String(),
+    )
+
+    # Notifications (stub)
+    notifications = graphene.Field(
+        NotificationConnection,
+        first=graphene.Int(),
+        after=graphene.String(),
+        status=graphene.String(),
+    )
+
+    # User App Access (stub — returns standalone defaults)
+    user_app_access = graphene.Field(UserAppAccessType)
+
+    # Team Members (stub)
+    team_members = graphene.Field(
+        TeamMemberConnection,
+        search=graphene.String(),
+        role=graphene.String(),
+        first=graphene.Int(),
+        after=graphene.String(),
+    )
+
+    # Impersonation (stub — not available in standalone)
+    impersonation_status = graphene.Field(ImpersonationStatusType)
 
     # Resolvers
     @staticmethod
@@ -2754,4 +2804,66 @@ class Query(graphene.ObjectType):
             ]).count(),
             by_type=by_type,
             by_severity=by_severity,
+        )
+
+    @staticmethod
+    def resolve_my_organization(root, info):
+        """Return a stub organization object for the current tenant."""
+        import os
+        from datetime import datetime
+        tenant_id = get_request_tenant_id(info.context.user) or "default"
+        return OrganizationType(
+            id=tenant_id,
+            name="My Organization",
+            slug=tenant_id,
+            tier="standard",
+            website="",
+            deployment_model="standalone",
+            zentinelle_tier="community",
+            ai_budget_usd=None,
+            ai_budget_spent_usd=0.0,
+            overage_policy="block",
+            ai_budget_alert_threshold=0.8,
+            settings={},
+            created_at=None,
+        )
+
+    @staticmethod
+    def resolve_secret_bundles(root, info, search=None, secret_type=None, first=None, after=None):
+        """Stub resolver — secrets feature not yet implemented in standalone mode."""
+        return None
+
+    @staticmethod
+    def resolve_notifications(root, info, first=None, after=None, status=None):
+        """Stub resolver — notifications not yet implemented in standalone mode."""
+        return None
+
+    @staticmethod
+    def resolve_user_app_access(root, info):
+        """Return access flags for standalone mode (full access to Zentinelle)."""
+        return UserAppAccessType(
+            has_admin_access=True,
+            has_partner_access=False,
+            has_zentinelle_access=True,
+            has_internal_access=False,
+            organization_name="My Organization",
+            partner_name=None,
+        )
+
+    @staticmethod
+    def resolve_team_members(root, info, search=None, role=None, first=None, after=None):
+        """Stub resolver — team management not yet implemented in standalone mode."""
+        return None
+
+    @staticmethod
+    def resolve_impersonation_status(root, info):
+        """Stub resolver — impersonation not available in standalone mode."""
+        return ImpersonationStatusType(
+            is_impersonating=False,
+            real_user_email=None,
+            effective_user_email=None,
+            can_impersonate=False,
+            expires_at=None,
+            minutes_remaining=None,
+            session=None,
         )

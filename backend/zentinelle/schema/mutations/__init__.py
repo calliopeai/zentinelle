@@ -86,6 +86,88 @@ from .compliance_packs import (
     ListCompliancePacks,
 )
 
+from zentinelle.schema.types import (
+    OrganizationType,
+    UpdateOrganizationSettingsPayload,
+    SecretBundleType,
+    DeleteSecretBundlePayload,
+    RotateSecretBundlePayload,
+)
+
+
+class OrganizationSettingsInput(graphene.InputObjectType):
+    contact_email = graphene.String()
+    timezone = graphene.String()
+    mfa_required = graphene.Boolean()
+    session_timeout = graphene.Int()
+    ip_whitelist = graphene.String()
+    email_notifications = graphene.Boolean()
+    slack_notifications = graphene.Boolean()
+    webhook_url = graphene.String()
+    default_policy_mode = graphene.String()
+    audit_logging = graphene.Boolean()
+    auto_rotate_secrets = graphene.Boolean()
+
+
+class UpdateOrganizationSettings(graphene.Mutation):
+    """Stub mutation — persists settings in memory for the current session."""
+    class Arguments:
+        settings = OrganizationSettingsInput(required=True)
+
+    Output = UpdateOrganizationSettingsPayload
+
+    @staticmethod
+    def mutate(root, info, settings):
+        from zentinelle.schema.auth_helpers import get_request_tenant_id
+        tenant_id = get_request_tenant_id(info.context.user) or "default"
+        org = OrganizationType(
+            id=tenant_id,
+            name="My Organization",
+            slug=tenant_id,
+            tier="standard",
+            website="",
+            deployment_model="standalone",
+            zentinelle_tier="community",
+            ai_budget_usd=None,
+            ai_budget_spent_usd=0.0,
+            overage_policy="block",
+            ai_budget_alert_threshold=0.8,
+            settings=dict(settings) if settings else {},
+            created_at=None,
+        )
+        return UpdateOrganizationSettingsPayload(success=True, organization=org)
+
+
+class DeleteSecretBundle(graphene.Mutation):
+    """Stub mutation — secrets feature not yet implemented in standalone backend."""
+    class Arguments:
+        id = graphene.ID(required=True)
+
+    Output = DeleteSecretBundlePayload
+
+    @staticmethod
+    def mutate(root, info, id):
+        return DeleteSecretBundlePayload(
+            success=False,
+            error="Secret bundles are not available in standalone mode.",
+        )
+
+
+class RotateSecretBundle(graphene.Mutation):
+    """Stub mutation — secrets feature not yet implemented in standalone backend."""
+    class Arguments:
+        id = graphene.ID(required=True)
+
+    Output = RotateSecretBundlePayload
+
+    @staticmethod
+    def mutate(root, info, id):
+        return RotateSecretBundlePayload(
+            secret_bundle=None,
+            success=False,
+            error="Secret bundles are not available in standalone mode.",
+        )
+
 
 class Mutation(graphene.ObjectType):
     """Zentinelle GraphQL mutations (standalone)."""
@@ -172,3 +254,10 @@ class Mutation(graphene.ObjectType):
     # Compliance Packs
     activate_compliance_pack = ActivateCompliancePack.Field()
     list_compliance_packs = ListCompliancePacks.Field()
+
+    # Organization Settings
+    update_organization_settings = UpdateOrganizationSettings.Field()
+
+    # Secret Bundles (stub)
+    delete_secret_bundle = DeleteSecretBundle.Field()
+    rotate_secret_bundle = RotateSecretBundle.Field()

@@ -736,3 +736,160 @@ class LicenseComplianceViolationGraphType(DjangoObjectType):
 
     def resolve_is_resolved(self, info):
         return self.is_resolved
+
+
+# ---------------------------------------------------------------------------
+# Organization (stub for standalone mode — no organization app required)
+# ---------------------------------------------------------------------------
+
+class OrganizationType(graphene.ObjectType):
+    id = graphene.ID()
+    name = graphene.String()
+    slug = graphene.String()
+    tier = graphene.String()
+    website = graphene.String()
+    deployment_model = graphene.String()
+    zentinelle_tier = graphene.String()
+    ai_budget_usd = graphene.Float()
+    ai_budget_spent_usd = graphene.Float()
+    overage_policy = graphene.String()
+    ai_budget_alert_threshold = graphene.Float()
+    settings = graphene.JSONString()
+    created_at = graphene.DateTime()
+
+
+class UpdateOrganizationSettingsPayload(graphene.ObjectType):
+    success = graphene.Boolean()
+    organization = graphene.Field(OrganizationType)
+
+
+# ---------------------------------------------------------------------------
+# SecretBundle (stub — feature not yet implemented in standalone backend)
+# ---------------------------------------------------------------------------
+
+class SecretBundleType(graphene.ObjectType):
+    id = graphene.ID()
+    name = graphene.String()
+    slug = graphene.String()
+    description = graphene.String()
+    secret_type = graphene.String()
+    provider_configs = graphene.JSONString()
+    rotation_enabled = graphene.Boolean()
+    rotation_interval_days = graphene.Int()
+    last_rotated = graphene.DateTime()
+    next_rotation = graphene.DateTime()
+    enabled_providers = graphene.List(graphene.String)
+    created_at = graphene.DateTime()
+    updated_at = graphene.DateTime()
+
+
+class SecretBundleConnection(graphene.relay.Connection):
+    class Meta:
+        node = SecretBundleType
+
+    total_count = graphene.Int()
+
+    @staticmethod
+    def resolve_total_count(root, info, **kwargs):
+        return 0
+
+
+class DeleteSecretBundlePayload(graphene.ObjectType):
+    success = graphene.Boolean()
+    error = graphene.String()
+
+
+class RotateSecretBundlePayload(graphene.ObjectType):
+    secret_bundle = graphene.Field(SecretBundleType)
+    success = graphene.Boolean()
+    error = graphene.String()
+
+
+# ---------------------------------------------------------------------------
+# Notifications (stub for standalone mode)
+# ---------------------------------------------------------------------------
+
+class NotificationType(graphene.ObjectType):
+    id = graphene.ID()
+    subject = graphene.String()
+    message = graphene.String()
+    status = graphene.String()
+    status_date = graphene.DateTime()
+    created_at = graphene.DateTime()
+
+
+class NotificationConnection(graphene.relay.Connection):
+    class Meta:
+        node = NotificationType
+
+    total_count = graphene.Int()
+
+    @staticmethod
+    def resolve_total_count(root, info, **kwargs):
+        return 0
+
+
+# ---------------------------------------------------------------------------
+# UserAppAccess (stub for standalone mode)
+# ---------------------------------------------------------------------------
+
+class UserAppAccessType(graphene.ObjectType):
+    has_admin_access = graphene.Boolean()
+    has_partner_access = graphene.Boolean()
+    has_zentinelle_access = graphene.Boolean()
+    has_internal_access = graphene.Boolean()
+    organization_name = graphene.String()
+    partner_name = graphene.String()
+
+
+# ---------------------------------------------------------------------------
+# TeamMember (stub for standalone mode)
+# ---------------------------------------------------------------------------
+
+class TeamMemberType(graphene.ObjectType):
+    id = graphene.ID()
+    user_id = graphene.String()
+    email = graphene.String()
+    first_name = graphene.String()
+    last_name = graphene.String()
+    full_name = graphene.String()
+    role = graphene.String()
+    status = graphene.String()
+    invited_at = graphene.DateTime()
+    joined_at = graphene.DateTime()
+    last_active_at = graphene.DateTime()
+    avatar_url = graphene.String()
+    created_at = graphene.DateTime()
+
+
+class TeamMemberConnection(graphene.relay.Connection):
+    class Meta:
+        node = TeamMemberType
+
+    total_count = graphene.Int()
+
+    @staticmethod
+    def resolve_total_count(root, info, **kwargs):
+        return 0
+
+
+# ---------------------------------------------------------------------------
+# Impersonation (stub — not available in standalone mode)
+# ---------------------------------------------------------------------------
+
+class ImpersonationSessionType(graphene.ObjectType):
+    id = graphene.ID()
+    started_at = graphene.DateTime()
+    expires_at = graphene.DateTime()
+    reason = graphene.String()
+    target_email = graphene.String()
+
+
+class ImpersonationStatusType(graphene.ObjectType):
+    is_impersonating = graphene.Boolean()
+    real_user_email = graphene.String()
+    effective_user_email = graphene.String()
+    can_impersonate = graphene.Boolean()
+    expires_at = graphene.DateTime()
+    minutes_remaining = graphene.Int()
+    session = graphene.Field(ImpersonationSessionType)
