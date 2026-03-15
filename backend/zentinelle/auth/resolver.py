@@ -47,7 +47,11 @@ class StandaloneTenantResolver(TenantResolver):
     """
     Default resolver for self-hosted Zentinelle deployments.
     Resolves tenant context from ZentinelleLicense records.
-    Validates tokens via Django session auth (portal) or API key (agents).
+    Validates tokens via:
+      - DEBUG mode: any non-empty token accepted
+      - Bearer sk_platform_*: platform API key lookup
+      - Bearer sk_agent_*: agent endpoint key lookup
+      - Basic <b64>: Django session auth (portal users)
     """
 
     _DEFAULT_FEATURES = [
@@ -102,25 +106,108 @@ class StandaloneTenantResolver(TenantResolver):
                     scopes=["*"],
                 )
 
-        # Try Django session / user lookup via token as username:password basic
+        if not token:
+            return AuthContext(valid=False, error="missing_token")
+
+        # Bearer token
+        if token.startswith("Bearer "):
+            raw = token[7:].strip()
+            return self._validate_bearer(raw)
+
+        # Basic auth (Django session / admin portal)
+        if token.startswith("Basic "):
+            return self._validate_basic(token[6:])
+
+        return AuthContext(valid=False, error="unsupported_auth_scheme")
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _validate_bearer(self, raw: str) -> AuthContext:
+        """Validate a raw Bearer token value (without the 'Bearer ' prefix)."""
+        from zentinelle.utils.api_keys import KeyPrefixes
+
+        if raw.startswith(KeyPrefixes.AGENT):
+            return self._validate_agent_key(raw)
+
+        # Platform keys and znt_ legacy prefix both hit the APIKey table
+        return self._validate_platform_key(raw)
+
+    def _validate_platform_key(self, raw: str) -> AuthContext:
+        """Look up an APIKey record by prefix, verify with bcrypt."""
         try:
-            from django.contrib.auth import authenticate
-            import base64
-            if token.startswith("Basic "):
-                decoded = base64.b64decode(token[6:]).decode()
-                username, _, password = decoded.partition(":")
-                user = authenticate(username=username, password=password)
-                if user and user.is_active:
+            from zentinelle.models.api_key import APIKey
+            from django.utils import timezone
+
+            # Extract the stored prefix (first 15 chars — matches KeyPrefixes.PLATFORM + 8 chars)
+            key_prefix = raw[:15]
+            candidates = APIKey.objects.filter(
+                key_prefix=key_prefix,
+                status=APIKey.Status.ACTIVE,
+            )
+
+            for key_obj in candidates:
+                # Check expiry
+                if key_obj.expires_at and key_obj.expires_at < timezone.now():
+                    continue
+                if APIKey.verify_api_key(raw, key_obj.key_hash):
+                    key_obj.record_usage()
                     return AuthContext(
                         valid=True,
-                        tenant_id="default",
-                        user_id=str(user.pk),
-                        scopes=["admin"] if user.is_staff else ["user"],
+                        tenant_id=key_obj.tenant_id,
+                        user_id=key_obj.user_id,
+                        scopes=key_obj.scopes or ["read", "write"],
                     )
         except Exception:
             pass
 
-        return AuthContext(valid=False, error="invalid_token")
+        return AuthContext(valid=False, error="invalid_api_key")
+
+    def _validate_agent_key(self, raw: str) -> AuthContext:
+        """Look up an AgentEndpoint by key prefix and verify."""
+        try:
+            from zentinelle.models.endpoint import AgentEndpoint
+
+            key_prefix = raw[:12]  # AGENT prefix_length=12
+            candidates = AgentEndpoint.objects.filter(
+                api_key_prefix=key_prefix,
+                status=AgentEndpoint.Status.ACTIVE,
+            )
+
+            for endpoint in candidates:
+                if AgentEndpoint.verify_api_key(raw, endpoint.api_key_hash):
+                    return AuthContext(
+                        valid=True,
+                        tenant_id=endpoint.tenant_id,
+                        user_id=f"agent:{endpoint.id}",
+                        scopes=["agent"],
+                    )
+        except Exception:
+            pass
+
+        return AuthContext(valid=False, error="invalid_agent_key")
+
+    def _validate_basic(self, b64: str) -> AuthContext:
+        """Validate HTTP Basic auth credentials via Django authenticate."""
+        try:
+            from django.contrib.auth import authenticate
+            import base64
+
+            decoded = base64.b64decode(b64).decode()
+            username, _, password = decoded.partition(":")
+            user = authenticate(username=username, password=password)
+            if user and user.is_active:
+                return AuthContext(
+                    valid=True,
+                    tenant_id="default",
+                    user_id=str(user.pk),
+                    scopes=["admin"] if user.is_staff else ["user"],
+                )
+        except Exception:
+            pass
+
+        return AuthContext(valid=False, error="invalid_credentials")
 
 
 def get_resolver() -> TenantResolver:
