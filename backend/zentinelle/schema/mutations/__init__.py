@@ -81,6 +81,14 @@ from .api_keys_platform import (
     RevokeAPIKey,
     DeleteAPIKey,
 )
+from .prompts import (
+    CreateSystemPrompt,
+    UpdateSystemPrompt,
+    DeleteSystemPrompt,
+    ForkSystemPrompt,
+    TogglePromptFavorite,
+    RateSystemPrompt,
+)
 from .integration import (
     TestClientCoveConnection,
     SaveClientCoveConfig,
@@ -280,6 +288,14 @@ class Mutation(graphene.ObjectType):
     # Compliance Packs
     activate_compliance_pack = ActivateCompliancePack.Field()
     list_compliance_packs = ListCompliancePacks.Field()
+
+    # System Prompts
+    create_system_prompt = CreateSystemPrompt.Field()
+    update_system_prompt = UpdateSystemPrompt.Field()
+    delete_system_prompt = DeleteSystemPrompt.Field()
+    fork_system_prompt = ForkSystemPrompt.Field()
+    toggle_prompt_favorite = TogglePromptFavorite.Field()
+    rate_system_prompt = RateSystemPrompt.Field()
 
     # Organization Settings
     update_organization_settings = UpdateOrganizationSettings.Field()
