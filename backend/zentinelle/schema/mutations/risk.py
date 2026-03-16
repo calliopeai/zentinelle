@@ -22,7 +22,7 @@ except ImportError:
             return fn
         return decorator
 from zentinelle.models import Risk, Incident
-from zentinelle.schema.auth_helpers import user_has_org_access
+from zentinelle.schema.auth_helpers import user_has_org_access, get_request_tenant_id
 
 
 # =============================================================================
@@ -83,7 +83,7 @@ class CreateRisk(graphene.Mutation):
 
         try:
             risk = Risk.objects.create(
-                organization=user.organization,
+                tenant_id=get_request_tenant_id(user) or '',
                 name=input.name,
                 description=input.description,
                 category=input.category or Risk.RiskCategory.SECURITY,
@@ -96,7 +96,7 @@ class CreateRisk(graphene.Mutation):
                 residual_impact=input.residual_impact,
                 next_review_date=input.next_review_date,
                 tags=input.tags or [],
-                owner=user,
+                user_id=str(user.id),
             )
             return CreateRisk(success=True, risk_id=str(risk.id))
         except Exception as e:
@@ -126,7 +126,7 @@ class UpdateRisk(graphene.Mutation):
         except (ValueError, Risk.DoesNotExist):
             return UpdateRisk(success=False, errors=["Risk not found"])
 
-        if not user_has_org_access(user, risk.organization_id):
+        if not user_has_org_access(user, risk.tenant_id):
             raise GraphQLError("Access denied")
 
         update_fields = ['updated_at']
@@ -194,7 +194,7 @@ class DeleteRisk(graphene.Mutation):
         except (ValueError, Risk.DoesNotExist):
             return DeleteRisk(success=False, errors=["Risk not found"])
 
-        if not user_has_org_access(user, risk.organization_id):
+        if not user_has_org_access(user, risk.tenant_id):
             raise GraphQLError("Access denied")
 
         risk.delete()
@@ -224,12 +224,12 @@ class ReviewRisk(graphene.Mutation):
         except (ValueError, Risk.DoesNotExist):
             raise GraphQLError("Risk not found")
 
-        if not user_has_org_access(user, risk.organization_id):
+        if not user_has_org_access(user, risk.tenant_id):
             raise GraphQLError("Access denied")
 
         risk.last_reviewed_at = timezone.now()
-        risk.last_reviewed_by = user
-        risk.save(update_fields=['last_reviewed_at', 'last_reviewed_by', 'updated_at'])
+        risk.reviewer_id = str(user.id)
+        risk.save(update_fields=['last_reviewed_at', 'reviewer_id', 'updated_at'])
 
         return ReviewRisk(success=True, risk_id=str(risk.id))
 
@@ -288,11 +288,10 @@ class CreateIncident(graphene.Mutation):
             raise GraphQLError("Authentication required")
 
         try:
-            from deployments.models import Deployment
             from zentinelle.models import AgentEndpoint
 
             endpoint = None
-            deployment = None
+            deployment_id_ext = ''
             related_risk = None
 
             if input.endpoint_id:
@@ -301,26 +300,26 @@ class CreateIncident(graphene.Mutation):
 
             if input.deployment_id:
                 _, dep_pk = from_global_id(input.deployment_id)
-                deployment = Deployment.objects.get(pk=dep_pk)
+                deployment_id_ext = dep_pk
 
             if input.related_risk_id:
                 _, risk_pk = from_global_id(input.related_risk_id)
                 related_risk = Risk.objects.get(pk=risk_pk)
 
             incident = Incident.objects.create(
-                organization=user.organization,
+                tenant_id=get_request_tenant_id(user) or '',
                 title=input.title,
                 description=input.description,
                 incident_type=input.incident_type or Incident.IncidentType.POLICY_VIOLATION,
                 severity=input.severity or Incident.Severity.MEDIUM,
                 endpoint=endpoint,
-                deployment=deployment,
+                deployment_id_ext=deployment_id_ext,
                 related_risk=related_risk,
                 affected_user=input.affected_user or '',
                 affected_user_count=input.affected_user_count or 1,
                 occurred_at=input.occurred_at or timezone.now(),
                 tags=input.tags or [],
-                reported_by=user,
+                reporter_id=str(user.id),
             )
             return CreateIncident(success=True, incident_id=str(incident.id))
         except Exception as e:
@@ -350,7 +349,7 @@ class UpdateIncident(graphene.Mutation):
         except (ValueError, Incident.DoesNotExist):
             return UpdateIncident(success=False, errors=["Incident not found"])
 
-        if not user_has_org_access(user, incident.organization_id):
+        if not user_has_org_access(user, incident.tenant_id):
             raise GraphQLError("Access denied")
 
         update_fields = ['updated_at']
@@ -412,13 +411,13 @@ class AcknowledgeIncident(graphene.Mutation):
         except (ValueError, Incident.DoesNotExist):
             raise GraphQLError("Incident not found")
 
-        if not user_has_org_access(user, incident.organization_id):
+        if not user_has_org_access(user, incident.tenant_id):
             raise GraphQLError("Access denied")
 
         incident.status = Incident.Status.INVESTIGATING
         incident.acknowledged_at = timezone.now()
-        incident.assigned_to = user
-        incident.save(update_fields=['status', 'acknowledged_at', 'assigned_to', 'updated_at'])
+        incident.assignee_id = str(user.id)
+        incident.save(update_fields=['status', 'acknowledged_at', 'assignee_id', 'updated_at'])
 
         incident.add_timeline_event('acknowledged', 'Incident acknowledged', user)
 
@@ -449,7 +448,7 @@ class ResolveIncident(graphene.Mutation):
         except (ValueError, Incident.DoesNotExist):
             raise GraphQLError("Incident not found")
 
-        if not user_has_org_access(user, incident.organization_id):
+        if not user_has_org_access(user, incident.tenant_id):
             raise GraphQLError("Access denied")
 
         incident.status = Incident.Status.RESOLVED
@@ -491,7 +490,7 @@ class CloseIncident(graphene.Mutation):
         except (ValueError, Incident.DoesNotExist):
             raise GraphQLError("Incident not found")
 
-        if not user_has_org_access(user, incident.organization_id):
+        if not user_has_org_access(user, incident.tenant_id):
             raise GraphQLError("Access denied")
 
         incident.status = Incident.Status.CLOSED
@@ -535,7 +534,7 @@ class AssignIncident(graphene.Mutation):
         except (ValueError, Incident.DoesNotExist):
             raise GraphQLError("Incident not found")
 
-        if not user_has_org_access(user, incident.organization_id):
+        if not user_has_org_access(user, incident.tenant_id):
             raise GraphQLError("Access denied")
 
         try:
@@ -544,8 +543,8 @@ class AssignIncident(graphene.Mutation):
         except (ValueError, User.DoesNotExist):
             raise GraphQLError("Assignee not found")
 
-        incident.assigned_to = assignee
-        incident.save(update_fields=['assigned_to', 'updated_at'])
+        incident.assignee_id = str(assignee.pk)
+        incident.save(update_fields=['assignee_id', 'updated_at'])
 
         incident.add_timeline_event('assigned', f'Assigned to {assignee.get_full_name() or assignee.email}', user)
 
