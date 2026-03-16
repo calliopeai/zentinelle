@@ -28,7 +28,7 @@ export default function Footer() {
         }}
         mb={{ base: '20px', lg: '0px' }}
       >
-        {new Date().getFullYear()} Calliope AI. Zentinelle.
+        © {new Date().getFullYear()} Calliope Labs Inc. MIT Licensed.
       </Text>
     </Flex>
   );
