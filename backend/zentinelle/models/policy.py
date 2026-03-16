@@ -174,14 +174,16 @@ class Policy(Tracking):
         self.clean()
         # Use _state.adding (not self.pk) because UUID PKs are pre-generated
         # and self.pk is always truthy even for unsaved instances.
+        # For updates: atomically increment version via queryset.update(), then
+        # refresh so self.version is a plain integer before post_save fires.
+        # The post_save signal creates PolicyRevision(version=instance.version),
+        # and F() expressions cannot be used in INSERT — so version must be an int.
         # Call models.Model.save() directly to skip Tracking.save()'s own
-        # version increment, which would double-count with our F() expression.
+        # version increment, which would double-count.
         if not self._state.adding:
-            self.version = models.F('version') + 1
-            models.Model.save(self, *args, **kwargs)
+            type(self).objects.filter(pk=self.pk).update(version=models.F('version') + 1)
             self.refresh_from_db(fields=['version'])
-        else:
-            models.Model.save(self, *args, **kwargs)
+        models.Model.save(self, *args, **kwargs)
 
 
 class PolicyRevision(models.Model):
