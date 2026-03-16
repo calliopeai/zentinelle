@@ -247,7 +247,7 @@ class NotificationService:
 
                     <p style="margin-top: 30px; color: #333;">
                         Welcome aboard!<br>
-                        <strong>The Calliope Team</strong>
+                        <strong>The Calliope AI Team</strong>
                     </p>
                 </div>
             </div>
@@ -279,7 +279,7 @@ Need help? Check out our documentation at https://docs.calliope.ai
 or reach out to support@calliope.ai
 
 Welcome aboard!
-The Calliope Team
+The Calliope AI Team
         """
 
         self._send_email(recipients, subject, html_body, text_body)
@@ -318,7 +318,7 @@ The Calliope Team
 
             <p>We apologize for the inconvenience.</p>
 
-            <p>Best regards,<br>The Calliope Team</p>
+            <p>Best regards,<br>The Calliope AI Team</p>
         </body>
         </html>
         """
@@ -341,7 +341,7 @@ Our team has been notified of this issue. You can:
 We apologize for the inconvenience.
 
 Best regards,
-The Calliope Team
+The Calliope AI Team
         """
 
         self._send_email(recipients, subject, html_body, text_body)

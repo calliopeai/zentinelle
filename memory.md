@@ -30,7 +30,7 @@ Persistent project memory. Decisions, context, open questions. Updated as the pr
 3. `deployments.Deployment` → optional external reference by ID (nullable FK → string)
 4. `core.models.internal_admin` → abstract admin checks
 
-### Knowledge System (applies to all Calliope repos)
+### Knowledge System (applies to all Calliope AI repos)
 Every repo uses this schema:
 ```
 bootstrap.md      # canonical technical knowledge — agent-agnostic, public
@@ -38,12 +38,12 @@ memory.md         # this file — persistent decisions and state
 CLAUDE.md         # Claude Code shim → bootstrap.md + memory.md
 agents.md         # generic agents shim
 gemini.md         # Gemini shim
-calliope.md       # Calliope-internal shim (gitignored — internal wiring only)
+calliope.md       # Calliope AI-internal shim (gitignored — internal wiring only)
 docs/wiki/        # deep technical documentation
 ```
 - Write knowledge once in bootstrap.md. Each AI gets a thin shim. No duplication.
 - `calliope.md` always gitignored — internal auth wiring, env vars, internal URLs never in public repo
-- Apply this pattern to every repo in the Calliope ecosystem
+- Apply this pattern to every repo in the Calliope AI ecosystem
 
 ---
 

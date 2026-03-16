@@ -38,7 +38,7 @@ class CreateDeploymentInput(graphene.InputObjectType):
     health_check_url = graphene.String()
     config = graphene.JSONString()
     status = graphene.String(description="Set initial status (default: pending)")
-    is_internal = graphene.Boolean(description="Mark as internal Calliope deployment")
+    is_internal = graphene.Boolean(description="Mark as internal Calliope AI deployment")
 
 
 class UpdateDeploymentInput(graphene.InputObjectType):
@@ -60,7 +60,7 @@ class UpdateDeploymentInput(graphene.InputObjectType):
     health_check_interval = graphene.Int()
     config = graphene.JSONString()
     status = graphene.String()
-    is_internal = graphene.Boolean(description="Mark as internal Calliope deployment")
+    is_internal = graphene.Boolean(description="Mark as internal Calliope AI deployment")
 
 
 class CreateDeployment(graphene.Mutation):
@@ -385,11 +385,11 @@ class RevokeDeploymentApiKey(graphene.Mutation):
 
 class CreateInternalDeployment(graphene.Mutation):
     """
-    Create an internal Calliope deployment (hub-calliope-dev, etc.).
+    Create an internal Calliope AI deployment (hub-calliope-dev, etc.).
 
     Internal deployments:
     - Skip the normal provisioning flow
-    - Are managed by Calliope's infrastructure team
+    - Are managed by Calliope AI's infrastructure team
     - Auto-create JunoHubConfig with Bedrock enabled
     - Start in ACTIVE status
 
@@ -397,7 +397,7 @@ class CreateInternalDeployment(graphene.Mutation):
     """
     class Arguments:
         organization_id = graphene.ID(required=True)
-        name = graphene.String(required=True, description="Display name (e.g., 'Calliope Dev Hub')")
+        name = graphene.String(required=True, description="Display name (e.g., 'Calliope AI Dev Hub')")
         slug = graphene.String(required=True, description="URL slug (e.g., 'hub-calliope-dev')")
         hub_url = graphene.String(required=True, description="Public URL (e.g., 'https://hub.dev.softinfra.net')")
         environment = graphene.String(default_value='development')
@@ -452,7 +452,7 @@ class CreateInternalDeployment(graphene.Mutation):
             organization=org,
             name=name,
             slug=slug,
-            description=kwargs.get('description', f'Internal Calliope deployment: {name}'),
+            description=kwargs.get('description', f'Internal Calliope AI deployment: {name}'),
             environment=kwargs.get('environment', Deployment.Environment.DEVELOPMENT),
             deployment_type=Deployment.DeploymentType.JUNOHUB,
             hosting_model=Deployment.HostingModel.MANAGED_ECS,

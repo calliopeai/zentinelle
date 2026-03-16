@@ -44,7 +44,7 @@ zentinelle.git/
 ## Key Architecture Decisions
 
 ### Tenant Model
-Every model has `tenant_id` (opaque string). No direct FK to any external User or Organization model. Tenant context is resolved via the `TenantResolver` interface — pluggable, with a default implementation for standalone mode and a managed-deployment implementation for Calliope-hosted instances.
+Every model has `tenant_id` (opaque string). No direct FK to any external User or Organization model. Tenant context is resolved via the `TenantResolver` interface — pluggable, with a default implementation for standalone mode and a managed-deployment implementation for Calliope AI-hosted instances.
 
 See: [#9](https://github.com/calliopeai/zentinelle/issues/9)
 

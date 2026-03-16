@@ -522,7 +522,7 @@ class GracePeriodService:
 
                     <p style="margin-top: 30px;">
                         Best regards,<br>
-                        <strong>The Calliope Team</strong>
+                        <strong>The Calliope AI Team</strong>
                     </p>
                 </div>
             </div>
@@ -560,7 +560,7 @@ Manage Billing: https://app.calliope.ai/admin/billing
 Questions? Contact us at support@calliope.ai
 
 Best regards,
-The Calliope Team
+The Calliope AI Team
         """
 
     def _get_grace_period_warning_html(
@@ -631,7 +631,7 @@ Please resolve this issue to avoid service interruption.
 Resolve Now: https://app.calliope.ai/admin/billing
 
 Best regards,
-The Calliope Team
+The Calliope AI Team
         """
 
     def _get_grace_period_resolved_html(self, license_obj: 'License', reason_display: str) -> str:
@@ -662,7 +662,7 @@ The Calliope Team
                     <p>Thank you for your continued business!</p>
                     <p style="margin-top: 30px;">
                         Best regards,<br>
-                        <strong>The Calliope Team</strong>
+                        <strong>The Calliope AI Team</strong>
                     </p>
                 </div>
             </div>
@@ -690,7 +690,7 @@ Your license is now fully active and all services are available.
 Thank you for your continued business!
 
 Best regards,
-The Calliope Team
+The Calliope AI Team
         """
 
 

@@ -7,7 +7,7 @@ Handles two deployment models:
    - Access via cross-account role assumption
 
 2. Zentinelle-Only: Client uses Zentinelle SaaS without full AWS deploy
-   - Secrets live in Calliope's shared account
+   - Secrets live in Calliope AI's shared account
    - Isolated via namespace prefix: /zentinelle/{org_slug}/
 """
 import json
@@ -32,7 +32,7 @@ class SecretsAccountRouter:
     Determines which AWS account and credentials to use for secrets operations.
 
     Routes based on Organization.deployment_model:
-    - ZENTINELLE_ONLY: Use shared Calliope account with namespacing
+    - ZENTINELLE_ONLY: Use shared Calliope AI account with namespacing
     - FULL_DEPLOY: Use client's dedicated AWS account
     - BYOC: Use client's own AWS account (they manage)
     """

@@ -66,8 +66,8 @@ knowledge_files:
     agents: [claude, gemini]
 
   - path: calliope.md
-    role: "Internal Calliope deployment wiring — managed hosting, env vars, internal URLs"
-    read_when: "Calliope-internal deployment work"
+    role: "Internal Calliope AI deployment wiring — managed hosting, env vars, internal URLs"
+    read_when: "Calliope AI-internal deployment work"
     agents: [claude, gemini]
     internal: true
 

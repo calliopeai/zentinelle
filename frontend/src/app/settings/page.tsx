@@ -416,7 +416,7 @@ export default function SettingsPage() {
             <Box flex="1">
               <Flex align="center" gap="8px">
                 <Text fontSize="lg" fontWeight="600" color={textColor}>
-                  Calliope Client Cove
+                  Calliope AI Client Cove
                 </Text>
                 <Badge
                   colorScheme={isConnected ? 'teal' : 'gray'}
@@ -428,7 +428,7 @@ export default function SettingsPage() {
                 </Badge>
               </Flex>
               <Text fontSize="sm" color="gray.500">
-                Sync auth and tenant management with Calliope
+                Sync auth and tenant management with Calliope AI
               </Text>
             </Box>
           </Flex>
@@ -531,8 +531,8 @@ export default function SettingsPage() {
           ) : (
             <VStack spacing="16px" align="stretch">
               <Text fontSize="sm" color="gray.500">
-                Connect Zentinelle to your Calliope Client Cove instance to delegate authentication
-                and sync tenant management. Requires a service-to-service API key from your Calliope admin.
+                Connect Zentinelle to your Calliope AI Client Cove instance to delegate authentication
+                and sync tenant management. Requires a service-to-service API key from your Calliope AI admin.
               </Text>
 
               <FormControl>
@@ -564,7 +564,7 @@ export default function SettingsPage() {
                   </InputRightElement>
                 </InputGroup>
                 <FormHelperText>
-                  Find this in your Calliope admin panel under Integrations → Zentinelle
+                  Find this in your Calliope AI admin panel under Integrations → Zentinelle
                 </FormHelperText>
               </FormControl>
 

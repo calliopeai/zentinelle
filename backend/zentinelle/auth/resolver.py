@@ -28,7 +28,7 @@ class TenantResolver(ABC):
 
     Implement this to connect Zentinelle to any identity/auth system.
     The default implementation (StandaloneTenantResolver) manages tenants
-    internally. In Calliope managed deployments, ClientCoveTenantResolver
+    internally. In Calliope AI managed deployments, ClientCoveTenantResolver
     delegates to Client Cove's internal API.
     """
 
@@ -212,7 +212,7 @@ class StandaloneTenantResolver(TenantResolver):
 
 class ClientCoveTenantResolver(TenantResolver):
     """
-    Resolver for Calliope-managed deployments.
+    Resolver for Calliope AI-managed deployments.
 
     Delegates tenant resolution and token validation to Client Cove's
     internal service-to-service API. Responses are cached in Redis to

@@ -38,7 +38,7 @@ export const globalStyles = {
       800: '#1C2652',
       900: '#0A1628',
     },
-    // Calliope teal/cyan accent
+    // Calliope AI teal/cyan accent
     accent: {
       50: '#E6FFFB',
       100: '#B3FFF3',

@@ -43,5 +43,5 @@ Terms: **MUST** = required. **MUST NOT** = prohibited. **SHOULD** = strongly rec
 
 ## Notes
 
-- Internal Calliope deployment wiring: see `calliope.md` (gitignored, not in this repo).
+- Internal Calliope AI deployment wiring: see `calliope.md` (gitignored, not in this repo).
 - Managed-cloud-only features are intentionally stubbed in standalone mode.

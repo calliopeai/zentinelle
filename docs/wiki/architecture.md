@@ -203,6 +203,6 @@ Service-to-service auth via shared secret (`ZENTINELLE_INTERNAL_TOKEN`). See [#9
 | Mode | Auth | Tenant resolution | Use case |
 |------|------|------------------|----------|
 | Standalone | Client Cove callout or custom resolver | `ClientCoveTenantResolver` or pluggable | Self-hosted, BYOC, managed cloud |
-| Embedded (Client Cove sentinel) | Shared Django auth | Direct ORM access | Internal Calliope agent governance |
+| Embedded (Client Cove sentinel) | Shared Django auth | Direct ORM access | Internal Calliope AI agent governance |
 
 The `TenantResolver` interface is the seam — swap the implementation to change auth source.

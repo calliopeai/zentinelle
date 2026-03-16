@@ -78,7 +78,7 @@ Works with all 21 providers: Anthropic · OpenAI · AWS Bedrock · Google Vertex
 | **Self-hosted** | Docker Compose or Kubernetes. Free. MIT licensed. |
 | **Managed cloud** | We host and operate it for you. |
 | **BYOC** | Deploy in your cloud, we manage it remotely. |
-| **Forward deployed** | Calliope engineer embedded in your infra for regulated industries. |
+| **Forward deployed** | Calliope AI engineer embedded in your infra for regulated industries. |
 
 ## Documentation
 

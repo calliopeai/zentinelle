@@ -91,5 +91,5 @@ Task-specific workflow guides with safety checkpoints.
 
 ## Notes
 
-- Internal Calliope deployment wiring: see `calliope.md` (gitignored, not in this repo).
+- Internal Calliope AI deployment wiring: see `calliope.md` (gitignored, not in this repo).
 - Managed-cloud-only features (billing, secrets, team, deployments) are intentionally stubbed in standalone mode — do not implement them here.

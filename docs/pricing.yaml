@@ -16,11 +16,11 @@ last_updated: "2026-03-14"
 # Tier 1: Self-hosted (open source)
 #   - Customer runs Zentinelle in their own infra
 #   - Free core — adoption driver
-#   - Optionally connects to Calliope cloud for managed features (see cloud_ingest below)
+#   - Optionally connects to Calliope AI cloud for managed features (see cloud_ingest below)
 #
 # Tier 2: Managed / Hybrid
-#   - Managed: Calliope hosts Zentinelle fully
-#   - Hybrid: Customer's infra, Calliope manages it
+#   - Managed: Calliope AI hosts Zentinelle fully
+#   - Hybrid: Customer's infra, Calliope AI manages it
 #   - Subscription + ingest billing
 #
 # Tier 3: Enterprise
@@ -36,8 +36,8 @@ tiers:
       base_monthly: 0        # Free
       billing_model: "flat"
 
-    # Optional: connect to Calliope cloud for cloud-managed features
-    # (e.g. managed dashboard, cross-org benchmarks, Calliope support)
+    # Optional: connect to Calliope AI cloud for cloud-managed features
+    # (e.g. managed dashboard, cross-org benchmarks, Calliope AI support)
     # If enabled, cloud_ingest rates apply
     cloud_ingest_enabled: true
 
@@ -51,7 +51,7 @@ tiers:
 
   managed:
     name: "Managed"
-    description: "Calliope hosts and manages your Zentinelle instance. Subscription + ingest billing."
+    description: "Calliope AI hosts and manages your Zentinelle instance. Subscription + ingest billing."
     is_active: true
     pricing:
       base_monthly: 49900            # $499/month base
@@ -116,16 +116,16 @@ tiers:
         description: "SOC2 / HIPAA / FedRAMP data handling, immutable storage (S3 Object Lock)"
         price_monthly: 0             # Custom
       forward_deployed_engineer:
-        description: "Dedicated Calliope engineer embedded with customer team"
+        description: "Dedicated Calliope AI engineer embedded with customer team"
         price_monthly: 0             # $15K-$25K/month — negotiated
         price_range_low: 1500000     # $15,000
         price_range_high: 2500000    # $25,000
 
 # ---------------------------------------------------------------------------
-# CLOUD INGEST (Self-hosted orgs connecting to Calliope cloud)
+# CLOUD INGEST (Self-hosted orgs connecting to Calliope AI cloud)
 # ---------------------------------------------------------------------------
 # Self-hosted customers can optionally pay for cloud-managed features
-# by streaming a portion of their data to Calliope. Priced per ingest only.
+# by streaming a portion of their data to Calliope AI. Priced per ingest only.
 
 cloud_ingest:
   enabled: true

@@ -8,8 +8,8 @@ Zentinelle is designed to run as an **internal service** — not publicly expose
 |-------|-------------|
 | Docker Compose | Local dev or small self-hosted setups |
 | Kubernetes / Helm | Production self-hosted |
-| BYOC (Bring Your Own Cloud) | Your infra, Calliope manages remotely |
-| Managed (Zentinelle.ai) | Calliope hosts and operates everything |
+| BYOC (Bring Your Own Cloud) | Your infra, Calliope AI manages remotely |
+| Managed (Zentinelle.ai) | Calliope AI hosts and operates everything |
 
 ---
 
@@ -71,7 +71,7 @@ See `.env.example`. Key variables:
 
 **Standalone** (`AUTH_MODE=standalone`): Zentinelle manages its own auth. Users log in directly to the GRC portal with username/password or OIDC. No Client Cove dependency.
 
-**Client Cove** (`AUTH_MODE=client_cove`): Auth delegated to Client Cove. JWT tokens are validated by calling Client Cove's internal API. Used when running as part of the Calliope platform.
+**Client Cove** (`AUTH_MODE=client_cove`): Auth delegated to Client Cove. JWT tokens are validated by calling Client Cove's internal API. Used when running as part of the Calliope AI platform.
 
 ---
 
@@ -114,7 +114,7 @@ Namespace: zentinelle
 
 ## BYOC (Bring Your Own Cloud)
 
-In BYOC mode, Zentinelle runs in **your** infrastructure. Calliope manages it remotely via an outbound-only management plane connection.
+In BYOC mode, Zentinelle runs in **your** infrastructure. Calliope AI manages it remotely via an outbound-only management plane connection.
 
 ```
 Your Cloud (VPC / private subnet)
@@ -122,16 +122,16 @@ Your Cloud (VPC / private subnet)
         └── management-agent (sidecar)
               │ outbound HTTPS only
               ▼
-        Calliope Management Plane
+        Calliope AI Management Plane
           - Version management
           - Remote config push
           - Fleet health monitoring
           - Incident surfacing
 ```
 
-The management agent makes outbound calls only. No inbound ports required from Calliope's side. Your data never leaves your cloud.
+The management agent makes outbound calls only. No inbound ports required from Calliope AI's side. Your data never leaves your cloud.
 
-**BYOC setup:** Contact [support@zentinelle.ai](mailto:support@zentinelle.ai) or your Calliope account team.
+**BYOC setup:** Contact [support@zentinelle.ai](mailto:support@zentinelle.ai) or your Calliope AI account team.
 
 ---
 

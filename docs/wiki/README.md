@@ -45,9 +45,9 @@ Zentinelle Service
 | Model | Description |
 |-------|-------------|
 | Self-hosted | Docker Compose or Kubernetes. MIT licensed. No callhome required. |
-| Managed cloud | Calliope hosts and operates Zentinelle. |
-| BYOC | Deploy in your cloud. Calliope manages remotely via management plane. |
-| Forward deployed | Calliope engineer embedded in your infra. For regulated industries. |
+| Managed cloud | Calliope AI hosts and operates Zentinelle. |
+| BYOC | Deploy in your cloud. Calliope AI manages remotely via management plane. |
+| Forward deployed | Calliope AI engineer embedded in your infra. For regulated industries. |
 
 ## Key Design Principles
 

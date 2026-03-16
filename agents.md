@@ -65,5 +65,5 @@ STOP on any failure before committing.
 
 ## Notes
 
-- Internal Calliope deployment wiring: see `calliope.md` (gitignored, not in this repo).
+- Internal Calliope AI deployment wiring: see `calliope.md` (gitignored, not in this repo).
 - Managed-cloud-only features (billing, secrets, team, deployments) are intentionally stubbed in standalone mode.

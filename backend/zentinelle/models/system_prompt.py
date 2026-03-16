@@ -208,7 +208,7 @@ class SystemPrompt(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     visibility = models.CharField(max_length=20, choices=Visibility.choices, default=Visibility.ORGANIZATION)
     is_featured = models.BooleanField(default=False, help_text="Featured in library homepage")
-    is_verified = models.BooleanField(default=False, help_text="Verified by Calliope team")
+    is_verified = models.BooleanField(default=False, help_text="Verified by Calliope AI team")
 
     # Metrics
     usage_count = models.IntegerField(default=0)

@@ -1,7 +1,7 @@
 """
 Client Cove integration mutations.
 
-Allows standalone Zentinelle tenants to connect to Calliope Client Cove
+Allows standalone Zentinelle tenants to connect to Calliope AI Client Cove
 for delegated auth. Credentials are stored in DB and the connection is
 tested before saving.
 """
