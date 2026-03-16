@@ -170,11 +170,11 @@ export default function AdminNavbar(props: {
             </Text>
           )}
           {displayDescription && (
-            <Text fontSize="sm" color={descriptionColor} mt="2px" noOfLines={1}>
+            <Text fontSize="sm" color={descriptionColor} mt="1px" noOfLines={1}>
               {displayDescription}
             </Text>
           )}
-          <Breadcrumb separator=">" mt="2px" spacing="4px" fontSize="xs">
+          <Breadcrumb separator=">" mt="0px" spacing="4px" fontSize="xs">
             <BreadcrumbItem>
               <BreadcrumbLink href="/zentinelle/agents/" fontSize="xs" color={descriptionColor} _hover={{ color: textColor }}>
                 Home
