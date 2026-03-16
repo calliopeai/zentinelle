@@ -13,6 +13,7 @@ from zentinelle.schema.types import (
     SaveClientCoveConfigPayload,
     ClientCoveIntegrationType,
     DisconnectClientCovePayload,
+    TestWebhookPayload,
 )
 
 
@@ -102,6 +103,36 @@ class SaveClientCoveConfig(graphene.Mutation):
             message=message,
             integration=integration,
         )
+
+
+class TestWebhook(graphene.Mutation):
+    """Send a test payload to a webhook URL to verify it is reachable."""
+
+    class Arguments:
+        url = graphene.String(required=True)
+
+    Output = TestWebhookPayload
+
+    @staticmethod
+    def mutate(root, info, url):
+        try:
+            resp = httpx.post(
+                url,
+                json={"text": "Zentinelle webhook test — connection is operational"},
+                timeout=10.0,
+            )
+            ok = 200 <= resp.status_code < 300
+            return TestWebhookPayload(
+                success=ok,
+                message='Webhook is operational' if ok else f'Webhook returned HTTP {resp.status_code}',
+                status_code=resp.status_code,
+            )
+        except httpx.ConnectError:
+            return TestWebhookPayload(success=False, message=f'Could not reach {url}', status_code=None)
+        except httpx.TimeoutException:
+            return TestWebhookPayload(success=False, message='Request timed out', status_code=None)
+        except Exception as exc:
+            return TestWebhookPayload(success=False, message=str(exc), status_code=None)
 
 
 class DisconnectClientCove(graphene.Mutation):

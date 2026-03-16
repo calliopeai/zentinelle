@@ -85,6 +85,7 @@ from .integration import (
     TestClientCoveConnection,
     SaveClientCoveConfig,
     DisconnectClientCove,
+    TestWebhook,
 )
 from .compliance_packs import (
     ActivateCompliancePack,
@@ -287,6 +288,9 @@ class Mutation(graphene.ObjectType):
     test_client_cove_connection = TestClientCoveConnection.Field()
     save_client_cove_config = SaveClientCoveConfig.Field()
     disconnect_client_cove = DisconnectClientCove.Field()
+
+    # Webhook
+    test_webhook = TestWebhook.Field()
 
     # Notifications
     update_notification = UpdateNotification.Field()

@@ -50,3 +50,13 @@ export const DISCONNECT_CLIENT_COVE = gql`
     }
   }
 `;
+
+export const TEST_WEBHOOK = gql`
+  mutation TestWebhook($url: String!) {
+    testWebhook(url: $url) {
+      success
+      message
+      statusCode
+    }
+  }
+`;

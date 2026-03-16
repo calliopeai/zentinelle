@@ -49,6 +49,7 @@ import {
   TEST_CLIENT_COVE_CONNECTION,
   SAVE_CLIENT_COVE_CONFIG,
   DISCONNECT_CLIENT_COVE,
+  TEST_WEBHOOK,
 } from 'graphql/integration';
 
 interface OrganizationSettings {
@@ -83,6 +84,8 @@ export default function SettingsPage() {
   const [testConnection, { loading: testing }] = useMutation(TEST_CLIENT_COVE_CONNECTION);
   const [saveConfig, { loading: connecting }] = useMutation(SAVE_CLIENT_COVE_CONFIG);
   const [disconnectCove, { loading: disconnecting }] = useMutation(DISCONNECT_CLIENT_COVE);
+  const [testWebhook, { loading: testingWebhook }] = useMutation(TEST_WEBHOOK);
+  const [webhookTestResult, setWebhookTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const [coveUrl, setCoveUrl] = useState('');
   const [coveApiKey, setCoveApiKey] = useState('');
@@ -162,6 +165,17 @@ export default function SettingsPage() {
         description: err instanceof Error ? err.message : 'Unknown error',
         status: 'error',
       });
+    }
+  };
+
+  const handleTestWebhook = async () => {
+    setWebhookTestResult(null);
+    try {
+      const { data } = await testWebhook({ variables: { url: webhookUrl } });
+      const r = data?.testWebhook;
+      setWebhookTestResult({ success: r?.success, message: r?.message });
+    } catch (err) {
+      setWebhookTestResult({ success: false, message: err instanceof Error ? err.message : 'Unknown error' });
     }
   };
 
@@ -305,12 +319,30 @@ export default function SettingsPage() {
 
             <FormControl>
               <FormLabel>Webhook URL</FormLabel>
-              <Input
-                value={webhookUrl}
-                onChange={(e) => setWebhookUrl(e.target.value)}
-                placeholder="https://..."
-              />
-              <FormHelperText>Receive alerts via webhook</FormHelperText>
+              <HStack gap="8px">
+                <Input
+                  value={webhookUrl}
+                  onChange={(e) => { setWebhookUrl(e.target.value); setWebhookTestResult(null); }}
+                  placeholder="https://hooks.slack.com/..."
+                />
+                <Button
+                  size="md"
+                  variant="outline"
+                  flexShrink={0}
+                  onClick={handleTestWebhook}
+                  isLoading={testingWebhook}
+                  isDisabled={!webhookUrl}
+                >
+                  Test
+                </Button>
+              </HStack>
+              <FormHelperText>Receive alerts via webhook (Slack incoming webhooks supported)</FormHelperText>
+              {webhookTestResult && (
+                <Alert status={webhookTestResult.success ? 'success' : 'error'} mt="8px" borderRadius="8px" py="8px">
+                  <AlertIcon boxSize="16px" />
+                  <Text fontSize="sm">{webhookTestResult.message}</Text>
+                </Alert>
+              )}
             </FormControl>
           </VStack>
         </Card>

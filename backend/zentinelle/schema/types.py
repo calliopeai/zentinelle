@@ -934,6 +934,12 @@ class DisconnectClientCovePayload(graphene.ObjectType):
     success = graphene.Boolean()
 
 
+class TestWebhookPayload(graphene.ObjectType):
+    success = graphene.Boolean()
+    message = graphene.String()
+    status_code = graphene.Int()
+
+
 class UsageMetricsSummaryType(graphene.ObjectType):
     total_api_calls = graphene.Int()
     total_tokens = graphene.BigInt()
