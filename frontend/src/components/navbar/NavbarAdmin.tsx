@@ -2,9 +2,6 @@
 
 import {
   Box,
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
   Center,
   Flex,
   Icon,
@@ -133,45 +130,14 @@ export default function AdminNavbar(props: {
         mb={gap}
       >
         <Box mb={{ sm: '8px', md: '0px' }}>
-          <Text fontSize="xl" lineHeight="1.3">
-            <Text as="span" fontWeight="700" color={textColor}>
-              {displayTitle}
-            </Text>
-            {displayDescription && (
-              <Text as="span" fontWeight="400" color={descriptionColor}>
-                : {displayDescription}
-              </Text>
-            )}
+          <Text fontWeight="700" fontSize="3xl" color={textColor} lineHeight="1.1">
+            {displayTitle}
           </Text>
-          <Breadcrumb separator=">" mt="5px" spacing="6px">
-            <BreadcrumbItem>
-              <BreadcrumbLink
-                href="/zentinelle/agents/"
-                fontSize="xs"
-                color={descriptionColor}
-                _hover={{ color: textColor }}
-              >
-                HOME
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            {props.parentText && props.parentText !== props.brandText && (
-              <BreadcrumbItem>
-                <BreadcrumbLink
-                  href="#"
-                  fontSize="xs"
-                  color={descriptionColor}
-                  _hover={{ color: textColor }}
-                >
-                  {props.parentText}
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-            )}
-            <BreadcrumbItem isCurrentPage>
-              <BreadcrumbLink href="#" fontSize="xs" color={descriptionColor}>
-                {props.brandText}
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-          </Breadcrumb>
+          {displayDescription && (
+            <Text fontSize="sm" color={descriptionColor} mt="4px">
+              {displayDescription}
+            </Text>
+          )}
         </Box>
         <Box ms="auto" w={{ sm: '100%', md: 'unset' }}>
           {isAuthenticated && (
