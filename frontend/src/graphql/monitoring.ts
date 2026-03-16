@@ -163,6 +163,7 @@ export const GET_CONTENT_SCANS = gql`
             confidence
             wasBlocked
             wasRedacted
+            createdAt
           }
         }
       }
