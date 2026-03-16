@@ -2,6 +2,9 @@
 
 import {
   Box,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
   Center,
   Flex,
   Icon,
@@ -24,11 +27,12 @@ import { clearSessionKey } from 'utils/session';
 export default function AdminNavbar(props: {
   secondary?: boolean;
   brandText: string;
+  parentText?: string;
   logoText: string;
   fixed?: boolean;
   onOpen?: () => void;
 }) {
-  const { secondary, brandText } = props;
+  const { secondary, brandText, parentText } = props;
   const { user, isAuthenticated } = useAuth();
   const { colorMode, toggleColorMode } = useColorMode();
 
@@ -45,6 +49,7 @@ export default function AdminNavbar(props: {
   const paddingX = '15px';
   const gap = '0px';
   const textColor = useColorModeValue('secondaryGray.900', 'white');
+  const breadcrumbColor = useColorModeValue('gray.500', 'secondaryGray.500');
   const menuBg = useColorModeValue('white', 'navy.800');
   const shadow = useColorModeValue(
     '14px 17px 40px 4px rgba(112, 144, 176, 0.18)',
@@ -136,6 +141,40 @@ export default function AdminNavbar(props: {
           >
             {brandText}
           </Link>
+          <Breadcrumb mt="2px" separator="/">
+            <BreadcrumbItem>
+              <BreadcrumbLink
+                href="/zentinelle/agents/"
+                fontSize="xs"
+                color={breadcrumbColor}
+                _hover={{ color: textColor }}
+              >
+                Zentinelle
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            {parentText && parentText !== brandText && (
+              <BreadcrumbItem>
+                <BreadcrumbLink
+                  href="#"
+                  fontSize="xs"
+                  color={breadcrumbColor}
+                  _hover={{ color: textColor }}
+                >
+                  {parentText}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+            )}
+            <BreadcrumbItem isCurrentPage>
+              <BreadcrumbLink
+                href="#"
+                fontSize="xs"
+                color={breadcrumbColor}
+                fontWeight="500"
+              >
+                {brandText}
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+          </Breadcrumb>
         </Box>
         <Box ms="auto" w={{ sm: '100%', md: 'unset' }}>
           {isAuthenticated && (
@@ -148,7 +187,7 @@ export default function AdminNavbar(props: {
               borderRadius="30px"
               boxShadow={shadow}
             >
-<Box onClick={toggleColorMode} cursor="pointer" me="10px" display="flex" alignItems="center">
+              <Box onClick={toggleColorMode} cursor="pointer" me="10px" display="flex" alignItems="center">
                 <Icon as={colorMode === 'light' ? IoMdMoon : IoMdSunny} color={navbarIcon} w="18px" h="18px" />
               </Box>
               <NotificationsDropdown />
