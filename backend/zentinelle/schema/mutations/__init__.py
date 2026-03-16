@@ -108,17 +108,14 @@ from zentinelle.schema.types import (
 
 
 class OrganizationSettingsInput(graphene.InputObjectType):
+    name = graphene.String()
     contact_email = graphene.String()
     timezone = graphene.String()
-    mfa_required = graphene.Boolean()
-    session_timeout = graphene.Int()
-    ip_whitelist = graphene.String()
     email_notifications = graphene.Boolean()
     slack_notifications = graphene.Boolean()
     webhook_url = graphene.String()
     default_policy_mode = graphene.String()
     audit_logging = graphene.Boolean()
-    auto_rotate_secrets = graphene.Boolean()
 
 
 class UpdateOrganizationSettings(graphene.Mutation):
@@ -134,7 +131,7 @@ class UpdateOrganizationSettings(graphene.Mutation):
         tenant_id = get_request_tenant_id(info.context.user) or "default"
         org = OrganizationType(
             id=tenant_id,
-            name="My Organization",
+            name=settings.get('name') or "My Organization",
             slug=tenant_id,
             tier="standard",
             website="",
