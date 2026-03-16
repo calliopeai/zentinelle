@@ -152,6 +152,7 @@ export default function PoliciesPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [scopeFilter, setScopeFilter] = useState('');
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
   const [versioningPolicyId, setVersioningPolicyId] = useState<string>('');
 
@@ -285,7 +286,7 @@ export default function PoliciesPage() {
       </Flex>
 
       {/* Tabs for List and Analyzer */}
-      <Tabs variant="enclosed" colorScheme="brand" mb="24px">
+      <Tabs variant="enclosed" colorScheme="brand" mb="24px" index={activeTabIndex} onChange={setActiveTabIndex}>
         <TabList>
           <Tab><Icon as={MdList} mr="8px" />Policy List</Tab>
           <Tab><Icon as={MdAccountTree} mr="8px" />Hierarchy</Tab>
@@ -531,7 +532,7 @@ export default function PoliciesPage() {
             <PolicyVersioning policyId={versioningPolicyId || undefined} />
           </TabPanel>
           <TabPanel px="0">
-            <PolicyAnalyzer />
+            <PolicyAnalyzer onOpenSimulator={() => setActiveTabIndex(4)} />
           </TabPanel>
           <TabPanel px="0">
             <PolicySimulator />

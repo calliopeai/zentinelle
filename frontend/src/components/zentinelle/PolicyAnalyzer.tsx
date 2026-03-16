@@ -238,9 +238,10 @@ function analyzePolicies(policies: Policy[]): AnalysisResult {
 
 interface PolicyAnalyzerProps {
   organizationId?: string;
+  onOpenSimulator?: () => void;
 }
 
-export default function PolicyAnalyzer({ organizationId }: PolicyAnalyzerProps) {
+export default function PolicyAnalyzer({ organizationId, onOpenSimulator }: PolicyAnalyzerProps) {
   const cardBg = useColorModeValue('white', 'navy.800');
   const borderColor = useColorModeValue('gray.200', 'whiteAlpha.200');
 
@@ -479,18 +480,14 @@ export default function PolicyAnalyzer({ organizationId }: PolicyAnalyzerProps) 
               Test policies against sample requests before deploying
             </Text>
           </Box>
-          <Tooltip
-            label="Policy simulation allows you to test how your policies will handle different scenarios. Coming soon with interactive testing."
-            hasArrow
+          <Button
+            leftIcon={<Icon as={MdPlayArrow} />}
+            colorScheme="brand"
+            variant="outline"
+            onClick={onOpenSimulator}
           >
-            <Button
-              leftIcon={<Icon as={MdPlayArrow} />}
-              colorScheme="gray"
-              variant="outline"
-            >
-              Coming Soon
-            </Button>
-          </Tooltip>
+            Open Simulator
+          </Button>
         </Flex>
       </Box>
     </Box>
