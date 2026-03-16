@@ -14,7 +14,6 @@ import {
   FormLabel,
   FormHelperText,
   Input,
-  Textarea,
   Select,
   Divider,
   useToast,
@@ -25,22 +24,18 @@ import {
 } from '@chakra-ui/react';
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { MdSave, MdSecurity, MdNotifications, MdIntegrationInstructions, MdBusiness } from 'react-icons/md';
+import { MdSave, MdNotifications, MdIntegrationInstructions, MdBusiness } from 'react-icons/md';
 import Card from 'components/card/Card';
 import { GET_ORGANIZATION_SETTINGS, UPDATE_ORGANIZATION_SETTINGS } from 'graphql/organization';
 
 interface OrganizationSettings {
   contactEmail?: string;
   timezone?: string;
-  mfaRequired?: boolean;
-  sessionTimeout?: number;
-  ipWhitelist?: string;
   emailNotifications?: boolean;
   slackNotifications?: boolean;
   webhookUrl?: string;
   defaultPolicyMode?: string;
   auditLogging?: boolean;
-  autoRotateSecrets?: boolean;
 }
 
 export default function SettingsPage() {
@@ -58,11 +53,6 @@ export default function SettingsPage() {
   const [orgName, setOrgName] = useState('');
   const [orgSlug, setOrgSlug] = useState('');
 
-  // Security settings
-  const [mfaRequired, setMfaRequired] = useState(false);
-  const [sessionTimeout, setSessionTimeout] = useState('24');
-  const [ipWhitelist, setIpWhitelist] = useState('');
-
   // Notification settings
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [slackAlerts, setSlackAlerts] = useState(false);
@@ -71,7 +61,6 @@ export default function SettingsPage() {
   // Agent settings
   const [defaultPolicyMode, setDefaultPolicyMode] = useState('warn');
   const [auditLogging, setAuditLogging] = useState(true);
-  const [autoRotateSecrets, setAutoRotateSecrets] = useState(true);
 
   // Load data from backend
   useEffect(() => {
@@ -82,11 +71,6 @@ export default function SettingsPage() {
       setOrgName(org.name || '');
       setOrgSlug(org.slug || '');
 
-      // Security
-      setMfaRequired(settings.mfaRequired ?? false);
-      setSessionTimeout(String(settings.sessionTimeout || 24));
-      setIpWhitelist(settings.ipWhitelist || '');
-
       // Notifications
       setEmailAlerts(settings.emailNotifications ?? true);
       setSlackAlerts(settings.slackNotifications ?? false);
@@ -95,7 +79,6 @@ export default function SettingsPage() {
       // Agent defaults
       setDefaultPolicyMode(settings.defaultPolicyMode || 'warn');
       setAuditLogging(settings.auditLogging ?? true);
-      setAutoRotateSecrets(settings.autoRotateSecrets ?? true);
     }
   }, [data]);
 
@@ -105,15 +88,11 @@ export default function SettingsPage() {
         variables: {
           settings: {
             name: orgName,
-            mfaRequired,
-            sessionTimeout: parseInt(sessionTimeout),
-            ipWhitelist,
             emailNotifications: emailAlerts,
             slackNotifications: slackAlerts,
             webhookUrl,
             defaultPolicyMode,
             auditLogging,
-            autoRotateSecrets,
           },
         },
       });
@@ -211,70 +190,6 @@ export default function SettingsPage() {
                 bg={readOnlyBg}
               />
               <FormHelperText>Used in URLs and API calls (read-only)</FormHelperText>
-            </FormControl>
-          </VStack>
-        </Card>
-
-        {/* Security Settings */}
-        <Card p="24px" bg={cardBg}>
-          <Flex align="center" gap="12px" mb="20px">
-            <Flex
-              w="40px"
-              h="40px"
-              bg="red.500"
-              borderRadius="12px"
-              align="center"
-              justify="center"
-            >
-              <Icon as={MdSecurity} color="white" boxSize="20px" />
-            </Flex>
-            <Box>
-              <Text fontSize="lg" fontWeight="600" color={textColor}>
-                Security
-              </Text>
-              <Text fontSize="sm" color="gray.500">
-                Authentication and access control
-              </Text>
-            </Box>
-          </Flex>
-
-          <VStack spacing="16px" align="stretch">
-            <FormControl display="flex" alignItems="center" justifyContent="space-between">
-              <Box>
-                <FormLabel mb="0">Require MFA</FormLabel>
-                <FormHelperText mt="4px">Require multi-factor authentication for all users</FormHelperText>
-              </Box>
-              <Switch
-                isChecked={mfaRequired}
-                onChange={(e) => setMfaRequired(e.target.checked)}
-                colorScheme="brand"
-              />
-            </FormControl>
-
-            <Divider borderColor={borderColor} />
-
-            <FormControl>
-              <FormLabel>Session Timeout (hours)</FormLabel>
-              <Select
-                value={sessionTimeout}
-                onChange={(e) => setSessionTimeout(e.target.value)}
-              >
-                <option value="1">1 hour</option>
-                <option value="8">8 hours</option>
-                <option value="24">24 hours</option>
-                <option value="72">72 hours</option>
-              </Select>
-            </FormControl>
-
-            <FormControl>
-              <FormLabel>IP Whitelist</FormLabel>
-              <Textarea
-                value={ipWhitelist}
-                onChange={(e) => setIpWhitelist(e.target.value)}
-                placeholder="Enter IP addresses, one per line"
-                rows={3}
-              />
-              <FormHelperText>Leave empty to allow all IPs</FormHelperText>
             </FormControl>
           </VStack>
         </Card>
@@ -392,19 +307,6 @@ export default function SettingsPage() {
               />
             </FormControl>
 
-            <Divider borderColor={borderColor} />
-
-            <FormControl display="flex" alignItems="center" justifyContent="space-between">
-              <Box>
-                <FormLabel mb="0">Auto-Rotate Secrets</FormLabel>
-                <FormHelperText mt="4px">Automatically rotate secrets on schedule</FormHelperText>
-              </Box>
-              <Switch
-                isChecked={autoRotateSecrets}
-                onChange={(e) => setAutoRotateSecrets(e.target.checked)}
-                colorScheme="brand"
-              />
-            </FormControl>
           </VStack>
         </Card>
       </SimpleGrid>
