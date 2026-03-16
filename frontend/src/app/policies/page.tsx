@@ -197,7 +197,7 @@ export default function PoliciesPage() {
         toast({ title: 'Policy deleted successfully', status: 'success' });
         refetch();
       } else {
-        toast({ title: 'Failed to delete policy', description: result.deletePolicy.errors?.join(', '), status: 'error' });
+        toast({ title: 'Failed to delete policy', description: result.deletePolicy.error, status: 'error' });
       }
       onDeleteClose();
     },
@@ -209,7 +209,7 @@ export default function PoliciesPage() {
         toast({ title: 'Policy updated', status: 'success', duration: 2000 });
         refetch();
       } else {
-        toast({ title: 'Failed to update policy', description: result.updatePolicy.errors?.join(', '), status: 'error' });
+        toast({ title: 'Failed to update policy', description: result.updatePolicy.error, status: 'error' });
       }
     },
   });
@@ -395,7 +395,7 @@ export default function PoliciesPage() {
                         <MenuList>
                           <MenuItem
                             icon={<MdEdit />}
-                            onClick={() => router.push(`/zentinelle/policies/${policy.id}/edit`)}
+                            onClick={() => router.push(`/policies/${policy.id}/edit`)}
                           >
                             Edit Policy
                           </MenuItem>
