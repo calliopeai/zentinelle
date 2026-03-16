@@ -35,6 +35,9 @@ import {
   useToast,
   Switch,
   Tooltip,
+  FormControl,
+  FormLabel,
+  Textarea,
   TableContainer,
   Tabs,
   TabList,
@@ -152,6 +155,9 @@ export default function PoliciesPage() {
   const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
 
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
 
   const cardBg = useColorModeValue('white', 'navy.800');
   const textColor = useColorModeValue('secondaryGray.900', 'white');
@@ -219,6 +225,28 @@ export default function PoliciesPage() {
   const handleDelete = () => {
     if (selectedPolicy) {
       deletePolicy({ variables: { id: selectedPolicy.id } });
+    }
+  };
+
+  const handleOpenEdit = (policy: Policy) => {
+    setSelectedPolicy(policy);
+    setEditName(policy.name);
+    setEditDescription(policy.description || '');
+    onEditOpen();
+  };
+
+  const handleEditSave = () => {
+    if (selectedPolicy) {
+      updatePolicy({
+        variables: {
+          input: {
+            id: selectedPolicy.id,
+            name: editName,
+            description: editDescription,
+          },
+        },
+      });
+      onEditClose();
     }
   };
 
@@ -395,7 +423,7 @@ export default function PoliciesPage() {
                         <MenuList>
                           <MenuItem
                             icon={<MdEdit />}
-                            onClick={() => router.push(`/policies/${policy.id}/edit`)}
+                            onClick={() => handleOpenEdit(policy)}
                           >
                             Edit Policy
                           </MenuItem>
@@ -438,6 +466,29 @@ export default function PoliciesPage() {
           </Button>
         </Card>
       )}
+
+      {/* Edit Policy Modal */}
+      <Modal isOpen={isEditOpen} onClose={onEditClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit Policy</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <FormControl mb="16px">
+              <FormLabel>Name</FormLabel>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Description</FormLabel>
+              <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={3} />
+            </FormControl>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onEditClose}>Cancel</Button>
+            <Button variant="brand" onClick={handleEditSave} isDisabled={!editName.trim()}>Save</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal isOpen={isDeleteOpen} onClose={onDeleteClose}>
