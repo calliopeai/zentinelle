@@ -248,7 +248,7 @@ export default function PoliciesPage() {
           <Button
             variant="brand"
             leftIcon={<Icon as={MdAdd} />}
-            onClick={() => router.push('/zentinelle/policies/create')}
+            onClick={() => router.push('/policies/create')}
           >
             Create Policy
           </Button>
@@ -432,7 +432,7 @@ export default function PoliciesPage() {
           <Button
             variant="brand"
             leftIcon={<Icon as={MdAdd} />}
-            onClick={() => router.push('/zentinelle/policies/create')}
+            onClick={() => router.push('/policies/create')}
           >
             Create Policy
           </Button>

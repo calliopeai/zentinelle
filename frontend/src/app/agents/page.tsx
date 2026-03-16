@@ -156,7 +156,7 @@ export default function AgentsPage() {
 
   const handleDelete = () => {
     if (selectedEndpoint) {
-      deleteEndpoint({ variables: { endpointId: selectedEndpoint.id } });
+      deleteEndpoint({ variables: { id: selectedEndpoint.id } });
     }
   };
 
@@ -186,7 +186,7 @@ export default function AgentsPage() {
           <Button
             variant="brand"
             leftIcon={<Icon as={MdAdd} />}
-            onClick={() => router.push('/zentinelle/agents/register')}
+            onClick={() => router.push('/agents/register')}
           >
             Register Agent
           </Button>
@@ -335,7 +335,7 @@ export default function AgentsPage() {
           <Button
             variant="brand"
             leftIcon={<Icon as={MdAdd} />}
-            onClick={() => router.push('/zentinelle/agents/register')}
+            onClick={() => router.push('/agents/register')}
           >
             Register Agent
           </Button>

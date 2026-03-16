@@ -1,5 +1,17 @@
 import graphene
+from graphql_relay import from_global_id
 from zentinelle.schema.auth_helpers import get_request_tenant_id
+
+
+def _decode_id(global_or_raw_id):
+    """Decode a relay global ID to a raw UUID string, or return as-is if already plain."""
+    try:
+        _type, raw_id = from_global_id(global_or_raw_id)
+        if raw_id:
+            return raw_id
+    except Exception:
+        pass
+    return global_or_raw_id
 
 
 class CreateAgentGroup(graphene.Mutation):
@@ -32,7 +44,7 @@ class CreateAgentGroup(graphene.Mutation):
 
 class UpdateAgentGroup(graphene.Mutation):
     class Arguments:
-        id = graphene.UUID(required=True)
+        id = graphene.ID(required=True)
         name = graphene.String()
         description = graphene.String()
         tier = graphene.String()
@@ -46,7 +58,7 @@ class UpdateAgentGroup(graphene.Mutation):
         from zentinelle.models.agent_group import AgentGroup
         tenant_id = get_request_tenant_id(info.context.user) or 'default'
         try:
-            group = AgentGroup.objects.get(id=id, tenant_id=tenant_id)
+            group = AgentGroup.objects.get(id=_decode_id(id), tenant_id=tenant_id)
         except AgentGroup.DoesNotExist:
             return UpdateAgentGroup(group=None, errors=['Group not found'])
         for field in ('name', 'description', 'tier', 'color'):
@@ -58,7 +70,7 @@ class UpdateAgentGroup(graphene.Mutation):
 
 class DeleteAgentGroup(graphene.Mutation):
     class Arguments:
-        id = graphene.UUID(required=True)
+        id = graphene.ID(required=True)
 
     success = graphene.Boolean()
     errors = graphene.List(graphene.String)
@@ -67,7 +79,7 @@ class DeleteAgentGroup(graphene.Mutation):
     def mutate(root, info, id):
         from zentinelle.models.agent_group import AgentGroup
         tenant_id = get_request_tenant_id(info.context.user) or 'default'
-        deleted, _ = AgentGroup.objects.filter(id=id, tenant_id=tenant_id).delete()
+        deleted, _ = AgentGroup.objects.filter(id=_decode_id(id), tenant_id=tenant_id).delete()
         if deleted:
             return DeleteAgentGroup(success=True, errors=[])
         return DeleteAgentGroup(success=False, errors=['Group not found'])
@@ -75,8 +87,8 @@ class DeleteAgentGroup(graphene.Mutation):
 
 class AssignAgentToGroup(graphene.Mutation):
     class Arguments:
-        agent_endpoint_id = graphene.UUID(required=True)
-        group_id = graphene.UUID()  # null to remove from group
+        agent_endpoint_id = graphene.ID(required=True)
+        group_id = graphene.ID()  # null to remove from group
 
     success = graphene.Boolean()
     errors = graphene.List(graphene.String)
@@ -87,12 +99,12 @@ class AssignAgentToGroup(graphene.Mutation):
         from zentinelle.models.agent_group import AgentGroup
         tenant_id = get_request_tenant_id(info.context.user) or 'default'
         try:
-            endpoint = AgentEndpoint.objects.get(id=agent_endpoint_id, tenant_id=tenant_id)
+            endpoint = AgentEndpoint.objects.get(id=_decode_id(agent_endpoint_id), tenant_id=tenant_id)
         except AgentEndpoint.DoesNotExist:
             return AssignAgentToGroup(success=False, errors=['Agent not found'])
         if group_id:
             try:
-                group = AgentGroup.objects.get(id=group_id, tenant_id=tenant_id)
+                group = AgentGroup.objects.get(id=_decode_id(group_id), tenant_id=tenant_id)
                 endpoint.group = group
             except AgentGroup.DoesNotExist:
                 return AssignAgentToGroup(success=False, errors=['Group not found'])

@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ApolloClient,
   ApolloLink,
   createHttpLink,
 } from '@apollo/client';
@@ -13,7 +12,6 @@ import {
 } from '@apollo/experimental-nextjs-app-support/ssr';
 import { setContext } from '@apollo/client/link/context';
 import { parseCookies } from 'nookies';
-import fetch from 'cross-fetch';
 import { getSessionKey } from './session';
 
 // GraphQL endpoint: env var for standalone deployment, default for local dev
@@ -51,7 +49,6 @@ function makeClient() {
   const httpLink2 = createHttpLink({
     uri: GRAPHQL_ENDPOINT,
     credentials: 'include',
-    fetch,
   });
 
   const httpLink = authLink.concat(httpLink2);

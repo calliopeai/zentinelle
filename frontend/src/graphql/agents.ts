@@ -197,7 +197,7 @@ export const CREATE_AGENT_GROUP = gql`
 `;
 
 export const UPDATE_AGENT_GROUP = gql`
-  mutation UpdateAgentGroup($id: UUID!, $name: String, $description: String, $tier: String, $color: String) {
+  mutation UpdateAgentGroup($id: ID!, $name: String, $description: String, $tier: String, $color: String) {
     updateAgentGroup(id: $id, name: $name, description: $description, tier: $tier, color: $color) {
       group {
         id
@@ -214,7 +214,7 @@ export const UPDATE_AGENT_GROUP = gql`
 `;
 
 export const DELETE_AGENT_GROUP = gql`
-  mutation DeleteAgentGroup($id: UUID!) {
+  mutation DeleteAgentGroup($id: ID!) {
     deleteAgentGroup(id: $id) {
       success
       errors
@@ -223,7 +223,7 @@ export const DELETE_AGENT_GROUP = gql`
 `;
 
 export const ASSIGN_AGENT_TO_GROUP = gql`
-  mutation AssignAgentToGroup($agentEndpointId: UUID!, $groupId: UUID) {
+  mutation AssignAgentToGroup($agentEndpointId: ID!, $groupId: ID) {
     assignAgentToGroup(agentEndpointId: $agentEndpointId, groupId: $groupId) {
       success
       errors

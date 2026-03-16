@@ -146,7 +146,7 @@ export default function RegisterAgentPage() {
               </Box>
             </Box>
 
-            <Button variant="brand" onClick={() => router.push('/zentinelle/agents')}>
+            <Button variant="brand" onClick={() => router.push('/agents')}>
               Go to Agents
             </Button>
           </VStack>

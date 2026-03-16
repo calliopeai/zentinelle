@@ -333,7 +333,7 @@ export default function CreatePolicyPage() {
     onCompleted: (result) => {
       if (result.createPolicy?.success && result.createPolicy?.policy) {
         toast({ title: 'Policy created successfully', status: 'success' });
-        router.push('/zentinelle/policies');
+        router.push('/policies');
       } else {
         toast({ title: 'Failed to create policy', description: result.createPolicy?.error, status: 'error' });
       }

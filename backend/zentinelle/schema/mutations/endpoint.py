@@ -6,11 +6,23 @@ Standalone version — uses tenant_id-based access instead of org membership.
 import logging
 
 import graphene
+from graphql_relay import from_global_id
 
 from zentinelle.models import AgentEndpoint, AuditLog
 from zentinelle.schema.types import AgentEndpointType
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_endpoint_id(global_or_raw_id: str) -> str:
+    """Decode a relay global ID to a raw UUID, or return the raw ID if already plain."""
+    try:
+        _type, raw_id = from_global_id(global_or_raw_id)
+        if raw_id:
+            return raw_id
+    except Exception:
+        pass
+    return global_or_raw_id
 
 
 class CreateAgentEndpointInput(graphene.InputObjectType):
@@ -103,7 +115,7 @@ class UpdateAgentEndpoint(graphene.Mutation):
             return UpdateAgentEndpoint(success=False, error="Authentication required")
 
         try:
-            endpoint = AgentEndpoint.objects.get(id=input.id)
+            endpoint = AgentEndpoint.objects.get(id=resolve_endpoint_id(input.id))
         except AgentEndpoint.DoesNotExist:
             return UpdateAgentEndpoint(success=False, error="Endpoint not found")
 
@@ -139,7 +151,7 @@ class DeleteAgentEndpoint(graphene.Mutation):
             return DeleteAgentEndpoint(success=False, error="Authentication required")
 
         try:
-            endpoint = AgentEndpoint.objects.get(id=id)
+            endpoint = AgentEndpoint.objects.get(id=resolve_endpoint_id(id))
             endpoint.delete()
             return DeleteAgentEndpoint(success=True)
         except AgentEndpoint.DoesNotExist:
@@ -162,7 +174,7 @@ class SuspendAgentEndpoint(graphene.Mutation):
             return SuspendAgentEndpoint(success=False, error="Authentication required")
 
         try:
-            endpoint = AgentEndpoint.objects.get(id=id)
+            endpoint = AgentEndpoint.objects.get(id=resolve_endpoint_id(id))
         except AgentEndpoint.DoesNotExist:
             return SuspendAgentEndpoint(success=False, error="Endpoint not found")
 
@@ -192,7 +204,7 @@ class ActivateAgentEndpoint(graphene.Mutation):
             return ActivateAgentEndpoint(success=False, error="Authentication required")
 
         try:
-            endpoint = AgentEndpoint.objects.get(id=id)
+            endpoint = AgentEndpoint.objects.get(id=resolve_endpoint_id(id))
         except AgentEndpoint.DoesNotExist:
             return ActivateAgentEndpoint(success=False, error="Endpoint not found")
 
@@ -225,7 +237,7 @@ class RegenerateEndpointApiKey(graphene.Mutation):
             return RegenerateEndpointApiKey(success=False, error="Authentication required")
 
         try:
-            endpoint = AgentEndpoint.objects.get(id=endpoint_id)
+            endpoint = AgentEndpoint.objects.get(id=resolve_endpoint_id(endpoint_id))
 
             # Generate new key
             raw_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
@@ -255,7 +267,7 @@ class UpdateEndpointStatus(graphene.Mutation):
             return UpdateEndpointStatus(success=False, error="Authentication required")
 
         try:
-            endpoint = AgentEndpoint.objects.get(id=endpoint_id)
+            endpoint = AgentEndpoint.objects.get(id=resolve_endpoint_id(endpoint_id))
 
             if status not in [s.value for s in AgentEndpoint.Status]:
                 return UpdateEndpointStatus(success=False, error=f"Invalid status: {status}")
