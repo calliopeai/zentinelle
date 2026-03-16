@@ -3,9 +3,9 @@ export const buttonStyles = {
     components: {
         Button: {
             baseStyle: {
-                borderRadius: '16px',
-                boxShadow: '45px 76px 113px 7px rgba(112, 144, 176, 0.08)',
-                transition: '.25s all ease',
+                borderRadius: '8px',
+                boxShadow: 'none',
+                transition: '.2s all ease',
                 boxSizing: 'border-box',
                 _focus: {
                     boxShadow: 'none',
@@ -14,9 +14,26 @@ export const buttonStyles = {
                     boxShadow: 'none',
                 },
             },
+            sizes: {
+                md: {
+                    h: '36px',
+                    px: '16px',
+                    fontSize: 'sm',
+                },
+                lg: {
+                    h: '42px',
+                    px: '20px',
+                    fontSize: 'md',
+                },
+                sm: {
+                    h: '30px',
+                    px: '12px',
+                    fontSize: 'xs',
+                },
+            },
             variants: {
                 outline: () => ({
-                    borderRadius: '16px',
+                    borderRadius: '8px',
                 }),
                 brand: (props: any) => ({
                     bg: mode('brand.500', 'brand.400')(props),

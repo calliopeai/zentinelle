@@ -6,14 +6,12 @@ import {
   Text,
   Icon,
   useColorModeValue,
-  Button,
   Badge,
   Alert,
   AlertIcon,
   AlertDescription,
-  Link,
 } from '@chakra-ui/react';
-import { MdSecurity, MdEmail, MdOpenInNew } from 'react-icons/md';
+import { MdSecurity } from 'react-icons/md';
 import Card from 'components/card/Card';
 
 export default function CidrIpManager() {
@@ -35,14 +33,14 @@ export default function CidrIpManager() {
               Restrict agent network access by IP address
             </Text>
           </VStack>
-          <Badge colorScheme="purple">Enterprise</Badge>
+          <Badge colorScheme="gray" variant="subtle">Coming soon</Badge>
         </HStack>
 
         <Alert status="info" borderRadius="md">
           <AlertIcon />
           <AlertDescription>
             <VStack align="start" spacing="8px">
-              <Text fontWeight="500">IP-based access control is available on Enterprise plans</Text>
+              <Text fontWeight="500">IP-based access control is on the roadmap</Text>
               <Text fontSize="sm">
                 Configure CIDR ranges, single IP addresses, and geo-based restrictions to control
                 which networks your AI agents can communicate with.
@@ -78,29 +76,6 @@ export default function CidrIpManager() {
           </VStack>
         </VStack>
 
-        <HStack justify="center" pt="8px">
-          <Button
-            leftIcon={<MdEmail />}
-            colorScheme="brand"
-            variant="outline"
-            size="sm"
-            as={Link}
-            href="mailto:sales@calliope.ai?subject=Enterprise%20IP%20Access%20Control"
-            isExternal
-          >
-            Contact Sales
-          </Button>
-          <Button
-            rightIcon={<MdOpenInNew />}
-            variant="ghost"
-            size="sm"
-            as={Link}
-            href="https://calliope.ai/pricing"
-            isExternal
-          >
-            View Plans
-          </Button>
-        </HStack>
       </VStack>
     </Card>
   );
