@@ -94,6 +94,12 @@ docker compose run backend python manage.py migrate
 docker compose run backend python manage.py createsuperuser
 ```
 
+The stack includes ClickHouse for audit analytics. It starts automatically and
+initialises the schema from `backend/zentinelle/clickhouse/schema.sql` on first
+boot. `CLICKHOUSE_URL` is pre-set in `docker-compose.yml`; no extra config needed.
+To disable ClickHouse (e.g. for minimal dev), remove `CLICKHOUSE_URL` from the
+compose file — all operations degrade gracefully to no-ops.
+
 ## Model Reference
 
 | Model | Key Fields | Notes |

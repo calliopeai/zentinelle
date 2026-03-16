@@ -19,11 +19,13 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - CLICKHOUSE_URL=clickhouse://default:@clickhouse:8123/default
     env_file:
       - .env
     depends_on:
       - postgres
       - redis
+      - clickhouse
     volumes:
       - ./backend:/app
     command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --reload --timeout 60
@@ -38,11 +40,13 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - CLICKHOUSE_URL=clickhouse://default:@clickhouse:8123/default
     env_file:
       - .env
     depends_on:
       - postgres
       - redis
+      - clickhouse
     volumes:
       - ./backend:/app
     command: celery -A config worker -l info
@@ -57,11 +61,13 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - CLICKHOUSE_URL=clickhouse://default:@clickhouse:8123/default
     env_file:
       - .env
     depends_on:
       - postgres
       - redis
+      - clickhouse
     volumes:
       - ./backend:/app
     command: celery -A config beat -l info
@@ -98,6 +104,30 @@ services:
     ports:
       - "6379:6379"
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./backend/zentinelle/clickhouse/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      - "8123:8123"   # HTTP interface
+      - "9000:9000"   # Native protocol
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   redis_data:
+  clickhouse_data:
