@@ -48,7 +48,7 @@ class ToolPermissionEvaluator(BasePolicyEvaluator):
         if action != 'tool_call':
             return PolicyResult(passed=True)
 
-        tool_name = context.get('tool_name')
+        tool_name = context.get('tool_name') or context.get('tool')
         if not tool_name:
             return PolicyResult(passed=True)
 
