@@ -8,7 +8,7 @@ import logging
 import graphene
 from graphql_relay import from_global_id
 
-from zentinelle.models import AgentEndpoint, AuditLog
+from zentinelle.models import AgentEndpoint
 from zentinelle.schema.types import AgentEndpointType
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ class UpdateAgentEndpointInput(graphene.InputObjectType):
     """Input for updating an agent endpoint."""
     id = graphene.ID(required=True)
     name = graphene.String()
+    agent_type = graphene.String()
     capabilities = graphene.List(graphene.String)
     metadata = graphene.JSONString()
     config = graphene.JSONString()
@@ -122,6 +123,11 @@ class UpdateAgentEndpoint(graphene.Mutation):
         # Update fields
         if input.name:
             endpoint.name = input.name
+        if input.agent_type:
+            valid_types = [t.value for t in AgentEndpoint.AgentType]
+            if input.agent_type not in valid_types:
+                return UpdateAgentEndpoint(success=False, error=f"Invalid agent type: {input.agent_type}")
+            endpoint.agent_type = input.agent_type
         if input.capabilities is not None:
             endpoint.capabilities = input.capabilities
         if input.metadata:

@@ -16,7 +16,9 @@ import json
 import logging
 
 from django.http import JsonResponse, StreamingHttpResponse
+from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 
 
 def _extract_sse_text(content: bytes) -> str:
@@ -98,6 +100,7 @@ def _estimate_input_tokens(messages) -> int:
     return max(1, total_chars // 4)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class ProxyView(View):
     """
     Transparent HTTPS proxy for LLM provider APIs with policy enforcement.

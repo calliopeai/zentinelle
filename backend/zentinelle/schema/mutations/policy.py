@@ -105,6 +105,10 @@ class CreatePolicy(graphene.Mutation):
 
         try:
             policy = Policy.objects.create(**policy_data)
+
+            from zentinelle.services.policy_engine import PolicyEngine
+            PolicyEngine().invalidate_cache(policy.tenant_id)
+
             return CreatePolicy(success=True, policy=policy)
         except Exception as e:
             logger.exception(f"Error creating policy: {e}")
@@ -149,6 +153,10 @@ class UpdatePolicy(graphene.Mutation):
 
         try:
             policy.save()
+
+            from zentinelle.services.policy_engine import PolicyEngine
+            PolicyEngine().invalidate_cache(policy.tenant_id)
+
             return UpdatePolicy(success=True, policy=policy)
         except Exception as e:
             logger.exception(f"Error updating policy: {e}")
@@ -170,7 +178,12 @@ class DeletePolicy(graphene.Mutation):
 
         try:
             policy = Policy.objects.get(id=_decode_id(id))
+            tenant_id = policy.tenant_id
             policy.delete()
+
+            from zentinelle.services.policy_engine import PolicyEngine
+            PolicyEngine().invalidate_cache(tenant_id)
+
             return DeletePolicy(success=True)
         except Policy.DoesNotExist:
             return DeletePolicy(success=False, error="Policy not found")
@@ -234,6 +247,10 @@ class TogglePolicyEnabled(graphene.Mutation):
             policy = Policy.objects.get(id=id)
             policy.enabled = not policy.enabled
             policy.save(update_fields=['enabled', 'updated_at'])
+
+            from zentinelle.services.policy_engine import PolicyEngine
+            PolicyEngine().invalidate_cache(policy.tenant_id)
+
             return TogglePolicyEnabled(success=True, policy=policy)
         except Policy.DoesNotExist:
             return TogglePolicyEnabled(success=False, error="Policy not found")

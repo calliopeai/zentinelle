@@ -70,8 +70,9 @@ class PolicyEngine:
         """
         tenant_id = endpoint.tenant_id
 
-        # Build cache key
-        cache_key = f"policies:{tenant_id}:{endpoint.id}:{user_id}:{sub_organization_id}"
+        # Build versioned cache key — version bumps on policy changes
+        version = cache.get(f"policies_version:{tenant_id}", 0)
+        cache_key = f"policies:v{version}:{tenant_id}:{endpoint.id}:{user_id}:{sub_organization_id}"
         if policy_types:
             cache_key += f":{','.join(sorted(policy_types))}"
 
@@ -150,12 +151,15 @@ class PolicyEngine:
 
     def invalidate_cache(self, tenant_id: str) -> None:
         """
-        Invalidate policy cache for a tenant.
+        Invalidate policy cache for a tenant by bumping a version counter.
         Call this when policies are created/updated/deleted.
         """
-        # In production, use cache.delete_pattern for Redis
-        # For now, we rely on TTL expiration
-        logger.info(f"Policy cache invalidation requested for tenant {tenant_id}")
+        version_key = f"policies_version:{tenant_id}"
+        try:
+            cache.incr(version_key)
+        except ValueError:
+            cache.set(version_key, 1, timeout=None)
+        logger.info(f"Policy cache invalidated for tenant {tenant_id}")
 
     def _merge_policies(self, policy_layers: List[List[Policy]]) -> List[Policy]:
         """

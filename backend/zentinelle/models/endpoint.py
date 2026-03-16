@@ -21,6 +21,9 @@ class AgentEndpoint(Tracking):
         LANGCHAIN = 'langchain', 'LangChain Agent'
         LANGGRAPH = 'langgraph', 'LangGraph Agent'
         MCP = 'mcp', 'MCP Server'
+        CLAUDE_CODE = 'claude_code', 'Claude Code'
+        GEMINI = 'gemini', 'Gemini'
+        CODEX = 'codex', 'Codex'
         CUSTOM = 'custom', 'Custom Agent'
 
     class Status(models.TextChoices):

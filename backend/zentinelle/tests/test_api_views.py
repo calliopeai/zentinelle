@@ -1,19 +1,18 @@
 """
 Tests for Zentinelle API views.
 """
-import json
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from organization.models import Organization
-from deployments.models import Deployment
 from zentinelle.models import (
     AgentEndpoint,
     Policy,
     Event,
 )
+
+STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 
 
 class ZentinelleAPITestMixin:
@@ -21,12 +20,11 @@ class ZentinelleAPITestMixin:
 
     def setUp(self):
         self.client = APIClient()
-        self.org = Organization.objects.create(name="Test Org")
 
         # Create endpoint with known API key
         self.full_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
         self.endpoint = AgentEndpoint.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             agent_id='test-agent-001',
             name='Test Agent',
             agent_type=AgentEndpoint.AgentType.JUPYTERHUB,
@@ -83,7 +81,7 @@ class ConfigViewTest(ZentinelleAPITestMixin, TestCase):
     def test_get_config_includes_policies(self):
         """Test that config includes effective policies."""
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Rate Limit',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -124,7 +122,7 @@ class HeartbeatViewTest(ZentinelleAPITestMixin, TestCase):
                 'status': 'healthy',
                 'metrics': {'cpu': 45, 'memory': 60},
             },
-            format='json',  # Use format='json' for proper JSON serialization
+            format='json',
         )
 
         self.assertEqual(response.status_code, 202)
