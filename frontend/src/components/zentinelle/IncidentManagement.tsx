@@ -37,9 +37,13 @@ import {
   Spinner,
   Alert,
   AlertIcon,
+  FormControl,
+  FormLabel,
+  Textarea,
+  useToast,
 } from '@chakra-ui/react';
 import { useState, useMemo } from 'react';
-import { useQuery } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
 import {
   MdSearch,
   MdAdd,
@@ -57,7 +61,7 @@ import {
   MdSecurity,
 } from 'react-icons/md';
 import Card from 'components/card/Card';
-import { GET_INCIDENTS, GET_RISK_STATS } from 'graphql/risk';
+import { GET_INCIDENTS, GET_RISK_STATS, CREATE_INCIDENT } from 'graphql/risk';
 
 interface Incident {
   id: string;
@@ -124,9 +128,29 @@ export default function IncidentManagement() {
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
 
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
+  const toast = useToast();
+
+  const [createTitle, setCreateTitle] = useState('');
+  const [createDescription, setCreateDescription] = useState('');
+  const [createSeverity, setCreateSeverity] = useState('medium');
+  const [createType, setCreateType] = useState('policy_violation');
+
+  const [createIncident, { loading: creating }] = useMutation(CREATE_INCIDENT, {
+    onCompleted: (result) => {
+      if (result.createIncident?.success) {
+        toast({ title: 'Incident reported', status: 'success', duration: 2000 });
+        onCreateClose();
+        setCreateTitle(''); setCreateDescription(''); setCreateSeverity('medium'); setCreateType('policy_violation');
+        refetch();
+      } else {
+        toast({ title: 'Failed to report incident', description: result.createIncident?.errors?.join(', '), status: 'error' });
+      }
+    },
+  });
 
   // Fetch incidents
-  const { data, loading, error } = useQuery(GET_INCIDENTS, {
+  const { data, loading, error, refetch } = useQuery(GET_INCIDENTS, {
     variables: {
       search: search || undefined,
       severity: severityFilter || undefined,
@@ -311,7 +335,7 @@ export default function IncidentManagement() {
               <option value="closed">Closed</option>
             </Select>
           </HStack>
-          <Button size="sm" leftIcon={<MdAdd />} colorScheme="brand">
+          <Button size="sm" leftIcon={<MdAdd />} colorScheme="brand" onClick={onCreateOpen}>
             Report Incident
           </Button>
         </HStack>
@@ -435,6 +459,60 @@ export default function IncidentManagement() {
           })
         )}
       </VStack>
+
+      {/* Report Incident Modal */}
+      <Modal isOpen={isCreateOpen} onClose={onCreateClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Report Incident</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing="16px">
+              <FormControl isRequired>
+                <FormLabel>Title</FormLabel>
+                <Input value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} placeholder="Incident title" />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Description</FormLabel>
+                <Textarea value={createDescription} onChange={(e) => setCreateDescription(e.target.value)} rows={3} placeholder="Describe the incident" />
+              </FormControl>
+              <FormControl isRequired>
+                <FormLabel>Severity</FormLabel>
+                <Select value={createSeverity} onChange={(e) => setCreateSeverity(e.target.value)}>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </Select>
+              </FormControl>
+              <FormControl isRequired>
+                <FormLabel>Type</FormLabel>
+                <Select value={createType} onChange={(e) => setCreateType(e.target.value)}>
+                  <option value="policy_violation">Policy Violation</option>
+                  <option value="security_breach">Security Breach</option>
+                  <option value="data_leak">Data Leak</option>
+                  <option value="service_disruption">Service Disruption</option>
+                  <option value="compliance_breach">Compliance Breach</option>
+                  <option value="cost_overrun">Cost Overrun</option>
+                  <option value="harmful_output">Harmful Output</option>
+                  <option value="other">Other</option>
+                </Select>
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onCreateClose}>Cancel</Button>
+            <Button
+              colorScheme="brand"
+              isLoading={creating}
+              isDisabled={!createTitle.trim()}
+              onClick={() => createIncident({ variables: { input: { title: createTitle, description: createDescription, severity: createSeverity, incidentType: createType } } })}
+            >
+              Report Incident
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {/* Incident Detail Modal */}
       <Modal isOpen={isOpen} onClose={onClose} size="xl">

@@ -370,6 +370,7 @@ function PromptDetailModal({
   onClose: () => void;
   textColor: string;
 }) {
+  const toast = useToast();
   if (!prompt) return null;
 
   const tags = prompt.tags?.edges?.map(e => e.node) || [];
@@ -602,7 +603,14 @@ function PromptDetailModal({
           <Button variant="ghost" mr="12px" onClick={onClose}>
             Close
           </Button>
-          <Button colorScheme="brand" leftIcon={<MdContentCopy />}>
+          <Button
+            colorScheme="brand"
+            leftIcon={<MdContentCopy />}
+            onClick={() => {
+              navigator.clipboard.writeText(prompt.promptText);
+              toast({ title: 'Copied to clipboard', status: 'success', duration: 1500, isClosable: true });
+            }}
+          >
             Copy Prompt
           </Button>
         </ModalFooter>
@@ -623,6 +631,7 @@ export default function SystemPromptsPage() {
   const [providerFilter, setProviderFilter] = useState('');
   const [selectedPrompt, setSelectedPrompt] = useState<SystemPrompt | null>(null);
   const [quickFilter, setQuickFilter] = useState<'featured' | 'popular' | 'verified' | 'favorites' | null>(null);
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const toast = useToast();
@@ -747,14 +756,14 @@ export default function SystemPromptsPage() {
           >
             Refresh
           </Button>
-          <Button variant="brand" leftIcon={<Icon as={MdAdd} />}>
+          <Button variant="brand" leftIcon={<Icon as={MdAdd} />} onClick={() => setActiveTabIndex(1)}>
             New Prompt
           </Button>
         </HStack>
       </Flex>
 
       {/* Tabs for Library and Builder */}
-      <Tabs variant="enclosed" colorScheme="brand" mb="20px">
+      <Tabs variant="enclosed" colorScheme="brand" mb="20px" index={activeTabIndex} onChange={setActiveTabIndex}>
         <TabList>
           <Tab><Icon as={MdList} mr="8px" />Library</Tab>
           <Tab><Icon as={MdAutoAwesome} mr="8px" />Builder</Tab>
@@ -974,7 +983,7 @@ export default function SystemPromptsPage() {
             <Text color="gray.500" maxW="400px">
               No prompts available yet. Create your first prompt or check back later as the library is being populated.
             </Text>
-            <Button variant="brand" leftIcon={<Icon as={MdAdd} />}>
+            <Button variant="brand" leftIcon={<Icon as={MdAdd} />} onClick={() => setActiveTabIndex(1)}>
               Create Your First Prompt
             </Button>
           </VStack>
