@@ -169,8 +169,8 @@ export default function AgentGroupsPage() {
     setForm({
       name: group.name,
       description: group.description || '',
-      tier: group.tier,
-      color: group.color || 'brand',
+      tier: group.tier?.toLowerCase() || 'standard',
+      color: group.color?.toLowerCase() || 'brand',
     });
     onFormOpen();
   };
@@ -295,8 +295,8 @@ export default function AgentGroupsPage() {
               </Flex>
 
               <Flex gap="8px" mb="12px">
-                <Badge colorScheme={TIER_COLORS[group.tier] || 'gray'} textTransform="capitalize">
-                  {group.tier}
+                <Badge colorScheme={TIER_COLORS[group.tier?.toLowerCase()] || 'gray'} textTransform="capitalize">
+                  {group.tier?.toLowerCase()}
                 </Badge>
                 <Badge colorScheme="gray">{group.agentCount} agent{group.agentCount !== 1 ? 's' : ''}</Badge>
               </Flex>

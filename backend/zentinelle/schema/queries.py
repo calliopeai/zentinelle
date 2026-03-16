@@ -681,7 +681,7 @@ class Query(graphene.ObjectType):
     # deployment_ai_providers) are now in deployments.schema.queries.DeploymentsQuery
 
     # Agent Groups
-    agent_groups = DjangoConnectionField(AgentGroupType, search=graphene.String())
+    agent_groups = DjangoConnectionField(AgentGroupType, search=graphene.String(), tier=graphene.String())
     agent_group = graphene.Field(AgentGroupType, id=graphene.UUID())
 
     # Endpoints
@@ -1308,12 +1308,14 @@ class Query(graphene.ObjectType):
         )
 
     @staticmethod
-    def resolve_agent_groups(root, info, search=None, **kwargs):
+    def resolve_agent_groups(root, info, search=None, tier=None, **kwargs):
         from zentinelle.models.agent_group import AgentGroup
         tenant_id = get_request_tenant_id(info.context.user)
         qs = AgentGroup.objects.filter(tenant_id=tenant_id)
         if search:
             qs = qs.filter(name__icontains=search)
+        if tier:
+            qs = qs.filter(tier=tier)
         return qs
 
     @staticmethod
