@@ -133,15 +133,17 @@ export default function AdminNavbar(props: {
         mb={gap}
       >
         <Box mb={{ sm: '8px', md: '0px' }}>
-          <Text fontWeight="700" fontSize="xl" color={textColor} lineHeight="1.2">
-            {displayTitle}
-          </Text>
-          {displayDescription && (
-            <Text fontSize="xs" color={descriptionColor} mt="2px">
-              {displayDescription}
+          <Text fontSize="md" lineHeight="1.3">
+            <Text as="span" fontWeight="700" color={textColor}>
+              {displayTitle}
             </Text>
-          )}
-          <Breadcrumb separator="/" mt="4px">
+            {displayDescription && (
+              <Text as="span" fontWeight="400" color={descriptionColor}>
+                : {displayDescription}
+              </Text>
+            )}
+          </Text>
+          <Breadcrumb separator=">" mt="4px" spacing="6px">
             <BreadcrumbItem>
               <BreadcrumbLink
                 href="/zentinelle/agents/"
@@ -149,7 +151,7 @@ export default function AdminNavbar(props: {
                 color={descriptionColor}
                 _hover={{ color: textColor }}
               >
-                Zentinelle
+                HOME
               </BreadcrumbLink>
             </BreadcrumbItem>
             {props.parentText && props.parentText !== props.brandText && (
