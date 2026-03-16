@@ -40,6 +40,12 @@ export const GET_AGENTS = gql`
           deploymentName
           createdAt
           updatedAt
+          group {
+            id
+            name
+            tier
+            color
+          }
         }
       }
       pageInfo {
@@ -144,6 +150,83 @@ export const REGENERATE_API_KEY = gql`
       apiKey
       success
       error
+    }
+  }
+`;
+
+// Agent Groups
+export const GET_AGENT_GROUPS = gql`
+  query GetAgentGroups($search: String, $tier: String, $first: Int, $after: String) {
+    agentGroups(search: $search, tier: $tier, first: $first, after: $after) {
+      edges {
+        node {
+          id
+          name
+          slug
+          description
+          tier
+          color
+          agentCount
+          createdAt
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+`;
+
+export const CREATE_AGENT_GROUP = gql`
+  mutation CreateAgentGroup($name: String!, $description: String, $tier: String, $color: String) {
+    createAgentGroup(name: $name, description: $description, tier: $tier, color: $color) {
+      group {
+        id
+        name
+        slug
+        description
+        tier
+        color
+        agentCount
+        createdAt
+      }
+      errors
+    }
+  }
+`;
+
+export const UPDATE_AGENT_GROUP = gql`
+  mutation UpdateAgentGroup($id: UUID!, $name: String, $description: String, $tier: String, $color: String) {
+    updateAgentGroup(id: $id, name: $name, description: $description, tier: $tier, color: $color) {
+      group {
+        id
+        name
+        slug
+        description
+        tier
+        color
+        agentCount
+      }
+      errors
+    }
+  }
+`;
+
+export const DELETE_AGENT_GROUP = gql`
+  mutation DeleteAgentGroup($id: UUID!) {
+    deleteAgentGroup(id: $id) {
+      success
+      errors
+    }
+  }
+`;
+
+export const ASSIGN_AGENT_TO_GROUP = gql`
+  mutation AssignAgentToGroup($agentEndpointId: UUID!, $groupId: UUID) {
+    assignAgentToGroup(agentEndpointId: $agentEndpointId, groupId: $groupId) {
+      success
+      errors
     }
   }
 `;

@@ -15,6 +15,7 @@ import {
   MdKey,
   MdAccountTree,
   MdPsychology,
+  MdGroup,
 } from 'react-icons/md';
 
 import { IRoute } from 'types/navigation';
@@ -35,6 +36,11 @@ const routes: IRoute[] = [
         name: 'Monitoring',
         path: '/monitoring',
         icon: <Icon as={MdMonitorHeart} width="20px" height="20px" color="inherit" />,
+      },
+      {
+        name: 'Agent Groups',
+        path: '/agent-groups',
+        icon: <Icon as={MdGroup} width="20px" height="20px" color="inherit" />,
       },
       {
         name: 'Policy Graph',
