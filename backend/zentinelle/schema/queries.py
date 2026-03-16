@@ -3248,12 +3248,12 @@ class Query(graphene.ObjectType):
                 sub_label=ep.status,
                 status=ep.status,
                 color=TEAL,
-                meta=json.dumps({
+                meta={
                     'agent_id': ep.agent_id,
                     'health': ep.health,
                     'status': ep.status,
-                    'href': f'/agents',
-                }),
+                    'href': '/agents',
+                },
             ))
 
         # --- Policies ---
@@ -3270,12 +3270,12 @@ class Query(graphene.ObjectType):
                 sub_label=pol.policy_type.replace('_', ' ').title(),
                 status='active',
                 color=BLUE,
-                meta=json.dumps({
+                meta={
                     'policy_type': pol.policy_type,
                     'scope_type': pol.scope_type,
                     'enforcement': pol.enforcement,
                     'href': '/policies',
-                }),
+                },
             ))
 
             if pol.scope_type == 'endpoint' and pol.scope_endpoint_id:
@@ -3315,13 +3315,13 @@ class Query(graphene.ObjectType):
                 sub_label=f"L{risk.likelihood}×I{risk.impact}",
                 status=risk.status,
                 color=risk_color,
-                meta=json.dumps({
+                meta={
                     'likelihood': risk.likelihood,
                     'impact': risk.impact,
                     'status': risk.status,
                     'score': score,
                     'href': '/risk',
-                }),
+                },
             ))
 
             for ep in risk.affected_endpoints.all():
@@ -3348,11 +3348,11 @@ class Query(graphene.ObjectType):
                     sub_label=inc.severity,
                     status=inc.status,
                     color=DARK_RED,
-                    meta=json.dumps({
+                    meta={
                         'severity': inc.severity,
                         'status': inc.status,
                         'href': '/risk',
-                    }),
+                    },
                 ))
                 if inc.risk_id and f"risk:{inc.risk_id}" in risk_ids_in_graph:
                     edges.append(PolicyGraphEdgeType(
