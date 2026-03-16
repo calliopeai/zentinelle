@@ -83,8 +83,6 @@ from .types import (
     ComplianceReportType,
     EffectivePolicyConnection,
     EffectivePolicyType,
-    DeploymentType,
-    DeploymentConnection,
     PromptCategoryType,
     SystemPromptType,
     SystemPromptConnection,
@@ -117,17 +115,6 @@ class PolicyStatsType(graphene.ObjectType):
     enabled = graphene.Int()
     disabled = graphene.Int()
     by_type = graphene.List(PolicyByTypeType)
-
-
-class DeploymentByEnvType(graphene.ObjectType):
-    environment = graphene.String()
-    count = graphene.Int()
-
-
-class DeploymentStatsType(graphene.ObjectType):
-    total = graphene.Int()
-    active = graphene.Int()
-    by_environment = graphene.List(DeploymentByEnvType)
 
 
 class ApiUsageType(graphene.ObjectType):
@@ -175,7 +162,6 @@ class ChecklistStatsType(graphene.ObjectType):
 class DashboardStatsType(graphene.ObjectType):
     agents = graphene.Field(AgentStatsType)
     policies = graphene.Field(PolicyStatsType)
-    deployments = graphene.Field(DeploymentStatsType)
     api_usage = graphene.Field(ApiUsageType)
     recent_activity = graphene.List(RecentActivityType)
     alerts = graphene.List(AlertType)
@@ -686,17 +672,6 @@ class Query(graphene.ObjectType):
     # Note: Deployment queries (deployment, deployments, junohub_config, junohub_configs,
     # terraform_provision, terraform_provisions, organization_ai_keys, deployment_ai_keys,
     # deployment_ai_providers) are now in deployments.schema.queries.DeploymentsQuery
-
-    # Deployments (stub — managed/cloud feature, not available in standalone)
-    deployment = graphene.Field(DeploymentType, id=graphene.ID())
-    deployments = graphene.Field(
-        DeploymentConnection,
-        search=graphene.String(),
-        environment=graphene.String(),
-        first=graphene.Int(),
-        after=graphene.String(),
-        global_view=graphene.Boolean(),
-    )
 
     # Endpoints
     endpoint = graphene.Field(AgentEndpointType, id=graphene.ID())
@@ -1314,16 +1289,6 @@ class Query(graphene.ObjectType):
         )
 
     @staticmethod
-    def resolve_deployment(root, info, id=None):
-        """Stub resolver — deployments not available in standalone mode."""
-        return None
-
-    @staticmethod
-    def resolve_deployments(root, info, search=None, environment=None, first=None, after=None, global_view=None):
-        """Stub resolver — deployments not available in standalone mode."""
-        return None
-
-    @staticmethod
     def resolve_endpoint(root, info, id):
         if not info.context.user.is_authenticated:
             return None
@@ -1519,13 +1484,6 @@ class Query(graphene.ObjectType):
             ],
         )
 
-        # Deployment stats - not available in standalone mode
-        deployment_stats = DeploymentStatsType(
-            total=0,
-            active=0,
-            by_environment=[],
-        )
-
         # API Usage - from Events - filtered by org
         events_base = filter_by_org(Event.objects.all(), user)
         events_today = events_base.filter(occurred_at__gte=today_start).count()
@@ -1575,7 +1533,6 @@ class Query(graphene.ObjectType):
         return DashboardStatsType(
             agents=agent_stats,
             policies=policy_stats,
-            deployments=deployment_stats,
             api_usage=api_usage,
             recent_activity=recent_activity,
             alerts=alerts,
