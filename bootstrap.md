@@ -15,9 +15,10 @@ Technical reference for agents and developers working in this repo.
 
 Zentinelle is a standalone, MIT-licensed AI agent GRC (Governance, Risk, Compliance) platform. Companion product to [Calliope AI](https://calliope.ai) — sold and deployed independently. Self-hostable.
 
-**Two API surfaces:**
-- `POST /api/zentinelle/*` — REST, agent-facing (register, evaluate, config, events, heartbeat, secrets)
+**Three API surfaces:**
+- `POST /api/zentinelle/v1/*` — REST, agent-facing (register, evaluate, config, events, heartbeat, interaction)
 - `POST /gql/zentinelle/` — GraphQL, management portal (policies, dashboards, audit, risk)
+- `POST /proxy/<provider>/*` — LLM proxy, transparent passthrough with policy enforcement (anthropic, openai, google)
 
 ## Repo Structure
 
@@ -131,11 +132,11 @@ compose file — all operations degrade gracefully to no-ops.
 
 | Model | Key Fields | Notes |
 |-------|-----------|-------|
-| `AgentEndpoint` | `agent_id` (SlugField), `api_key_hash`, `api_key_prefix`, `tenant_id`, `status`, `health`, `capabilities` | `agent_id` is external slug, not UUID `id` |
-| `Policy` | `scope_type`, `scope_id`, `policy_type`, `config`, `tenant_id`, `is_active` | `scope_type` = target type, not location |
-| `Event` | `agent_endpoint`, `event_type`, `payload`, `tenant_id`, `timestamp` | High volume — write-optimized |
-| `ContentScan` | `agent_endpoint`, `scan_type`, `result`, `pii_detected`, `toxicity_score` | |
-| `InteractionLog` | `agent_endpoint`, `request`, `response`, `policy_decisions`, `tokens_used`, `cost_usd` | Full audit trail |
+| `AgentEndpoint` | `agent_id` (SlugField), `api_key_hash`, `api_key_prefix`, `tenant_id`, `agent_type`, `status`, `health`, `capabilities` | `agent_type`: claude_code, gemini, codex, junohub, langchain, langgraph, mcp, chat, custom |
+| `Policy` | `scope_type`, `policy_type`, `config`, `tenant_id`, `enabled`, `enforcement` | `enforcement`: enforce, audit, disabled. `scope_type` = target, not location |
+| `Event` | `endpoint`, `event_type`, `event_category`, `payload`, `tenant_id`, `occurred_at` | High volume — write-optimized. Categories: telemetry, audit, alert |
+| `ContentScan` | `endpoint`, `content_type`, `status`, `has_violations`, `was_blocked` | |
+| `InteractionLog` | `endpoint`, `ai_provider`, `ai_model`, `input_content`, `output_content`, `tool_calls`, `occurred_at` | Created by evaluate endpoint and proxy. Feeds monitoring dashboard |
 | `SystemPrompt` | `name`, `content`, `version`, `tenant_id` | Versioned prompt library |
 | `Risk` | `title`, `likelihood`, `impact`, `status`, `tenant_id` | 5x5 matrix |
 | `Incident` | `risk`, `severity`, `status`, `timeline` | |
@@ -216,6 +217,52 @@ Use this before making changes. Columns: **d=1** = direct callers that WILL brea
 **How to use:** Find your component row. If d=1 is non-empty, run the full test suite. If Risk = CRITICAL, do not commit without passing the full pre-commit checklist.
 
 ---
+
+## LLM Proxy
+
+Transparent HTTPS passthrough at `/proxy/<provider>/` with policy enforcement before forwarding to upstream.
+
+```
+Agent SDK → local proxy (port 8742) → Zentinelle /proxy/<provider>/ → provider API
+             (injects X-Zentinelle-Key)   (policy evaluation)
+```
+
+| Provider | Upstream | Agent env var |
+|----------|----------|---------------|
+| `anthropic` | api.anthropic.com | `ANTHROPIC_BASE_URL` |
+| `openai` | api.openai.com/v1 | `OPENAI_BASE_URL` |
+| `google` | generativelanguage.googleapis.com | `GOOGLE_GEMINI_BASE_URL` |
+
+- CSRF exempt (API-authenticated, not browser forms)
+- Strips `X-Zentinelle-Key` and reverse-proxy headers before forwarding
+- Streaming SSE supported (buffered for output filter evaluation)
+- Creates InteractionLog records for the monitoring dashboard
+
+## SDK (zentinelle-agent)
+
+Repo: `zentinelle-sdk.git/plugins/agent/`
+Package: `zentinelle-agent` (PyPI)
+CLI: `zentinelle-agent install | proxy | status | uninstall | install-skill`
+
+Two modes:
+- **Hooks** (Claude Code only): PreToolUse → `/evaluate` (can block), PostToolUse → `/events` (audit)
+- **Proxy** (all agents): `zentinelle-agent proxy --provider <anthropic|openai|google>`
+
+## Policy Evaluators
+
+All evaluators live in `zentinelle/services/evaluators/`. The policy engine runs all matching policies on every evaluate call.
+
+| Evaluator | Config keys | What it checks |
+|-----------|------------|----------------|
+| `RateLimitEvaluator` | `requests_per_minute`, `requests_per_hour`, `tokens_per_day` | Redis-backed sliding window counters |
+| `ToolPermissionEvaluator` | `denied_tools`, `allowed_tools`, `requires_approval` | Tool name from `context.tool` or `context.tool_name` |
+| `ModelRestrictionEvaluator` | `allowed_models`, `allowed_providers`, `blocked_models`, `blocked_providers` | Model/provider from context |
+| `AgentCapabilityEvaluator` | `allowed_actions`, `denied_actions`, `require_approval` | fnmatch patterns on action string |
+| `NetworkPolicyEvaluator` | `allowed_domains`, `blocked_domains`, `allowed_ips`, `blocked_ips` | Domain/IP from context |
+| `OutputFilterEvaluator` | patterns, rules | Scans LLM response content |
+| `SecretAccessEvaluator` | `allowed_bundles`, `denied_providers` | Bundle slug and provider from context |
+
+Cache invalidation: versioned cache keys. Policy CRUD mutations bump version, next evaluate call misses cache and re-queries.
 
 ## Wiki
 

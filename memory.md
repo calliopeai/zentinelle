@@ -54,22 +54,41 @@ docs/wiki/        # deep technical documentation
 | M1: Bootstrap | Repo scaffold, wiki, docs, MIT license, DB schema isolation | ✅ Done |
 | M2: Extraction | Code extracted from client-cove, standalone service running | ✅ Done |
 | M3: Decoupled | No client-cove Django model imports, auth callout working | ✅ Done (in client-cove) |
-| M4: v0.1.0 OSS | Feature complete, public release | Todo |
+| M4: v0.1.0 OSS | Feature complete, public release | In Progress |
+
+### M4 Progress (2026-03-16)
+
+**Integration testing (#56) — completed:**
+- Multi-agent gateway validated: Claude Code (hooks), Codex (proxy), Gemini (proxy)
+- Agent types: `claude_code`, `gemini`, `codex`, `junohub`, `langchain`, `langgraph`, `mcp`, `chat`, `custom`
+- LLM proxy wired: `/proxy/anthropic/`, `/proxy/openai/`, `/proxy/google/` with policy enforcement + CSRF exempt
+- Nginx route added for `/proxy/`
+- Policy cache invalidation fixed (versioned keys, immediate effect on CRUD)
+- Rate limit evaluator confirmed working at 0 (blocks) and 120 (allows)
+- Tool permission evaluator fixed (`context.tool` support)
+- Events ingest → GraphQL query → monitoring dashboard pipeline validated
+- Evaluate endpoint → InteractionLog → monitoring dashboard wired
+- Proxy → InteractionLog → monitoring dashboard wired
+- SDK renamed: `zentinelle-claude-code` → `zentinelle-agent` with `--provider` flag
+- Test suite: `test_api_views.py` fixed (decoupled from Organization model)
+
+**Bugs fixed:**
+- Policy cache stale after GraphQL mutations (#56 open question)
+- Proxy not routable (nginx missing `/proxy/` location)
+- Proxy CSRF blocking on POST
+- OpenAI proxy: needed `/v1` prefix in upstream URL
+- OpenAI proxy: Host header included path prefix
+- Proxy: reverse-proxy headers forwarded to upstream
+- Tool permission evaluator: only checked `tool_name`, not `tool`
+- Frontend: hardcoded 4 agent types, now 9
+
+**Issues filed:**
+- #57 Agent Groups: no way to add existing agents via UI (P1)
+- #58 Dark mode: input text illegible on modals (P2)
+- #59-#65 UX/UI accessibility review (keyboard a11y, focus visibility, hooks, aria labels, spacing, routes, timezone)
+- #66 Dynamic model list from providers (P1)
+- #67 Knowledge graph auto-update + codebase navigation (P2)
 
 ## Open Issues
 
 Project board: https://github.com/orgs/calliopeai/projects/4
-
-| Issue | Title |
-|-------|-------|
-| [#1](https://github.com/calliopeai/zentinelle/issues/1) | Abstract Organization FK to tenant_id |
-| [#2](https://github.com/calliopeai/zentinelle/issues/2) | Abstract User FK to user_id |
-| [#3](https://github.com/calliopeai/zentinelle/issues/3) | Make Deployment FK optional |
-| [#4](https://github.com/calliopeai/zentinelle/issues/4) | Create ZentinelleLicense and AgentEntitlement models |
-| [#5](https://github.com/calliopeai/zentinelle/issues/5) | OSS strategy + MIT license |
-| [#6](https://github.com/calliopeai/zentinelle/issues/6) | Repo bootstrap (M1) |
-| [#7](https://github.com/calliopeai/zentinelle/issues/7) | DB schema isolation |
-| [#8](https://github.com/calliopeai/zentinelle/issues/8) | Code extraction from client-cove |
-| [#9](https://github.com/calliopeai/zentinelle/issues/9) | Auth bridge / TenantResolver |
-| [#10](https://github.com/calliopeai/zentinelle/issues/10) | BYOC + forward deployed model |
-| [#11](https://github.com/calliopeai/zentinelle/issues/11) | Product completion for v0.1 |
