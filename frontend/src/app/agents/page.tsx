@@ -223,9 +223,14 @@ export default function AgentsPage() {
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
           >
-            <option value="jupyterhub">JupyterHub</option>
+            <option value="claude_code">Claude Code</option>
+            <option value="gemini">Gemini</option>
+            <option value="codex">Codex</option>
+            <option value="junohub">JunoHub</option>
+            <option value="langchain">LangChain</option>
+            <option value="langgraph">LangGraph</option>
+            <option value="mcp">MCP Server</option>
             <option value="chat">Chat Agent</option>
-            <option value="coding">Coding Agent</option>
             <option value="custom">Custom</option>
           </Select>
         </Flex>

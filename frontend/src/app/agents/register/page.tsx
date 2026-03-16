@@ -37,9 +37,14 @@ interface AgentFormData {
 }
 
 const AGENT_TYPES = [
-  { value: 'jupyterhub', label: 'JupyterHub' },
+  { value: 'claude_code', label: 'Claude Code' },
+  { value: 'gemini', label: 'Gemini' },
+  { value: 'codex', label: 'Codex' },
+  { value: 'junohub', label: 'JunoHub' },
+  { value: 'langchain', label: 'LangChain' },
+  { value: 'langgraph', label: 'LangGraph' },
+  { value: 'mcp', label: 'MCP Server' },
   { value: 'chat', label: 'Chat Agent' },
-  { value: 'coding', label: 'Coding Agent' },
   { value: 'custom', label: 'Custom' },
 ];
 
@@ -51,7 +56,7 @@ export default function RegisterAgentPage() {
   const [agentId, setAgentId] = useState<string | null>(null);
   const [formData, setFormData] = useState<AgentFormData>({
     name: '',
-    agentType: 'jupyterhub',
+    agentType: 'claude_code',
     description: '',
     deploymentId: '',
     capabilities: [],
@@ -60,6 +65,9 @@ export default function RegisterAgentPage() {
   const cardBg = useColorModeValue('white', 'navy.800');
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const codeBg = useColorModeValue('gray.100', 'whiteAlpha.100');
+  const inputBg = useColorModeValue('white', 'navy.900');
+  const inputBorder = useColorModeValue('gray.200', 'whiteAlpha.200');
+  const inputColor = useColorModeValue('gray.800', 'white');
 
   const [createAgent, { loading }] = useMutation(CREATE_AGENT, {
     onCompleted: (result) => {
@@ -178,9 +186,12 @@ export default function RegisterAgentPage() {
             <FormControl isRequired>
               <FormLabel>Agent Name</FormLabel>
               <Input
-                placeholder="My JupyterHub Agent"
+                placeholder="my-agent-name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                bg={inputBg}
+                borderColor={inputBorder}
+                color={inputColor}
               />
             </FormControl>
 
@@ -189,6 +200,9 @@ export default function RegisterAgentPage() {
               <Select
                 value={formData.agentType}
                 onChange={(e) => setFormData({ ...formData, agentType: e.target.value })}
+                bg={inputBg}
+                borderColor={inputBorder}
+                color={inputColor}
               >
                 {AGENT_TYPES.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -205,6 +219,9 @@ export default function RegisterAgentPage() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
+                bg={inputBg}
+                borderColor={inputBorder}
+                color={inputColor}
               />
             </FormControl>
 
@@ -214,6 +231,9 @@ export default function RegisterAgentPage() {
                 placeholder="deployment-uuid"
                 value={formData.deploymentId}
                 onChange={(e) => setFormData({ ...formData, deploymentId: e.target.value })}
+                bg={inputBg}
+                borderColor={inputBorder}
+                color={inputColor}
               />
               <Text fontSize="xs" color="gray.500" mt="4px">
                 Associate this agent with an existing deployment
