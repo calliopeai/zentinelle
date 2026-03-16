@@ -2,6 +2,9 @@
 
 import {
   Box,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
   Center,
   Flex,
   Icon,
@@ -138,6 +141,35 @@ export default function AdminNavbar(props: {
               {displayDescription}
             </Text>
           )}
+          <Breadcrumb separator=">" mt="5px" spacing="8px">
+            <BreadcrumbItem>
+              <BreadcrumbLink
+                href="/zentinelle/agents/"
+                fontSize="xs"
+                color={descriptionColor}
+                _hover={{ color: textColor }}
+              >
+                HOME
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            {props.parentText && props.parentText !== props.brandText && (
+              <BreadcrumbItem>
+                <BreadcrumbLink
+                  href="#"
+                  fontSize="xs"
+                  color={descriptionColor}
+                  _hover={{ color: textColor }}
+                >
+                  {props.parentText}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+            )}
+            <BreadcrumbItem isCurrentPage>
+              <BreadcrumbLink href="#" fontSize="xs" color={descriptionColor} fontWeight="500">
+                {props.brandText}
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+          </Breadcrumb>
         </Box>
         <Box ms="auto" w={{ sm: '100%', md: 'unset' }}>
           {isAuthenticated && (

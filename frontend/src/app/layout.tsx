@@ -2,16 +2,7 @@
 
 import React, { ReactNode, useState } from 'react';
 import 'styles/App.css';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  Box,
-  ChakraProvider,
-  Portal,
-  useColorModeValue,
-  useDisclosure,
-} from '@chakra-ui/react';
+import { ChakraProvider, Portal, Box, useDisclosure } from '@chakra-ui/react';
 import { UserProvider } from '@auth0/nextjs-auth0/client';
 import dynamic from 'next/dynamic';
 import initialTheme from 'theme/theme';
@@ -41,8 +32,6 @@ function ZentinelleLayout({ children }: { children: ReactNode }) {
   const { onOpen } = useDisclosure();
   const [mini, setMini] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const breadcrumbColor = useColorModeValue('gray.500', 'secondaryGray.500');
-  const breadcrumbActiveColor = useColorModeValue('secondaryGray.900', 'white');
 
   return (
     <Box>
@@ -88,54 +77,6 @@ function ZentinelleLayout({ children }: { children: ReactNode }) {
               secondary={getActiveNavbar(routes, pathname)}
               fixed={fixed}
             />
-            <Box
-              position="fixed"
-              top={{ base: '100px', md: '104px', xl: '108px' }}
-              right={{ base: '12px', md: '30px', lg: '30px', xl: '30px' }}
-              w={{
-                base: 'calc(100vw - 6%)',
-                md: 'calc(100vw - 8%)',
-                lg: 'calc(100vw - 6%)',
-                xl: 'calc(100vw - 350px)',
-                '2xl': 'calc(100vw - 365px)',
-              }}
-              px={{ sm: '15px', md: '10px' }}
-              zIndex={98}
-              h="36px"
-              display="flex"
-              alignItems="center"
-            >
-              <Breadcrumb separator=">" spacing="8px">
-                <BreadcrumbItem>
-                  <BreadcrumbLink
-                    href="/zentinelle/agents/"
-                    fontSize="sm"
-                    color={breadcrumbColor}
-                    _hover={{ color: breadcrumbActiveColor }}
-                  >
-                    HOME
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                {getActiveParent(routes, pathname) &&
-                  getActiveParent(routes, pathname) !== getActiveRoute(routes, pathname) && (
-                  <BreadcrumbItem>
-                    <BreadcrumbLink
-                      href="#"
-                      fontSize="sm"
-                      color={breadcrumbColor}
-                      _hover={{ color: breadcrumbActiveColor }}
-                    >
-                      {getActiveParent(routes, pathname)}
-                    </BreadcrumbLink>
-                  </BreadcrumbItem>
-                )}
-                <BreadcrumbItem isCurrentPage>
-                  <BreadcrumbLink href="#" fontSize="sm" color={breadcrumbActiveColor} fontWeight="500">
-                    {getActiveRoute(routes, pathname)}
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-              </Breadcrumb>
-            </Box>
           </Box>
         </Portal>
 
