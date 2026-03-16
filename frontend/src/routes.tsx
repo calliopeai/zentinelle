@@ -14,7 +14,7 @@ import {
   MdBarChart,
 
   MdSettings,
-  MdBugReport,
+
   MdKey,
   MdAccountTree,
 } from 'react-icons/md';
@@ -91,11 +91,6 @@ const routes: IRoute[] = [
     name: 'Settings',
     path: '/settings',
     icon: <Icon as={MdSettings} width="20px" height="20px" color="inherit" />,
-  },
-  {
-    name: 'Debug',
-    path: '/debug',
-    icon: <Icon as={MdBugReport} width="20px" height="20px" color="inherit" />,
   },
 ];
 
