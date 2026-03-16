@@ -16,7 +16,7 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 const isStandalone = process.env.NEXT_PUBLIC_AUTH_MODE === 'standalone';
-const devUser = { name: 'Dev User', email: 'dev@localhost', sub: 'dev' };
+const devUser = { name: 'Admin', email: 'dev@localhost', sub: 'dev' };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   // Standalone mode: no Auth0, always authenticated

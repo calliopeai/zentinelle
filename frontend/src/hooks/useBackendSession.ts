@@ -21,7 +21,7 @@ export function useBackendSession() {
   // Standalone: skip Auth0 entirely
   if (isStandalone) {
     return {
-      user: { name: 'Dev User', email: 'dev@localhost' },
+      user: { name: 'Admin', email: 'dev@localhost' },
       sessionKey: STANDALONE_TOKEN,
       isLoading: false,
       isAuthenticated: true,
