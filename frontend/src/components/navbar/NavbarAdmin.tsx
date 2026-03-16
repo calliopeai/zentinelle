@@ -2,6 +2,9 @@
 
 import {
   Box,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
   Center,
   Flex,
   Icon,
@@ -17,10 +20,18 @@ import {
 } from '@chakra-ui/react';
 import { useAuth } from 'contexts/AuthContext';
 import { useCurrentPageHeader } from 'contexts/PageHeaderContext';
+import { usePathname } from 'next/navigation';
 import { IoMdMoon, IoMdSunny } from 'react-icons/io';
 import { MdSettings, MdLogout } from 'react-icons/md';
 import NotificationsDropdown from 'components/notifications/NotificationsDropdown';
 import { clearSessionKey } from 'utils/session';
+
+function capitalize(segment: string): string {
+  return segment
+    .split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
 
 export default function AdminNavbar(props: {
   secondary?: boolean;
@@ -34,9 +45,15 @@ export default function AdminNavbar(props: {
   const { user, isAuthenticated } = useAuth();
   const { colorMode, toggleColorMode } = useColorMode();
   const pageHeader = useCurrentPageHeader();
+  const pathname = usePathname();
 
   const displayTitle = pageHeader.title || brandText;
   const displayDescription = pageHeader.description;
+
+  // Build breadcrumb segments from pathname, e.g. /risk → ['risk']
+  const pathSegments = pathname
+    ? pathname.split('/').filter((s) => s.length > 0)
+    : [];
 
   const navbarPosition = 'fixed' as const;
   const navbarFilter = 'none';
@@ -127,10 +144,48 @@ export default function AdminNavbar(props: {
         w="100%"
         flexDirection="row"
         alignItems="center"
-        justifyContent="flex-end"
+        justifyContent="space-between"
         mb={gap}
       >
-        <Box ms="auto" w={{ sm: '100%', md: 'unset' }}>
+        {/* Left: page title, subtitle, breadcrumbs */}
+        <Box ps="4px" flex="1" minW="0">
+          {displayTitle && (
+            <Text fontWeight="700" fontSize="xl" color={textColor} lineHeight="1.1" noOfLines={1}>
+              {displayTitle}
+            </Text>
+          )}
+          {displayDescription && (
+            <Text fontSize="sm" color={descriptionColor} mt="2px" noOfLines={1}>
+              {displayDescription}
+            </Text>
+          )}
+          <Breadcrumb separator=">" mt="2px" spacing="4px" fontSize="xs">
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/zentinelle/agents/" fontSize="xs" color={descriptionColor} _hover={{ color: textColor }}>
+                Home
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            {pathSegments.map((segment, index) => {
+              const isLast = index === pathSegments.length - 1;
+              const href = '/' + pathSegments.slice(0, index + 1).join('/');
+              return (
+                <BreadcrumbItem key={href} isCurrentPage={isLast}>
+                  <BreadcrumbLink
+                    href={isLast ? undefined : href}
+                    fontSize="xs"
+                    color={descriptionColor}
+                    fontWeight={isLast ? '500' : undefined}
+                    _hover={{ color: isLast ? descriptionColor : textColor }}
+                  >
+                    {capitalize(segment)}
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+              );
+            })}
+          </Breadcrumb>
+        </Box>
+
+        <Box w={{ sm: '100%', md: 'unset' }} flexShrink={0} ms="8px">
           {isAuthenticated && (
             <Flex
               w={{ sm: '100%', md: 'auto' }}

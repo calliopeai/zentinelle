@@ -469,7 +469,7 @@ export default function PoliciesPage() {
       )}
 
       {/* Edit Policy Modal */}
-      <Modal isOpen={isEditOpen} onClose={onEditClose}>
+      <Modal isOpen={isEditOpen} onClose={onEditClose} size={{ base: 'full', md: 'xl' }}>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Edit Policy</ModalHeader>
@@ -492,7 +492,7 @@ export default function PoliciesPage() {
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <Modal isOpen={isDeleteOpen} onClose={onDeleteClose}>
+      <Modal isOpen={isDeleteOpen} onClose={onDeleteClose} size={{ base: 'full', md: 'xl' }}>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Delete Policy</ModalHeader>

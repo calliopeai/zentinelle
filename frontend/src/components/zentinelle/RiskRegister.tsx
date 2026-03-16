@@ -577,7 +577,7 @@ export default function RiskRegister() {
                   <Text fontSize="sm" color={subtleText}>{selectedRisk.description}</Text>
                 </Box>
 
-                <SimpleGrid columns={4} spacing="16px">
+                <SimpleGrid columns={{ base: 2, md: 4 }} spacing="16px">
                   <Box>
                     <Text fontSize="xs" color={subtleText} textTransform="uppercase">Risk Score</Text>
                     <Badge colorScheme={getRiskLevelDisplay(selectedRisk.riskLevel).color} fontSize="lg" px="12px" py="4px" mt="4px">
@@ -687,7 +687,7 @@ export default function RiskRegister() {
           <ModalBody>
             <RiskMatrix />
             <Divider my="16px" />
-            <SimpleGrid columns={4} spacing="8px">
+            <SimpleGrid columns={{ base: 2, md: 4 }} spacing="8px">
               <HStack>
                 <Box w="16px" h="16px" borderRadius="sm" bg="green.300" />
                 <Text fontSize="xs">Low (1-4)</Text>

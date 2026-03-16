@@ -330,7 +330,7 @@ export default function RealTimeMonitor() {
         borderRadius="lg"
         border="1px solid"
         borderColor={borderColor}
-        overflow="hidden"
+        overflowX="auto"
       >
         {loading && interactions.length === 0 ? (
           <Box p="40px" textAlign="center">

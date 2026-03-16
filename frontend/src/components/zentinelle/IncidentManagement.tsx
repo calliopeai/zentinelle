@@ -311,7 +311,7 @@ export default function IncidentManagement() {
       {/* Filters & Actions */}
       <Card p="16px" bg={cardBg} mb="20px">
         <HStack spacing="12px" justify="space-between" flexWrap="wrap">
-          <HStack spacing="12px">
+          <HStack spacing="12px" flexWrap="wrap">
             <InputGroup maxW="250px">
               <InputLeftElement>
                 <Icon as={MdSearch} color="gray.400" />

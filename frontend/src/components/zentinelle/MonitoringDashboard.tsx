@@ -43,7 +43,6 @@ import {
   Select,
   HStack,
   VStack,
-  Progress,
   Tooltip,
   Divider,
   Spinner,
@@ -400,6 +399,7 @@ export default function MonitoringDashboard() {
                     <Spinner size="lg" />
                   </Flex>
                 ) : (
+                  <Box overflowX="auto">
                   <Table variant="simple">
                     <Thead>
                       <Tr>
@@ -520,6 +520,7 @@ export default function MonitoringDashboard() {
                       )}
                     </Tbody>
                   </Table>
+                  </Box>
                 )}
               </CardBody>
             </Card>
@@ -550,17 +551,12 @@ export default function MonitoringDashboard() {
                         <Text fontSize="sm" color={secondaryText}>Schedule:</Text>
                         <Text fontSize="sm" fontWeight="medium">{task.schedule}</Text>
                       </Flex>
-                      <Box pt={2}>
-                        <Text fontSize="xs" color={secondaryText} mb={1}>
-                          Health
+                      <Flex justify="space-between" pt={2}>
+                        <Text fontSize="xs" color={secondaryText}>Task path:</Text>
+                        <Text fontSize="xs" fontFamily="mono" color={secondaryText} noOfLines={1} maxW="60%">
+                          {task.taskPath.split('.').slice(-1)[0]}
                         </Text>
-                        <Progress
-                          value={100}
-                          size="sm"
-                          colorScheme="green"
-                          borderRadius="full"
-                        />
-                      </Box>
+                      </Flex>
                     </VStack>
                   </CardBody>
                 </Card>
@@ -574,6 +570,7 @@ export default function MonitoringDashboard() {
                 </Heading>
               </CardHeader>
               <CardBody pt={0}>
+                <Box overflowX="auto">
                 <Table size="sm">
                   <Thead>
                     <Tr>
@@ -594,6 +591,7 @@ export default function MonitoringDashboard() {
                     ))}
                   </Tbody>
                 </Table>
+                </Box>
               </CardBody>
             </Card>
           </TabPanel>
@@ -607,6 +605,7 @@ export default function MonitoringDashboard() {
                 </Heading>
               </CardHeader>
               <CardBody pt={0}>
+                <Box overflowX="auto">
                 <Table variant="simple">
                   <Thead>
                     <Tr>
@@ -668,6 +667,7 @@ export default function MonitoringDashboard() {
                     )}
                   </Tbody>
                 </Table>
+                </Box>
               </CardBody>
             </Card>
           </TabPanel>
