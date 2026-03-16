@@ -146,7 +146,7 @@ export default function AuditTrail({ onExport }: AuditTrailProps) {
   const [selectedEntry, setSelectedEntry] = useState<AuditEntry | null>(null);
 
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const { startDate, endDate } = getPeriodDates(dateRange);
+  const { startDate, endDate } = useMemo(() => getPeriodDates(dateRange), [dateRange]);
 
   // Fetch audit logs
   const { data, loading, error, refetch } = useQuery(GET_AUDIT_LOGS, {

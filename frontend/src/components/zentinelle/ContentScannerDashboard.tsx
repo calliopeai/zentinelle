@@ -117,7 +117,7 @@ export default function ContentScannerDashboard({
   const redBg = useColorModeValue('red.50', 'whiteAlpha.100');
 
   const [selectedPeriod, setSelectedPeriod] = useState(period);
-  const { startDate, endDate } = getPeriodDates(selectedPeriod);
+  const { startDate, endDate } = useMemo(() => getPeriodDates(selectedPeriod), [selectedPeriod]);
 
   // Fetch content scans with violations
   const { data: scansData, loading: scansLoading, error: scansError } = useQuery(GET_CONTENT_SCANS, {
@@ -135,7 +135,7 @@ export default function ContentScannerDashboard({
     variables: {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
-      first: 500,
+      first: 100,
     },
     pollInterval: 30000,
   });
