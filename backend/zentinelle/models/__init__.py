@@ -83,6 +83,15 @@ from zentinelle.models.reporting import Report
 # Notifications
 from zentinelle.models.notification import Notification, create_notification
 
+# Tenant configuration (org settings persistence)
+from zentinelle.models.tenant_config import TenantConfig
+
+# Agent Groups
+from zentinelle.models.agent_group import AgentGroup
+
+# Client Cove Integration
+from zentinelle.models.integration import ClientCoveIntegration
+
 __all__ = [
     # Agent-level
     'AgentEndpoint',
@@ -145,4 +154,10 @@ __all__ = [
     # Notifications
     'Notification',
     'create_notification',
+    # Tenant Config
+    'TenantConfig',
+    # Agent Groups
+    'AgentGroup',
+    # Client Cove Integration
+    'ClientCoveIntegration',
 ]

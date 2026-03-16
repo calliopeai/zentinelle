@@ -14,7 +14,7 @@ class AgentGroup(models.Model):
     slug = models.SlugField(max_length=255)
     description = models.TextField(blank=True)
     tier = models.CharField(max_length=20, choices=Tier.choices, default=Tier.STANDARD)
-    color = models.CharField(max_length=20, default='brand', help_text='Chakra UI colorScheme for badge')
+    color = models.CharField(max_length=20, default='brand')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

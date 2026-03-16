@@ -2914,13 +2914,13 @@ class Query(graphene.ObjectType):
 
     @staticmethod
     def resolve_my_organization(root, info):
-        """Return a stub organization object for the current tenant."""
-        import os
-        from datetime import datetime
+        """Return the organization object for the current tenant, backed by TenantConfig."""
+        from zentinelle.models.tenant_config import TenantConfig
         tenant_id = get_request_tenant_id(info.context.user) or "default"
+        config, _ = TenantConfig.objects.get_or_create(tenant_id=tenant_id)
         return OrganizationType(
             id=tenant_id,
-            name="My Organization",
+            name=config.name,
             slug=tenant_id,
             tier="standard",
             website="",
@@ -2930,8 +2930,8 @@ class Query(graphene.ObjectType):
             ai_budget_spent_usd=0.0,
             overage_policy="block",
             ai_budget_alert_threshold=0.8,
-            settings={},
-            created_at=None,
+            settings=config.settings,
+            created_at=config.updated_at,
         )
 
     @staticmethod
