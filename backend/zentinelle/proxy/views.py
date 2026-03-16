@@ -70,7 +70,7 @@ logger = logging.getLogger(__name__)
 
 PROVIDERS = {
     'anthropic': 'https://api.anthropic.com',
-    'openai': 'https://api.openai.com',
+    'openai': 'https://api.openai.com/v1',
     'google': 'https://generativelanguage.googleapis.com',
 }
 
