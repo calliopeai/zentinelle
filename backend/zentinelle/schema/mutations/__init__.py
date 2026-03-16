@@ -99,6 +99,12 @@ from .compliance_packs import (
     ActivateCompliancePack,
     ListCompliancePacks,
 )
+from .agent_groups import (
+    CreateAgentGroup,
+    UpdateAgentGroup,
+    DeleteAgentGroup,
+    AssignAgentToGroup,
+)
 
 from zentinelle.schema.types import (
     OrganizationType,
@@ -211,6 +217,12 @@ class Mutation(graphene.ObjectType):
     activate_agent_endpoint = ActivateAgentEndpoint.Field()
     regenerate_endpoint_api_key = RegenerateEndpointApiKey.Field()
     update_endpoint_status = UpdateEndpointStatus.Field()
+
+    # Agent Groups
+    create_agent_group = CreateAgentGroup.Field()
+    update_agent_group = UpdateAgentGroup.Field()
+    delete_agent_group = DeleteAgentGroup.Field()
+    assign_agent_to_group = AssignAgentToGroup.Field()
 
     # Policies
     create_policy = CreatePolicy.Field()

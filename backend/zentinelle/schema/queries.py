@@ -37,6 +37,8 @@ from zentinelle.models import (
     LicenseComplianceViolation,
 )
 from .types import (
+    AgentGroupType,
+    AgentGroupConnection,
     AgentEndpointType,
     PolicyType,
     PolicyRevisionType,
@@ -678,6 +680,10 @@ class Query(graphene.ObjectType):
     # terraform_provision, terraform_provisions, organization_ai_keys, deployment_ai_keys,
     # deployment_ai_providers) are now in deployments.schema.queries.DeploymentsQuery
 
+    # Agent Groups
+    agent_groups = DjangoConnectionField(AgentGroupType, search=graphene.String())
+    agent_group = graphene.Field(AgentGroupType, id=graphene.UUID())
+
     # Endpoints
     endpoint = graphene.Field(AgentEndpointType, id=graphene.ID())
     endpoints = DjangoConnectionField(
@@ -1300,6 +1306,21 @@ class Query(graphene.ObjectType):
             hold_types=hold_types,
             statuses=statuses,
         )
+
+    @staticmethod
+    def resolve_agent_groups(root, info, search=None, **kwargs):
+        from zentinelle.models.agent_group import AgentGroup
+        tenant_id = get_request_tenant_id(info.context.user)
+        qs = AgentGroup.objects.filter(tenant_id=tenant_id)
+        if search:
+            qs = qs.filter(name__icontains=search)
+        return qs
+
+    @staticmethod
+    def resolve_agent_group(root, info, id):
+        from zentinelle.models.agent_group import AgentGroup
+        tenant_id = get_request_tenant_id(info.context.user)
+        return AgentGroup.objects.filter(id=id, tenant_id=tenant_id).first()
 
     @staticmethod
     def resolve_endpoint(root, info, id):

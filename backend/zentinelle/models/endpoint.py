@@ -99,6 +99,14 @@ class AgentEndpoint(Tracking):
         help_text='External deployment ID reference'
     )
 
+    # Agent Group
+    group = models.ForeignKey(
+        'zentinelle.AgentGroup',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='agents',
+    )
+
     class Meta:
         ordering = ['tenant_id', 'name']
         indexes = [

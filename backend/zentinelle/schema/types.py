@@ -20,6 +20,7 @@ class CountableConnection(relay.Connection):
         return root.length
 
 # Agent-level models (from zentinelle)
+from zentinelle.models.agent_group import AgentGroup
 from zentinelle.models import (
     AgentEndpoint,
     Policy,
@@ -51,6 +52,24 @@ from zentinelle.models import (
 )
 
 
+class AgentGroupType(DjangoObjectType):
+    """GraphQL type for AgentGroup."""
+    class Meta:
+        model = AgentGroup
+        interfaces = (relay.Node,)
+        fields = ['id', 'tenant_id', 'name', 'slug', 'description', 'tier', 'color', 'created_at']
+
+    agent_count = graphene.Int()
+
+    def resolve_agent_count(self, info):
+        return self.agents.count()
+
+
+class AgentGroupConnection(CountableConnection):
+    class Meta:
+        node = AgentGroupType
+
+
 class AgentEndpointType(DjangoObjectType):
     """GraphQL type for AgentEndpoint."""
     class Meta:
@@ -64,9 +83,13 @@ class AgentEndpointType(DjangoObjectType):
         ]
 
     deployment_name = graphene.String()
+    group = graphene.Field(AgentGroupType)
 
     def resolve_deployment_name(self, info):
         return self.deployment_id_ext or None
+
+    def resolve_group(self, info):
+        return self.group
 
 
 class PolicyType(DjangoObjectType):
