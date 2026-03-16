@@ -90,6 +90,10 @@ from .types import (
     PolicyGraphEdgeType,
     PolicyGraphType,
     ClientCoveIntegrationType,
+    AuditAnalyticsType,
+    AuditTimelinePointType,
+    AuditEventCountType,
+    AuditTopAgentType,
 )
 
 
@@ -718,6 +722,11 @@ class Query(graphene.ObjectType):
         resource_id=graphene.String(),
         start_date=graphene.DateTime(),
         end_date=graphene.DateTime(),
+    )
+    audit_analytics = graphene.Field(
+        AuditAnalyticsType,
+        days=graphene.Int(default_value=7),
+        description="ClickHouse-backed analytics for the audit logs page.",
     )
 
     # Dashboard Stats
@@ -3335,4 +3344,63 @@ class Query(graphene.ObjectType):
             edges=edges,
             node_count=len(nodes),
             edge_count=len(edges),
+        )
+
+    @staticmethod
+    def resolve_audit_analytics(root, info, days=7):
+        """Return ClickHouse-backed analytics for the audit logs page.
+
+        Returns None gracefully when ClickHouse is not configured.
+        """
+        if not info.context.user.is_authenticated:
+            return None
+
+        from zentinelle.services import clickhouse_service
+
+        if not clickhouse_service.is_enabled():
+            return None
+
+        tenant_id = get_request_tenant_id(info.context.user)
+
+        timeline_rows = clickhouse_service.event_timeline(
+            days=days,
+            granularity='day',
+            organization_id=tenant_id,
+        )
+        by_type_rows = clickhouse_service.event_counts_by_type(
+            days=days,
+            organization_id=tenant_id,
+        )
+        top_agents_rows = clickhouse_service.top_agents_by_event_count(
+            days=days,
+            organization_id=tenant_id,
+        )
+
+        timeline = [
+            AuditTimelinePointType(
+                bucket=row.get('timestamp'),
+                event_type=row.get('event_type'),
+                count=row.get('count', 0),
+            )
+            for row in timeline_rows
+        ]
+        by_type = [
+            AuditEventCountType(
+                event_type=row.get('event_type', ''),
+                count=row.get('count', 0),
+            )
+            for row in by_type_rows
+        ]
+        top_agents = [
+            AuditTopAgentType(
+                agent_id=row.get('agent_id', ''),
+                event_count=row.get('event_count', 0),
+            )
+            for row in top_agents_rows
+        ]
+
+        return AuditAnalyticsType(
+            timeline=timeline,
+            by_type=by_type,
+            top_agents=top_agents,
         )

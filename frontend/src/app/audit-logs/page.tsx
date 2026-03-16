@@ -10,7 +10,11 @@ import {
   InputGroup,
   InputLeftElement,
   Select,
+  SimpleGrid,
   Spinner,
+  Stat,
+  StatLabel,
+  StatNumber,
   Text,
   useColorModeValue,
   Badge,
@@ -38,7 +42,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { useState } from 'react';
 import { MdSearch, MdRefresh, MdDownload, MdVisibility, MdPerson, MdSmartToy } from 'react-icons/md';
 import Card from 'components/card/Card';
-import { GET_AUDIT_LOGS, EXPORT_AUDIT_LOGS } from 'graphql/audit';
+import { GET_AUDIT_LOGS, GET_AUDIT_ANALYTICS, EXPORT_AUDIT_LOGS } from 'graphql/audit';
 
 interface Actor {
   id: string;
@@ -158,9 +162,15 @@ export default function AuditLogsPage() {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const cardBg = useColorModeValue('white', 'navy.800');
+  const statBg = useColorModeValue('gray.50', 'navy.700');
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const borderColor = useColorModeValue('gray.200', 'whiteAlpha.100');
   const codeBg = useColorModeValue('gray.100', 'whiteAlpha.100');
+
+  const { data: analyticsData } = useQuery(GET_AUDIT_ANALYTICS, {
+    variables: { days: 7 },
+    fetchPolicy: 'cache-and-network',
+  });
 
   const { data, loading, error, refetch, fetchMore } = useQuery(GET_AUDIT_LOGS, {
     variables: {
@@ -241,6 +251,38 @@ export default function AuditLogsPage() {
           </Button>
         </HStack>
       </Flex>
+
+      {/* Analytics Panel (ClickHouse — hidden when unavailable) */}
+      {analyticsData?.auditAnalytics && (
+        <SimpleGrid columns={{ base: 1, md: 3 }} spacing="16px" mb="24px">
+          <Card p="20px" bg={cardBg}>
+            <Stat>
+              <StatLabel color="secondaryGray.600" fontSize="sm">Total Events (7d)</StatLabel>
+              <StatNumber color={textColor} fontSize="2xl">
+                {analyticsData.auditAnalytics.byType
+                  .reduce((sum: number, t: { count: number }) => sum + t.count, 0)
+                  .toLocaleString()}
+              </StatNumber>
+            </Stat>
+          </Card>
+          <Card p="20px" bg={cardBg}>
+            <Stat>
+              <StatLabel color="secondaryGray.600" fontSize="sm">Top Event Type</StatLabel>
+              <StatNumber color={textColor} fontSize="xl" isTruncated>
+                {analyticsData.auditAnalytics.byType[0]?.eventType || '—'}
+              </StatNumber>
+            </Stat>
+          </Card>
+          <Card p="20px" bg={cardBg}>
+            <Stat>
+              <StatLabel color="secondaryGray.600" fontSize="sm">Most Active Agent</StatLabel>
+              <StatNumber color={textColor} fontSize="xl" isTruncated>
+                {analyticsData.auditAnalytics.topAgents[0]?.agentId || '—'}
+              </StatNumber>
+            </Stat>
+          </Card>
+        </SimpleGrid>
+      )}
 
       {/* Filters */}
       <Card p="20px" mb="24px" bg={cardBg}>

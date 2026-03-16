@@ -1221,3 +1221,33 @@ class EffectivePolicyConnection(graphene.relay.Connection):
             except (AttributeError, TypeError):
                 pass
         return 0
+
+
+# ---------------------------------------------------------------------------
+# Audit Analytics Types (ClickHouse-backed)
+# ---------------------------------------------------------------------------
+
+class AuditTimelinePointType(graphene.ObjectType):
+    """A single time-bucketed point in the audit event timeline."""
+    bucket = graphene.DateTime()
+    event_type = graphene.String()
+    count = graphene.Int()
+
+
+class AuditEventCountType(graphene.ObjectType):
+    """Audit event count broken down by event type."""
+    event_type = graphene.String()
+    count = graphene.Int()
+
+
+class AuditTopAgentType(graphene.ObjectType):
+    """Agent ranked by total event count."""
+    agent_id = graphene.String()
+    event_count = graphene.Int()
+
+
+class AuditAnalyticsType(graphene.ObjectType):
+    """Aggregated audit analytics sourced from ClickHouse."""
+    timeline = graphene.List(AuditTimelinePointType)
+    by_type = graphene.List(AuditEventCountType)
+    top_agents = graphene.List(AuditTopAgentType)
