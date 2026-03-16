@@ -71,14 +71,9 @@ from .types import (
     NotificationType,
     NotificationConnection,
     # Impersonation (stub)
-    ImpersonationStatusType,
     # Billing (stubs)
-    BillingOverviewType,
-    BillingSubscriptionType,
-    BillingPlanType,
     UsageMetricsType,
     UsageMetricsSummaryType,
-    CreatePortalSessionPayload,
     UsageAlertConnection,
     UsageAlertType,
     UsageTimeSeriesPointType,
@@ -158,16 +153,6 @@ class AlertType(graphene.ObjectType):
     created_at = graphene.DateTime()
 
 
-class TeamStatsType(graphene.ObjectType):
-    total = graphene.Int()
-    active = graphene.Int()
-    invited = graphene.Int()
-
-
-class BillingStatsType(graphene.ObjectType):
-    has_subscription = graphene.Boolean()
-    has_payment_method = graphene.Boolean()
-    plan_name = graphene.String()
 
 
 class ChecklistItemStatsType(graphene.ObjectType):
@@ -194,8 +179,6 @@ class DashboardStatsType(graphene.ObjectType):
     api_usage = graphene.Field(ApiUsageType)
     recent_activity = graphene.List(RecentActivityType)
     alerts = graphene.List(AlertType)
-    team = graphene.Field(TeamStatsType)
-    billing = graphene.Field(BillingStatsType)
     checklist = graphene.Field(ChecklistStatsType)
 
 
@@ -986,20 +969,12 @@ class Query(graphene.ObjectType):
         status=graphene.String(),
     )
 
-    # Impersonation (stub — not available in standalone)
-    impersonation_status = graphene.Field(ImpersonationStatusType)
-
-    # Billing (stubs — not available in standalone)
-    billing_overview = graphene.Field(BillingOverviewType)
     usage_metrics = graphene.Field(
         UsageMetricsType,
         start_date=graphene.DateTime(),
         end_date=graphene.DateTime(),
         granularity=graphene.String(),
     )
-    subscription = graphene.Field(BillingSubscriptionType)
-    available_plans = graphene.List(BillingPlanType)
-
     # System Prompts (stub — prompt library not yet implemented in standalone)
     prompt_categories = graphene.List(
         PromptCategoryType,
@@ -1594,14 +1569,6 @@ class Query(graphene.ObjectType):
         # Alerts - for now return empty list
         alerts = []
 
-        # Team stats - not available in standalone mode
-        team_stats = TeamStatsType(total=0, active=0, invited=0)
-        billing_stats = BillingStatsType(
-            has_subscription=False,
-            has_payment_method=False,
-            plan_name=None
-        )
-
         # Getting started checklist - not available in standalone mode
         checklist_stats = None
 
@@ -1612,8 +1579,6 @@ class Query(graphene.ObjectType):
             api_usage=api_usage,
             recent_activity=recent_activity,
             alerts=alerts,
-            team=team_stats,
-            billing=billing_stats,
             checklist=checklist_stats,
         )
 
@@ -2984,24 +2949,6 @@ class Query(graphene.ObjectType):
         return None
 
     @staticmethod
-    def resolve_impersonation_status(root, info):
-        """Stub resolver — impersonation not available in standalone mode."""
-        return ImpersonationStatusType(
-            is_impersonating=False,
-            real_user_email=None,
-            effective_user_email=None,
-            can_impersonate=False,
-            expires_at=None,
-            minutes_remaining=None,
-            session=None,
-        )
-
-    @staticmethod
-    def resolve_billing_overview(root, info):
-        """Stub resolver — billing not available in standalone mode."""
-        return None
-
-    @staticmethod
     def resolve_usage_metrics(root, info, start_date=None, end_date=None, granularity=None):
         from zentinelle.models import InteractionLog, AgentEndpoint
         from django.db.models import Sum, Count
@@ -3082,16 +3029,6 @@ class Query(graphene.ObjectType):
             by_agent=by_agent,
             by_endpoint=[],
         )
-
-    @staticmethod
-    def resolve_subscription(root, info):
-        """Stub resolver — subscription not available in standalone mode."""
-        return None
-
-    @staticmethod
-    def resolve_available_plans(root, info):
-        """Stub resolver — available plans not applicable in standalone mode."""
-        return []
 
     @staticmethod
     def resolve_prompt_categories(root, info, active_only=None):

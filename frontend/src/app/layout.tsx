@@ -13,7 +13,6 @@ import { AuthProvider } from 'contexts/AuthContext';
 import Footer from 'components/footer/FooterAdmin';
 import Navbar from 'components/navbar/NavbarAdmin';
 import Sidebar from 'components/sidebar/Sidebar';
-import { ImpersonationBar } from 'components/impersonation';
 import { SessionInitializer } from 'components/SessionInitializer';
 import { usePathname } from 'next/navigation';
 import routes from 'routes';
@@ -35,8 +34,7 @@ function ZentinelleLayout({ children }: { children: ReactNode }) {
 
   return (
     <Box>
-      <ImpersonationBar />
-      <Sidebar
+<Sidebar
         mini={mini}
         routes={routes}
         hovered={hovered}

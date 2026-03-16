@@ -89,7 +89,6 @@ from .compliance_packs import (
 from zentinelle.schema.types import (
     OrganizationType,
     UpdateOrganizationSettingsPayload,
-    CreatePortalSessionPayload,
 )
 
 
@@ -134,19 +133,6 @@ class UpdateOrganizationSettings(graphene.Mutation):
             created_at=None,
         )
         return UpdateOrganizationSettingsPayload(success=True, organization=org)
-
-
-class CreatePortalSession(graphene.Mutation):
-    """Stub mutation — billing portal not available in standalone mode."""
-
-    Output = CreatePortalSessionPayload
-
-    @staticmethod
-    def mutate(root, info):
-        return CreatePortalSessionPayload(
-            portal_url=None,
-            errors=["Billing portal is not available in standalone mode."],
-        )
 
 
 class Mutation(graphene.ObjectType):
@@ -241,5 +227,3 @@ class Mutation(graphene.ObjectType):
     # Secret Bundles (stub)
 
 
-    # Billing (stub)
-    create_portal_session = CreatePortalSession.Field()

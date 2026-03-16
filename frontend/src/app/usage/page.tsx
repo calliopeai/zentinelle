@@ -31,7 +31,7 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@apollo/client';
 import { MdRefresh, MdTrendingUp, MdTimer, MdMemory, MdCloud, MdSmartToy } from 'react-icons/md';
 import Card from 'components/card/Card';
-import { GET_USAGE_METRICS, GET_SUBSCRIPTION } from 'graphql/billing';
+import { GET_USAGE_METRICS } from 'graphql/usage';
 import { GET_MONITORING_STATS } from 'graphql/monitoring';
 
 function formatNumber(num: number): string {
@@ -89,21 +89,15 @@ export default function UsagePage() {
     fetchPolicy: 'cache-and-network',
   });
 
-  // Fetch subscription for limits
-  const { data: subData, loading: subLoading, refetch: refetchSub } = useQuery(GET_SUBSCRIPTION, {
-    fetchPolicy: 'cache-and-network',
-  });
-
   // Fetch monitoring stats for additional metrics
   const { data: statsData, loading: statsLoading, refetch: refetchStats } = useQuery(GET_MONITORING_STATS, {
     fetchPolicy: 'cache-and-network',
   });
 
-  const loading = usageLoading || subLoading || statsLoading;
+  const loading = usageLoading || statsLoading;
 
   const handleRefresh = () => {
     refetchUsage();
-    refetchSub();
     refetchStats();
   };
 
@@ -111,23 +105,16 @@ export default function UsagePage() {
   const summary = usageData?.usageMetrics?.summary || {};
   const timeSeries = usageData?.usageMetrics?.timeSeries || [];
   const byAgent = usageData?.usageMetrics?.byAgent || [];
-  const limits = subData?.subscription?.plan?.limits || {};
   const stats = statsData?.monitoringStats || {};
 
-  // Calculate percentages
-  const tokenLimit = limits.apiCalls || 1_000_000; // Default to 1M if no limit set
-  const storageLimit = limits.storage || 100; // Default 100 GB
+  // Calculate percentages (no plan limits in standalone mode)
+  const tokenLimit = 1_000_000;
+  const storageLimit = 100;
   const totalTokens = summary.totalTokens || 0;
   const storageUsed = (summary.storageUsedMb || 0) / 1024; // Convert MB to GB
 
   const tokenPercentage = tokenLimit > 0 ? (totalTokens / tokenLimit) * 100 : 0;
   const storagePercentage = storageLimit > 0 ? (storageUsed / storageLimit) * 100 : 0;
-
-  // Get billing period info
-  const subscription = subData?.subscription;
-  const periodEnd = subscription?.currentPeriodEnd
-    ? new Date(subscription.currentPeriodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    : 'N/A';
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -281,9 +268,6 @@ export default function UsagePage() {
               </Text>
               <Text fontSize="2xl" fontWeight="700" color={textColor}>
                 {formatCurrency(summary.totalCost || stats.totalCostToday || 0)}
-              </Text>
-              <Text fontSize="xs" color="gray.500" mt="4px">
-                Billing period ends {periodEnd}
               </Text>
             </Box>
           </Flex>
