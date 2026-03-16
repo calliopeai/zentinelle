@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from zentinelle.models import AgentEndpoint, Event
+from zentinelle.models.compliance import InteractionLog
 from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_endpoint_from_request
 from zentinelle.api.serializers import EvaluateRequestSerializer
 
@@ -53,8 +54,9 @@ class EvaluateView(APIView):
             context=data.get('context', {}),
         )
 
-        # Log evaluation (async)
+        # Log evaluation (async) and interaction (for monitoring)
         self._log_evaluation(auth_endpoint, data, result)
+        self._log_interaction(auth_endpoint, data, result)
 
         response_data = {
             'allowed': result.allowed,
@@ -106,3 +108,45 @@ class EvaluateView(APIView):
             )
         except Exception as e:
             logger.warning(f"Failed to queue evaluation event: {e}")
+
+    def _log_interaction(self, endpoint: AgentEndpoint, request_data: dict, result):
+        """Create an InteractionLog so the monitoring dashboard shows real activity."""
+        from django.utils import timezone
+
+        ctx = request_data.get('context', {})
+        action = request_data['action']
+        tool = ctx.get('tool', action)
+        tool_input = ctx.get('tool_input', {})
+
+        # Map action to interaction type
+        type_map = {
+            'tool_call': InteractionLog.InteractionType.FUNCTION_CALL,
+            'llm:invoke': InteractionLog.InteractionType.CHAT,
+            'llm:response': InteractionLog.InteractionType.CHAT,
+            'spawn': InteractionLog.InteractionType.FUNCTION_CALL,
+        }
+        interaction_type = type_map.get(action, InteractionLog.InteractionType.FUNCTION_CALL)
+
+        # Map agent type to provider
+        provider_map = {
+            'claude_code': 'anthropic',
+            'codex': 'openai',
+            'gemini': 'google',
+        }
+        provider = provider_map.get(endpoint.agent_type, ctx.get('source', ''))
+
+        try:
+            InteractionLog.objects.create(
+                tenant_id=endpoint.tenant_id,
+                endpoint=endpoint,
+                deployment_id_ext=endpoint.deployment_id_ext,
+                user_identifier=request_data.get('user_id', ''),
+                interaction_type=interaction_type,
+                ai_provider=provider,
+                ai_model=ctx.get('model', endpoint.agent_type),
+                input_content=f"{tool}: {str(tool_input)[:200]}" if tool_input else tool,
+                tool_calls=[{'tool': tool, 'input': tool_input, 'status': 'allowed' if result.allowed else 'blocked'}],
+                occurred_at=timezone.now(),
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log interaction: {e}")
