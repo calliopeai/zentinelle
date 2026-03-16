@@ -325,11 +325,12 @@ export default function IncidentManagement() {
             <Text mt="16px" color="gray.500">Loading incidents...</Text>
           </Card>
         ) : incidents.length === 0 ? (
-          <Card p="40px" bg={cardBg} textAlign="center">
-            <Text color="gray.500">No incidents found</Text>
-            <Text fontSize="sm" color="gray.400" mt="8px">
-              Incidents will appear here when policy violations or security events are detected
-            </Text>
+          <Card p="40px" bg={cardBg}>
+            <Flex direction="column" align="center" justify="center" py="20px" color="gray.400">
+              <Icon as={MdBugReport} boxSize="48px" mb="12px" />
+              <Text fontWeight="500">No incidents found</Text>
+              <Text fontSize="sm" mt="4px">Incidents will appear here when policy violations or security events are detected</Text>
+            </Flex>
           </Card>
         ) : (
           incidents.map((incident) => {

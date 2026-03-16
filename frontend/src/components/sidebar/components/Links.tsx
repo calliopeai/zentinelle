@@ -150,7 +150,7 @@ function Links(props: {
                           me="auto"
                           color={isActive ? activeColor : inactiveColor}
                           fontSize="sm"
-                          fontWeight={isActive ? '600' : '400'}
+                          fontWeight={isActive ? '600' : '500'}
                           ms="10px"
                         >
                           {item.name}

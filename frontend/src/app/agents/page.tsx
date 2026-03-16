@@ -62,9 +62,9 @@ function getStatusColor(status: string): string {
     case 'inactive':
       return 'gray';
     case 'suspended':
-      return 'red';
+      return 'orange';
     case 'pending':
-      return 'yellow';
+      return 'blue';
     default:
       return 'gray';
   }

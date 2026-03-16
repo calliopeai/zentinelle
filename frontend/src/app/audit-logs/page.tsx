@@ -124,7 +124,7 @@ function getStatusColor(status: string): string {
     case 'failed':
       return 'red';
     case 'pending':
-      return 'yellow';
+      return 'blue';
     default:
       return 'gray';
   }

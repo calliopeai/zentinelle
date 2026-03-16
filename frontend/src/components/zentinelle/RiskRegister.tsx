@@ -385,12 +385,11 @@ export default function RiskRegister() {
             <Text mt="16px" color="gray.500">Loading risks...</Text>
           </Box>
         ) : risks.length === 0 ? (
-          <Box p="40px" textAlign="center">
-            <Text color="gray.500">No risks registered yet</Text>
-            <Text fontSize="sm" color="gray.400" mt="8px">
-              Add risks to track potential AI-related concerns
-            </Text>
-          </Box>
+          <Flex direction="column" align="center" justify="center" py="60px" color="gray.400">
+            <Icon as={MdShield} boxSize="48px" mb="12px" />
+            <Text fontWeight="500">No risks registered yet</Text>
+            <Text fontSize="sm" mt="4px">Add your first risk to track potential AI-related concerns</Text>
+          </Flex>
         ) : (
           <Box overflowX="auto">
             <Table size="sm">
