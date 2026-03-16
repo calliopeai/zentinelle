@@ -22,7 +22,6 @@ import { useAuth } from 'contexts/AuthContext';
 import { IoMdMoon, IoMdSunny } from 'react-icons/io';
 import { MdSettings, MdLogout } from 'react-icons/md';
 import NotificationsDropdown from 'components/notifications/NotificationsDropdown';
-import AppSwitcher from 'components/navbar/AppSwitcher';
 import { clearSessionKey } from 'utils/session';
 
 export default function AdminNavbar(props: {
@@ -164,8 +163,7 @@ export default function AdminNavbar(props: {
               borderRadius="30px"
               boxShadow={shadow}
             >
-              <AppSwitcher />
-              <Box onClick={toggleColorMode} cursor="pointer" me="10px" display="flex" alignItems="center">
+<Box onClick={toggleColorMode} cursor="pointer" me="10px" display="flex" alignItems="center">
                 <Icon as={colorMode === 'light' ? IoMdMoon : IoMdSunny} color={navbarIcon} w="18px" h="18px" />
               </Box>
               <NotificationsDropdown />

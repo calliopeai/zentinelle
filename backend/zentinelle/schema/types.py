@@ -891,50 +891,6 @@ class NotificationConnection(graphene.relay.Connection):
 
 
 # ---------------------------------------------------------------------------
-# UserAppAccess (stub for standalone mode)
-# ---------------------------------------------------------------------------
-
-class UserAppAccessType(graphene.ObjectType):
-    has_admin_access = graphene.Boolean()
-    has_partner_access = graphene.Boolean()
-    has_zentinelle_access = graphene.Boolean()
-    has_internal_access = graphene.Boolean()
-    organization_name = graphene.String()
-    partner_name = graphene.String()
-
-
-# ---------------------------------------------------------------------------
-# TeamMember (stub for standalone mode)
-# ---------------------------------------------------------------------------
-
-class TeamMemberType(graphene.ObjectType):
-    id = graphene.ID()
-    user_id = graphene.String()
-    email = graphene.String()
-    first_name = graphene.String()
-    last_name = graphene.String()
-    full_name = graphene.String()
-    role = graphene.String()
-    status = graphene.String()
-    invited_at = graphene.DateTime()
-    joined_at = graphene.DateTime()
-    last_active_at = graphene.DateTime()
-    avatar_url = graphene.String()
-    created_at = graphene.DateTime()
-
-
-class TeamMemberConnection(graphene.relay.Connection):
-    class Meta:
-        node = TeamMemberType
-
-    total_count = graphene.Int()
-
-    @staticmethod
-    def resolve_total_count(root, info, **kwargs):
-        return 0
-
-
-# ---------------------------------------------------------------------------
 # Impersonation (stub — not available in standalone mode)
 # ---------------------------------------------------------------------------
 

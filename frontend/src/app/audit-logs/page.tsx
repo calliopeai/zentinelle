@@ -84,10 +84,8 @@ const RESOURCES = [
   { value: 'user', label: 'User' },
   { value: 'agent', label: 'Agent' },
   { value: 'policy', label: 'Policy' },
-  { value: 'secret', label: 'Secret' },
   { value: 'api_key', label: 'API Key' },
   { value: 'deployment', label: 'Deployment' },
-  { value: 'team_member', label: 'Team Member' },
   { value: 'subscription', label: 'Subscription' },
 ];
 

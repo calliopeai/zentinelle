@@ -67,12 +67,9 @@ from .types import (
     # Organization (stub types for standalone mode)
     OrganizationType,
     UpdateOrganizationSettingsPayload,
-    # Notifications, AppAccess, Team (stub types for standalone mode)
+    # Notifications (stub types for standalone mode)
     NotificationType,
     NotificationConnection,
-    UserAppAccessType,
-    TeamMemberType,
-    TeamMemberConnection,
     # Impersonation (stub)
     ImpersonationStatusType,
     # Billing (stubs)
@@ -987,18 +984,6 @@ class Query(graphene.ObjectType):
         first=graphene.Int(),
         after=graphene.String(),
         status=graphene.String(),
-    )
-
-    # User App Access (stub — returns standalone defaults)
-    user_app_access = graphene.Field(UserAppAccessType)
-
-    # Team Members (stub)
-    team_members = graphene.Field(
-        TeamMemberConnection,
-        search=graphene.String(),
-        role=graphene.String(),
-        first=graphene.Int(),
-        after=graphene.String(),
     )
 
     # Impersonation (stub — not available in standalone)
@@ -2996,23 +2981,6 @@ class Query(graphene.ObjectType):
     @staticmethod
     def resolve_notifications(root, info, first=None, after=None, status=None):
         """Stub resolver — notifications not yet implemented in standalone mode."""
-        return None
-
-    @staticmethod
-    def resolve_user_app_access(root, info):
-        """Return access flags for standalone mode (full access to Zentinelle)."""
-        return UserAppAccessType(
-            has_admin_access=True,
-            has_partner_access=False,
-            has_zentinelle_access=True,
-            has_internal_access=False,
-            organization_name="My Organization",
-            partner_name=None,
-        )
-
-    @staticmethod
-    def resolve_team_members(root, info, search=None, role=None, first=None, after=None):
-        """Stub resolver — team management not yet implemented in standalone mode."""
         return None
 
     @staticmethod

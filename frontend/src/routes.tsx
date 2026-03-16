@@ -12,7 +12,7 @@ import {
 
   MdStorage,
   MdBarChart,
-  MdGroup,
+
   MdSettings,
   MdBugReport,
   MdKey,
@@ -81,11 +81,6 @@ const routes: IRoute[] = [
     name: 'Usage',
     path: '/usage',
     icon: <Icon as={MdBarChart} width="20px" height="20px" color="inherit" />,
-  },
-  {
-    name: 'Team',
-    path: '/team',
-    icon: <Icon as={MdGroup} width="20px" height="20px" color="inherit" />,
   },
   {
     name: 'API Keys',
