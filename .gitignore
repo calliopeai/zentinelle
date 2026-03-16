@@ -1,5 +1,6 @@
 # Internal — never commit
 calliope.md
+.claude/worktrees/
 
 # Python
 __pycache__/
