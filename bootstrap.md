@@ -74,7 +74,8 @@ pipenv install
 pipenv run python manage.py runserver                        # port 8000
 pipenv run pytest                                            # all tests
 pipenv run pytest zentinelle/tests/                         # zentinelle only
-pipenv run python manage.py migrate
+pipenv run python manage.py migrate --database zentinelle    # zentinelle models (REQUIRED — uses zentinelle schema)
+pipenv run python manage.py migrate                          # auth/sessions tables (default/public schema)
 pipenv run python manage.py dev_utils --generate_schema      # export GraphQL schema
 ```
 
@@ -90,6 +91,7 @@ npm run lint
 ### Docker
 ```bash
 docker compose up
+docker compose run backend python manage.py migrate --database zentinelle
 docker compose run backend python manage.py migrate
 docker compose run backend python manage.py createsuperuser
 ```
