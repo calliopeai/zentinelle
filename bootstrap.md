@@ -94,6 +94,31 @@ docker compose run backend python manage.py migrate
 docker compose run backend python manage.py createsuperuser
 ```
 
+### Config File (zentinelle.yaml)
+
+As an alternative to setting individual environment variables you can place a
+`zentinelle.yaml` file in the repo root. The loader runs at Django startup,
+before any settings are evaluated, and injects values into the environment.
+
+**Env vars always win** — if `DATABASE_URL` is already set in the environment,
+the value in the YAML file is silently ignored.
+
+Quick start:
+
+```bash
+cp zentinelle.yaml.example zentinelle.yaml
+# edit zentinelle.yaml with your values
+```
+
+To use a different path, set `ZENTINELLE_CONFIG`:
+
+```bash
+ZENTINELLE_CONFIG=/etc/zentinelle/config.yaml python manage.py runserver
+```
+
+If the file is missing or PyYAML is not installed the service starts normally
+without error — it simply falls back to pure env var configuration.
+
 The stack includes ClickHouse for audit analytics. It starts automatically and
 initialises the schema from `backend/zentinelle/clickhouse/schema.sql` on first
 boot. `CLICKHOUSE_URL` is pre-set in `docker-compose.yml`; no extra config needed.

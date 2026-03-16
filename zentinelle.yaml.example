@@ -1,0 +1,90 @@
+# zentinelle.yaml — Configuration file for Zentinelle
+#
+# This file is an alternative to managing individual environment variables.
+# Copy it to zentinelle.yaml (or point ZENTINELLE_CONFIG at any path) and
+# uncomment/edit the values you need.
+#
+# Priority: environment variables ALWAYS override values in this file.
+# If DATABASE_URL is already set in the environment, the value below is ignored.
+#
+# PyYAML (pyyaml>=6.0) must be installed for this file to be read.
+# It is included in requirements.txt. If it is missing the loader degrades
+# gracefully — no error, just falls back to pure env vars.
+
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
+database:
+  # PostgreSQL connection URL.
+  # Equivalent env var: DATABASE_URL
+  url: postgresql://user:pass@host:5432/zentinelle
+
+# ---------------------------------------------------------------------------
+# Redis
+# ---------------------------------------------------------------------------
+redis:
+  # Redis connection URL used for caching.
+  # Equivalent env var: REDIS_URL
+  url: redis://localhost:6379/0
+
+# ---------------------------------------------------------------------------
+# ClickHouse (optional — remove section to disable)
+# ---------------------------------------------------------------------------
+clickhouse:
+  # ClickHouse connection URL for audit analytics.
+  # Equivalent env var: CLICKHOUSE_URL
+  url: clickhouse://default:@localhost:8123/default
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+auth:
+  # Authentication mode.
+  # "standalone" — Zentinelle manages its own users (default).
+  # "client_cove" — Delegate auth to Calliope's Client Cove platform.
+  # Equivalent env var: AUTH_MODE
+  mode: standalone
+
+  # Settings only used when mode: client_cove
+  client_cove:
+    # Base URL of the Client Cove / Calliope management API.
+    # Equivalent env var: CALLIOPE_INTERNAL_API_URL
+    api_url: https://app.calliope.ai
+
+    # Internal API key issued by Calliope.
+    # Equivalent env var: CALLIOPE_INTERNAL_API_KEY
+    api_key: sk_internal_...
+
+    # How long (seconds) to cache tenant lookups from Client Cove.
+    # Equivalent env var: CALLIOPE_TENANT_CACHE_TTL
+    cache_ttl: 300
+
+# ---------------------------------------------------------------------------
+# Celery
+# ---------------------------------------------------------------------------
+celery:
+  # Broker URL (typically Redis).
+  # Equivalent env var: CELERY_BROKER_URL
+  broker_url: redis://localhost:6379/0
+
+  # Result backend URL.
+  # Equivalent env var: CELERY_RESULT_BACKEND
+  result_backend: redis://localhost:6379/1
+
+# ---------------------------------------------------------------------------
+# Django
+# ---------------------------------------------------------------------------
+django:
+  # Django secret key — CHANGE THIS in production.
+  # Equivalent env var: SECRET_KEY
+  secret_key: change-me
+
+  # Enable Django debug mode. Never set true in production.
+  # Equivalent env var: DEBUG
+  debug: false
+
+  # Hosts/domains the Django application is allowed to serve.
+  # Equivalent env var: ALLOWED_HOSTS (comma-separated string)
+  allowed_hosts:
+    - localhost
+    - 127.0.0.1

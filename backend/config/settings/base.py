@@ -22,6 +22,12 @@ _backend_dotenv = BASE_DIR / ".env"
 if _backend_dotenv.exists():
     load_dotenv(_backend_dotenv)
 
+# Load zentinelle.yaml config file (env vars always win over file values).
+# Must run before any settings variables are read.
+from zentinelle.conf import load_config  # noqa: E402
+
+load_config()
+
 # =============================================================================
 # Core
 # =============================================================================
