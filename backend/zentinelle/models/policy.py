@@ -172,13 +172,16 @@ class Policy(Tracking):
 
     def save(self, *args, **kwargs):
         self.clean()
-        # Increment version on updates (not on initial creation)
-        if self.pk:
+        # Use _state.adding (not self.pk) because UUID PKs are pre-generated
+        # and self.pk is always truthy even for unsaved instances.
+        # Call models.Model.save() directly to skip Tracking.save()'s own
+        # version increment, which would double-count with our F() expression.
+        if not self._state.adding:
             self.version = models.F('version') + 1
-            super().save(*args, **kwargs)
+            models.Model.save(self, *args, **kwargs)
             self.refresh_from_db(fields=['version'])
         else:
-            super().save(*args, **kwargs)
+            models.Model.save(self, *args, **kwargs)
 
 
 class PolicyRevision(models.Model):

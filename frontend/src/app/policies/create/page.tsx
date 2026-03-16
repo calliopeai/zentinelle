@@ -310,11 +310,21 @@ export default function CreatePolicyPage() {
     return policyOptions?.policyTypes.find((t) => t.value === formData.policyType);
   }, [policyOptions, formData.policyType]);
 
+  // Parse configSchema — graphene.JSONString() returns it as a JSON string
+  const parsedConfigSchema = useMemo<Record<string, string>>(() => {
+    const raw = currentPolicyType?.configSchema;
+    if (!raw) return {};
+    if (typeof raw === 'string') {
+      try { return JSON.parse(raw); } catch { return {}; }
+    }
+    return raw as Record<string, string>;
+  }, [currentPolicyType?.configSchema]);
+
   // Reset config values when policy type changes
   useEffect(() => {
-    if (currentPolicyType?.configSchema) {
+    if (Object.keys(parsedConfigSchema).length > 0) {
       const initialConfig: Record<string, unknown> = {};
-      Object.entries(currentPolicyType.configSchema).forEach(([key, type]) => {
+      Object.entries(parsedConfigSchema).forEach(([key, type]) => {
         if (type === 'int' || type === 'float') {
           initialConfig[key] = 0;
         } else if (type === 'bool') {
@@ -327,7 +337,7 @@ export default function CreatePolicyPage() {
       });
       setConfigValues(initialConfig);
     }
-  }, [currentPolicyType]);
+  }, [parsedConfigSchema]);
 
   const [createPolicy, { loading }] = useMutation(CREATE_POLICY, {
     onCompleted: (result) => {
@@ -518,8 +528,8 @@ export default function CreatePolicyPage() {
                 <Text fontWeight="600" color={textColor}>
                   {currentPolicyType.label} Configuration
                 </Text>
-                {currentPolicyType.configSchema &&
-                  Object.entries(currentPolicyType.configSchema).map(([fieldName, fieldType]) => (
+                {Object.keys(parsedConfigSchema).length > 0 &&
+                  Object.entries(parsedConfigSchema).map(([fieldName, fieldType]) => (
                     <ConfigField
                       key={fieldName}
                       fieldName={fieldName}
