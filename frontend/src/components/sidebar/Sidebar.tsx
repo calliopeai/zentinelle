@@ -53,8 +53,10 @@ export default function Sidebar(props: {
   mini: boolean;
   hovered: boolean;
   setHovered: React.Dispatch<React.SetStateAction<boolean>>;
+  isOpen?: boolean;
+  onClose?: () => void;
 }) {
-  const { routes, mini, hovered, setHovered } = props;
+  const { routes, mini, hovered, setHovered, isOpen = false, onClose = () => {} } = props;
 
   const variantChange = '0.2s linear';
   const sidebarBg = useColorModeValue('white', 'navy.800');
@@ -62,37 +64,58 @@ export default function Sidebar(props: {
   const sidebarMargins = '0px';
 
   return (
-    <Box display={{ sm: 'none', xl: 'block' }} position="fixed" minH="100%">
-      <Box
-        bg={sidebarBg}
-        transition={variantChange}
-        w={mini === false ? '290px' : mini === true && hovered === true ? '290px' : '120px'}
-        ms={{ sm: '16px' }}
-        my={{ sm: '16px' }}
-        h="calc(100vh - 32px)"
-        m={sidebarMargins}
-        borderRadius={sidebarRadius}
-        minH="100%"
-        overflowX="hidden"
-        boxShadow="14px 17px 40px 4px rgba(112, 144, 176, 0.08)"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
-        <Scrollbars
-          autoHide
-          renderTrackVertical={renderTrack}
-          renderThumbVertical={renderThumb}
-          renderView={
-            mini === false
-              ? renderView
-              : mini === true && hovered === true
-              ? renderView
-              : renderViewMini
-          }
+    <>
+      {/* Desktop sidebar — hidden below xl */}
+      <Box display={{ base: 'none', xl: 'block' }} position="fixed" minH="100%">
+        <Box
+          bg={sidebarBg}
+          transition={variantChange}
+          w={mini === false ? '290px' : mini === true && hovered === true ? '290px' : '120px'}
+          ms={{ sm: '16px' }}
+          my={{ sm: '16px' }}
+          h="calc(100vh - 32px)"
+          m={sidebarMargins}
+          borderRadius={sidebarRadius}
+          minH="100%"
+          overflowX="hidden"
+          boxShadow="14px 17px 40px 4px rgba(112, 144, 176, 0.08)"
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
         >
-          <SidebarContent mini={mini} hovered={hovered} routes={routes} />
-        </Scrollbars>
+          <Scrollbars
+            autoHide
+            renderTrackVertical={renderTrack}
+            renderThumbVertical={renderThumb}
+            renderView={
+              mini === false
+                ? renderView
+                : mini === true && hovered === true
+                ? renderView
+                : renderViewMini
+            }
+          >
+            <SidebarContent mini={mini} hovered={hovered} routes={routes} />
+          </Scrollbars>
+        </Box>
       </Box>
-    </Box>
+
+      {/* Mobile drawer — visible below xl */}
+      <Drawer isOpen={isOpen} placement="left" onClose={onClose} size="xs">
+        <DrawerOverlay />
+        <DrawerContent bg={sidebarBg} maxW="290px">
+          <DrawerCloseButton top="20px" right="16px" zIndex={1} />
+          <DrawerBody p={0}>
+            <Scrollbars
+              autoHide
+              renderTrackVertical={renderTrack}
+              renderThumbVertical={renderThumb}
+              renderView={renderView}
+            >
+              <SidebarContent mini={false} hovered={true} routes={routes} />
+            </Scrollbars>
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
+    </>
   );
 }

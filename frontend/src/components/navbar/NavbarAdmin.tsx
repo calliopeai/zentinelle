@@ -8,6 +8,7 @@ import {
   Center,
   Flex,
   Icon,
+  IconButton,
   Link,
   Menu,
   MenuButton,
@@ -18,6 +19,7 @@ import {
   useColorMode,
   useColorModeValue,
 } from '@chakra-ui/react';
+import { HamburgerIcon } from '@chakra-ui/icons';
 import { useAuth } from 'contexts/AuthContext';
 import { useCurrentPageHeader } from 'contexts/PageHeaderContext';
 import { usePathname } from 'next/navigation';
@@ -147,6 +149,19 @@ export default function AdminNavbar(props: {
         justifyContent="space-between"
         mb={gap}
       >
+        {/* Hamburger — mobile only (below xl) */}
+        <IconButton
+          display={{ base: 'flex', xl: 'none' }}
+          aria-label="Open menu"
+          icon={<HamburgerIcon />}
+          variant="ghost"
+          size="sm"
+          me="8px"
+          color={navbarIcon}
+          onClick={props.onOpen}
+          flexShrink={0}
+        />
+
         {/* Left: page title, subtitle, breadcrumbs */}
         <Box ps="4px" flex="1" minW="0">
           {displayTitle && (

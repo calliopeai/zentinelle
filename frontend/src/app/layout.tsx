@@ -34,17 +34,19 @@ function ZentinelleLayout({ children }: { children: ReactNode }) {
   const [fixed] = useState(false);
   const pathname = usePathname();
   if (isWindowAvailable()) document.documentElement.dir = 'ltr';
-  const { onOpen } = useDisclosure();
+  const { isOpen, onOpen, onClose } = useDisclosure();
   const [mini, setMini] = useState(false);
   const [hovered, setHovered] = useState(false);
 
   return (
     <Box>
-<Sidebar
+      <Sidebar
         mini={mini}
         routes={routes}
         hovered={hovered}
         setHovered={setHovered}
+        isOpen={isOpen}
+        onClose={onClose}
       />
       <Box
         float="right"
