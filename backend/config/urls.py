@@ -5,7 +5,7 @@ from zentinelle.api.graphql_view import ZentinelleGraphQLView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/zentinelle/", include("zentinelle.api.urls")),
+    path("api/zentinelle/v1/", include("zentinelle.api.urls")),
     path("gql/zentinelle/", csrf_exempt(ZentinelleGraphQLView.as_view(graphiql=True))),
     path("proxy/", include("zentinelle.proxy.urls")),
 ]
