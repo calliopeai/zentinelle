@@ -360,7 +360,7 @@ export default function CompliancePage() {
 
   if (loading && !overview) {
     return (
-      <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+      <Box>
         <Flex justify="center" py="40px">
           <Spinner size="xl" color="brand.500" />
         </Flex>
@@ -370,7 +370,7 @@ export default function CompliancePage() {
 
   if (error) {
     return (
-      <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+      <Box>
         <Card p="20px" bg={cardBg}>
           <Text color="red.500">Error loading compliance data: {error.message}</Text>
         </Card>
@@ -383,7 +383,7 @@ export default function CompliancePage() {
   const criticalGaps = gaps.filter((g) => g.severity === 'critical' || g.severity === 'high').length;
 
   return (
-    <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+    <Box>
       <Flex justify="flex-end" mb="20px">
         <Button
           variant="outline"

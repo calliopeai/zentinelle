@@ -118,7 +118,7 @@ export default function UsagePage() {
   const storagePercentage = storageLimit > 0 ? (storageUsed / storageLimit) * 100 : 0;
 
   return (
-    <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+    <Box>
       <Flex justify="flex-end" mb="20px">
         <Flex gap="12px">
           <Select

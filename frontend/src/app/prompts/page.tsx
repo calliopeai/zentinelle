@@ -727,7 +727,7 @@ export default function SystemPromptsPage() {
 
   if (loading && !data) {
     return (
-      <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+      <Box>
         <Flex justify="center" py="40px">
           <Spinner size="xl" color="brand.500" />
         </Flex>
@@ -736,7 +736,7 @@ export default function SystemPromptsPage() {
   }
 
   return (
-    <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+    <Box>
       <Flex justify="flex-end" mb="20px">
         <HStack spacing="12px">
           <Button

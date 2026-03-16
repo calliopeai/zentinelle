@@ -192,7 +192,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+      <Box>
         <Flex justify="center" align="center" minH="400px">
           <Spinner size="xl" color="brand.500" />
         </Flex>
@@ -202,7 +202,7 @@ export default function SettingsPage() {
 
   if (error) {
     return (
-      <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+      <Box>
         <Alert status="error">
           <AlertIcon />
           Failed to load settings: {error.message}
@@ -212,7 +212,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+    <Box>
       <Flex justify="flex-end" mb="20px">
         <Button
           variant="brand"

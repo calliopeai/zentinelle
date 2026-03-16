@@ -29,7 +29,7 @@ export default function MonitoringPage() {
   const tabBg = useColorModeValue('white', 'navy.800');
 
   return (
-    <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+    <Box>
       {/* Tabs */}
       <Tabs variant="enclosed" colorScheme="brand">
         <TabList>

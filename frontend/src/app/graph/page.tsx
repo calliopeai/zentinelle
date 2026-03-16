@@ -342,7 +342,7 @@ export default function PolicyGraphPage() {
   };
 
   return (
-    <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+    <Box>
       {/* Filters bar */}
       <Card bg={cardBg} mb="16px" p="16px">
         <Flex wrap="wrap" gap="16px" align="flex-end">

@@ -2,9 +2,6 @@
 
 import {
   Box,
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
   Center,
   Flex,
   Icon,
@@ -107,16 +104,16 @@ export default function AdminNavbar(props: {
       transitionTimingFunction="linear, linear, linear, linear"
       alignItems={{ xl: 'center' }}
       display={secondary ? 'block' : 'flex'}
-      minH="75px"
+      minH="auto"
       justifyContent={{ xl: 'center' }}
       lineHeight="25.6px"
       mx="auto"
       mt={secondaryMargin}
-      pb="8px"
+      pb="4px"
       right={{ base: '12px', md: '30px', lg: '30px', xl: '30px' }}
       px={{ sm: paddingX, md: '10px' }}
       ps={{ xl: '12px' }}
-      pt="8px"
+      pt="4px"
       top={{ base: '12px', md: '16px', xl: '18px' }}
       w={{
         base: 'calc(100vw - 6%)',
@@ -128,49 +125,11 @@ export default function AdminNavbar(props: {
     >
       <Flex
         w="100%"
-        flexDirection={{ sm: 'column', md: 'row' }}
-        alignItems={{ xl: 'center' }}
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="flex-end"
         mb={gap}
       >
-        <Box mb={{ sm: '8px', md: '0px' }}>
-          <Text fontWeight="700" fontSize="3xl" color={textColor} lineHeight="1.1">
-            {displayTitle}
-          </Text>
-          {displayDescription && (
-            <Text fontSize="sm" color={descriptionColor} mt="4px">
-              {displayDescription}
-            </Text>
-          )}
-          <Breadcrumb separator=">" mt="5px" spacing="8px">
-            <BreadcrumbItem>
-              <BreadcrumbLink
-                href="/zentinelle/agents/"
-                fontSize="xs"
-                color={descriptionColor}
-                _hover={{ color: textColor }}
-              >
-                HOME
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            {props.parentText && props.parentText !== props.brandText && (
-              <BreadcrumbItem>
-                <BreadcrumbLink
-                  href="#"
-                  fontSize="xs"
-                  color={descriptionColor}
-                  _hover={{ color: textColor }}
-                >
-                  {props.parentText}
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-            )}
-            <BreadcrumbItem isCurrentPage>
-              <BreadcrumbLink href="#" fontSize="xs" color={descriptionColor} fontWeight="500">
-                {props.brandText}
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-          </Breadcrumb>
-        </Box>
         <Box ms="auto" w={{ sm: '100%', md: 'unset' }}>
           {isAuthenticated && (
             <Flex

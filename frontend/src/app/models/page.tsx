@@ -513,7 +513,7 @@ export default function ModelRegistryPage() {
   const borderColor = useColorModeValue('gray.200', 'whiteAlpha.100');
 
   return (
-    <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+    <Box>
       {/* Tabs */}
       <Tabs variant="enclosed" colorScheme="brand">
         <TabList mb="16px">

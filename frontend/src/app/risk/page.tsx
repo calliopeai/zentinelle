@@ -23,7 +23,7 @@ export default function RiskManagementPage() {
   usePageHeader('Risk Management', 'Track AI-specific risks and manage policy violation incidents');
 
   return (
-    <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+    <Box>
       {/* Tabs */}
       <Tabs variant="enclosed" colorScheme="brand">
         <TabList>
