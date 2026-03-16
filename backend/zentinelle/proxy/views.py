@@ -71,6 +71,7 @@ logger = logging.getLogger(__name__)
 PROVIDERS = {
     'anthropic': 'https://api.anthropic.com',
     'openai': 'https://api.openai.com',
+    'google': 'https://generativelanguage.googleapis.com',
 }
 
 # Headers that must not be forwarded to the upstream provider.
