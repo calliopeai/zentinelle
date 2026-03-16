@@ -210,9 +210,9 @@ class ProxyView(View):
         for header, value in request.headers.items():
             if header.lower() not in _HOP_BY_HOP:
                 forward_headers[header] = value
-        # Set correct Host
-        provider_host = PROVIDERS[provider].replace('https://', '').replace('http://', '')
-        forward_headers['Host'] = provider_host
+        # Set correct Host (just the hostname, not the path)
+        from urllib.parse import urlparse
+        forward_headers['Host'] = urlparse(PROVIDERS[provider]).hostname
 
         try:
             import httpx
