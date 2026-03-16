@@ -37,9 +37,12 @@
     "build": "next build",
     "start": "next start -p 3002",
     "lint": "next lint",
-    "compile": "graphql-codegen"
+    "compile": "graphql-codegen",
+    "e2e": "NEXT_PUBLIC_AUTH_MODE=standalone playwright test",
+    "e2e:ui": "NEXT_PUBLIC_AUTH_MODE=standalone playwright test --ui"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
