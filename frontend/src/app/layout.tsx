@@ -101,6 +101,9 @@ function ZentinelleLayout({ children }: { children: ReactNode }) {
               }}
               px={{ sm: '15px', md: '10px' }}
               zIndex={98}
+              h="36px"
+              display="flex"
+              alignItems="center"
             >
               <Breadcrumb separator=">" spacing="8px">
                 <BreadcrumbItem>
