@@ -61,7 +61,7 @@ import {
   MdSecurity,
 } from 'react-icons/md';
 import Card from 'components/card/Card';
-import { GET_INCIDENTS, GET_RISK_STATS, CREATE_INCIDENT } from 'graphql/risk';
+import { GET_INCIDENTS, GET_RISK_STATS, CREATE_INCIDENT, UPDATE_INCIDENT } from 'graphql/risk';
 
 interface Incident {
   id: string;
@@ -129,12 +129,26 @@ export default function IncidentManagement() {
 
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
+  const { isOpen: isStatusOpen, onOpen: onStatusOpen, onClose: onStatusClose } = useDisclosure();
   const toast = useToast();
+  const [newStatus, setNewStatus] = useState('');
 
   const [createTitle, setCreateTitle] = useState('');
   const [createDescription, setCreateDescription] = useState('');
   const [createSeverity, setCreateSeverity] = useState('medium');
   const [createType, setCreateType] = useState('policy_violation');
+
+  const [updateIncident, { loading: updating }] = useMutation(UPDATE_INCIDENT, {
+    onCompleted: (result) => {
+      if (result.updateIncident?.success) {
+        toast({ title: 'Status updated', status: 'success', duration: 2000 });
+        onStatusClose();
+        refetch();
+      } else {
+        toast({ title: 'Failed to update status', description: result.updateIncident?.errors?.join(', '), status: 'error' });
+      }
+    },
+  });
 
   const [createIncident, { loading: creating }] = useMutation(CREATE_INCIDENT, {
     onCompleted: (result) => {
@@ -460,6 +474,37 @@ export default function IncidentManagement() {
         )}
       </VStack>
 
+      {/* Update Status Modal */}
+      <Modal isOpen={isStatusOpen} onClose={onStatusClose} size="sm">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Update Incident Status</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <FormControl>
+              <FormLabel>New Status</FormLabel>
+              <Select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
+                <option value="open">Open</option>
+                <option value="investigating">Investigating</option>
+                <option value="mitigating">Mitigating</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </Select>
+            </FormControl>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onStatusClose}>Cancel</Button>
+            <Button
+              colorScheme="brand"
+              isLoading={updating}
+              onClick={() => updateIncident({ variables: { input: { id: selectedIncident?.id, status: newStatus } } })}
+            >
+              Save
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
       {/* Report Incident Modal */}
       <Modal isOpen={isCreateOpen} onClose={onCreateClose} size="lg">
         <ModalOverlay />
@@ -643,7 +688,15 @@ export default function IncidentManagement() {
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr="8px" onClick={onClose}>Close</Button>
-            <Button colorScheme="brand">Update Status</Button>
+            <Button
+              colorScheme="brand"
+              onClick={() => {
+                setNewStatus(selectedIncident?.status || 'open');
+                onStatusOpen();
+              }}
+            >
+              Update Status
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

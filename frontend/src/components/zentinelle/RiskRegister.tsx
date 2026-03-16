@@ -40,9 +40,16 @@ import {
   Spinner,
   Alert,
   AlertIcon,
+  FormControl,
+  FormLabel,
+  Input,
+  Textarea,
+  useToast,
+  NumberInput,
+  NumberInputField,
 } from '@chakra-ui/react';
 import { useState, useMemo } from 'react';
-import { useQuery } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
 import {
   MdAdd,
   MdEdit,
@@ -57,7 +64,7 @@ import {
   MdPerson,
 } from 'react-icons/md';
 import Card from 'components/card/Card';
-import { GET_RISKS, GET_RISK_STATS } from 'graphql/risk';
+import { GET_RISKS, GET_RISK_STATS, CREATE_RISK, UPDATE_RISK, DELETE_RISK } from 'graphql/risk';
 
 interface Risk {
   id: string;
@@ -110,9 +117,81 @@ export default function RiskRegister() {
 
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isMatrixOpen, onOpen: onMatrixOpen, onClose: onMatrixClose } = useDisclosure();
+  const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+  const toast = useToast();
+
+  const [createName, setCreateName] = useState('');
+  const [createDescription, setCreateDescription] = useState('');
+  const [createCategory, setCreateCategory] = useState('security');
+  const [createLikelihood, setCreateLikelihood] = useState(3);
+  const [createImpact, setCreateImpact] = useState(3);
+
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editCategory, setEditCategory] = useState('security');
+  const [editStatus, setEditStatus] = useState('identified');
+  const [editLikelihood, setEditLikelihood] = useState(3);
+  const [editImpact, setEditImpact] = useState(3);
+
+  const [createRisk, { loading: creating }] = useMutation(CREATE_RISK, {
+    onCompleted: (result) => {
+      if (result.createRisk?.success) {
+        toast({ title: 'Risk created', status: 'success', duration: 2000 });
+        onCreateClose();
+        setCreateName(''); setCreateDescription(''); setCreateCategory('security');
+        setCreateLikelihood(3); setCreateImpact(3);
+        refetch();
+      } else {
+        toast({ title: 'Failed to create risk', description: result.createRisk?.errors?.join(', '), status: 'error' });
+      }
+    },
+  });
+
+  const [updateRisk, { loading: updating }] = useMutation(UPDATE_RISK, {
+    onCompleted: (result) => {
+      if (result.updateRisk?.success) {
+        toast({ title: 'Risk updated', status: 'success', duration: 2000 });
+        onEditClose();
+        refetch();
+      } else {
+        toast({ title: 'Failed to update risk', description: result.updateRisk?.errors?.join(', '), status: 'error' });
+      }
+    },
+  });
+
+  const [deleteRisk, { loading: deleting }] = useMutation(DELETE_RISK, {
+    onCompleted: (result) => {
+      if (result.deleteRisk?.success) {
+        toast({ title: 'Risk deleted', status: 'success', duration: 2000 });
+        onDeleteClose();
+        onClose();
+        refetch();
+      } else {
+        toast({ title: 'Failed to delete risk', description: result.deleteRisk?.errors?.join(', '), status: 'error' });
+      }
+    },
+  });
+
+  const handleOpenEdit = (risk: Risk) => {
+    setSelectedRisk(risk);
+    setEditName(risk.name);
+    setEditDescription(risk.description);
+    setEditCategory(risk.category);
+    setEditStatus(risk.status);
+    setEditLikelihood(risk.likelihood);
+    setEditImpact(risk.impact);
+    onEditOpen();
+  };
+
+  const handleOpenDelete = (risk: Risk) => {
+    setSelectedRisk(risk);
+    onDeleteOpen();
+  };
 
   // Fetch risks
-  const { data, loading, error } = useQuery(GET_RISKS, {
+  const { data, loading, error, refetch } = useQuery(GET_RISKS, {
     variables: {
       category: categoryFilter || undefined,
       status: statusFilter || undefined,
@@ -370,7 +449,7 @@ export default function RiskRegister() {
             <Button size="sm" variant="outline" onClick={onMatrixOpen}>
               View Matrix
             </Button>
-            <Button size="sm" leftIcon={<MdAdd />} colorScheme="brand">
+            <Button size="sm" leftIcon={<MdAdd />} colorScheme="brand" onClick={onCreateOpen}>
               Add Risk
             </Button>
           </HStack>
@@ -466,8 +545,8 @@ export default function RiskRegister() {
                             size="sm"
                           />
                           <MenuList>
-                            <MenuItem icon={<MdEdit />}>Edit Risk</MenuItem>
-                            <MenuItem icon={<MdDelete />} color="red.500">Delete Risk</MenuItem>
+                            <MenuItem icon={<MdEdit />} onClick={() => handleOpenEdit(risk)}>Edit Risk</MenuItem>
+                            <MenuItem icon={<MdDelete />} color="red.500" onClick={() => handleOpenDelete(risk)}>Delete Risk</MenuItem>
                           </MenuList>
                         </Menu>
                       </Td>
@@ -588,7 +667,13 @@ export default function RiskRegister() {
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr="8px" onClick={onClose}>Close</Button>
-            <Button colorScheme="brand" leftIcon={<MdEdit />}>Edit Risk</Button>
+            <Button
+              colorScheme="brand"
+              leftIcon={<MdEdit />}
+              onClick={() => { if (selectedRisk) handleOpenEdit(selectedRisk); onClose(); }}
+            >
+              Edit Risk
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -623,6 +708,155 @@ export default function RiskRegister() {
           </ModalBody>
           <ModalFooter>
             <Button onClick={onMatrixClose}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Create Risk Modal */}
+      <Modal isOpen={isCreateOpen} onClose={onCreateClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Add Risk</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing="16px">
+              <FormControl isRequired>
+                <FormLabel>Name</FormLabel>
+                <Input value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Risk name" />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Description</FormLabel>
+                <Textarea value={createDescription} onChange={(e) => setCreateDescription(e.target.value)} rows={3} placeholder="Describe the risk" />
+              </FormControl>
+              <FormControl isRequired>
+                <FormLabel>Category</FormLabel>
+                <Select value={createCategory} onChange={(e) => setCreateCategory(e.target.value)}>
+                  <option value="security">Security</option>
+                  <option value="privacy">Privacy</option>
+                  <option value="compliance">Compliance</option>
+                  <option value="operational">Operational</option>
+                  <option value="reputational">Reputational</option>
+                  <option value="financial">Financial</option>
+                  <option value="ethical">Ethical</option>
+                </Select>
+              </FormControl>
+              <HStack w="100%" spacing="16px">
+                <FormControl isRequired>
+                  <FormLabel>Likelihood (1-5)</FormLabel>
+                  <NumberInput min={1} max={5} value={createLikelihood} onChange={(_, v) => setCreateLikelihood(v)}>
+                    <NumberInputField />
+                  </NumberInput>
+                </FormControl>
+                <FormControl isRequired>
+                  <FormLabel>Impact (1-5)</FormLabel>
+                  <NumberInput min={1} max={5} value={createImpact} onChange={(_, v) => setCreateImpact(v)}>
+                    <NumberInputField />
+                  </NumberInput>
+                </FormControl>
+              </HStack>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onCreateClose}>Cancel</Button>
+            <Button
+              colorScheme="brand"
+              isLoading={creating}
+              isDisabled={!createName.trim()}
+              onClick={() => createRisk({ variables: { input: { name: createName, description: createDescription, category: createCategory, likelihood: createLikelihood, impact: createImpact } } })}
+            >
+              Create Risk
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Edit Risk Modal */}
+      <Modal isOpen={isEditOpen} onClose={onEditClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit Risk</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing="16px">
+              <FormControl isRequired>
+                <FormLabel>Name</FormLabel>
+                <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Description</FormLabel>
+                <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={3} />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Category</FormLabel>
+                <Select value={editCategory} onChange={(e) => setEditCategory(e.target.value)}>
+                  <option value="security">Security</option>
+                  <option value="privacy">Privacy</option>
+                  <option value="compliance">Compliance</option>
+                  <option value="operational">Operational</option>
+                  <option value="reputational">Reputational</option>
+                  <option value="financial">Financial</option>
+                  <option value="ethical">Ethical</option>
+                </Select>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Status</FormLabel>
+                <Select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
+                  <option value="identified">Identified</option>
+                  <option value="assessed">Assessed</option>
+                  <option value="mitigating">Mitigating</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="transferred">Transferred</option>
+                  <option value="closed">Closed</option>
+                </Select>
+              </FormControl>
+              <HStack w="100%" spacing="16px">
+                <FormControl>
+                  <FormLabel>Likelihood (1-5)</FormLabel>
+                  <NumberInput min={1} max={5} value={editLikelihood} onChange={(_, v) => setEditLikelihood(v)}>
+                    <NumberInputField />
+                  </NumberInput>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Impact (1-5)</FormLabel>
+                  <NumberInput min={1} max={5} value={editImpact} onChange={(_, v) => setEditImpact(v)}>
+                    <NumberInputField />
+                  </NumberInput>
+                </FormControl>
+              </HStack>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onEditClose}>Cancel</Button>
+            <Button
+              colorScheme="brand"
+              isLoading={updating}
+              isDisabled={!editName.trim()}
+              onClick={() => updateRisk({ variables: { input: { id: selectedRisk?.id, name: editName, description: editDescription, category: editCategory, status: editStatus, likelihood: editLikelihood, impact: editImpact } } })}
+            >
+              Save Changes
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Delete Risk Confirmation */}
+      <Modal isOpen={isDeleteOpen} onClose={onDeleteClose} size="sm">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Delete Risk</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Text>Are you sure you want to delete <strong>{selectedRisk?.name}</strong>? This action cannot be undone.</Text>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onDeleteClose}>Cancel</Button>
+            <Button
+              colorScheme="red"
+              isLoading={deleting}
+              onClick={() => deleteRisk({ variables: { id: selectedRisk?.id } })}
+            >
+              Delete
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
