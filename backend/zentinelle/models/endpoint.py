@@ -16,15 +16,15 @@ class AgentEndpoint(Tracking):
     """
 
     class AgentType(models.TextChoices):
-        JUPYTERHUB = 'jupyterhub', 'JupyterHub'
-        CHAT = 'chat', 'Chat Agent'
-        LANGCHAIN = 'langchain', 'LangChain Agent'
-        LANGGRAPH = 'langgraph', 'LangGraph Agent'
-        MCP = 'mcp', 'MCP Server'
         CLAUDE_CODE = 'claude_code', 'Claude Code'
         GEMINI = 'gemini', 'Gemini'
         CODEX = 'codex', 'Codex'
-        CUSTOM = 'custom', 'Custom Agent'
+        JUNOHUB = 'junohub', 'JunoHub'
+        LANGCHAIN = 'langchain', 'LangChain'
+        LANGGRAPH = 'langgraph', 'LangGraph'
+        MCP = 'mcp', 'MCP Server'
+        CHAT = 'chat', 'Chat Agent'
+        CUSTOM = 'custom', 'Custom'
 
     class Status(models.TextChoices):
         PROVISIONING = 'provisioning', 'Provisioning'
