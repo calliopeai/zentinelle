@@ -2,7 +2,16 @@
 
 import React, { ReactNode, useState } from 'react';
 import 'styles/App.css';
-import { ChakraProvider, Portal, Box, useDisclosure } from '@chakra-ui/react';
+import {
+  ChakraProvider,
+  Portal,
+  Box,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  useColorModeValue,
+  useDisclosure,
+} from '@chakra-ui/react';
 import { UserProvider } from '@auth0/nextjs-auth0/client';
 import dynamic from 'next/dynamic';
 import initialTheme from 'theme/theme';
@@ -31,6 +40,7 @@ function ZentinelleLayout({ children }: { children: ReactNode }) {
   const { onOpen } = useDisclosure();
   const [mini, setMini] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const breadcrumbColor = useColorModeValue('secondaryGray.700', 'secondaryGray.400');
 
   return (
     <Box>
@@ -75,6 +85,33 @@ function ZentinelleLayout({ children }: { children: ReactNode }) {
               secondary={getActiveNavbar(routes, pathname)}
               fixed={fixed}
             />
+            <Box
+              position="fixed"
+              top={{ base: '84px', md: '88px', xl: '92px' }}
+              right={{ base: '12px', md: '30px', lg: '30px', xl: '30px' }}
+              w={{
+                base: 'calc(100vw - 6%)',
+                md: 'calc(100vw - 8%)',
+                lg: 'calc(100vw - 6%)',
+                xl: 'calc(100vw - 350px)',
+                '2xl': 'calc(100vw - 365px)',
+              }}
+              px={{ sm: '15px', md: '10px' }}
+              zIndex={98}
+            >
+              <Breadcrumb fontSize="sm">
+                <BreadcrumbItem color={breadcrumbColor}>
+                  <BreadcrumbLink href="/zentinelle/agents/" color={breadcrumbColor}>
+                    Zentinelle
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbItem isCurrentPage color={breadcrumbColor}>
+                  <BreadcrumbLink href="#" color={breadcrumbColor}>
+                    {getActiveRoute(routes, pathname)}
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+              </Breadcrumb>
+            </Box>
           </Box>
         </Portal>
 

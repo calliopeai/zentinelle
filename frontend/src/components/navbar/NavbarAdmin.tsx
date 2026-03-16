@@ -2,9 +2,6 @@
 
 import {
   Box,
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
   Center,
   Flex,
   Icon,
@@ -126,18 +123,6 @@ export default function AdminNavbar(props: {
         mb={gap}
       >
         <Box mb={{ sm: '8px', md: '0px' }}>
-          <Breadcrumb>
-            <BreadcrumbItem color={textColor} fontSize="sm" mb="5px">
-              <BreadcrumbLink href="/zentinelle/agents/" color={textColor}>
-                Zentinelle
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbItem color={textColor} fontSize="sm" mb="5px">
-              <BreadcrumbLink href="#" color={textColor}>
-                {brandText}
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-          </Breadcrumb>
           <Link
             color={textColor}
             href="#"
