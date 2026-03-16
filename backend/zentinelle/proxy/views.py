@@ -86,6 +86,11 @@ _HOP_BY_HOP = frozenset([
     'upgrade',
     'host',
     'x-zentinelle-key',
+    # Strip reverse-proxy headers that shouldn't reach upstream providers
+    'x-real-ip',
+    'x-forwarded-for',
+    'x-forwarded-proto',
+    'x-forwarded-host',
 ])
 
 
@@ -213,6 +218,10 @@ class ProxyView(View):
         # Set correct Host (just the hostname, not the path)
         from urllib.parse import urlparse
         forward_headers['Host'] = urlparse(PROVIDERS[provider]).hostname
+
+        # Debug: log forwarded headers (redact auth values)
+        debug_headers = {k: (v[:20] + '...' if k.lower() == 'authorization' else v) for k, v in forward_headers.items()}
+        logger.info('Proxy %s %s → %s headers=%s', request.method, path, upstream_url, debug_headers)
 
         try:
             import httpx
