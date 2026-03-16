@@ -28,7 +28,7 @@ export function SidebarBrand(props: { mini: boolean; hovered: boolean }) {
             Zentinelle
           </Text>
           <Text fontSize="xs" color={subtitleColor} mt="1px">
-            by Calliope Labs Inc
+            by Calliope AI
           </Text>
         </Box>
       </Flex>

@@ -96,4 +96,4 @@ MIT — see [LICENSE](LICENSE). Free to self-host, modify, and distribute.
 
 ---
 
-Built by [Calliope Labs Inc](https://calliope.ai) · [zentinelle.ai](https://zentinelle.ai)
+Built by [Calliope AI](https://calliope.ai) · [zentinelle.ai](https://zentinelle.ai)
