@@ -128,24 +128,11 @@ export default function AdminNavbar(props: {
         mb={gap}
       >
         <Box mb={{ sm: '8px', md: '0px' }}>
-          <Link
-            color={textColor}
-            href="#"
-            bg="inherit"
-            borderRadius="inherit"
-            fontWeight="bold"
-            fontSize="34px"
-            _hover={{ color: textColor }}
-            _active={{ bg: 'inherit', transform: 'none', borderColor: 'transparent' }}
-            _focus={{ boxShadow: 'none' }}
-          >
-            {brandText}
-          </Link>
-          <Breadcrumb mt="2px" separator="/">
+          <Breadcrumb separator="/">
             <BreadcrumbItem>
               <BreadcrumbLink
                 href="/zentinelle/agents/"
-                fontSize="xs"
+                fontSize="sm"
                 color={breadcrumbColor}
                 _hover={{ color: textColor }}
               >
@@ -156,7 +143,7 @@ export default function AdminNavbar(props: {
               <BreadcrumbItem>
                 <BreadcrumbLink
                   href="#"
-                  fontSize="xs"
+                  fontSize="sm"
                   color={breadcrumbColor}
                   _hover={{ color: textColor }}
                 >
@@ -167,9 +154,9 @@ export default function AdminNavbar(props: {
             <BreadcrumbItem isCurrentPage>
               <BreadcrumbLink
                 href="#"
-                fontSize="xs"
-                color={breadcrumbColor}
-                fontWeight="500"
+                fontSize="sm"
+                color={textColor}
+                fontWeight="600"
               >
                 {brandText}
               </BreadcrumbLink>
