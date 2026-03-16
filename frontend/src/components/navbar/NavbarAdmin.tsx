@@ -143,7 +143,7 @@ export default function AdminNavbar(props: {
               </Text>
             )}
           </Text>
-          <Breadcrumb separator=">" mt="10px" spacing="6px">
+          <Breadcrumb separator=">" mt="5px" spacing="6px">
             <BreadcrumbItem>
               <BreadcrumbLink
                 href="/zentinelle/agents/"
