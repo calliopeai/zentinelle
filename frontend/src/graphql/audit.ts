@@ -93,6 +93,16 @@ export const EXPORT_AUDIT_LOGS = gql`
   }
 `;
 
+export const GET_AUDIT_ANALYTICS = gql`
+  query GetAuditAnalytics($days: Int) {
+    auditAnalytics(days: $days) {
+      timeline { bucket eventType count }
+      byType { eventType count }
+      topAgents { agentId eventCount }
+    }
+  }
+`;
+
 // Get audit logs for a specific policy (version history)
 export const GET_POLICY_VERSIONS = gql`
   query GetPolicyVersions($policyId: ID!, $first: Int, $after: String) {
