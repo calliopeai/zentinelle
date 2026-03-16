@@ -2945,8 +2945,12 @@ class Query(graphene.ObjectType):
 
     @staticmethod
     def resolve_notifications(root, info, first=None, after=None, status=None):
-        """Stub resolver — notifications not yet implemented in standalone mode."""
-        return None
+        from zentinelle.models.notification import Notification
+        tenant_id = get_request_tenant_id(info.context.user)
+        qs = Notification.objects.filter(tenant_id=tenant_id)
+        if status:
+            qs = qs.filter(status=status)
+        return qs
 
     @staticmethod
     def resolve_usage_metrics(root, info, start_date=None, end_date=None, granularity=None):

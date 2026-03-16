@@ -80,6 +80,19 @@ def _maybe_create_incident(
                 tenant_id,
             )
 
+            # Create in-app notification
+            try:
+                from zentinelle.models.notification import create_notification, Notification
+                create_notification(
+                    tenant_id=tenant_id,
+                    type=Notification.Type.INCIDENT_OPENED,
+                    subject=f"Incident opened: {incident.title}",
+                    message=f"Severity: {severity}. {evaluated.get('message') or ''}".strip(),
+                    metadata={'incident_id': str(incident.id), 'severity': severity},
+                )
+            except Exception as exc:
+                logger.warning("Failed to create incident notification: %s", exc)
+
             # Queue notification (best-effort)
             try:
                 from zentinelle.tasks.notifications import send_incident_notification

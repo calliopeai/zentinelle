@@ -80,6 +80,9 @@ from zentinelle.models.license import ZentinelleLicense, AgentEntitlement
 # Compliance Report Export
 from zentinelle.models.reporting import Report
 
+# Notifications
+from zentinelle.models.notification import Notification, create_notification
+
 __all__ = [
     # Agent-level
     'AgentEndpoint',
@@ -139,4 +142,7 @@ __all__ = [
     'AgentEntitlement',
     # Compliance Report Export
     'Report',
+    # Notifications
+    'Notification',
+    'create_notification',
 ]

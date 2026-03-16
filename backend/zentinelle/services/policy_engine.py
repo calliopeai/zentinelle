@@ -287,6 +287,33 @@ class PolicyEngine:
             except Exception as exc:
                 logger.warning("incident_service._maybe_create_incident failed: %s", exc)
 
+            # Notify on policy violation
+            try:
+                from zentinelle.models.notification import create_notification, Notification
+                create_notification(
+                    tenant_id=endpoint.tenant_id,
+                    type=Notification.Type.POLICY_VIOLATION,
+                    subject=f"Policy violation: {denial_reason[:100] if denial_reason else 'Request blocked'}",
+                    message=denial_reason or "A request was blocked by policy enforcement.",
+                    metadata={'action': action, 'agent_id': endpoint.agent_id},
+                )
+            except Exception as exc:
+                logger.warning("notification creation failed: %s", exc)
+
+        # Notify on high risk score (>= 75), even if allowed
+        if not dry_run and risk_score >= 75:
+            try:
+                from zentinelle.models.notification import create_notification, Notification
+                create_notification(
+                    tenant_id=endpoint.tenant_id,
+                    type=Notification.Type.HIGH_RISK,
+                    subject=f"High risk score: {risk_score}/100 for agent {endpoint.agent_id}",
+                    message=f"Action '{action}' produced a risk score of {risk_score}/100.",
+                    metadata={'action': action, 'risk_score': risk_score, 'agent_id': endpoint.agent_id},
+                )
+            except Exception as exc:
+                logger.warning("notification creation failed: %s", exc)
+
         return evaluation_result
 
     def _get_evaluator(self, policy_type: str) -> 'BasePolicyEvaluator':
@@ -416,6 +443,17 @@ class PolicyEngine:
                 )
 
         if warning:
+            try:
+                from zentinelle.models.notification import create_notification, Notification
+                create_notification(
+                    tenant_id=tenant_id,
+                    type=Notification.Type.BUDGET_WARNING,
+                    subject="AI budget alert",
+                    message=warning,
+                    metadata={'current_cost': current_cost},
+                )
+            except Exception as exc:
+                logger.warning("budget warning notification failed: %s", exc)
             return {'allowed': True, 'warning': warning}
 
         return {'allowed': True}

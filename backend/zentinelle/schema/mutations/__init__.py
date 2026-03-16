@@ -89,6 +89,7 @@ from .compliance_packs import (
 from zentinelle.schema.types import (
     OrganizationType,
     UpdateOrganizationSettingsPayload,
+    NotificationType,
 )
 
 
@@ -133,6 +134,59 @@ class UpdateOrganizationSettings(graphene.Mutation):
             created_at=None,
         )
         return UpdateOrganizationSettingsPayload(success=True, organization=org)
+
+
+class UpdateNotificationInput(graphene.InputObjectType):
+    id = graphene.ID(required=True)
+    status = graphene.String(required=True)
+
+
+class UpdateNotificationPayload(graphene.ObjectType):
+    notification = graphene.Field(NotificationType)
+    errors = graphene.List(graphene.String)
+
+
+class UpdateNotification(graphene.Mutation):
+    class Arguments:
+        input = UpdateNotificationInput(required=True)
+
+    Output = UpdateNotificationPayload
+
+    @staticmethod
+    def mutate(root, info, input):
+        from zentinelle.models.notification import Notification
+        from zentinelle.schema.auth_helpers import get_request_tenant_id
+        from django.utils import timezone
+        tenant_id = get_request_tenant_id(info.context.user)
+        try:
+            n = Notification.objects.get(id=input.id, tenant_id=tenant_id)
+            n.status = input.status
+            n.status_date = timezone.now()
+            n.save(update_fields=['status', 'status_date'])
+            return UpdateNotificationPayload(notification=n, errors=[])
+        except Notification.DoesNotExist:
+            return UpdateNotificationPayload(notification=None, errors=["Notification not found."])
+
+
+class MarkAllNotificationsReadPayload(graphene.ObjectType):
+    success = graphene.Boolean()
+    count = graphene.Int()
+
+
+class MarkAllNotificationsRead(graphene.Mutation):
+    Output = MarkAllNotificationsReadPayload
+
+    @staticmethod
+    def mutate(root, info):
+        from zentinelle.models.notification import Notification
+        from zentinelle.schema.auth_helpers import get_request_tenant_id
+        from django.utils import timezone
+        tenant_id = get_request_tenant_id(info.context.user)
+        count = Notification.objects.filter(
+            tenant_id=tenant_id,
+            status=Notification.Status.UNREAD,
+        ).update(status=Notification.Status.READ, status_date=timezone.now())
+        return MarkAllNotificationsReadPayload(success=True, count=count)
 
 
 class Mutation(graphene.ObjectType):
@@ -224,6 +278,8 @@ class Mutation(graphene.ObjectType):
     # Organization Settings
     update_organization_settings = UpdateOrganizationSettings.Field()
 
-    # Secret Bundles (stub)
+    # Notifications
+    update_notification = UpdateNotification.Field()
+    mark_all_notifications_read = MarkAllNotificationsRead.Field()
 
 

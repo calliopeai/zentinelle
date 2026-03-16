@@ -867,15 +867,17 @@ class UpdateOrganizationSettingsPayload(graphene.ObjectType):
 
 
 # ---------------------------------------------------------------------------
-# Notifications (stub for standalone mode)
+# Notifications
 # ---------------------------------------------------------------------------
 
 class NotificationType(graphene.ObjectType):
     id = graphene.ID()
+    type = graphene.String()
     subject = graphene.String()
     message = graphene.String()
     status = graphene.String()
     status_date = graphene.DateTime()
+    metadata = graphene.JSONString()
     created_at = graphene.DateTime()
 
 
@@ -887,6 +889,9 @@ class NotificationConnection(graphene.relay.Connection):
 
     @staticmethod
     def resolve_total_count(root, info, **kwargs):
+        iterable = getattr(root, 'iterable', None)
+        if iterable is not None and hasattr(iterable, 'count'):
+            return iterable.count()
         return 0
 
 
