@@ -187,6 +187,9 @@ class ProxyView(View):
         engine = PolicyEngine()
         eval_result = engine.evaluate(endpoint, 'llm:invoke', context=context)
 
+        # Log to InteractionLog for monitoring dashboard
+        self._log_interaction(endpoint, provider, context, eval_result)
+
         if not eval_result.allowed:
             return JsonResponse(
                 {
@@ -334,3 +337,28 @@ class ProxyView(View):
                 {'error': 'proxy_error', 'detail': 'An internal proxy error occurred'},
                 status=502,
             )
+
+    def _log_interaction(self, endpoint, provider, context, eval_result):
+        """Log proxy request to InteractionLog for the monitoring dashboard."""
+        from django.utils import timezone
+        from zentinelle.models.compliance import InteractionLog
+
+        model = context.get('model', '')
+        input_tokens = context.get('input_tokens', 0)
+
+        try:
+            InteractionLog.objects.create(
+                tenant_id=endpoint.tenant_id,
+                endpoint=endpoint,
+                deployment_id_ext=endpoint.deployment_id_ext,
+                user_identifier='',
+                interaction_type=InteractionLog.InteractionType.CHAT,
+                ai_provider=provider,
+                ai_model=model or endpoint.agent_type,
+                input_content=f"llm:invoke {provider}/{context.get('path', '')}",
+                input_token_count=input_tokens or None,
+                tool_calls=[],
+                occurred_at=timezone.now(),
+            )
+        except Exception as e:
+            logger.warning('Failed to log proxy interaction: %s', e)
