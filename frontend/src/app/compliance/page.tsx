@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Flex,
-  Heading,
   Icon,
   Text,
   useColorModeValue,
@@ -42,6 +41,7 @@ import GapAnalysis, { generateGapsFromCoverage } from 'components/zentinelle/Gap
 import FrameworkDetail, { generateFrameworkControls } from 'components/zentinelle/FrameworkDetail';
 import ComplianceReport from 'components/zentinelle/ComplianceReport';
 import { GET_COMPLIANCE_OVERVIEW } from 'graphql/compliance';
+import { usePageHeader } from 'contexts/PageHeaderContext';
 
 interface Capability {
   id: string;
@@ -271,6 +271,7 @@ function FrameworkCard({
 }
 
 export default function CompliancePage() {
+  usePageHeader('Compliance Dashboard', 'AI governance, risk, and compliance overview');
   const cardBg = useColorModeValue('white', 'navy.800');
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const borderColor = useColorModeValue('gray.200', 'whiteAlpha.100');
@@ -383,16 +384,7 @@ export default function CompliancePage() {
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      {/* Header */}
-      <Flex justify="space-between" align="center" mb="20px">
-        <Box>
-          <Heading size="lg" color={textColor}>
-            Compliance Dashboard
-          </Heading>
-          <Text fontSize="sm" color="secondaryGray.600">
-            AI governance, risk, and compliance overview
-          </Text>
-        </Box>
+      <Flex justify="flex-end" mb="20px">
         <Button
           variant="outline"
           leftIcon={<Icon as={MdRefresh} />}

@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Flex,
-  Heading,
   Icon,
   Input,
   InputGroup,
@@ -43,6 +42,7 @@ import { useState } from 'react';
 import { MdSearch, MdRefresh, MdDownload, MdVisibility, MdPerson, MdSmartToy } from 'react-icons/md';
 import Card from 'components/card/Card';
 import { GET_AUDIT_LOGS, GET_AUDIT_ANALYTICS, EXPORT_AUDIT_LOGS } from 'graphql/audit';
+import { usePageHeader } from 'contexts/PageHeaderContext';
 
 interface Actor {
   id: string;
@@ -153,6 +153,7 @@ function formatDateShort(dateString: string): string {
 }
 
 export default function AuditLogsPage() {
+  usePageHeader('Audit Logs', 'Track all activities and changes in your organization');
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [actionFilter, setActionFilter] = useState('');
@@ -227,16 +228,7 @@ export default function AuditLogsPage() {
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      {/* Header */}
-      <Flex justify="space-between" align="center" mb="20px">
-        <Box>
-          <Heading size="lg" color={textColor}>
-            Audit Logs
-          </Heading>
-          <Text fontSize="sm" color="secondaryGray.600">
-            Track all activities and changes in your organization
-          </Text>
-        </Box>
+      <Flex justify="flex-end" mb="20px">
         <HStack spacing="12px">
           <Button
             variant="outline"

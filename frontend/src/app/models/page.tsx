@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Flex,
-  Heading,
   Icon,
   Text,
   useColorModeValue,
@@ -46,6 +45,7 @@ import {
 } from 'react-icons/md';
 import Card from 'components/card/Card';
 import ModelComparison from 'components/zentinelle/ModelComparison';
+import { usePageHeader } from 'contexts/PageHeaderContext';
 import {
   GET_AI_MODELS,
   GET_MODEL_APPROVALS,
@@ -507,24 +507,13 @@ function ApprovalsTab({
 }
 
 export default function ModelRegistryPage() {
+  usePageHeader('Model Registry', 'Available AI models and organization approvals');
   const cardBg = useColorModeValue('white', 'navy.800');
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const borderColor = useColorModeValue('gray.200', 'whiteAlpha.100');
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      {/* Header */}
-      <Flex justify="space-between" align="center" mb="20px">
-        <Box>
-          <Heading size="lg" color={textColor}>
-            Model Registry
-          </Heading>
-          <Text fontSize="sm" color="secondaryGray.600">
-            Available AI models and organization approvals
-          </Text>
-        </Box>
-      </Flex>
-
       {/* Tabs */}
       <Tabs variant="enclosed" colorScheme="brand">
         <TabList mb="16px">

@@ -19,6 +19,7 @@ import {
   useColorModeValue,
 } from '@chakra-ui/react';
 import { useAuth } from 'contexts/AuthContext';
+import { useCurrentPageHeader } from 'contexts/PageHeaderContext';
 import { IoMdMoon, IoMdSunny } from 'react-icons/io';
 import { MdSettings, MdLogout } from 'react-icons/md';
 import NotificationsDropdown from 'components/notifications/NotificationsDropdown';
@@ -32,9 +33,13 @@ export default function AdminNavbar(props: {
   fixed?: boolean;
   onOpen?: () => void;
 }) {
-  const { secondary, brandText, parentText } = props;
+  const { secondary, brandText } = props;
   const { user, isAuthenticated } = useAuth();
   const { colorMode, toggleColorMode } = useColorMode();
+  const pageHeader = useCurrentPageHeader();
+
+  const displayTitle = pageHeader.title || brandText;
+  const displayDescription = pageHeader.description;
 
   const navbarPosition = 'fixed' as const;
   const navbarFilter = 'none';
@@ -49,7 +54,7 @@ export default function AdminNavbar(props: {
   const paddingX = '15px';
   const gap = '0px';
   const textColor = useColorModeValue('secondaryGray.900', 'white');
-  const breadcrumbColor = useColorModeValue('gray.500', 'secondaryGray.500');
+  const descriptionColor = useColorModeValue('gray.500', 'secondaryGray.500');
   const menuBg = useColorModeValue('white', 'navy.800');
   const shadow = useColorModeValue(
     '14px 17px 40px 4px rgba(112, 144, 176, 0.18)',
@@ -128,37 +133,40 @@ export default function AdminNavbar(props: {
         mb={gap}
       >
         <Box mb={{ sm: '8px', md: '0px' }}>
-          <Breadcrumb separator="/">
+          <Text fontWeight="700" fontSize="xl" color={textColor} lineHeight="1.2">
+            {displayTitle}
+          </Text>
+          {displayDescription && (
+            <Text fontSize="xs" color={descriptionColor} mt="2px">
+              {displayDescription}
+            </Text>
+          )}
+          <Breadcrumb separator="/" mt="4px">
             <BreadcrumbItem>
               <BreadcrumbLink
                 href="/zentinelle/agents/"
-                fontSize="sm"
-                color={breadcrumbColor}
+                fontSize="xs"
+                color={descriptionColor}
                 _hover={{ color: textColor }}
               >
                 Zentinelle
               </BreadcrumbLink>
             </BreadcrumbItem>
-            {parentText && parentText !== brandText && (
+            {props.parentText && props.parentText !== props.brandText && (
               <BreadcrumbItem>
                 <BreadcrumbLink
                   href="#"
-                  fontSize="sm"
-                  color={breadcrumbColor}
+                  fontSize="xs"
+                  color={descriptionColor}
                   _hover={{ color: textColor }}
                 >
-                  {parentText}
+                  {props.parentText}
                 </BreadcrumbLink>
               </BreadcrumbItem>
             )}
             <BreadcrumbItem isCurrentPage>
-              <BreadcrumbLink
-                href="#"
-                fontSize="sm"
-                color={textColor}
-                fontWeight="600"
-              >
-                {brandText}
+              <BreadcrumbLink href="#" fontSize="xs" color={descriptionColor}>
+                {props.brandText}
               </BreadcrumbLink>
             </BreadcrumbItem>
           </Breadcrumb>

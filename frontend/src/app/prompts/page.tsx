@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Flex,
-  Heading,
   Icon,
   Text,
   useColorModeValue,
@@ -80,6 +79,7 @@ import {
   PROMPT_TYPE_OPTIONS,
   PROVIDER_OPTIONS,
 } from 'graphql/prompts';
+import { usePageHeader } from 'contexts/PageHeaderContext';
 
 interface PromptTag {
   id: string;
@@ -612,6 +612,7 @@ function PromptDetailModal({
 }
 
 export default function SystemPromptsPage() {
+  usePageHeader('Prompt Library', 'Discover and manage reusable prompts for AI agents');
   const cardBg = useColorModeValue('white', 'navy.800');
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const borderColor = useColorModeValue('gray.200', 'whiteAlpha.100');
@@ -736,16 +737,7 @@ export default function SystemPromptsPage() {
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      {/* Header */}
-      <Flex justify="space-between" align="center" mb="20px">
-        <Box>
-          <Heading size="lg" color={textColor}>
-            Prompt Library
-          </Heading>
-          <Text fontSize="sm" color="secondaryGray.600">
-            Discover and manage reusable prompts for AI agents
-          </Text>
-        </Box>
+      <Flex justify="flex-end" mb="20px">
         <HStack spacing="12px">
           <Button
             variant="outline"

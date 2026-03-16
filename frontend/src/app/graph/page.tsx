@@ -3,7 +3,6 @@
 import {
   Box,
   Flex,
-  Heading,
   Text,
   Badge,
   Button,
@@ -24,6 +23,7 @@ import { useQuery, gql } from '@apollo/client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MdAccountTree, MdRefresh, MdOpenInNew } from 'react-icons/md';
 import Card from 'components/card/Card';
+import { usePageHeader } from 'contexts/PageHeaderContext';
 
 // ---------------------------------------------------------------------------
 // GraphQL
@@ -203,6 +203,7 @@ const LEGEND = [
 // ---------------------------------------------------------------------------
 
 export default function PolicyGraphPage() {
+  usePageHeader('Policy Relationship Graph', 'Visualise how policies, endpoints, risks, and incidents are connected');
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const cardBg = useColorModeValue('white', 'navy.800');
   const borderColor = useColorModeValue('gray.200', 'whiteAlpha.100');
@@ -342,16 +343,6 @@ export default function PolicyGraphPage() {
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      {/* Page header */}
-      <Box mb="20px">
-        <Heading size="lg" color={textColor} mb="6px">
-          Policy Relationship Graph
-        </Heading>
-        <Text fontSize="md" color={mutedText}>
-          Visualise how policies, endpoints, risks, and incidents are connected
-        </Text>
-      </Box>
-
       {/* Filters bar */}
       <Card bg={cardBg} mb="16px" p="16px">
         <Flex wrap="wrap" gap="16px" align="flex-end">

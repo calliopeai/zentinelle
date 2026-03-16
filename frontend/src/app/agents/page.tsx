@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Flex,
-  Heading,
   Icon,
   Input,
   InputGroup,
@@ -37,6 +36,7 @@ import { MdAdd, MdSearch, MdMoreVert, MdRefresh, MdDelete, MdKey, MdCopyAll } fr
 import { useRouter } from 'next/navigation';
 import Card from 'components/card/Card';
 import { GET_AGENTS, DELETE_AGENT, REGENERATE_API_KEY } from 'graphql/agents';
+import { usePageHeader } from 'contexts/PageHeaderContext';
 
 interface AgentEndpoint {
   id: string;
@@ -102,6 +102,7 @@ function timeAgo(dateString: string): string {
 }
 
 export default function AgentsPage() {
+  usePageHeader('AI Agents', 'Manage and monitor your registered AI agents');
   const router = useRouter();
   const toast = useToast();
   const [search, setSearch] = useState('');
@@ -172,16 +173,7 @@ export default function AgentsPage() {
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      {/* Header */}
-      <Flex justify="space-between" align="center" mb="20px">
-        <Box>
-          <Heading size="lg" color={textColor}>
-            AI Agents
-          </Heading>
-          <Text fontSize="sm" color="secondaryGray.600">
-            Manage and monitor your registered AI agents
-          </Text>
-        </Box>
+      <Flex justify="flex-end" mb="20px">
         <Flex gap="12px">
           <Button
             variant="outline"

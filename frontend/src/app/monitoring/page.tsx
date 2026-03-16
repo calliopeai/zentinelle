@@ -2,8 +2,6 @@
 
 import {
   Box,
-  Heading,
-  Text,
   Tabs,
   TabList,
   TabPanels,
@@ -20,27 +18,18 @@ import {
   MdAutoGraph,
   MdNotifications,
 } from 'react-icons/md';
+import { usePageHeader } from 'contexts/PageHeaderContext';
 import RealTimeMonitor from 'components/zentinelle/RealTimeMonitor';
 import ContentScannerDashboard from 'components/zentinelle/ContentScannerDashboard';
 import AnomalyDetection from 'components/zentinelle/AnomalyDetection';
 import MonitoringDashboard from 'components/zentinelle/MonitoringDashboard';
 
 export default function MonitoringPage() {
-  const textColor = useColorModeValue('secondaryGray.900', 'white');
+  usePageHeader('Monitoring', 'Real-time visibility into AI agent activity, content scanning, and anomaly detection');
   const tabBg = useColorModeValue('white', 'navy.800');
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      {/* Header */}
-      <Box mb="24px">
-        <Heading size="lg" color={textColor} mb="8px">
-          Monitoring
-        </Heading>
-        <Text fontSize="md" color="gray.500">
-          Real-time visibility into AI agent activity, content scanning, and anomaly detection
-        </Text>
-      </Box>
-
       {/* Tabs */}
       <Tabs variant="enclosed" colorScheme="brand">
         <TabList>

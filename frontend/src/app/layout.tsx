@@ -10,6 +10,7 @@ import { ConfiguratorContext } from 'contexts/ConfiguratorContext';
 import { ApolloWrapper } from 'utils/apollo-wrapper';
 import { OrganizationProvider } from 'contexts/OrganizationContext';
 import { AuthProvider } from 'contexts/AuthContext';
+import { PageHeaderProvider } from 'contexts/PageHeaderContext';
 import Footer from 'components/footer/FooterAdmin';
 import Navbar from 'components/navbar/NavbarAdmin';
 import Sidebar from 'components/sidebar/Sidebar';
@@ -125,13 +126,15 @@ export default function RootLayout({
             >
               <ChakraProvider theme={theme}>
                 <AuthProvider>
-                  <SessionInitializer>
-                    <ApolloWrapper>
-                      <OrganizationProvider>
-                        <ZentinelleLayout>{children}</ZentinelleLayout>
-                      </OrganizationProvider>
-                    </ApolloWrapper>
-                  </SessionInitializer>
+                  <PageHeaderProvider>
+                    <SessionInitializer>
+                      <ApolloWrapper>
+                        <OrganizationProvider>
+                          <ZentinelleLayout>{children}</ZentinelleLayout>
+                        </OrganizationProvider>
+                      </ApolloWrapper>
+                    </SessionInitializer>
+                  </PageHeaderProvider>
                 </AuthProvider>
               </ChakraProvider>
             </ConfiguratorContext.Provider>

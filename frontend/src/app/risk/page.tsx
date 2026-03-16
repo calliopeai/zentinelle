@@ -2,8 +2,6 @@
 
 import {
   Box,
-  Heading,
-  Text,
   Tabs,
   TabList,
   TabPanels,
@@ -11,31 +9,21 @@ import {
   TabPanel,
   HStack,
   Icon,
-  useColorModeValue,
+  Text,
 } from '@chakra-ui/react';
 import {
   MdShield,
   MdBugReport,
-  MdWarning,
 } from 'react-icons/md';
+import { usePageHeader } from 'contexts/PageHeaderContext';
 import RiskRegister from 'components/zentinelle/RiskRegister';
 import IncidentManagement from 'components/zentinelle/IncidentManagement';
 
 export default function RiskManagementPage() {
-  const textColor = useColorModeValue('secondaryGray.900', 'white');
+  usePageHeader('Risk Management', 'Track AI-specific risks and manage policy violation incidents');
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      {/* Header */}
-      <Box mb="24px">
-        <Heading size="lg" color={textColor} mb="8px">
-          Risk Management
-        </Heading>
-        <Text fontSize="md" color="gray.500">
-          Track AI-specific risks and manage policy violation incidents
-        </Text>
-      </Box>
-
       {/* Tabs */}
       <Tabs variant="enclosed" colorScheme="brand">
         <TabList>

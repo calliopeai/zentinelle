@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Flex,
-  Heading,
   Icon,
   Select,
   SimpleGrid,
@@ -33,6 +32,7 @@ import { MdRefresh, MdTrendingUp, MdTimer, MdMemory, MdCloud, MdSmartToy } from 
 import Card from 'components/card/Card';
 import { GET_USAGE_METRICS } from 'graphql/usage';
 import { GET_MONITORING_STATS } from 'graphql/monitoring';
+import { usePageHeader } from 'contexts/PageHeaderContext';
 
 function formatNumber(num: number): string {
   if (num >= 1_000_000) return (num / 1_000_000).toFixed(2) + 'M';
@@ -52,6 +52,7 @@ function getUsageColor(percentage: number): string {
 }
 
 export default function UsagePage() {
+  usePageHeader('Usage Analytics', 'Monitor AI token usage, compute hours, and resource consumption');
   const [period, setPeriod] = useState('current');
 
   const cardBg = useColorModeValue('white', 'navy.800');
@@ -118,16 +119,7 @@ export default function UsagePage() {
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      {/* Header */}
-      <Flex justify="space-between" align="center" mb="20px">
-        <Box>
-          <Heading size="lg" color={textColor}>
-            Usage Analytics
-          </Heading>
-          <Text fontSize="sm" color="secondaryGray.600">
-            Monitor AI token usage, compute hours, and resource consumption
-          </Text>
-        </Box>
+      <Flex justify="flex-end" mb="20px">
         <Flex gap="12px">
           <Select
             value={period}

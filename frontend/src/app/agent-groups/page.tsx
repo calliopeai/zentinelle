@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Flex,
-  Heading,
   Icon,
   Input,
   InputGroup,
@@ -51,6 +50,7 @@ import {
   UPDATE_AGENT_GROUP,
   DELETE_AGENT_GROUP,
 } from 'graphql/agents';
+import { usePageHeader } from 'contexts/PageHeaderContext';
 
 interface AgentGroup {
   id: string;
@@ -89,6 +89,7 @@ const COLOR_OPTIONS = [
 const BLANK_FORM = { name: '', description: '', tier: 'standard', color: 'brand' };
 
 export default function AgentGroupsPage() {
+  usePageHeader('Agent Groups', 'Organize agents into groups with tiered enforcement policies');
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState('');
@@ -200,16 +201,7 @@ export default function AgentGroupsPage() {
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      {/* Header */}
-      <Flex justify="space-between" align="center" mb="20px">
-        <Box>
-          <Heading size="lg" color={textColor}>
-            Agent Groups
-          </Heading>
-          <Text fontSize="sm" color="secondaryGray.600">
-            Organize agents into groups with tiered enforcement policies
-          </Text>
-        </Box>
+      <Flex justify="flex-end" mb="20px">
         <Flex gap="12px">
           <Button
             variant="outline"

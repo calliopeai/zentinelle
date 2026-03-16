@@ -2,10 +2,6 @@
 
 import {
   Box,
-  Flex,
-  Heading,
-  Text,
-  useColorModeValue,
   Tabs,
   TabList,
   TabPanels,
@@ -14,26 +10,15 @@ import {
   Icon,
 } from '@chakra-ui/react';
 import { MdLan, MdPublic } from 'react-icons/md';
+import { usePageHeader } from 'contexts/PageHeaderContext';
 import CidrIpManager from 'components/zentinelle/CidrIpManager';
 import DomainPatternBuilder from 'components/zentinelle/DomainPatternBuilder';
 
 export default function NetworkPoliciesPage() {
-  const textColor = useColorModeValue('secondaryGray.900', 'white');
+  usePageHeader('Network Policies', 'Manage IP access rules and domain allowlists/blocklists');
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      {/* Header */}
-      <Flex justify="space-between" align="center" mb="20px">
-        <Box>
-          <Heading size="lg" color={textColor}>
-            Network Policies
-          </Heading>
-          <Text fontSize="sm" color="secondaryGray.600">
-            Manage IP access rules and domain allowlists/blocklists
-          </Text>
-        </Box>
-      </Flex>
-
       <Tabs variant="enclosed" colorScheme="brand">
         <TabList>
           <Tab>

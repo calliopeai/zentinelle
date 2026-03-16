@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Flex,
-  Heading,
   Icon,
   SimpleGrid,
   Text,
@@ -44,6 +43,7 @@ import {
 } from 'react-icons/md';
 import Card from 'components/card/Card';
 import { GET_ORGANIZATION_SETTINGS, UPDATE_ORGANIZATION_SETTINGS } from 'graphql/organization';
+import { usePageHeader } from 'contexts/PageHeaderContext';
 import {
   GET_CLIENT_COVE_INTEGRATION,
   TEST_CLIENT_COVE_CONNECTION,
@@ -63,6 +63,7 @@ interface OrganizationSettings {
 }
 
 export default function SettingsPage() {
+  usePageHeader('Settings', 'Configure your organization and Zentinelle preferences');
   const toast = useToast();
   const cardBg = useColorModeValue('white', 'navy.800');
   const textColor = useColorModeValue('secondaryGray.900', 'white');
@@ -212,16 +213,7 @@ export default function SettingsPage() {
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      {/* Header */}
-      <Flex justify="space-between" align="center" mb="20px">
-        <Box>
-          <Heading size="lg" color={textColor}>
-            Settings
-          </Heading>
-          <Text fontSize="sm" color="secondaryGray.600">
-            Configure your organization and Zentinelle preferences
-          </Text>
-        </Box>
+      <Flex justify="flex-end" mb="20px">
         <Button
           variant="brand"
           leftIcon={<Icon as={MdSave} />}

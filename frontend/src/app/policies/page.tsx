@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Flex,
-  Heading,
   Icon,
   Input,
   InputGroup,
@@ -53,6 +52,7 @@ import PolicySimulator from 'components/zentinelle/PolicySimulator';
 import PolicyHierarchy from 'components/zentinelle/PolicyHierarchy';
 import PolicyVersioning from 'components/zentinelle/PolicyVersioning';
 import { GET_POLICIES, GET_POLICY_OPTIONS, DELETE_POLICY, UPDATE_POLICY } from 'graphql/policies';
+import { usePageHeader } from 'contexts/PageHeaderContext';
 
 interface Policy {
   id: string;
@@ -143,6 +143,7 @@ function formatDate(dateString: string): string {
 }
 
 export default function PoliciesPage() {
+  usePageHeader('Policies', 'Define and manage governance policies for AI agents');
   const router = useRouter();
   const toast = useToast();
   const [search, setSearch] = useState('');
@@ -234,16 +235,7 @@ export default function PoliciesPage() {
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      {/* Header */}
-      <Flex justify="space-between" align="center" mb="20px">
-        <Box>
-          <Heading size="lg" color={textColor}>
-            Policies
-          </Heading>
-          <Text fontSize="sm" color="secondaryGray.600">
-            Define and manage governance policies for AI agents
-          </Text>
-        </Box>
+      <Flex justify="flex-end" mb="20px">
         <Flex gap="12px">
           <Button
             variant="outline"
