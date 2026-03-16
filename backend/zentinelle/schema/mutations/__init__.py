@@ -218,6 +218,29 @@ class MarkAllNotificationsRead(graphene.Mutation):
         return MarkAllNotificationsReadPayload(success=True, count=count)
 
 
+class ExportAuditLogs(graphene.Mutation):
+    """Return a download URL for the audit log export REST endpoint."""
+    class Arguments:
+        format = graphene.String(required=True)
+        start_date = graphene.DateTime(required=True)
+        end_date = graphene.DateTime(required=True)
+
+    download_url = graphene.String()
+    errors = graphene.List(graphene.String)
+
+    @classmethod
+    def mutate(cls, root, info, format, start_date, end_date):
+        if not info.context.user.is_authenticated:
+            return ExportAuditLogs(errors=["Authentication required"])
+        fmt = format.lower()
+        if fmt not in ('csv', 'ndjson', 'cef'):
+            fmt = 'csv'
+        from_str = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        to_str = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        url = f'/api/zentinelle/v1/audit/export/?format={fmt}&from={from_str}&to={to_str}'
+        return ExportAuditLogs(download_url=url)
+
+
 class Mutation(graphene.ObjectType):
     """Zentinelle GraphQL mutations (standalone)."""
 
@@ -325,6 +348,9 @@ class Mutation(graphene.ObjectType):
     test_client_cove_connection = TestClientCoveConnection.Field()
     save_client_cove_config = SaveClientCoveConfig.Field()
     disconnect_client_cove = DisconnectClientCove.Field()
+
+    # Audit Logs
+    export_audit_logs = ExportAuditLogs.Field()
 
     # Webhook
     test_webhook = TestWebhook.Field()
