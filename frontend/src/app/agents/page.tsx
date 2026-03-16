@@ -134,7 +134,7 @@ export default function AgentsPage() {
         toast({ title: 'Agent deleted successfully', status: 'success' });
         refetch();
       } else {
-        toast({ title: 'Failed to delete agent', description: result.deleteAgentEndpoint?.errors?.join(', '), status: 'error' });
+        toast({ title: 'Failed to delete agent', description: result.deleteAgentEndpoint?.error, status: 'error' });
       }
       onDeleteClose();
     },
@@ -147,7 +147,7 @@ export default function AgentsPage() {
         toast({ title: 'API key regenerated successfully', status: 'success' });
         refetch();
       } else {
-        toast({ title: 'Failed to regenerate API key', description: result.regenerateEndpointApiKey?.errors?.join(', '), status: 'error' });
+        toast({ title: 'Failed to regenerate API key', description: result.regenerateEndpointApiKey?.error, status: 'error' });
       }
     },
   });
