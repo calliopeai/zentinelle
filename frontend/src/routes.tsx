@@ -9,7 +9,7 @@ import {
   MdWarning,
   MdHistory,
   MdSecurity,
-  MdVpnKey,
+
   MdStorage,
   MdBarChart,
   MdGroup,
@@ -71,11 +71,6 @@ const routes: IRoute[] = [
     name: 'Network',
     path: '/network',
     icon: <Icon as={MdSecurity} width="20px" height="20px" color="inherit" />,
-  },
-  {
-    name: 'Secrets',
-    path: '/secrets',
-    icon: <Icon as={MdVpnKey} width="20px" height="20px" color="inherit" />,
   },
   {
     name: 'Retention',

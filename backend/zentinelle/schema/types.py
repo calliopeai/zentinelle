@@ -867,48 +867,6 @@ class UpdateOrganizationSettingsPayload(graphene.ObjectType):
 
 
 # ---------------------------------------------------------------------------
-# SecretBundle (stub — feature not yet implemented in standalone backend)
-# ---------------------------------------------------------------------------
-
-class SecretBundleType(graphene.ObjectType):
-    id = graphene.ID()
-    name = graphene.String()
-    slug = graphene.String()
-    description = graphene.String()
-    secret_type = graphene.String()
-    provider_configs = graphene.JSONString()
-    rotation_enabled = graphene.Boolean()
-    rotation_interval_days = graphene.Int()
-    last_rotated = graphene.DateTime()
-    next_rotation = graphene.DateTime()
-    enabled_providers = graphene.List(graphene.String)
-    created_at = graphene.DateTime()
-    updated_at = graphene.DateTime()
-
-
-class SecretBundleConnection(graphene.relay.Connection):
-    class Meta:
-        node = SecretBundleType
-
-    total_count = graphene.Int()
-
-    @staticmethod
-    def resolve_total_count(root, info, **kwargs):
-        return 0
-
-
-class DeleteSecretBundlePayload(graphene.ObjectType):
-    success = graphene.Boolean()
-    error = graphene.String()
-
-
-class RotateSecretBundlePayload(graphene.ObjectType):
-    secret_bundle = graphene.Field(SecretBundleType)
-    success = graphene.Boolean()
-    error = graphene.String()
-
-
-# ---------------------------------------------------------------------------
 # Notifications (stub for standalone mode)
 # ---------------------------------------------------------------------------
 

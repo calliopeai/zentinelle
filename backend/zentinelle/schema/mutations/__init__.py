@@ -89,9 +89,6 @@ from .compliance_packs import (
 from zentinelle.schema.types import (
     OrganizationType,
     UpdateOrganizationSettingsPayload,
-    SecretBundleType,
-    DeleteSecretBundlePayload,
-    RotateSecretBundlePayload,
     CreatePortalSessionPayload,
 )
 
@@ -137,37 +134,6 @@ class UpdateOrganizationSettings(graphene.Mutation):
             created_at=None,
         )
         return UpdateOrganizationSettingsPayload(success=True, organization=org)
-
-
-class DeleteSecretBundle(graphene.Mutation):
-    """Stub mutation — secrets feature not yet implemented in standalone backend."""
-    class Arguments:
-        id = graphene.ID(required=True)
-
-    Output = DeleteSecretBundlePayload
-
-    @staticmethod
-    def mutate(root, info, id):
-        return DeleteSecretBundlePayload(
-            success=False,
-            error="Secret bundles are not available in standalone mode.",
-        )
-
-
-class RotateSecretBundle(graphene.Mutation):
-    """Stub mutation — secrets feature not yet implemented in standalone backend."""
-    class Arguments:
-        id = graphene.ID(required=True)
-
-    Output = RotateSecretBundlePayload
-
-    @staticmethod
-    def mutate(root, info, id):
-        return RotateSecretBundlePayload(
-            secret_bundle=None,
-            success=False,
-            error="Secret bundles are not available in standalone mode.",
-        )
 
 
 class CreatePortalSession(graphene.Mutation):
@@ -273,8 +239,7 @@ class Mutation(graphene.ObjectType):
     update_organization_settings = UpdateOrganizationSettings.Field()
 
     # Secret Bundles (stub)
-    delete_secret_bundle = DeleteSecretBundle.Field()
-    rotate_secret_bundle = RotateSecretBundle.Field()
+
 
     # Billing (stub)
     create_portal_session = CreatePortalSession.Field()

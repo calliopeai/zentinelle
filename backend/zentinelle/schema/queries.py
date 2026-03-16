@@ -64,13 +64,9 @@ from .types import (
     # License Compliance types
     LicenseComplianceReportType,
     LicenseComplianceViolationGraphType,
-    # Organization & Secrets (stub types for standalone mode)
+    # Organization (stub types for standalone mode)
     OrganizationType,
     UpdateOrganizationSettingsPayload,
-    SecretBundleType,
-    SecretBundleConnection,
-    DeleteSecretBundlePayload,
-    RotateSecretBundlePayload,
     # Notifications, AppAccess, Team (stub types for standalone mode)
     NotificationType,
     NotificationConnection,
@@ -984,15 +980,6 @@ class Query(graphene.ObjectType):
 
     # Organization settings (standalone stub)
     my_organization = graphene.Field(OrganizationType)
-
-    # Secret Bundles (stub — feature not yet implemented in standalone backend)
-    secret_bundles = graphene.Field(
-        SecretBundleConnection,
-        search=graphene.String(),
-        secret_type=graphene.String(),
-        first=graphene.Int(),
-        after=graphene.String(),
-    )
 
     # Notifications (stub)
     notifications = graphene.Field(
@@ -3005,11 +2992,6 @@ class Query(graphene.ObjectType):
             settings={},
             created_at=None,
         )
-
-    @staticmethod
-    def resolve_secret_bundles(root, info, search=None, secret_type=None, first=None, after=None):
-        """Stub resolver — secrets feature not yet implemented in standalone mode."""
-        return None
 
     @staticmethod
     def resolve_notifications(root, info, first=None, after=None, status=None):
