@@ -285,7 +285,7 @@ class ClientCoveTenantResolver(TenantResolver):
 
         try:
             resp = httpx.post(
-                f"{self._base_url}/internal/zentinelle/validate-token/",
+                f"{self._base_url}/internal/zentinelle/auth/validate/",
                 headers=self._headers(),
                 json={"token": token},
                 timeout=5.0,

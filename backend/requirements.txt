@@ -13,3 +13,5 @@ bcrypt>=4.0
 graphql-relay>=3.2
 httpx>=0.27
 boto3>=1.34
+weasyprint>=62.0
+clickhouse-connect>=0.8

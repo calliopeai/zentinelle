@@ -30,7 +30,7 @@ def _test_connection(base_url: str, api_key: str) -> tuple[bool, str]:
     }
     try:
         resp = httpx.post(
-            f'{base_url}/internal/zentinelle/validate-token/',
+            f'{base_url}/internal/zentinelle/auth/validate/',
             headers=headers,
             json={'token': 'znt_handshake_probe'},
             timeout=10.0,

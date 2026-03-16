@@ -64,7 +64,7 @@ import Card from 'components/card/Card';
 import { GET_POLICIES, GET_EFFECTIVE_POLICIES } from 'graphql/policies';
 import { GET_DEPLOYMENTS } from 'graphql/deployments';
 import { GET_AGENT_ENDPOINTS } from 'graphql/agents';
-import { GET_AI_USAGE_SUMMARY } from 'graphql/billing';
+import { GET_AI_USAGE_SUMMARY } from 'graphql/usage';
 import { GET_MONITORING_STATS } from 'graphql/monitoring';
 import { useOrganization } from 'contexts/OrganizationContext';
 
