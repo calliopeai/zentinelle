@@ -897,6 +897,43 @@ class NotificationConnection(graphene.relay.Connection):
 
 
 
+# ---------------------------------------------------------------------------
+# Client Cove Integration
+# ---------------------------------------------------------------------------
+
+class ClientCoveIntegrationType(graphene.ObjectType):
+    id = graphene.ID()
+    client_cove_url = graphene.String()
+    api_key_preview = graphene.String()
+    is_active = graphene.Boolean()
+    status = graphene.String()
+    status_message = graphene.String()
+    connected_org_name = graphene.String()
+    last_tested_at = graphene.DateTime()
+
+    def resolve_api_key_preview(self, info):
+        key = getattr(self, 'api_key', '') or ''
+        if len(key) > 8:
+            return key[:4] + '••••' + key[-4:]
+        return '••••' if key else ''
+
+
+class TestClientCoveConnectionPayload(graphene.ObjectType):
+    success = graphene.Boolean()
+    message = graphene.String()
+    org_name = graphene.String()
+
+
+class SaveClientCoveConfigPayload(graphene.ObjectType):
+    success = graphene.Boolean()
+    message = graphene.String()
+    integration = graphene.Field(lambda: ClientCoveIntegrationType)
+
+
+class DisconnectClientCovePayload(graphene.ObjectType):
+    success = graphene.Boolean()
+
+
 class UsageMetricsSummaryType(graphene.ObjectType):
     total_api_calls = graphene.Int()
     total_tokens = graphene.BigInt()

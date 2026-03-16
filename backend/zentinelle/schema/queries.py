@@ -89,6 +89,7 @@ from .types import (
     PolicyGraphNodeType,
     PolicyGraphEdgeType,
     PolicyGraphType,
+    ClientCoveIntegrationType,
 )
 
 
@@ -935,6 +936,9 @@ class Query(graphene.ObjectType):
 
     # Organization settings (standalone stub)
     my_organization = graphene.Field(OrganizationType)
+
+    # Client Cove Integration
+    client_cove_integration = graphene.Field(ClientCoveIntegrationType)
 
     # Notifications (stub)
     notifications = graphene.Field(
@@ -2899,6 +2903,12 @@ class Query(graphene.ObjectType):
             settings={},
             created_at=None,
         )
+
+    @staticmethod
+    def resolve_client_cove_integration(root, info):
+        from zentinelle.models.integration import ClientCoveIntegration
+        tenant_id = get_request_tenant_id(info.context.user) or 'default'
+        return ClientCoveIntegration.objects.filter(tenant_id=tenant_id).first()
 
     @staticmethod
     def resolve_notifications(root, info, first=None, after=None, status=None):

@@ -81,6 +81,11 @@ from .api_keys_platform import (
     RevokeAPIKey,
     DeleteAPIKey,
 )
+from .integration import (
+    TestClientCoveConnection,
+    SaveClientCoveConfig,
+    DisconnectClientCove,
+)
 from .compliance_packs import (
     ActivateCompliancePack,
     ListCompliancePacks,
@@ -277,6 +282,11 @@ class Mutation(graphene.ObjectType):
 
     # Organization Settings
     update_organization_settings = UpdateOrganizationSettings.Field()
+
+    # Client Cove Integration
+    test_client_cove_connection = TestClientCoveConnection.Field()
+    save_client_cove_config = SaveClientCoveConfig.Field()
+    disconnect_client_cove = DisconnectClientCove.Field()
 
     # Notifications
     update_notification = UpdateNotification.Field()
