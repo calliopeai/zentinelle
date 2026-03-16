@@ -321,7 +321,7 @@ export default function PolicyHierarchy({ selectedEndpointId, selectedUserId }: 
 
   // Fetch policies
   const { data: policiesData, loading: policiesLoading, refetch: refetchPolicies } = useQuery(GET_POLICIES_FOR_HIERARCHY, {
-    variables: { first: 500 },
+    variables: { first: 100 },
     fetchPolicy: 'cache-and-network',
   });
 

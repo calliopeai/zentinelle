@@ -159,6 +159,25 @@ export const GET_POLICIES_FOR_HIERARCHY = gql`
   }
 `;
 
+export const GET_POLICY_REVISIONS = gql`
+  query GetPolicyRevisions($policyId: String!) {
+    policyRevisions(policyId: $policyId) {
+      id
+      version
+      name
+      policyType
+      enforcement
+      config
+      scopeType
+      enabled
+      priority
+      changedBy
+      changeSummary
+      createdAt
+    }
+  }
+`;
+
 // Get policy inheritance chain for a specific context
 export const GET_EFFECTIVE_POLICIES = gql`
   query GetEffectivePolicies($deploymentId: ID, $endpointId: ID, $userId: String) {

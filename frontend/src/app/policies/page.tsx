@@ -153,6 +153,7 @@ export default function PoliciesPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [scopeFilter, setScopeFilter] = useState('');
   const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
+  const [versioningPolicyId, setVersioningPolicyId] = useState<string>('');
 
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
@@ -476,11 +477,11 @@ export default function PoliciesPage() {
           <ModalBody>
             <FormControl mb="16px">
               <FormLabel>Name</FormLabel>
-              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} color={textColor} />
             </FormControl>
             <FormControl>
               <FormLabel>Description</FormLabel>
-              <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={3} />
+              <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={3} color={textColor} />
             </FormControl>
           </ModalBody>
           <ModalFooter>
@@ -515,7 +516,19 @@ export default function PoliciesPage() {
             <PolicyHierarchy />
           </TabPanel>
           <TabPanel px="0">
-            <PolicyVersioning />
+            <Card p="16px" mb="20px" bg={cardBg}>
+              <Select
+                placeholder="Select a policy to view its version history"
+                value={versioningPolicyId}
+                onChange={(e) => setVersioningPolicyId(e.target.value)}
+                maxW="400px"
+              >
+                {policies.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </Select>
+            </Card>
+            <PolicyVersioning policyId={versioningPolicyId || undefined} />
           </TabPanel>
           <TabPanel px="0">
             <PolicyAnalyzer />

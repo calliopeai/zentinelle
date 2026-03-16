@@ -704,7 +704,7 @@ class Query(graphene.ObjectType):
     )
     policy_revisions = graphene.List(
         PolicyRevisionType,
-        policy_id=graphene.UUID(required=True),
+        policy_id=graphene.String(required=True),
         description="Return all revisions for a given policy, ordered by version descending.",
     )
 
@@ -1379,6 +1379,14 @@ class Query(graphene.ObjectType):
         """Return all revisions for a given policy, ordered by version descending."""
         if not info.context.user.is_authenticated:
             return PolicyRevision.objects.none()
+        # Decode relay global ID if needed
+        from graphql_relay import from_global_id
+        try:
+            _type, raw_id = from_global_id(policy_id)
+            if raw_id:
+                policy_id = raw_id
+        except Exception:
+            pass
         # Ensure the caller can see the parent policy
         policy_qs = filter_by_org(Policy.objects.all(), info.context.user)
         if not policy_qs.filter(id=policy_id).exists():

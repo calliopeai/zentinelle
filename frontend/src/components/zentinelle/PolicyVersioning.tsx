@@ -54,31 +54,21 @@ import {
   MdRefresh,
 } from 'react-icons/md';
 import Card from 'components/card/Card';
-import { GET_POLICY_VERSIONS } from 'graphql/audit';
-import { GET_POLICY } from 'graphql/policies';
+import { GET_POLICY_REVISIONS } from 'graphql/policies';
 
-interface AuditChange {
-  field: string;
-  oldValue: string;
-  newValue: string;
-}
-
-interface AuditActor {
+interface PolicyRevisionData {
   id: string;
-  email: string;
+  version: number;
   name: string;
-  type: string;
-}
-
-interface AuditLogEntry {
-  id: string;
-  timestamp: string;
-  actor: AuditActor;
-  action: string;
-  resourceName: string;
-  status: string;
-  details: Record<string, any>;
-  changes: AuditChange[];
+  policyType: string;
+  enforcement: string;
+  config: Record<string, any>;
+  scopeType: string;
+  enabled: boolean;
+  priority: number;
+  changedBy: string;
+  changeSummary: string;
+  createdAt: string;
 }
 
 interface PolicyVersion {
@@ -108,37 +98,21 @@ interface PolicyVersioningProps {
   policyName?: string;
 }
 
-// Convert audit log entry to policy version
-function auditLogToVersion(entry: AuditLogEntry, index: number, total: number): PolicyVersion {
-  const version = total - index;
-  let changeType: 'created' | 'updated' | 'deleted' = 'updated';
-  if (entry.action === 'create') changeType = 'created';
-  else if (entry.action === 'delete') changeType = 'deleted';
-
-  // Build config from changes
-  const config: Record<string, any> = {};
-  entry.changes.forEach((change) => {
-    try {
-      config[change.field] = JSON.parse(change.newValue);
-    } catch {
-      config[change.field] = change.newValue;
-    }
-  });
-
+// Convert PolicyRevision to PolicyVersion
+function revisionToVersion(rev: PolicyRevisionData, index: number, total: number): PolicyVersion {
   return {
-    id: entry.id,
-    version,
-    policyId: entry.id,
-    policyName: entry.resourceName || 'Policy',
-    policyType: entry.details?.policy_type || 'unknown',
-    config: entry.details?.config || config,
-    changeType,
-    changeSummary: entry.details?.summary || `${changeType} policy`,
-    changedBy: entry.actor?.name || entry.actor?.email || 'Unknown',
-    changedByEmail: entry.actor?.email || '',
-    changedAt: entry.timestamp,
-    commitMessage: entry.details?.commit_message,
-    previousVersion: version > 1 ? version - 1 : undefined,
+    id: rev.id,
+    version: rev.version,
+    policyId: '',
+    policyName: rev.name,
+    policyType: rev.policyType,
+    config: rev.config || {},
+    changeType: index === total - 1 ? 'created' : 'updated',
+    changeSummary: rev.changeSummary || '',
+    changedBy: rev.changedBy || 'System',
+    changedByEmail: '',
+    changedAt: rev.createdAt,
+    previousVersion: rev.version > 1 ? rev.version - 1 : undefined,
   };
 }
 
@@ -203,31 +177,22 @@ export default function PolicyVersioning({ policyId, policyName }: PolicyVersion
   const { isOpen: isRollbackOpen, onOpen: onRollbackOpen, onClose: onRollbackClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
 
-  // Fetch policy details
-  const { data: policyData, loading: policyLoading } = useQuery(GET_POLICY, {
-    variables: { id: policyId },
-    skip: !policyId,
-  });
-
-  // Fetch version history from audit logs
-  const { data: versionsData, loading: versionsLoading, refetch } = useQuery(GET_POLICY_VERSIONS, {
-    variables: { policyId, first: 50 },
+  // Fetch version history from policy revisions
+  const { data: versionsData, loading: versionsLoading, refetch } = useQuery(GET_POLICY_REVISIONS, {
+    variables: { policyId },
     skip: !policyId,
     fetchPolicy: 'cache-and-network',
   });
 
-  // Convert audit logs to versions
+  // Convert revisions to PolicyVersion format
   const versions = useMemo<PolicyVersion[]>(() => {
-    const entries: AuditLogEntry[] = versionsData?.auditLogs?.edges?.map(
-      (e: { node: AuditLogEntry }) => e.node
-    ) || [];
-
-    const total = entries.length;
-    return entries.map((entry, idx) => auditLogToVersion(entry, idx, total));
+    const revisions: PolicyRevisionData[] = versionsData?.policyRevisions || [];
+    const total = revisions.length;
+    return revisions.map((rev, idx) => revisionToVersion(rev, idx, total));
   }, [versionsData]);
 
   const currentVersion = versions[0];
-  const displayName = policyData?.policy?.name || policyName || 'Policy';
+  const displayName = currentVersion?.policyName || policyName || 'Policy';
 
   const handleViewVersion = (version: PolicyVersion) => {
     setSelectedVersion(version);
@@ -278,7 +243,7 @@ export default function PolicyVersioning({ policyId, policyName }: PolicyVersion
     deleted: MdDelete,
   };
 
-  const loading = policyLoading || versionsLoading;
+  const loading = versionsLoading;
 
   if (!policyId) {
     return (
