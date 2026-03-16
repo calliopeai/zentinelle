@@ -43,7 +43,6 @@ export default function SettingsPage() {
   const cardBg = useColorModeValue('white', 'navy.800');
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const borderColor = useColorModeValue('gray.200', 'whiteAlpha.100');
-  const readOnlyBg = useColorModeValue('gray.50', 'whiteAlpha.100');
 
   // GraphQL query
   const { data, loading, error, refetch } = useQuery(GET_ORGANIZATION_SETTINGS);
@@ -51,7 +50,6 @@ export default function SettingsPage() {
 
   // Organization settings
   const [orgName, setOrgName] = useState('');
-  const [orgSlug, setOrgSlug] = useState('');
 
   // Notification settings
   const [emailAlerts, setEmailAlerts] = useState(true);
@@ -69,7 +67,6 @@ export default function SettingsPage() {
       const settings: OrganizationSettings = org.settings || {};
 
       setOrgName(org.name || '');
-      setOrgSlug(org.slug || '');
 
       // Notifications
       setEmailAlerts(settings.emailNotifications ?? true);
@@ -181,15 +178,6 @@ export default function SettingsPage() {
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
               />
-            </FormControl>
-            <FormControl>
-              <FormLabel>Organization Slug</FormLabel>
-              <Input
-                value={orgSlug}
-                isReadOnly
-                bg={readOnlyBg}
-              />
-              <FormHelperText>Used in URLs and API calls (read-only)</FormHelperText>
             </FormControl>
           </VStack>
         </Card>
