@@ -6,9 +6,21 @@ Standalone version — uses tenant_id-based access.
 import logging
 
 import graphene
+from graphql_relay import from_global_id
 
 from zentinelle.models import Policy, AgentEndpoint
 from zentinelle.schema.types import PolicyType
+
+
+def _decode_id(global_or_raw_id):
+    """Decode a relay global ID to a raw UUID string, or return as-is if already plain."""
+    try:
+        _type, raw_id = from_global_id(global_or_raw_id)
+        if raw_id:
+            return raw_id
+    except Exception:
+        pass
+    return global_or_raw_id
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +126,7 @@ class UpdatePolicy(graphene.Mutation):
             return UpdatePolicy(success=False, error="Authentication required")
 
         try:
-            policy = Policy.objects.get(id=input.id)
+            policy = Policy.objects.get(id=_decode_id(input.id))
         except Policy.DoesNotExist:
             return UpdatePolicy(success=False, error="Policy not found")
 
@@ -157,7 +169,7 @@ class DeletePolicy(graphene.Mutation):
             return DeletePolicy(success=False, error="Authentication required")
 
         try:
-            policy = Policy.objects.get(id=id)
+            policy = Policy.objects.get(id=_decode_id(id))
             policy.delete()
             return DeletePolicy(success=True)
         except Policy.DoesNotExist:
@@ -180,7 +192,7 @@ class DuplicatePolicy(graphene.Mutation):
             return DuplicatePolicy(success=False, error="Authentication required")
 
         try:
-            original = Policy.objects.get(id=id)
+            original = Policy.objects.get(id=_decode_id(id))
         except Policy.DoesNotExist:
             return DuplicatePolicy(success=False, error="Policy not found")
 
