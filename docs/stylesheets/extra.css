@@ -1,41 +1,38 @@
-/* Zentinelle brand — near-black with teal accents */
+/* Zentinelle brand — matching the GRC portal dark mode palette */
+/* Source: frontend/src/theme/styles.ts */
 
 :root {
-  --md-primary-fg-color: #030610;
-  --md-primary-fg-color--light: #050a18;
-  --md-primary-fg-color--dark: #020408;
-  --md-accent-fg-color: #08d4b8;
+  --md-primary-fg-color: #090C10;       /* navy.800 */
+  --md-primary-fg-color--light: #0D1117; /* navy.700 */
+  --md-primary-fg-color--dark: #010409;  /* navy.900 / background.900 */
+  --md-accent-fg-color: #08d4b8;        /* accent.500 */
   --md-accent-fg-color--transparent: #08d4b826;
 }
 
-/* Slate (dark) scheme overrides */
 [data-md-color-scheme="slate"] {
-  --md-default-bg-color: #030610;
-  --md-default-bg-color--light: #050a18;
-  --md-default-bg-color--lighter: #080e24;
-  --md-default-bg-color--lightest: #0a1230;
+  --md-default-bg-color: #010409;         /* background.900 */
+  --md-default-bg-color--light: #090C10;  /* navy.800 */
+  --md-default-bg-color--lighter: #0D1117; /* navy.700 */
+  --md-default-bg-color--lightest: #1A2035; /* navy.50 */
   --md-default-fg-color: #e0e5f2;
   --md-default-fg-color--light: #a3aed0;
   --md-default-fg-color--lighter: #8795b7;
   --md-default-fg-color--lightest: #6b7a9e;
-  --md-code-bg-color: #060c1e;
+  --md-code-bg-color: #090C10;            /* navy.800 */
   --md-code-fg-color: #e0e5f2;
-  --md-typeset-a-color: #08d4b8;
-  --md-footer-bg-color: #020408;
-  --md-footer-bg-color--dark: #010306;
+  --md-typeset-a-color: #08d4b8;          /* accent.500 */
+  --md-footer-bg-color: #010409;          /* background.900 */
+  --md-footer-bg-color--dark: #010409;
 }
 
-/* Header — near-black */
 .md-header {
-  background-color: #020408;
+  background-color: #010409;              /* background.900 */
 }
 
-/* Sidebar — near-black */
 .md-sidebar {
-  background-color: #030610;
+  background-color: #010409;              /* background.900 */
 }
 
-/* Nav links */
 .md-nav__link:hover {
   color: #08d4b8;
 }
@@ -44,29 +41,24 @@
   color: #08d4b8 !important;
 }
 
-/* Code blocks */
 [data-md-color-scheme="slate"] .highlight code {
-  background-color: #060c1e;
+  background-color: #090C10;              /* navy.800 */
 }
 
-/* Admonitions */
 [data-md-color-scheme="slate"] .md-typeset .admonition,
 [data-md-color-scheme="slate"] .md-typeset details {
-  background-color: #080e24;
-  border-color: #0e1840;
+  background-color: #0D1117;              /* navy.700 */
+  border-color: #1A2035;                  /* navy.50 */
 }
 
-/* Tables */
 [data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
-  background-color: #080e24;
+  background-color: #0D1117;              /* navy.700 */
 }
 
-/* Search */
 [data-md-color-scheme="slate"] .md-search__input {
-  background-color: #060c1e;
+  background-color: #090C10;              /* navy.800 */
 }
 
-/* Logo sizing */
 .md-header__button.md-logo img {
   height: 28px;
 }
