@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zentinelle — Code Graph</title>
+<script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #070d22; color: #e0e5f2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+#app { display: flex; height: 100vh; }
+#sidebar { width: 320px; background: #0a1230; border-right: 1px solid #1b2559; display: flex; flex-direction: column; }
+#sidebar header { padding: 16px; border-bottom: 1px solid #1b2559; }
+#sidebar header h1 { font-size: 16px; font-weight: 600; color: #08d4b8; }
+#sidebar header p { font-size: 11px; color: #6b7a9e; margin-top: 4px; }
+#search-box { width: 100%; padding: 8px 12px; background: #0e1840; border: 1px solid #1b2559; border-radius: 6px; color: #e0e5f2; font-size: 13px; outline: none; margin-top: 10px; }
+#search-box:focus { border-color: #08d4b8; }
+#filters { padding: 12px 16px; border-bottom: 1px solid #1b2559; display: flex; flex-wrap: wrap; gap: 4px; }
+.filter-btn { padding: 3px 8px; font-size: 11px; border: 1px solid #1b2559; border-radius: 4px; background: transparent; color: #a3aed0; cursor: pointer; }
+.filter-btn.active { background: #08d4b8; color: #070d22; border-color: #08d4b8; }
+.filter-btn:hover { border-color: #08d4b8; }
+#node-info { flex: 1; overflow-y: auto; padding: 16px; }
+#node-info h2 { font-size: 14px; color: #08d4b8; margin-bottom: 8px; }
+#node-info .field { margin-bottom: 6px; }
+#node-info .label { font-size: 11px; color: #6b7a9e; text-transform: uppercase; }
+#node-info .value { font-size: 13px; color: #e0e5f2; word-break: break-all; }
+#node-info .edge-list { margin-top: 12px; }
+#node-info .edge-item { padding: 4px 0; font-size: 12px; color: #a3aed0; cursor: pointer; }
+#node-info .edge-item:hover { color: #08d4b8; }
+#node-info .edge-type { color: #6b7a9e; font-size: 10px; }
+#stats-bar { padding: 8px 16px; border-top: 1px solid #1b2559; font-size: 11px; color: #6b7a9e; }
+#graph { flex: 1; }
+#loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #08d4b8; font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <header>
+      <h1>Zentinelle Code Graph</h1>
+      <p>Interactive codebase knowledge graph</p>
+      <input id="search-box" type="text" placeholder="Search nodes...">
+    </header>
+    <div id="filters"></div>
+    <div id="node-info">
+      <p style="color:#6b7a9e; font-size:12px;">Click a node to see details.<br><br>Scroll to zoom. Drag to pan.<br>Double-click to focus.</p>
+    </div>
+    <div id="stats-bar" id="stats"></div>
+  </div>
+  <div id="graph">
+    <div id="loading">Loading graph...</div>
+  </div>
+</div>
+
+<script>
+const TYPE_COLORS = {
+  model:        { bg: '#08d4b8', border: '#06a894' },
+  view:         { bg: '#3b5caa', border: '#2d4a8a' },
+  evaluator:    { bg: '#f59e0b', border: '#d97706' },
+  class:        { bg: '#6366f1', border: '#4f46e5' },
+  function:     { bg: '#8b5cf6', border: '#7c3aed' },
+  file:         { bg: '#374151', border: '#4b5563' },
+  url:          { bg: '#ef4444', border: '#dc2626' },
+  page:         { bg: '#ec4899', border: '#db2777' },
+  graphql_type: { bg: '#14b8a6', border: '#0d9488' },
+  enum:         { bg: '#f97316', border: '#ea580c' },
+  nginx_route:  { bg: '#ef4444', border: '#b91c1c' },
+};
+
+const TYPE_SIZES = {
+  model: 20, view: 18, evaluator: 16, class: 10, function: 8,
+  file: 6, url: 14, page: 14, graphql_type: 8, enum: 10, nginx_route: 14,
+};
+
+// Nodes to always show (important ones)
+const IMPORTANT_TYPES = new Set(['model', 'view', 'evaluator', 'url', 'page', 'nginx_route', 'enum']);
+
+let network, allNodes, allEdges, visNodes, visEdges;
+let activeFilters = new Set(IMPORTANT_TYPES);
+
+async function init() {
+  const resp = await fetch('codemap.json');
+  const data = await resp.json();
+  allNodes = data.nodes;
+  allEdges = data.edges;
+
+  // Build filter buttons
+  const types = [...new Set(allNodes.map(n => n.type))].sort();
+  const filtersEl = document.getElementById('filters');
+  types.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn' + (activeFilters.has(t) ? ' active' : '');
+    btn.textContent = `${t} (${allNodes.filter(n => n.type === t).length})`;
+    btn.onclick = () => toggleFilter(t, btn);
+    filtersEl.appendChild(btn);
+  });
+
+  renderGraph();
+  document.getElementById('loading').style.display = 'none';
+
+  // Search
+  document.getElementById('search-box').addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase();
+    if (!q) { renderGraph(); return; }
+    const matchIds = new Set(allNodes.filter(n =>
+      n.name.toLowerCase().includes(q) ||
+      (n.file_path && n.file_path.toLowerCase().includes(q)) ||
+      (n.description && n.description.toLowerCase().includes(q))
+    ).map(n => n.id));
+    // Also include connected nodes
+    allEdges.forEach(e => {
+      if (matchIds.has(e.source_id)) matchIds.add(e.target_id);
+      if (matchIds.has(e.target_id)) matchIds.add(e.source_id);
+    });
+    renderGraph(matchIds);
+  });
+
+  updateStats();
+}
+
+function toggleFilter(type, btn) {
+  if (activeFilters.has(type)) {
+    activeFilters.delete(type);
+    btn.classList.remove('active');
+  } else {
+    activeFilters.add(type);
+    btn.classList.add('active');
+  }
+  renderGraph();
+}
+
+function renderGraph(filterIds) {
+  const filteredNodes = allNodes.filter(n => {
+    if (filterIds) return filterIds.has(n.id);
+    return activeFilters.has(n.type);
+  });
+  const nodeIds = new Set(filteredNodes.map(n => n.id));
+  const filteredEdges = allEdges.filter(e => nodeIds.has(e.source_id) && nodeIds.has(e.target_id));
+
+  visNodes = new vis.DataSet(filteredNodes.map(n => ({
+    id: n.id,
+    label: n.name,
+    title: `[${n.type}] ${n.name}\n${n.file_path || ''}\n${n.description || ''}`,
+    color: TYPE_COLORS[n.type] || { bg: '#4b5563', border: '#374151' },
+    size: TYPE_SIZES[n.type] || 8,
+    font: { color: '#e0e5f2', size: Math.max(8, (TYPE_SIZES[n.type] || 8) - 2) },
+    shape: n.type === 'model' ? 'diamond' : n.type === 'url' || n.type === 'nginx_route' ? 'triangle' : 'dot',
+    _data: n,
+  })));
+
+  visEdges = new vis.DataSet(filteredEdges.map((e, i) => ({
+    id: i,
+    from: e.source_id,
+    to: e.target_id,
+    label: e.type,
+    font: { size: 8, color: '#4b556380', strokeWidth: 0 },
+    color: { color: '#1b2559', highlight: '#08d4b8', hover: '#3b5caa' },
+    arrows: 'to',
+    smooth: { type: 'continuous' },
+  })));
+
+  const container = document.getElementById('graph');
+  const options = {
+    physics: {
+      solver: 'forceAtlas2Based',
+      forceAtlas2Based: { gravitationalConstant: -40, centralGravity: 0.005, springLength: 100 },
+      stabilization: { iterations: 150 },
+    },
+    interaction: { hover: true, tooltipDelay: 100, zoomView: true },
+    nodes: { borderWidth: 2 },
+    edges: { width: 0.5 },
+    layout: { improvedLayout: filteredNodes.length < 200 },
+  };
+
+  if (network) network.destroy();
+  network = new vis.Network(container, { nodes: visNodes, edges: visEdges }, options);
+
+  network.on('click', (params) => {
+    if (params.nodes.length > 0) showNodeInfo(params.nodes[0]);
+  });
+
+  network.on('doubleClick', (params) => {
+    if (params.nodes.length > 0) network.focus(params.nodes[0], { scale: 1.5, animation: true });
+  });
+
+  updateStats();
+}
+
+function showNodeInfo(nodeId) {
+  const node = allNodes.find(n => n.id === nodeId);
+  if (!node) return;
+
+  const outgoing = allEdges.filter(e => e.source_id === nodeId);
+  const incoming = allEdges.filter(e => e.target_id === nodeId);
+
+  let html = `<h2>${node.name}</h2>`;
+  html += `<div class="field"><div class="label">Type</div><div class="value">${node.type}</div></div>`;
+  if (node.file_path) {
+    const loc = node.line_start ? `${node.file_path}:${node.line_start}` : node.file_path;
+    html += `<div class="field"><div class="label">Location</div><div class="value">${loc}</div></div>`;
+  }
+  if (node.description) {
+    html += `<div class="field"><div class="label">Description</div><div class="value">${node.description}</div></div>`;
+  }
+
+  if (outgoing.length) {
+    html += `<div class="edge-list"><div class="label">Outgoing (${outgoing.length})</div>`;
+    outgoing.slice(0, 20).forEach(e => {
+      const target = allNodes.find(n => n.id === e.target_id);
+      const name = target ? target.name : e.target_id;
+      html += `<div class="edge-item" onclick="focusNode('${e.target_id}')">→ <span class="edge-type">${e.type}</span> ${name}</div>`;
+    });
+    if (outgoing.length > 20) html += `<div class="edge-item" style="color:#6b7a9e">... and ${outgoing.length - 20} more</div>`;
+    html += '</div>';
+  }
+
+  if (incoming.length) {
+    html += `<div class="edge-list"><div class="label">Incoming (${incoming.length})</div>`;
+    incoming.slice(0, 20).forEach(e => {
+      const source = allNodes.find(n => n.id === e.source_id);
+      const name = source ? source.name : e.source_id;
+      html += `<div class="edge-item" onclick="focusNode('${e.source_id}')">← <span class="edge-type">${e.type}</span> ${name}</div>`;
+    });
+    if (incoming.length > 20) html += `<div class="edge-item" style="color:#6b7a9e">... and ${incoming.length - 20} more</div>`;
+    html += '</div>';
+  }
+
+  document.getElementById('node-info').innerHTML = html;
+  network.selectNodes([nodeId]);
+}
+
+function focusNode(nodeId) {
+  // Make sure the node is visible
+  if (!visNodes.get(nodeId)) {
+    // Add it temporarily
+    const node = allNodes.find(n => n.id === nodeId);
+    if (!node) return;
+    activeFilters.add(node.type);
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      if (btn.textContent.startsWith(node.type)) btn.classList.add('active');
+    });
+    renderGraph();
+  }
+  network.focus(nodeId, { scale: 1.5, animation: true });
+  network.selectNodes([nodeId]);
+  showNodeInfo(nodeId);
+}
+
+function updateStats() {
+  const nCount = visNodes ? visNodes.length : 0;
+  const eCount = visEdges ? visEdges.length : 0;
+  document.getElementById('stats-bar').textContent = `${nCount} nodes · ${eCount} edges · ${allNodes ? allNodes.length : 0} total`;
+}
+
+init();
+</script>
+</body>
+</html>
