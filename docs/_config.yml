@@ -5,7 +5,10 @@ baseurl: ""
 
 remote_theme: just-the-docs/just-the-docs
 
-color_scheme: dark
+logo: "/assets/images/logo.svg"
+favicon_ico: "/favicon.ico"
+
+color_scheme: zentinelle
 
 aux_links:
   "GitHub": "https://github.com/calliopeai/zentinelle"
