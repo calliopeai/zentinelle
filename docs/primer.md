@@ -1,8 +1,3 @@
----
-layout: default
-title: Methodology
-nav_order: 6
----
 
 # Methodology Primer
 

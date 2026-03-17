@@ -1,8 +1,3 @@
----
-layout: default
-title: Tech Stack
-nav_order: 3
----
 
 # Tech Stack
 

@@ -1,0 +1,72 @@
+/* Zentinelle brand — dark navy bordering on black, teal accents */
+
+:root {
+  --md-primary-fg-color: #080e28;
+  --md-primary-fg-color--light: #0b1437;
+  --md-primary-fg-color--dark: #050a1a;
+  --md-accent-fg-color: #08d4b8;
+  --md-accent-fg-color--transparent: #08d4b826;
+}
+
+/* Slate (dark) scheme overrides */
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #070d22;
+  --md-default-bg-color--light: #0a1230;
+  --md-default-bg-color--lighter: #0e1840;
+  --md-default-bg-color--lightest: #111c44;
+  --md-default-fg-color: #e0e5f2;
+  --md-default-fg-color--light: #a3aed0;
+  --md-default-fg-color--lighter: #8795b7;
+  --md-default-fg-color--lightest: #6b7a9e;
+  --md-code-bg-color: #0b1437;
+  --md-code-fg-color: #e0e5f2;
+  --md-typeset-a-color: #08d4b8;
+  --md-footer-bg-color: #050a1a;
+  --md-footer-bg-color--dark: #030714;
+}
+
+/* Header — near-black navy */
+.md-header {
+  background-color: #050a1a;
+}
+
+/* Sidebar — dark navy */
+.md-sidebar {
+  background-color: #070d22;
+}
+
+/* Nav links */
+.md-nav__link:hover {
+  color: #08d4b8;
+}
+
+.md-nav__link--active {
+  color: #08d4b8 !important;
+}
+
+/* Code blocks */
+[data-md-color-scheme="slate"] .highlight code {
+  background-color: #0b1437;
+}
+
+/* Admonitions */
+[data-md-color-scheme="slate"] .md-typeset .admonition,
+[data-md-color-scheme="slate"] .md-typeset details {
+  background-color: #0e1840;
+  border-color: #1b2559;
+}
+
+/* Tables */
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
+  background-color: #0e1840;
+}
+
+/* Search */
+[data-md-color-scheme="slate"] .md-search__input {
+  background-color: #0b1437;
+}
+
+/* Logo sizing */
+.md-header__button.md-logo img {
+  height: 28px;
+}

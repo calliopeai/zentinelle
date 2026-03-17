@@ -1,8 +1,3 @@
----
-layout: default
-title: Home
-nav_order: 1
----
 
 # Zentinelle
 
@@ -10,8 +5,8 @@ nav_order: 1
 
 Zentinelle sits between your AI agents and their LLM providers, enforcing policies, logging activity, and giving you a real-time compliance dashboard.
 
-{: .warning }
-> **v0.0.1 alpha** — Working integrations with Claude Code and Codex. [Looking for contributors.](https://github.com/calliopeai/zentinelle/issues)
+!!! warning "Alpha"
+    **v0.0.1** — Working integrations with Claude Code and Codex. [Looking for contributors.](https://github.com/calliopeai/zentinelle/issues)
 
 ## How it works
 

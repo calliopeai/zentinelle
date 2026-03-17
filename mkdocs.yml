@@ -1,0 +1,88 @@
+site_name: Zentinelle
+site_url: https://zentinelle.dev
+site_description: Runtime governance for AI coding agents
+repo_url: https://github.com/calliopeai/zentinelle
+repo_name: calliopeai/zentinelle
+docs_dir: docs
+
+theme:
+  name: material
+  logo: assets/images/logo.svg
+  favicon: favicon.ico
+  palette:
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to light mode
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to dark mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Tech Stack: tech-stack.md
+  - Reference:
+    - Overview: wiki/README.md
+    - Architecture: wiki/architecture.md
+    - API Reference: wiki/api.md
+    - Policy Reference: wiki/policies.md
+    - SDK Guide: wiki/sdk.md
+    - Compliance Frameworks: wiki/compliance.md
+    - Deployment Guide: wiki/deployment.md
+    - Development Guide: wiki/development.md
+  - Knowledge Graph: knowledge-graph.md
+  - Methodology: primer.md
+  - Contributing: contributing.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/calliopeai/zentinelle
+    - icon: fontawesome/solid/globe
+      link: https://zentinelle.ai
+    - icon: fontawesome/solid/building
+      link: https://calliope.ai
+  generator: false
+
+copyright: "&copy; 2026 Calliope Labs Inc. MIT Licensed."

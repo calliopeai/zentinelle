@@ -1,8 +1,3 @@
----
-layout: default
-title: Knowledge Graph
-nav_order: 7
----
 
 # Knowledge Graph
 
