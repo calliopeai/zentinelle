@@ -1,7 +1,49 @@
 
 # Knowledge Graph
 
-This page maps the codebase architecture -- entry points, data flows, and component dependencies. Agents and developers use this to navigate without exploring blindly.
+Zentinelle maintains a SQLite-backed knowledge graph of its codebase — 1300+ nodes covering models, views, evaluators, URLs, pages, and their relationships.
+
+[**Open Interactive Graph →**](graph.html){ .md-button .md-button--primary }
+
+Rebuild locally:
+
+```bash
+python3 scripts/codemap.py build    # index codebase → codemap.sqlite
+python3 scripts/codemap.py query X  # search nodes
+python3 scripts/codemap.py show X   # show node + connections
+python3 scripts/codemap.py stats    # overview
+python3 scripts/codemap.py export   # export JSON for viz
+```
+
+---
+
+## Node types
+
+| Type | Count | What |
+|------|-------|------|
+| `model` | 95 | Django models (AgentEndpoint, Policy, Event, InteractionLog, ...) |
+| `view` | 44 | REST API views and GraphQL views |
+| `evaluator` | 47 | Policy evaluators (rate_limit, tool_permission, ...) |
+| `class` | 555 | Python classes |
+| `graphql_type` | 118 | GraphQL ObjectTypes and InputTypes |
+| `enum` | 53 | TextChoices enums (AgentType, PolicyType, ...) |
+| `url` | 33 | REST API URL patterns |
+| `page` | 18 | Next.js frontend pages |
+| `nginx_route` | 5 | Nginx location blocks |
+| `file` | 205 | Python source files |
+| `function` | 185 | Top-level functions |
+
+## Edge types
+
+| Type | Count | Meaning |
+|------|-------|---------|
+| `contains` | 1094 | File contains class/function |
+| `inherits` | 640 | Class extends another |
+| `imports` | 542 | File imports from another |
+| `routes_to` | 33 | URL pattern routes to a view |
+| `evaluates` | 22 | PolicyEngine dispatches to evaluator |
+
+---
 
 ## Data flows
 
@@ -111,7 +153,9 @@ Celery worker processes event
   │  optionally: writes to ClickHouse for analytics
 ```
 
-## Entry points (URL → View → Service)
+---
+
+## Entry points
 
 | URL | View | Service | Model |
 |-----|------|---------|-------|
@@ -140,6 +184,7 @@ Celery worker processes event
 | `backend/config/urls.py` | URL routing (api/, gql/, proxy/, admin/) |
 | `docker/nginx.conf` | Reverse proxy routing |
 | `zentinelle-sdk.git/plugins/agent/` | SDK: hooks, proxy, CLI |
+| `scripts/codemap.py` | Knowledge graph builder + query CLI |
 
 ## Model relationships
 
