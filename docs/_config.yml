@@ -1,0 +1,32 @@
+title: Zentinelle
+description: Runtime governance for AI coding agents
+url: "https://zentinelle.dev"
+baseurl: ""
+
+remote_theme: just-the-docs/just-the-docs
+
+color_scheme: dark
+
+aux_links:
+  "GitHub": "https://github.com/calliopeai/zentinelle"
+  "zentinelle.ai": "https://zentinelle.ai"
+
+aux_links_new_tab: true
+
+nav_enabled: true
+search_enabled: true
+
+footer_content: "Built by <a href=\"https://calliope.ai\">Calliope AI</a> &middot; MIT Licensed"
+
+callouts:
+  warning:
+    title: Warning
+    color: yellow
+  note:
+    title: Note
+    color: blue
+
+exclude:
+  - pricing.yaml
+  - registry.yaml
+  - "*.review*.md"
