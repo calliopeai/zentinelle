@@ -1,3 +1,9 @@
+---
+layout: default
+title: Methodology
+nav_order: 6
+---
+
 # Methodology Primer
 
 How we build software at Calliope AI. This applies to all repos in the ecosystem.
