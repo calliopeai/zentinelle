@@ -164,26 +164,8 @@ def _send_alert(event):
 def _record_ai_usage(event):
     """
     Record AI usage from an AI_REQUEST event.
-
-    Expected payload format:
-    {
-        "provider": "openai",
-        "model": "gpt-4",
-        "input_tokens": 100,
-        "output_tokens": 50,
-        "user_id": "user@example.com",
-        "request_id": "chatcmpl-xxx",
-        "latency_ms": 1500,
-        "request_type": "chat",  # optional
-        "input_cost_usd": 0.003,  # optional
-        "output_cost_usd": 0.006,  # optional
-    }
     """
-    from decimal import Decimal
-    try:
-        from billing.models import AIUsage
-    except ImportError:
-        return  # Managed-only feature, skip in standalone mode
+    from zentinelle.services.usage_tracking import UsageTrackingService
 
     if not event.tenant_id:
         return
@@ -201,12 +183,6 @@ def _record_ai_usage(event):
 
     # Optional fields
     request_id = payload.get('request_id', '')
-    latency_ms = payload.get('latency_ms')
-    request_type = payload.get('request_type', 'chat')
-
-    # Cost fields (if provided by agent, otherwise we'll calculate later)
-    input_cost = Decimal(str(payload.get('input_cost_usd', 0)))
-    output_cost = Decimal(str(payload.get('output_cost_usd', 0)))
 
     # Validate we have minimum required data
     if not provider or not model:
@@ -214,29 +190,25 @@ def _record_ai_usage(event):
         return
 
     try:
-        AIUsage.record_usage(
-            organization=event.tenant_id,
-            deployment=event.deployment,
+        UsageTrackingService.record_usage(
+            tenant_id=event.tenant_id,
             user_identifier=user_identifier,
             provider=provider,
             model=model,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
-            input_cost_usd=input_cost,
-            output_cost_usd=output_cost,
-            request_type=request_type,
             request_id=request_id,
-            latency_ms=latency_ms,
+            endpoint=event.endpoint,
+            deployment_id_ext=event.deployment or '',
+            occurred_at=event.occurred_at,
             metadata={
                 'event_id': str(event.id),
-                'endpoint_id': str(event.endpoint_id) if event.endpoint_id else None,
             },
         )
         logger.debug(f"Recorded AI usage for event {event.id}")
 
     except Exception as e:
         logger.warning(f"Failed to record AI usage for event {event.id}: {e}")
-        # Don't fail the event processing for usage tracking failures
 
 
 @shared_task
