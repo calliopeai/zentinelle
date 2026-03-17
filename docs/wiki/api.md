@@ -286,7 +286,7 @@ type EventType {
 
 ### Schema Ordering Rule
 
-All ObjectType/InputType classes MUST be defined before any Query or Mutation that references them. See [CLAUDE.md](../../CLAUDE.md).
+All ObjectType/InputType classes MUST be defined before any Query or Mutation that references them. See [CLAUDE.md](https://github.com/calliopeai/zentinelle/blob/main/CLAUDE.md).
 
 ---
 

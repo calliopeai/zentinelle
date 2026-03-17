@@ -69,8 +69,8 @@ pipenv run ruff check
 
 ## Project structure
 
-See [Knowledge Graph](knowledge-graph) for the full codebase map and data flows.
+See [Knowledge Graph](knowledge-graph.md) for the full codebase map and data flows.
 
-See [Tech Stack](tech-stack) for technology choices.
+See [Tech Stack](tech-stack.md) for technology choices.
 
-See [Methodology Primer](primer) for how we work.
+See [Methodology Primer](primer.md) for how we work.

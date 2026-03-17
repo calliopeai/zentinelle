@@ -26,10 +26,10 @@ Two integration modes:
 
 ## Quick links
 
-- [Quick Start](getting-started) -- get running in 5 minutes
-- [Architecture](wiki/architecture) -- how the system is built
-- [API Reference](wiki/api) -- REST + GraphQL endpoints
-- [Policy Reference](wiki/policies) -- all policy types and configs
-- [SDK Guide](wiki/sdk) -- integrate your agent
-- [Knowledge Graph](knowledge-graph) -- codebase architecture map
-- [Contributing](contributing)
+- [Quick Start](getting-started.md) -- get running in 5 minutes
+- [Architecture](wiki/architecture.md) -- how the system is built
+- [API Reference](wiki/api.md) -- REST + GraphQL endpoints
+- [Policy Reference](wiki/policies.md) -- all policy types and configs
+- [SDK Guide](wiki/sdk.md) -- integrate your agent
+- [Knowledge Graph](knowledge-graph.md) -- codebase architecture map
+- [Contributing](contributing.md)
