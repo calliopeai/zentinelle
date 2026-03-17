@@ -84,13 +84,25 @@ codex
 ### Gemini (hooks)
 
 ```bash
+pip install zentinelle-agent
+
+# Install native hooks for Gemini CLI
 zentinelle-agent install-gemini \
   --endpoint http://localhost:8080 \
   --key <your-agent-key> \
   --agent-id my-gemini-agent
 ```
+Restart your Gemini CLI session.
 
-### Register an agent
+### Gemini (proxy)
+
+> **Note:** Official Google SDKs do **not** natively respect `GOOGLE_API_BASE`. You must configure your client programmatically to point to the Zentinelle proxy (`http://127.0.0.1:8742`).
+
+```python
+# Python SDK Example
+import google.generativeai as genai
+genai.configure(api_key=..., client_options={"api_endpoint": "http://127.0.0.1:8742"})
+```
 
 ```bash
 # Get a bootstrap token (set ZENTINELLE_BOOTSTRAP_SECRET in .env first)

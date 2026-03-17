@@ -39,3 +39,6 @@ Thumbs.db
 secrets.json
 celerybeat-schedule
 *.db
+
+# Knowledge graph (rebuild with: python scripts/codemap.py build)
+codemap.sqlite
