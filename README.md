@@ -159,4 +159,4 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
-Built by [Calliope AI](https://calliope.ai)
+Built by [Calliope AI](https://calliope.ai) · [zentinelle.ai](https://zentinelle.ai)
