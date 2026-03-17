@@ -1,99 +1,162 @@
 # Zentinelle
 
-**Runtime governance, risk, and compliance for AI agents.**
+**Runtime governance for AI coding agents.**
 
-Zentinelle gives you policy enforcement, audit logging, content scanning, and compliance dashboards for any AI agent — regardless of framework or LLM provider.
+Zentinelle sits between your AI agents and their LLM providers, enforcing policies, logging activity, and giving you a real-time compliance dashboard — without modifying agent code.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.0.1-orange.svg)]()
+[![Status](https://img.shields.io/badge/status-alpha-yellow.svg)]()
+
+> **v0.0.1 alpha** — Working integrations with Claude Code and Codex. Looking for contributors and early adopters. [Open issues](https://github.com/calliopeai/zentinelle/issues)
 
 ---
 
-## What It Does
+## How It Works
 
-- **Policy enforcement** — rate limits, cost controls, model restrictions, PII blocking. Evaluated before your agent executes.
-- **Observability** — token usage, cost metering, interaction logs, real-time health monitoring.
-- **Content scanning** — PII detection, toxicity scoring, jailbreak/prompt injection detection.
-- **Compliance** — SOC2, GDPR, HIPAA, EU AI Act, NIST AI RMF dashboards and exportable reports.
-- **Risk management** — risk register, incident tracking, anomaly alerting.
+```
+Your Agent  ──►  Zentinelle  ──►  LLM Provider
+               (policy check)    (Anthropic, OpenAI, Google)
+               (audit log)
+               (monitoring)
+```
 
-## Quick Start (Self-Hosted)
+Two integration modes:
+
+| Mode | How | Best for |
+|------|-----|----------|
+| **Hooks** | PreToolUse/PostToolUse intercepts every tool call | Claude Code, Gemini CLI |
+| **Proxy** | Transparent HTTP proxy injects policy enforcement | Any agent (Codex, custom) |
+
+## What's Working
+
+- **Policy engine** — rate limits, tool permissions, model restrictions, network policies, agent capabilities
+- **Real-time monitoring** — every tool call and LLM invocation visible in the dashboard
+- **Multi-agent support** — Claude Code, Codex, and Gemini tracked side-by-side
+- **LLM proxy** — transparent passthrough to Anthropic, OpenAI, Google with policy enforcement
+- **Compliance dashboards** — SOC2, GDPR, HIPAA, EU AI Act, NIST AI RMF frameworks
+
+## Quick Start
 
 ```bash
 git clone https://github.com/calliopeai/zentinelle
 cd zentinelle
-cp .env.example .env                    # fill in SECRET_KEY, POSTGRES_PASSWORD
 docker compose up -d
 
-# First run: create tables and an admin user
+# First run
 docker compose exec backend python manage.py migrate --database=zentinelle
 docker compose exec backend python manage.py migrate
 docker compose exec backend python manage.py createsuperuser
 ```
 
-The GRC portal runs at `http://localhost:8080`.
-The GraphQL API runs at `http://localhost:8080/gql/zentinelle/`.
-The agent REST API runs at `http://localhost:8080/api/zentinelle/`.
+Portal: `http://localhost:8080`
+API: `http://localhost:8080/api/zentinelle/v1/`
+GraphQL: `http://localhost:8080/gql/zentinelle/`
+Proxy: `http://localhost:8080/proxy/<provider>/`
 
-## SDK
+## Connect Your Agents
 
-Agents integrate via a lightweight SDK (no agent code changes required beyond initialization):
+### Claude Code (hooks)
 
-```python
-# Python
-from zentinelle import ZentinelleClient
+```bash
+pip install zentinelle-agent
 
-client = ZentinelleClient(api_key="zk_...", endpoint="https://your-zentinelle.example.com")
-client.register(capabilities=["llm:invoke", "tool:search"])
-
-# Before each LLM call
-decision = client.evaluate({"model": "gpt-4o", "tokens_requested": 2000})
-if not decision.allowed:
-    raise PolicyViolation(decision.reason)
-
-# After each call
-client.emit({"type": "llm.response", "tokens_used": 1847, "cost_usd": 0.037})
+zentinelle-agent install \
+  --endpoint http://localhost:8080 \
+  --key <your-agent-key> \
+  --agent-id my-claude-agent
 ```
 
-```typescript
-// TypeScript / Node
-import { ZentinelleClient } from 'zentinelle';
+Restart Claude Code. Every tool call now goes through Zentinelle.
 
-const client = new ZentinelleClient({ apiKey: 'zk_...', endpoint: 'https://...' });
-await client.register({ capabilities: ['llm:invoke'] });
+### Codex / OpenAI (proxy)
+
+```bash
+# Terminal 1: start the proxy
+zentinelle-agent proxy --provider openai \
+  --endpoint http://localhost:8080 --key <your-agent-key>
+
+# Terminal 2: point Codex at it
+export OPENAI_BASE_URL=http://127.0.0.1:8742
+codex
 ```
 
-**Supported languages:** Python · TypeScript · Go · Java · C#
-**Framework plugins:** LangChain · LlamaIndex · CrewAI · Vercel AI SDK · Microsoft Agent Framework · n8n
+### Gemini (hooks)
 
-See [zentinelle-sdk](https://github.com/calliopeai/zentinelle-sdk) for full SDK documentation.
+```bash
+zentinelle-agent install-gemini \
+  --endpoint http://localhost:8080 \
+  --key <your-agent-key> \
+  --agent-id my-gemini-agent
+```
 
-## Supported LLM Providers
+### Register an agent
 
-Works with all 21 providers: Anthropic · OpenAI · AWS Bedrock · Google Vertex AI · Gemini · Mistral · Cohere · Groq · Together · Fireworks · Perplexity · SambaNova · Cerebras · DeepSeek · xAI · HuggingFace · Ollama · LiteLLM · AI21 · NVIDIA · OpenRouter
+```bash
+# Get a bootstrap token (set ZENTINELLE_BOOTSTRAP_SECRET in .env first)
+curl -X POST http://localhost:8080/api/zentinelle/v1/register \
+  -H "Content-Type: application/json" \
+  -H "X-Zentinelle-Bootstrap: <bootstrap-token>" \
+  -d '{"agent_type": "claude_code", "name": "my-agent"}'
 
-## Deployment Options
+# Returns: {"agent_id": "...", "api_key": "sk_agent_..."}
+```
 
-| Option | Description |
-|--------|-------------|
-| **Self-hosted** | Docker Compose or Kubernetes. Free. MIT licensed. |
-| **Managed cloud** | We host and operate it for you. |
-| **BYOC** | Deploy in your cloud, we manage it remotely. |
-| **Forward deployed** | Calliope AI engineer embedded in your infra for regulated industries. |
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Django 5, Django REST Framework, Graphene (GraphQL) |
+| Frontend | Next.js 14, Chakra UI |
+| Database | PostgreSQL (isolated `zentinelle` schema) |
+| Cache | Redis |
+| Task queue | Celery + Celery Beat |
+| Analytics | ClickHouse (optional) |
+| Proxy | nginx (reverse proxy), httpx (LLM forwarding) |
+| SDK | Python (`zentinelle-agent` on PyPI) |
+
+## Policy Types
+
+| Policy | What it enforces |
+|--------|-----------------|
+| `rate_limit` | Requests per minute/hour, tokens per day |
+| `tool_permission` | Allow/deny/require-approval per tool |
+| `model_restriction` | Allowed models and providers |
+| `agent_capability` | Action-level RBAC with wildcards |
+| `network_policy` | Domain and IP allowlists/blocklists |
+| `output_filter` | Content scanning on LLM responses |
+| `budget_limit` | Token and cost budgets |
+| `secret_access` | Control which secrets agents can access |
+
+Plus: `context_limit`, `human_oversight`, `system_prompt`, `ai_guardrail`, `session_policy`, `data_access`, `data_retention`, `audit_policy`, `prompt_injection`, `agent_delegation`, `behavioral_baseline`, `session_quota`, `resource_quota`
 
 ## Documentation
 
 - [Architecture](docs/wiki/architecture.md)
 - [API Reference](docs/wiki/api.md)
-- [SDK Guide](docs/wiki/sdk.md)
 - [Policy Reference](docs/wiki/policies.md)
+- [SDK Guide](docs/wiki/sdk.md)
 - [Compliance Frameworks](docs/wiki/compliance.md)
-- [Self-Hosting Guide](docs/wiki/deployment.md)
+- [Deployment Guide](docs/wiki/deployment.md)
 - [Development Guide](docs/wiki/development.md)
+- [Methodology Primer](docs/primer.md)
+
+## Contributing
+
+We're looking for contributors! Areas where help is needed:
+
+- **Data pipeline** — token counting, cost estimation, latency measurement ([#68](https://github.com/calliopeai/zentinelle/issues/68), [#70-#76](https://github.com/calliopeai/zentinelle/issues))
+- **Dynamic model catalog** — fetch model lists from providers ([#66](https://github.com/calliopeai/zentinelle/issues/66))
+- **Accessibility** — keyboard navigation, focus visibility, WCAG AA ([#59-#65](https://github.com/calliopeai/zentinelle/issues))
+- **Agent integrations** — more hooks/proxy support for other coding agents
+- **Documentation site** — GitHub Pages at zentinelle.dev
+
+See [open issues](https://github.com/calliopeai/zentinelle/issues) for the full list.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Free to self-host, modify, and distribute.
+MIT — see [LICENSE](LICENSE).
 
 ---
 
-Built by [Calliope AI](https://calliope.ai) · [zentinelle.ai](https://zentinelle.ai)
+Built by [Calliope AI](https://calliope.ai)
