@@ -7,7 +7,8 @@ This allows the frontend to work without Auth0 locally.
 """
 import os
 import logging
-from graphene_django.views import GraphQLView
+
+from strawberry.django.views import GraphQLView
 
 logger = logging.getLogger(__name__)
 
@@ -42,16 +43,7 @@ class ZentinelleGraphQLView(GraphQLView):
 
     def dispatch(self, request, *args, **kwargs):
         self._maybe_auth_standalone(request)
-        response = super().dispatch(request, *args, **kwargs)
-        if response.status_code == 400:
-            import json
-            try:
-                body = json.loads(request.body.decode())
-                query = body.get('query', '')[:200]
-            except Exception:
-                query = '<unreadable>'
-            logger.warning("[GraphQL] 400 from query: %s", query)
-        return response
+        return super().dispatch(request, *args, **kwargs)
 
     def _maybe_auth_standalone(self, request):
         debug = os.environ.get("DEBUG", "False").lower() in ("1", "true", "yes")
@@ -66,7 +58,6 @@ class ZentinelleGraphQLView(GraphQLView):
         if not session_key:
             return
 
-        # Already authenticated via Django session cookie — don't override.
         if getattr(request.user, "is_authenticated", False):
             return
 

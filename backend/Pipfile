@@ -17,6 +17,7 @@ cryptography = ">=42.0"
 weasyprint = ">=62.0"
 httpx = ">=0.27"
 clickhouse-connect = ">=0.8"
+strawberry-graphql-django = ">=0.47"
 
 [dev-packages]
 pytest-django = "*"

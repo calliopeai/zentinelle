@@ -3,21 +3,14 @@ GraphQL Types for Zentinelle GRC Portal.
 
 Standalone version — no dependency on deployments app.
 """
-import graphene
-from graphene import relay
-from graphene_django import DjangoObjectType
+import uuid
+from datetime import datetime
+from typing import Optional
 
-
-class CountableConnection(relay.Connection):
-    """Connection base that adds a totalCount field."""
-    class Meta:
-        abstract = True
-
-    total_count = graphene.Int()
-
-    @staticmethod
-    def resolve_total_count(root, info, **kwargs):
-        return root.length
+import strawberry
+import strawberry_django
+from strawberry import auto
+from strawberry.scalars import JSON
 
 # Agent-level models (from zentinelle)
 from zentinelle.models.agent_group import AgentGroup
@@ -52,61 +45,72 @@ from zentinelle.models import (
 )
 
 
-class AgentGroupType(DjangoObjectType):
+@strawberry_django.type(AgentGroup)
+class AgentGroupType:
     """GraphQL type for AgentGroup."""
-    class Meta:
-        model = AgentGroup
-        interfaces = (relay.Node,)
-        fields = ['id', 'tenant_id', 'name', 'slug', 'description', 'tier', 'color', 'created_at']
+    id: auto
+    tenant_id: auto
+    name: auto
+    slug: auto
+    description: auto
+    tier: auto
+    color: auto
+    created_at: auto
 
-    agent_count = graphene.Int()
-
-    def resolve_agent_count(self, info):
+    @strawberry.field
+    def agent_count(self) -> Optional[int]:
         return self.agents.count()
 
 
-class AgentGroupConnection(CountableConnection):
-    class Meta:
-        node = AgentGroupType
+@strawberry.type
+class AgentGroupConnection:
+    nodes: list['AgentGroupType']
+    total_count: int
 
 
-class AgentEndpointType(DjangoObjectType):
+@strawberry_django.type(AgentEndpoint)
+class AgentEndpointType:
     """GraphQL type for AgentEndpoint."""
-    class Meta:
-        model = AgentEndpoint
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'agent_id', 'agent_type', 'name', 'description',
-            'status', 'health', 'capabilities', 'metadata',
-            'last_heartbeat', 'api_key_prefix',
-            'created_at', 'updated_at',
-        ]
+    id: auto
+    agent_id: auto
+    agent_type: auto
+    name: auto
+    description: auto
+    status: auto
+    health: auto
+    capabilities: auto
+    metadata: auto
+    last_heartbeat: auto
+    api_key_prefix: auto
+    created_at: auto
+    updated_at: auto
 
-    deployment_name = graphene.String()
-    group = graphene.Field(AgentGroupType)
-
-    def resolve_deployment_name(self, info):
+    @strawberry.field
+    def deployment_name(self) -> Optional[str]:
         return self.deployment_id_ext or None
 
-    def resolve_group(self, info):
-        return self.group
+    @strawberry.field
+    def agent_group(self) -> Optional['AgentGroupType']:
+        return getattr(self, 'group', None)
 
 
-class PolicyType(DjangoObjectType):
+@strawberry_django.type(Policy)
+class PolicyType:
     """GraphQL type for Policy."""
-    class Meta:
-        model = Policy
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'name', 'description', 'policy_type', 'scope_type',
-            'config', 'priority', 'enforcement', 'enabled',
-            'created_at', 'updated_at',
-        ]
+    id: auto
+    name: auto
+    description: auto
+    policy_type: auto
+    scope_type: auto
+    config: auto
+    priority: auto
+    enforcement: auto
+    enabled: auto
+    created_at: auto
+    updated_at: auto
 
-    scope_name = graphene.String()
-    created_by_username = graphene.String()
-
-    def resolve_scope_name(self, info):
+    @strawberry.field
+    def scope_name(self) -> Optional[str]:
         if self.scope_sub_organization_id_ext:
             return f"Team: {self.scope_sub_organization_id_ext}"
         elif self.scope_deployment_id_ext:
@@ -117,75 +121,80 @@ class PolicyType(DjangoObjectType):
             return f"User: {self.scope_user_id_ext}"
         return "Organization"
 
-    def resolve_created_by_username(self, info):
+    @strawberry.field
+    def created_by_username(self) -> Optional[str]:
         return self.user_id or None
 
 
-class PolicyRevisionType(DjangoObjectType):
+@strawberry_django.type(PolicyRevision)
+class PolicyRevisionType:
     """GraphQL type for PolicyRevision — immutable snapshot of a Policy at a point in time."""
-    class Meta:
-        model = PolicyRevision
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'policy', 'version',
-            'name', 'policy_type', 'enforcement',
-            'config', 'scope_type', 'enabled', 'priority',
-            'changed_by', 'change_summary', 'created_at',
-        ]
+    id: auto
+    policy: auto
+    version: auto
+    name: auto
+    policy_type: auto
+    enforcement: auto
+    config: auto
+    scope_type: auto
+    enabled: auto
+    priority: auto
+    changed_by: auto
+    change_summary: auto
+    created_at: auto
 
 
-class EventType(DjangoObjectType):
+@strawberry_django.type(Event)
+class EventType:
     """GraphQL type for Event."""
-    class Meta:
-        model = Event
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'event_type', 'event_category', 'status',
-            'payload', 'user_identifier', 'occurred_at',
-            'processed_at', 'correlation_id',
-        ]
+    id: auto
+    event_type: auto
+    event_category: auto
+    status: auto
+    payload: auto
+    user_identifier: auto
+    occurred_at: auto
+    processed_at: auto
+    correlation_id: auto
 
-    endpoint_name = graphene.String()
-
-    def resolve_endpoint_name(self, info):
+    @strawberry.field
+    def endpoint_name(self) -> Optional[str]:
         return self.endpoint.name if self.endpoint else None
 
 
-class AuditActorType(graphene.ObjectType):
+@strawberry.type
+class AuditActorType:
     """Actor who performed an audit action."""
-    id = graphene.String()
-    email = graphene.String()
-    name = graphene.String()
-    type = graphene.String()  # 'user' or 'api_key'
+    id: Optional[str] = None
+    email: Optional[str] = None
+    name: Optional[str] = None
+    type: Optional[str] = None  # 'user' or 'api_key'
 
 
-class AuditChangeType(graphene.ObjectType):
+@strawberry.type
+class AuditChangeType:
     """A field-level change recorded in an audit log entry."""
-    field = graphene.String()
-    old_value = graphene.String()
-    new_value = graphene.String()
+    field: Optional[str] = None
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
 
 
-class AuditLogType(DjangoObjectType):
+@strawberry_django.type(AuditLog)
+class AuditLogType:
     """GraphQL type for AuditLog."""
-    class Meta:
-        model = AuditLog
-        interfaces = (relay.Node,)
-        connection_class = CountableConnection
-        fields = [
-            'id', 'action', 'resource_type', 'resource_id', 'resource_name',
-            'metadata', 'api_key_prefix', 'ip_address', 'user_agent',
-            'timestamp',
-        ]
+    id: auto
+    action: auto
+    resource_type: auto
+    resource_id: auto
+    resource_name: auto
+    metadata: auto
+    api_key_prefix: auto
+    ip_address: auto
+    user_agent: auto
+    timestamp: auto
 
-    # Aliases / computed fields to match frontend expectations
-    actor = graphene.Field(AuditActorType)
-    resource = graphene.String()
-    status = graphene.String()
-    details = graphene.JSONString()
-    changes = graphene.List(AuditChangeType)
-
-    def resolve_actor(self, info):
+    @strawberry.field
+    def actor(self) -> Optional[AuditActorType]:
         if self.api_key_prefix:
             return AuditActorType(
                 id=self.api_key_prefix,
@@ -202,17 +211,21 @@ class AuditLogType(DjangoObjectType):
             )
         return None
 
-    def resolve_resource(self, info):
+    @strawberry.field
+    def resource(self) -> Optional[str]:
         return self.resource_type
 
-    def resolve_status(self, info):
+    @strawberry.field
+    def status(self) -> Optional[str]:
         # AuditLog doesn't have a status field — return 'success' as a sensible default
         return 'success'
 
-    def resolve_details(self, info):
+    @strawberry.field
+    def details(self) -> Optional[JSON]:
         return self.metadata or {}
 
-    def resolve_changes(self, info):
+    @strawberry.field
+    def changes(self) -> Optional[list[AuditChangeType]]:
         raw = self.changes or {}
         result = []
         for field_name, change in raw.items():
@@ -229,50 +242,60 @@ class AuditLogType(DjangoObjectType):
 # AI Provider Registry Types
 # =============================================================================
 
-class AIProviderType(DjangoObjectType):
+@strawberry_django.type(AIProvider)
+class AIProviderType:
     """GraphQL type for AI Provider registry."""
-    class Meta:
-        model = AIProvider
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'slug', 'name', 'logo_url',
-            'supports_managed_keys', 'supports_key_creation', 'supports_key_deletion',
-            'supports_key_rotation', 'supports_per_key_limits',
-            'supports_usage_api', 'supports_per_key_stats', 'supports_realtime_usage',
-            'usage_delay_minutes',
-            'admin_api_base_url', 'usage_api_base_url', 'api_docs_url',
-            'key_prefix', 'key_env_var',
-            'is_active', 'notes',
-        ]
+    id: auto
+    slug: auto
+    name: auto
+    logo_url: auto
+    supports_managed_keys: auto
+    supports_key_creation: auto
+    supports_key_deletion: auto
+    supports_key_rotation: auto
+    supports_per_key_limits: auto
+    supports_usage_api: auto
+    supports_per_key_stats: auto
+    supports_realtime_usage: auto
+    usage_delay_minutes: auto
+    admin_api_base_url: auto
+    usage_api_base_url: auto
+    api_docs_url: auto
+    key_prefix: auto
+    key_env_var: auto
+    is_active: auto
+    notes: auto
 
 
 # =============================================================================
 # Platform API Keys
 # =============================================================================
 
-class APIKeyType(DjangoObjectType):
+@strawberry_django.type(APIKey)
+class APIKeyType:
     """GraphQL type for Platform API Key."""
-    class Meta:
-        model = APIKey
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'name', 'description', 'status',
-            'scopes', 'rate_limit', 'expires_at',
-            'last_used_at', 'usage_count',
-            'created_at', 'updated_at',
-        ]
+    id: auto
+    name: auto
+    description: auto
+    status: auto
+    scopes: auto
+    rate_limit: auto
+    expires_at: auto
+    last_used_at: auto
+    usage_count: auto
+    created_at: auto
+    updated_at: auto
 
-    key_prefix = graphene.String()
-    created_by_username = graphene.String()
-    status_display = graphene.String()
-
-    def resolve_key_prefix(self, info):
+    @strawberry.field
+    def key_prefix(self) -> Optional[str]:
         return self.key_prefix
 
-    def resolve_created_by_username(self, info):
+    @strawberry.field
+    def created_by_username(self) -> Optional[str]:
         return self.created_by_username
 
-    def resolve_status_display(self, info):
+    @strawberry.field
+    def status_display(self) -> Optional[str]:
         return self.get_status_display()
 
 
@@ -280,41 +303,28 @@ class APIKeyType(DjangoObjectType):
 # Model Registry Types
 # =============================================================================
 
-class AIModelType(DjangoObjectType):
+@strawberry_django.type(AIModel)
+class AIModelType:
     """GraphQL type for AI Model."""
-    class Meta:
-        model = AIModel
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'model_id', 'name', 'description',
-            'model_type', 'risk_level',
-            'context_window', 'max_output_tokens',
-            'input_price_per_million', 'output_price_per_million',
-            'is_available', 'deprecated', 'deprecation_date',
-            'is_global', 'release_date', 'documentation_url',
-            'created_at', 'updated_at',
-        ]
+    id: auto
+    model_id: auto
+    name: auto
+    description: auto
+    model_type: auto
+    risk_level: auto
+    context_window: auto
+    max_output_tokens: auto
+    is_available: auto
+    deprecated: auto
+    deprecation_date: auto
+    is_global: auto
+    release_date: auto
+    documentation_url: auto
+    created_at: auto
+    updated_at: auto
 
-    # Return capabilities as a proper list, not a JSON string
-    capabilities = graphene.List(graphene.String)
-    # Serialize DecimalFields as floats so frontend can call .toFixed()
-    input_price_per_million = graphene.Float()
-    output_price_per_million = graphene.Float()
-    provider_slug = graphene.String()
-    provider_name = graphene.String()
-    model_type_display = graphene.String()
-    risk_level_display = graphene.String()
-    full_model_id = graphene.String()
-    replacement_model_id = graphene.UUID()
-    replacement_model_name = graphene.String()
-
-    def resolve_input_price_per_million(self, info):
-        return float(self.input_price_per_million) if self.input_price_per_million is not None else None
-
-    def resolve_output_price_per_million(self, info):
-        return float(self.output_price_per_million) if self.output_price_per_million is not None else None
-
-    def resolve_capabilities(self, info):
+    @strawberry.field
+    def capabilities(self) -> Optional[list[str]]:
         caps = self.capabilities
         if isinstance(caps, list):
             return caps
@@ -326,71 +336,87 @@ class AIModelType(DjangoObjectType):
                 return []
         return caps or []
 
-    def resolve_provider_slug(self, info):
+    @strawberry.field
+    def input_price_per_million(self) -> Optional[float]:
+        return float(self.input_price_per_million) if self.input_price_per_million is not None else None
+
+    @strawberry.field
+    def output_price_per_million(self) -> Optional[float]:
+        return float(self.output_price_per_million) if self.output_price_per_million is not None else None
+
+    @strawberry.field
+    def provider_slug(self) -> Optional[str]:
         return self.provider.slug if self.provider else None
 
-    def resolve_provider_name(self, info):
+    @strawberry.field
+    def provider_name(self) -> Optional[str]:
         return self.provider.name if self.provider else None
 
-    def resolve_model_type_display(self, info):
+    @strawberry.field
+    def model_type_display(self) -> Optional[str]:
         return self.get_model_type_display()
 
-    def resolve_risk_level_display(self, info):
+    @strawberry.field
+    def risk_level_display(self) -> Optional[str]:
         return self.get_risk_level_display()
 
-    def resolve_full_model_id(self, info):
+    @strawberry.field
+    def full_model_id(self) -> Optional[str]:
         return self.full_model_id
 
-    def resolve_replacement_model_id(self, info):
+    @strawberry.field
+    def replacement_model_id(self) -> Optional[uuid.UUID]:
         return self.replacement_model_id
 
-    def resolve_replacement_model_name(self, info):
+    @strawberry.field
+    def replacement_model_name(self) -> Optional[str]:
         return self.replacement_model.name if self.replacement_model else None
 
 
-class OrganizationModelApprovalType(DjangoObjectType):
+@strawberry_django.type(OrganizationModelApproval)
+class OrganizationModelApprovalType:
     """GraphQL type for Model Approval."""
-    class Meta:
-        model = OrganizationModelApproval
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'status', 'max_daily_requests', 'max_monthly_cost',
-            'requires_justification', 'requires_approval',
-            'review_notes', 'reviewed_at',
-            'created_at', 'updated_at',
-        ]
+    id: auto
+    status: auto
+    max_daily_requests: auto
+    max_monthly_cost: auto
+    requires_justification: auto
+    requires_approval: auto
+    review_notes: auto
+    reviewed_at: auto
+    created_at: auto
+    updated_at: auto
 
-    model_id = graphene.UUID()
-    model_name = graphene.String()
-    model_provider = graphene.String()
-    model_risk_level = graphene.String()
-    status_display = graphene.String()
-    is_usable = graphene.Boolean()
-    reviewed_by_username = graphene.String()
-    requested_by_username = graphene.String()
-
-    def resolve_model_id(self, info):
+    @strawberry.field
+    def model_id(self) -> Optional[uuid.UUID]:
         return self.model_id
 
-    def resolve_model_name(self, info):
+    @strawberry.field
+    def model_name(self) -> Optional[str]:
         return self.model.name if self.model else None
 
-    def resolve_model_provider(self, info):
+    @strawberry.field
+    def model_provider(self) -> Optional[str]:
         return self.model.provider.name if self.model and self.model.provider else None
 
-    def resolve_model_risk_level(self, info):
+    @strawberry.field
+    def model_risk_level(self) -> Optional[str]:
         return self.model.get_risk_level_display() if self.model else None
 
-    def resolve_status_display(self, info):
+    @strawberry.field
+    def status_display(self) -> Optional[str]:
         return self.get_status_display()
 
-    def resolve_is_usable(self, info):
+    @strawberry.field
+    def is_usable(self) -> Optional[bool]:
         return self.is_usable
 
-    def resolve_reviewed_by_username(self, info):
+    @strawberry.field
+    def reviewed_by_username(self) -> Optional[str]:
         return self.reviewer_id or None
 
-    def resolve_requested_by_username(self, info):
+    @strawberry.field
+    def requested_by_username(self) -> Optional[str]:
         return self.user_id or None
 
 
@@ -398,193 +424,231 @@ class OrganizationModelApprovalType(DjangoObjectType):
 # Compliance & Monitoring Types
 # =============================================================================
 
-class ContentRuleType(DjangoObjectType):
+@strawberry_django.type(ContentRule)
+class ContentRuleType:
     """GraphQL type for Content Rule."""
-    class Meta:
-        model = ContentRule
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'name', 'description', 'rule_type', 'config',
-            'severity', 'enforcement', 'scan_mode',
-            'scan_input', 'scan_output', 'scan_context',
-            'scope_type', 'priority', 'enabled',
-            'notify_user', 'notify_admins', 'webhook_url',
-            'created_at', 'updated_at',
-        ]
+    id: auto
+    name: auto
+    description: auto
+    rule_type: auto
+    config: auto
+    severity: auto
+    enforcement: auto
+    scan_mode: auto
+    scan_input: auto
+    scan_output: auto
+    scan_context: auto
+    scope_type: auto
+    priority: auto
+    enabled: auto
+    notify_user: auto
+    notify_admins: auto
+    webhook_url: auto
+    created_at: auto
+    updated_at: auto
 
-    rule_type_display = graphene.String()
-    severity_display = graphene.String()
-    enforcement_display = graphene.String()
-    scope_name = graphene.String()
-    violation_count = graphene.Int()
-
-    def resolve_rule_type_display(self, info):
+    @strawberry.field
+    def rule_type_display(self) -> Optional[str]:
         return self.get_rule_type_display()
 
-    def resolve_severity_display(self, info):
+    @strawberry.field
+    def severity_display(self) -> Optional[str]:
         return self.get_severity_display()
 
-    def resolve_enforcement_display(self, info):
+    @strawberry.field
+    def enforcement_display(self) -> Optional[str]:
         return self.get_enforcement_display()
 
-    def resolve_scope_name(self, info):
+    @strawberry.field
+    def scope_name(self) -> Optional[str]:
         if self.scope_endpoint:
             return f"Endpoint: {self.scope_endpoint.name}"
         return "Organization"
 
-    def resolve_violation_count(self, info):
+    @strawberry.field
+    def violation_count(self) -> Optional[int]:
         return self.violations.count()
 
 
-class ContentViolationType(DjangoObjectType):
+@strawberry_django.type(ContentViolation)
+class ContentViolationType:
     """GraphQL type for Content Violation."""
-    class Meta:
-        model = ContentViolation
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'rule_type', 'severity', 'enforcement',
-            'matched_pattern', 'matched_text', 'match_start', 'match_end',
-            'confidence', 'category', 'metadata',
-            'was_blocked', 'was_redacted', 'user_notified', 'admin_notified',
-            'created_at',
-        ]
+    id: auto
+    rule_type: auto
+    severity: auto
+    enforcement: auto
+    matched_pattern: auto
+    matched_text: auto
+    match_start: auto
+    match_end: auto
+    confidence: auto
+    category: auto
+    metadata: auto
+    was_blocked: auto
+    was_redacted: auto
+    user_notified: auto
+    admin_notified: auto
+    created_at: auto
 
-    rule_type_display = graphene.String()
-    severity_display = graphene.String()
-    rule_name = graphene.String()
-
-    def resolve_rule_type_display(self, info):
+    @strawberry.field
+    def rule_type_display(self) -> Optional[str]:
         return self.get_rule_type_display()
 
-    def resolve_severity_display(self, info):
+    @strawberry.field
+    def severity_display(self) -> Optional[str]:
         return self.get_severity_display()
 
-    def resolve_rule_name(self, info):
+    @strawberry.field
+    def rule_name(self) -> Optional[str]:
         return self.rule.name if self.rule else None
 
 
-class ContentScanType(DjangoObjectType):
+@strawberry_django.type(ContentScan)
+class ContentScanType:
     """GraphQL type for Content Scan."""
-    class Meta:
-        model = ContentScan
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'content_type', 'content_hash', 'content_length',
-            'content_preview', 'content_stored',
-            'status', 'scan_mode', 'scanned_at', 'scan_duration_ms',
-            'has_violations', 'violation_count', 'max_severity',
-            'action_taken', 'was_blocked', 'was_redacted',
-            'token_count', 'estimated_cost_usd',
-            'user_identifier', 'session_id', 'request_id',
-            'ip_address', 'user_agent',
-            'created_at',
-        ]
+    id: auto
+    content_type: auto
+    content_hash: auto
+    content_length: auto
+    content_preview: auto
+    content_stored: auto
+    status: auto
+    scan_mode: auto
+    scanned_at: auto
+    scan_duration_ms: auto
+    has_violations: auto
+    violation_count: auto
+    max_severity: auto
+    action_taken: auto
+    was_blocked: auto
+    was_redacted: auto
+    token_count: auto
+    estimated_cost_usd: auto
+    user_identifier: auto
+    session_id: auto
+    request_id: auto
+    ip_address: auto
+    user_agent: auto
+    created_at: auto
 
-    content_type_display = graphene.String()
-    status_display = graphene.String()
-    endpoint_name = graphene.String()
-    deployment_name = graphene.String()
-    violations = graphene.List(lambda: ContentViolationType)
-
-    def resolve_content_type_display(self, info):
+    @strawberry.field
+    def content_type_display(self) -> Optional[str]:
         return self.get_content_type_display()
 
-    def resolve_status_display(self, info):
+    @strawberry.field
+    def status_display(self) -> Optional[str]:
         return self.get_status_display()
 
-    def resolve_endpoint_name(self, info):
+    @strawberry.field
+    def endpoint_name(self) -> Optional[str]:
         return self.endpoint.name if self.endpoint else None
 
-    def resolve_deployment_name(self, info):
+    @strawberry.field
+    def deployment_name(self) -> Optional[str]:
         return self.deployment_id_ext or None
 
-    def resolve_violations(self, info):
+    @strawberry.field
+    def violations(self) -> Optional[list[ContentViolationType]]:
         return self.violations.all()
 
 
-class ComplianceAlertType(DjangoObjectType):
+@strawberry_django.type(ComplianceAlert)
+class ComplianceAlertType:
     """GraphQL type for Compliance Alert."""
-    class Meta:
-        model = ComplianceAlert
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'alert_type', 'severity', 'title', 'description',
-            'user_identifier', 'violation_count',
-            'first_violation_at', 'last_violation_at',
-            'status', 'acknowledged_at', 'resolved_at', 'resolution_notes',
-            'metadata', 'created_at',
-        ]
+    id: auto
+    alert_type: auto
+    severity: auto
+    title: auto
+    description: auto
+    user_identifier: auto
+    violation_count: auto
+    first_violation_at: auto
+    last_violation_at: auto
+    status: auto
+    acknowledged_at: auto
+    resolved_at: auto
+    resolution_notes: auto
+    metadata: auto
+    created_at: auto
 
-    alert_type_display = graphene.String()
-    severity_display = graphene.String()
-    status_display = graphene.String()
-    endpoint_name = graphene.String()
-    acknowledged_by_username = graphene.String()
-    resolved_by_username = graphene.String()
-
-    def resolve_alert_type_display(self, info):
+    @strawberry.field
+    def alert_type_display(self) -> Optional[str]:
         return self.get_alert_type_display()
 
-    def resolve_severity_display(self, info):
+    @strawberry.field
+    def severity_display(self) -> Optional[str]:
         return self.get_severity_display()
 
-    def resolve_status_display(self, info):
+    @strawberry.field
+    def status_display(self) -> Optional[str]:
         return self.get_status_display()
 
-    def resolve_endpoint_name(self, info):
+    @strawberry.field
+    def endpoint_name(self) -> Optional[str]:
         return self.endpoint.name if self.endpoint else None
 
-    def resolve_acknowledged_by_username(self, info):
+    @strawberry.field
+    def acknowledged_by_username(self) -> Optional[str]:
         return self.acknowledged_by or None
 
-    def resolve_resolved_by_username(self, info):
+    @strawberry.field
+    def resolved_by_username(self) -> Optional[str]:
         return getattr(self, 'resolved_by', None) or None
 
 
-class InteractionLogType(DjangoObjectType):
+@strawberry_django.type(InteractionLog)
+class InteractionLogType:
     """GraphQL type for Interaction Log."""
-    class Meta:
-        model = InteractionLog
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'interaction_type', 'session_id', 'request_id',
-            'ai_provider', 'ai_model',
-            'input_content', 'input_token_count',
-            'output_content', 'output_token_count',
-            'system_prompt', 'tool_calls',
-            'latency_ms', 'total_tokens', 'estimated_cost_usd',
-            'classification', 'is_work_related', 'topics',
-            'user_identifier', 'ip_address', 'user_agent',
-            'occurred_at', 'created_at',
-        ]
+    id: auto
+    interaction_type: auto
+    session_id: auto
+    request_id: auto
+    ai_provider: auto
+    ai_model: auto
+    input_content: auto
+    input_token_count: auto
+    output_content: auto
+    output_token_count: auto
+    system_prompt: auto
+    tool_calls: auto
+    latency_ms: auto
+    total_tokens: auto
+    estimated_cost_usd: auto
+    classification: auto
+    is_work_related: auto
+    topics: auto
+    user_identifier: auto
+    ip_address: auto
+    user_agent: auto
+    occurred_at: auto
+    created_at: auto
 
-    interaction_type_display = graphene.String()
-    endpoint_name = graphene.String()
-    deployment_name = graphene.String()
-    has_violations = graphene.Boolean()
-    violation_count = graphene.Int()
-    was_blocked = graphene.Boolean()
-
-    def resolve_interaction_type_display(self, info):
+    @strawberry.field
+    def interaction_type_display(self) -> Optional[str]:
         return self.get_interaction_type_display()
 
-    def resolve_endpoint_name(self, info):
+    @strawberry.field
+    def endpoint_name(self) -> Optional[str]:
         return self.endpoint.name if self.endpoint else None
 
-    def resolve_deployment_name(self, info):
+    @strawberry.field
+    def deployment_name(self) -> Optional[str]:
         return self.deployment_id_ext or None
 
-    def resolve_has_violations(self, info):
+    @strawberry.field
+    def has_violations(self) -> Optional[bool]:
         if self.scan:
             return self.scan.has_violations
         return False
 
-    def resolve_violation_count(self, info):
+    @strawberry.field
+    def violation_count(self) -> Optional[int]:
         if self.scan:
             return self.scan.violation_count
         return 0
 
-    def resolve_was_blocked(self, info):
+    @strawberry.field
+    def was_blocked(self) -> Optional[bool]:
         if self.scan:
             return self.scan.was_blocked
         return False
@@ -594,127 +658,144 @@ class InteractionLogType(DjangoObjectType):
 # Risk Management Types
 # =============================================================================
 
-class RiskType(DjangoObjectType):
+@strawberry_django.type(Risk)
+class RiskType:
     """GraphQL type for Risk."""
-    class Meta:
-        model = Risk
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'name', 'description', 'category', 'status',
-            'likelihood', 'impact',
-            'mitigation_plan', 'mitigation_status',
-            'residual_likelihood', 'residual_impact',
-            'last_reviewed_at', 'next_review_date',
-            'tags', 'external_references',
-            'identified_at', 'created_at', 'updated_at',
-        ]
+    id: auto
+    name: auto
+    description: auto
+    category: auto
+    status: auto
+    likelihood: auto
+    impact: auto
+    mitigation_plan: auto
+    mitigation_status: auto
+    residual_likelihood: auto
+    residual_impact: auto
+    last_reviewed_at: auto
+    next_review_date: auto
+    tags: auto
+    external_references: auto
+    identified_at: auto
+    created_at: auto
+    updated_at: auto
 
-    category_display = graphene.String()
-    status_display = graphene.String()
-    likelihood_display = graphene.String()
-    impact_display = graphene.String()
-    risk_score = graphene.Int()
-    risk_level = graphene.String()
-    residual_risk_score = graphene.Int()
-    owner_name = graphene.String()
-    last_reviewed_by_name = graphene.String()
-    incident_count = graphene.Int()
-
-    def resolve_category_display(self, info):
+    @strawberry.field
+    def category_display(self) -> Optional[str]:
         return self.get_category_display()
 
-    def resolve_status_display(self, info):
+    @strawberry.field
+    def status_display(self) -> Optional[str]:
         return self.get_status_display()
 
-    def resolve_likelihood_display(self, info):
+    @strawberry.field
+    def likelihood_display(self) -> Optional[str]:
         return self.get_likelihood_display()
 
-    def resolve_impact_display(self, info):
+    @strawberry.field
+    def impact_display(self) -> Optional[str]:
         return self.get_impact_display()
 
-    def resolve_risk_score(self, info):
+    @strawberry.field
+    def risk_score(self) -> Optional[int]:
         return self.risk_score
 
-    def resolve_risk_level(self, info):
+    @strawberry.field
+    def risk_level(self) -> Optional[str]:
         return self.risk_level
 
-    def resolve_residual_risk_score(self, info):
+    @strawberry.field
+    def residual_risk_score(self) -> Optional[int]:
         return self.residual_risk_score
 
-    def resolve_owner_name(self, info):
+    @strawberry.field
+    def owner_name(self) -> Optional[str]:
         return self.user_id or None
 
-    def resolve_last_reviewed_by_name(self, info):
+    @strawberry.field
+    def last_reviewed_by_name(self) -> Optional[str]:
         return self.reviewer_id or None
 
-    def resolve_incident_count(self, info):
+    @strawberry.field
+    def incident_count(self) -> Optional[int]:
         return self.incidents.count()
 
 
-class IncidentType(DjangoObjectType):
+@strawberry_django.type(Incident)
+class IncidentType:
     """GraphQL type for Incident."""
-    class Meta:
-        model = Incident
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'title', 'description', 'incident_type', 'severity', 'status',
-            'affected_user', 'affected_user_count',
-            'root_cause', 'impact_assessment',
-            'resolution', 'remediation_actions', 'lessons_learned',
-            'occurred_at', 'detected_at', 'acknowledged_at', 'resolved_at', 'closed_at',
-            'tags', 'evidence', 'timeline_events',
-            'created_at', 'updated_at',
-        ]
+    id: auto
+    title: auto
+    description: auto
+    incident_type: auto
+    severity: auto
+    status: auto
+    affected_user: auto
+    affected_user_count: auto
+    root_cause: auto
+    impact_assessment: auto
+    resolution: auto
+    remediation_actions: auto
+    lessons_learned: auto
+    occurred_at: auto
+    detected_at: auto
+    acknowledged_at: auto
+    resolved_at: auto
+    closed_at: auto
+    tags: auto
+    evidence: auto
+    timeline_events: auto
+    created_at: auto
+    updated_at: auto
 
-    incident_type_display = graphene.String()
-    severity_display = graphene.String()
-    status_display = graphene.String()
-    sla_status = graphene.String()
-    time_to_acknowledge_seconds = graphene.Int()
-    time_to_resolve_seconds = graphene.Int()
-    assigned_to_name = graphene.String()
-    reported_by_name = graphene.String()
-    endpoint_name = graphene.String()
-    deployment_name = graphene.String()
-    related_risk_name = graphene.String()
-    triggering_policy_name = graphene.String()
-
-    def resolve_incident_type_display(self, info):
+    @strawberry.field
+    def incident_type_display(self) -> Optional[str]:
         return self.get_incident_type_display()
 
-    def resolve_severity_display(self, info):
+    @strawberry.field
+    def severity_display(self) -> Optional[str]:
         return self.get_severity_display()
 
-    def resolve_status_display(self, info):
+    @strawberry.field
+    def status_display(self) -> Optional[str]:
         return self.get_status_display()
 
-    def resolve_sla_status(self, info):
+    @strawberry.field
+    def sla_status(self) -> Optional[str]:
         return self.sla_status
 
-    def resolve_time_to_acknowledge_seconds(self, info):
+    @strawberry.field
+    def time_to_acknowledge_seconds(self) -> Optional[int]:
         tta = self.time_to_acknowledge
         return int(tta.total_seconds()) if tta else None
 
-    def resolve_time_to_resolve_seconds(self, info):
+    @strawberry.field
+    def time_to_resolve_seconds(self) -> Optional[int]:
         ttr = self.time_to_resolve
         return int(ttr.total_seconds()) if ttr else None
 
-    def resolve_assigned_to_name(self, info):
+    @strawberry.field
+    def assigned_to_name(self) -> Optional[str]:
         return self.assignee_id or self.user_id or None
 
-    def resolve_reported_by_name(self, info):
+    @strawberry.field
+    def reported_by_name(self) -> Optional[str]:
         return self.reporter_id or None
 
-    def resolve_endpoint_name(self, info):
+    @strawberry.field
+    def endpoint_name(self) -> Optional[str]:
         return self.endpoint.name if self.endpoint else None
 
-    def resolve_deployment_name(self, info):
+    @strawberry.field
+    def deployment_name(self) -> Optional[str]:
         return self.deployment_id_ext or None
 
-    def resolve_related_risk_name(self, info):
+    @strawberry.field
+    def related_risk_name(self) -> Optional[str]:
         return self.related_risk.name if self.related_risk else None
 
-    def resolve_triggering_policy_name(self, info):
+    @strawberry.field
+    def triggering_policy_name(self) -> Optional[str]:
         return self.triggering_policy.name if self.triggering_policy else None
 
 
@@ -722,68 +803,75 @@ class IncidentType(DjangoObjectType):
 # License Compliance Types
 # =============================================================================
 
-class LicenseComplianceReportType(DjangoObjectType):
+@strawberry_django.type(LicenseComplianceReport)
+class LicenseComplianceReportType:
     """GraphQL type for License Compliance Report."""
+    id: auto
+    report_type: auto
+    status: auto
+    period_start: auto
+    period_end: auto
+    generated_at: auto
+    report_data: auto
+    total_users: auto
+    total_violations: auto
+    compliance_score: auto
+    pdf_url: auto
+    pdf_generated_at: auto
+    error_message: auto
+    created_at: auto
+    updated_at: auto
 
-    class Meta:
-        model = LicenseComplianceReport
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'report_type', 'status', 'period_start', 'period_end',
-            'generated_at', 'report_data', 'total_users', 'total_violations',
-            'compliance_score', 'pdf_url', 'pdf_generated_at', 'error_message',
-            'created_at', 'updated_at',
-        ]
-
-    report_type_display = graphene.String()
-    status_display = graphene.String()
-
-    def resolve_report_type_display(self, info):
+    @strawberry.field
+    def report_type_display(self) -> Optional[str]:
         return self.get_report_type_display()
 
-    def resolve_status_display(self, info):
+    @strawberry.field
+    def status_display(self) -> Optional[str]:
         return self.get_status_display()
 
 
-class LicenseComplianceViolationGraphType(DjangoObjectType):
+@strawberry_django.type(LicenseComplianceViolation)
+class LicenseComplianceViolationGraphType:
     """GraphQL type for License Compliance Violation."""
+    id: auto
+    violation_type: auto
+    severity: auto
+    status: auto
+    details: auto
+    description: auto
+    limit_value: auto
+    actual_value: auto
+    detected_at: auto
+    resolved_at: auto
+    resolution_notes: auto
+    created_at: auto
+    updated_at: auto
 
-    class Meta:
-        model = LicenseComplianceViolation
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'violation_type', 'severity', 'status',
-            'details', 'description', 'limit_value', 'actual_value',
-            'detected_at', 'resolved_at', 'resolution_notes',
-            'created_at', 'updated_at',
-        ]
-
-    violation_type_display = graphene.String()
-    severity_display = graphene.String()
-    status_display = graphene.String()
-    license_key = graphene.String()
-    is_open = graphene.Boolean()
-    is_resolved = graphene.Boolean()
-
-    def resolve_violation_type_display(self, info):
+    @strawberry.field
+    def violation_type_display(self) -> Optional[str]:
         return self.get_violation_type_display()
 
-    def resolve_severity_display(self, info):
+    @strawberry.field
+    def severity_display(self) -> Optional[str]:
         return self.get_severity_display()
 
-    def resolve_status_display(self, info):
+    @strawberry.field
+    def status_display(self) -> Optional[str]:
         return self.get_status_display()
 
-    def resolve_license_key(self, info):
+    @strawberry.field
+    def license_key(self) -> Optional[str]:
         if self.license:
-            # Return only the prefix for security
             return f"{self.license.license_key[:12]}..."
         return None
 
-    def resolve_is_open(self, info):
+    @strawberry.field
+    def is_open(self) -> Optional[bool]:
         return self.is_open
 
-    def resolve_is_resolved(self, info):
+    @strawberry.field
+    def is_resolved(self) -> Optional[bool]:
         return self.is_resolved
 
 
@@ -791,76 +879,87 @@ class LicenseComplianceViolationGraphType(DjangoObjectType):
 # Retention Policies & Legal Holds
 # ---------------------------------------------------------------------------
 
-class RetentionPolicyType(DjangoObjectType):
+@strawberry_django.type(RetentionPolicy)
+class RetentionPolicyType:
     """GraphQL type for Retention Policy."""
-    class Meta:
-        model = RetentionPolicy
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'name', 'description', 'entity_type',
-            'deployment_id_ext', 'retention_days', 'minimum_retention_days',
-            'expiration_action', 'archive_location',
-            'compliance_requirement', 'compliance_notes',
-            'enabled', 'priority', 'created_at', 'updated_at',
-        ]
+    id: auto
+    name: auto
+    description: auto
+    entity_type: auto
+    deployment_id_ext: auto
+    retention_days: auto
+    minimum_retention_days: auto
+    expiration_action: auto
+    archive_location: auto
+    compliance_requirement: auto
+    compliance_notes: auto
+    enabled: auto
+    priority: auto
+    created_at: auto
+    updated_at: auto
 
-    entity_type_display = graphene.String()
-    expiration_action_display = graphene.String()
-    compliance_requirement_display = graphene.String()
-    deployment_name = graphene.String()
-    created_by_name = graphene.String()
-
-    def resolve_entity_type_display(self, info):
+    @strawberry.field
+    def entity_type_display(self) -> Optional[str]:
         return self.get_entity_type_display()
 
-    def resolve_expiration_action_display(self, info):
+    @strawberry.field
+    def expiration_action_display(self) -> Optional[str]:
         return self.get_expiration_action_display()
 
-    def resolve_compliance_requirement_display(self, info):
+    @strawberry.field
+    def compliance_requirement_display(self) -> Optional[str]:
         return self.get_compliance_requirement_display()
 
-    def resolve_deployment_name(self, info):
+    @strawberry.field
+    def deployment_name(self) -> Optional[str]:
         return self.deployment_id_ext or None
 
-    def resolve_created_by_name(self, info):
+    @strawberry.field
+    def created_by_name(self) -> Optional[str]:
         return self.user_id or None
 
 
-class LegalHoldType(DjangoObjectType):
+@strawberry_django.type(LegalHold)
+class LegalHoldType:
     """GraphQL type for Legal Hold."""
-    class Meta:
-        model = LegalHold
-        interfaces = (relay.Node,)
-        fields = [
-            'id', 'name', 'description', 'reference_number',
-            'hold_type', 'status',
-            'applies_to_all', 'entity_types', 'user_identifiers',
-            'data_from', 'data_to',
-            'effective_date', 'expiration_date', 'released_at',
-            'custodian_email',
-            'notify_on_access', 'notification_emails',
-            'created_at', 'updated_at',
-        ]
+    id: auto
+    name: auto
+    description: auto
+    reference_number: auto
+    hold_type: auto
+    status: auto
+    applies_to_all: auto
+    entity_types: auto
+    user_identifiers: auto
+    data_from: auto
+    data_to: auto
+    effective_date: auto
+    expiration_date: auto
+    released_at: auto
+    custodian_email: auto
+    notify_on_access: auto
+    notification_emails: auto
+    created_at: auto
+    updated_at: auto
 
-    hold_type_display = graphene.String()
-    status_display = graphene.String()
-    is_active = graphene.Boolean()
-    custodian_name = graphene.String()
-    created_by_name = graphene.String()
-
-    def resolve_hold_type_display(self, info):
+    @strawberry.field
+    def hold_type_display(self) -> Optional[str]:
         return self.get_hold_type_display()
 
-    def resolve_status_display(self, info):
+    @strawberry.field
+    def status_display(self) -> Optional[str]:
         return self.get_status_display()
 
-    def resolve_is_active(self, info):
+    @strawberry.field
+    def is_active(self) -> Optional[bool]:
         return self.status == 'active'
 
-    def resolve_custodian_name(self, info):
+    @strawberry.field
+    def custodian_name(self) -> Optional[str]:
         return self.custodian_email or None
 
-    def resolve_created_by_name(self, info):
+    @strawberry.field
+    def created_by_name(self) -> Optional[str]:
         return self.user_id or None
 
 
@@ -868,409 +967,391 @@ class LegalHoldType(DjangoObjectType):
 # Organization (stub for standalone mode — no organization app required)
 # ---------------------------------------------------------------------------
 
-class OrganizationType(graphene.ObjectType):
-    id = graphene.ID()
-    name = graphene.String()
-    slug = graphene.String()
-    tier = graphene.String()
-    website = graphene.String()
-    deployment_model = graphene.String()
-    zentinelle_tier = graphene.String()
-    ai_budget_usd = graphene.Float()
-    ai_budget_spent_usd = graphene.Float()
-    overage_policy = graphene.String()
-    ai_budget_alert_threshold = graphene.Float()
-    settings = graphene.JSONString()
-    created_at = graphene.DateTime()
+@strawberry.type
+class OrganizationType:
+    id: Optional[strawberry.ID] = None
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    tier: Optional[str] = None
+    website: Optional[str] = None
+    deployment_model: Optional[str] = None
+    zentinelle_tier: Optional[str] = None
+    ai_budget_usd: Optional[float] = None
+    ai_budget_spent_usd: Optional[float] = None
+    overage_policy: Optional[str] = None
+    ai_budget_alert_threshold: Optional[float] = None
+    settings: Optional[JSON] = None
+    created_at: Optional[datetime] = None
 
 
-class UpdateOrganizationSettingsPayload(graphene.ObjectType):
-    success = graphene.Boolean()
-    organization = graphene.Field(OrganizationType)
+@strawberry.type
+class UpdateOrganizationSettingsPayload:
+    success: Optional[bool] = None
+    organization: Optional[OrganizationType] = None
 
 
 # ---------------------------------------------------------------------------
 # Notifications
 # ---------------------------------------------------------------------------
 
-class NotificationType(graphene.ObjectType):
-    id = graphene.ID()
-    type = graphene.String()
-    subject = graphene.String()
-    message = graphene.String()
-    status = graphene.String()
-    status_date = graphene.DateTime()
-    metadata = graphene.JSONString()
-    created_at = graphene.DateTime()
+@strawberry.type
+class NotificationType:
+    id: Optional[strawberry.ID] = None
+    type: Optional[str] = None
+    subject: Optional[str] = None
+    message: Optional[str] = None
+    status: Optional[str] = None
+    status_date: Optional[datetime] = None
+    metadata: Optional[JSON] = None
+    created_at: Optional[datetime] = None
 
 
-class NotificationConnection(graphene.relay.Connection):
-    class Meta:
-        node = NotificationType
-
-    total_count = graphene.Int()
-
-    @staticmethod
-    def resolve_total_count(root, info, **kwargs):
-        iterable = getattr(root, 'iterable', None)
-        if iterable is not None and hasattr(iterable, 'count'):
-            return iterable.count()
-        return 0
-
-
+@strawberry.type
+class NotificationConnection:
+    nodes: list[NotificationType]
+    total_count: int
 
 
 # ---------------------------------------------------------------------------
 # Client Cove Integration
 # ---------------------------------------------------------------------------
 
-class ClientCoveIntegrationType(graphene.ObjectType):
-    id = graphene.ID()
-    client_cove_url = graphene.String()
-    api_key_preview = graphene.String()
-    is_active = graphene.Boolean()
-    status = graphene.String()
-    status_message = graphene.String()
-    connected_org_name = graphene.String()
-    last_tested_at = graphene.DateTime()
+@strawberry.type
+class ClientCoveIntegrationType:
+    id: Optional[strawberry.ID] = None
+    client_cove_url: Optional[str] = None
+    is_active: Optional[bool] = None
+    status: Optional[str] = None
+    status_message: Optional[str] = None
+    connected_org_name: Optional[str] = None
+    last_tested_at: Optional[datetime] = None
 
-    def resolve_api_key_preview(self, info):
+    @strawberry.field
+    def api_key_preview(self) -> Optional[str]:
         key = getattr(self, 'api_key', '') or ''
         if len(key) > 8:
             return key[:4] + '••••' + key[-4:]
         return '••••' if key else ''
 
 
-class TestClientCoveConnectionPayload(graphene.ObjectType):
-    success = graphene.Boolean()
-    message = graphene.String()
-    org_name = graphene.String()
+@strawberry.type
+class TestClientCoveConnectionPayload:
+    success: Optional[bool] = None
+    message: Optional[str] = None
+    org_name: Optional[str] = None
 
 
-class SaveClientCoveConfigPayload(graphene.ObjectType):
-    success = graphene.Boolean()
-    message = graphene.String()
-    integration = graphene.Field(lambda: ClientCoveIntegrationType)
+@strawberry.type
+class SaveClientCoveConfigPayload:
+    success: Optional[bool] = None
+    message: Optional[str] = None
+    integration: Optional[ClientCoveIntegrationType] = None
 
 
-class DisconnectClientCovePayload(graphene.ObjectType):
-    success = graphene.Boolean()
+@strawberry.type
+class DisconnectClientCovePayload:
+    success: Optional[bool] = None
 
 
-class TestWebhookPayload(graphene.ObjectType):
-    success = graphene.Boolean()
-    message = graphene.String()
-    status_code = graphene.Int()
+@strawberry.type
+class TestWebhookPayload:
+    success: Optional[bool] = None
+    message: Optional[str] = None
+    status_code: Optional[int] = None
 
 
-class UsageMetricsSummaryType(graphene.ObjectType):
-    total_api_calls = graphene.Int()
-    total_tokens = graphene.BigInt()
-    total_cost = graphene.Float()
-    active_agents = graphene.Int()
-    storage_used_mb = graphene.Float()
+@strawberry.type
+class UsageMetricsSummaryType:
+    total_api_calls: Optional[int] = None
+    total_tokens: Optional[int] = None
+    total_cost: Optional[float] = None
+    active_agents: Optional[int] = None
+    storage_used_mb: Optional[float] = None
 
 
-class UsageTimeSeriesPointType(graphene.ObjectType):
-    date = graphene.String()
-    api_calls = graphene.Int()
-    tokens = graphene.BigInt()
-    cost = graphene.Float()
+@strawberry.type
+class UsageTimeSeriesPointType:
+    date: Optional[str] = None
+    api_calls: Optional[int] = None
+    tokens: Optional[int] = None
+    cost: Optional[float] = None
 
 
-class UsageByAgentType(graphene.ObjectType):
-    agent_id = graphene.String()
-    agent_name = graphene.String()
-    api_calls = graphene.Int()
-    tokens = graphene.BigInt()
-    cost = graphene.Float()
+@strawberry.type
+class UsageByAgentType:
+    agent_id: Optional[str] = None
+    agent_name: Optional[str] = None
+    api_calls: Optional[int] = None
+    tokens: Optional[int] = None
+    cost: Optional[float] = None
 
 
-class UsageByEndpointType(graphene.ObjectType):
-    endpoint = graphene.String()
-    api_calls = graphene.Int()
-    avg_latency_ms = graphene.Float()
+@strawberry.type
+class UsageByEndpointType:
+    endpoint: Optional[str] = None
+    api_calls: Optional[int] = None
+    avg_latency_ms: Optional[float] = None
 
 
-class UsageMetricsType(graphene.ObjectType):
-    summary = graphene.Field(UsageMetricsSummaryType)
-    time_series = graphene.List(UsageTimeSeriesPointType)
-    by_agent = graphene.List(UsageByAgentType)
-    by_endpoint = graphene.List(UsageByEndpointType)
+@strawberry.type
+class UsageMetricsType:
+    summary: Optional[UsageMetricsSummaryType] = None
+    time_series: Optional[list[UsageTimeSeriesPointType]] = None
+    by_agent: Optional[list[UsageByAgentType]] = None
+    by_endpoint: Optional[list[UsageByEndpointType]] = None
 
 
-class PromptCategoryType(graphene.ObjectType):
-    id = graphene.ID()
-    name = graphene.String()
-    slug = graphene.String()
-    description = graphene.String()
-    icon = graphene.String()
-    color = graphene.String()
-    sort_order = graphene.Int()
-    prompt_count = graphene.Int()
+@strawberry.type
+class PromptCategoryType:
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    sort_order: Optional[int] = None
 
-    def resolve_id(self, info):
-        return str(self.id)
+    @strawberry.field
+    def id(self) -> Optional[strawberry.ID]:
+        return strawberry.ID(str(self.id))
 
-    def resolve_prompt_count(self, info):
+    @strawberry.field
+    def prompt_count(self) -> Optional[int]:
         return self.prompts.filter(status='active').count()
 
 
-class PromptTagType(graphene.ObjectType):
-    id = graphene.ID()
-    name = graphene.String()
-    slug = graphene.String()
-    tag_type = graphene.String()
-    color = graphene.String()
+@strawberry.type
+class PromptTagType:
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    tag_type: Optional[str] = None
+    color: Optional[str] = None
 
-    def resolve_id(self, info):
-        return str(self.id)
-
-
-class PromptTagConnection(graphene.relay.Connection):
-    class Meta:
-        node = PromptTagType
+    @strawberry.field
+    def id(self) -> Optional[strawberry.ID]:
+        return strawberry.ID(str(self.id))
 
 
-class SystemPromptType(graphene.ObjectType):
-    id = graphene.ID()
-    name = graphene.String()
-    slug = graphene.String()
-    description = graphene.String()
-    prompt_text = graphene.String()
-    prompt_type = graphene.String()
-    prompt_type_display = graphene.String()
-    category = graphene.Field(PromptCategoryType)
-    tags = graphene.List(PromptTagType)
-    compatible_providers = graphene.List(graphene.String)
-    compatible_models = graphene.List(graphene.String)
-    recommended_temperature = graphene.Float()
-    recommended_max_tokens = graphene.Int()
-    template_variables = graphene.List(graphene.String)
-    variable_defaults = graphene.JSONString()
-    example_input = graphene.String()
-    example_output = graphene.String()
-    use_cases = graphene.List(graphene.String)
-    version = graphene.Int()
-    status = graphene.String()
-    status_display = graphene.String()
-    visibility = graphene.String()
-    visibility_display = graphene.String()
-    is_featured = graphene.Boolean()
-    is_verified = graphene.Boolean()
-    usage_count = graphene.Int()
-    favorite_count = graphene.Int()
-    fork_count = graphene.Int()
-    avg_rating = graphene.Float()
-    is_favorited = graphene.Boolean()
-    user_rating = graphene.Float()
-    created_by_username = graphene.String()
-    created_at = graphene.DateTime()
-    updated_at = graphene.DateTime()
+@strawberry.type
+class PromptTagConnection:
+    nodes: list[PromptTagType]
+    total_count: int
 
-    def resolve_id(self, info):
-        return str(self.id)
 
-    def resolve_prompt_type_display(self, info):
+@strawberry.type
+class SystemPromptType:
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    prompt_text: Optional[str] = None
+    prompt_type: Optional[str] = None
+    category: Optional[PromptCategoryType] = None
+    compatible_providers: Optional[list[str]] = None
+    compatible_models: Optional[list[str]] = None
+    recommended_temperature: Optional[float] = None
+    recommended_max_tokens: Optional[int] = None
+    template_variables: Optional[list[str]] = None
+    example_input: Optional[str] = None
+    example_output: Optional[str] = None
+    use_cases: Optional[list[str]] = None
+    version: Optional[int] = None
+    status: Optional[str] = None
+    visibility: Optional[str] = None
+    is_featured: Optional[bool] = None
+    is_verified: Optional[bool] = None
+    usage_count: Optional[int] = None
+    favorite_count: Optional[int] = None
+    fork_count: Optional[int] = None
+    avg_rating: Optional[float] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @strawberry.field
+    def id(self) -> Optional[strawberry.ID]:
+        return strawberry.ID(str(self.id))
+
+    @strawberry.field
+    def prompt_type_display(self) -> Optional[str]:
         return self.get_prompt_type_display()
 
-    def resolve_status_display(self, info):
+    @strawberry.field
+    def status_display(self) -> Optional[str]:
         return self.get_status_display()
 
-    def resolve_visibility_display(self, info):
+    @strawberry.field
+    def visibility_display(self) -> Optional[str]:
         return self.get_visibility_display()
 
-    def resolve_tags(self, info):
+    @strawberry.field
+    def tags(self) -> Optional[list[PromptTagType]]:
         return list(self.tags.all())
 
-    def resolve_is_favorited(self, info):
-        return False  # User-specific favorites not tracked in standalone mode
+    @strawberry.field
+    def is_favorited(self) -> Optional[bool]:
+        return False
 
-    def resolve_user_rating(self, info):
+    @strawberry.field
+    def user_rating(self) -> Optional[float]:
         return None
 
-    def resolve_created_by_username(self, info):
+    @strawberry.field
+    def created_by_username(self) -> Optional[str]:
         return self.user_id or ''
 
-    def resolve_variable_defaults(self, info):
+    @strawberry.field
+    def variable_defaults(self) -> Optional[JSON]:
         import json
-        return json.dumps(self.variable_defaults) if self.variable_defaults else '{}'
+        return json.loads(json.dumps(self.variable_defaults)) if self.variable_defaults else {}
 
 
-class SystemPromptConnection(graphene.relay.Connection):
-    class Meta:
-        node = SystemPromptType
-
-    total_count = graphene.Int()
-
-    @staticmethod
-    def resolve_total_count(root, info, **kwargs):
-        if root.iterable is not None:
-            try:
-                return root.iterable.count()
-            except (AttributeError, TypeError):
-                return len(list(root.iterable))
-        return 0
+@strawberry.type
+class SystemPromptConnection:
+    nodes: list[SystemPromptType]
+    total_count: int
 
 
-class PolicyGraphNodeType(graphene.ObjectType):
-    id = graphene.String()
-    node_type = graphene.String()   # 'policy' | 'endpoint' | 'risk' | 'incident'
-    label = graphene.String()
-    sub_label = graphene.String()   # policy_type, status, etc.
-    status = graphene.String()
-    color = graphene.String()
-    meta = graphene.JSONString()    # JSON with extra details for sidebar
+@strawberry.type
+class PolicyGraphNodeType:
+    id: Optional[str] = None
+    node_type: Optional[str] = None     # 'policy' | 'endpoint' | 'risk' | 'incident'
+    label: Optional[str] = None
+    sub_label: Optional[str] = None     # policy_type, status, etc.
+    status: Optional[str] = None
+    color: Optional[str] = None
+    meta: Optional[JSON] = None         # JSON with extra details for sidebar
 
 
-class PolicyGraphEdgeType(graphene.ObjectType):
-    source = graphene.String()
-    target = graphene.String()
-    relationship = graphene.String()  # 'scoped_to' | 'org_wide' | 'affects' | 'triggered'
-    label = graphene.String()
+@strawberry.type
+class PolicyGraphEdgeType:
+    source: Optional[str] = None
+    target: Optional[str] = None
+    relationship: Optional[str] = None  # 'scoped_to' | 'org_wide' | 'affects' | 'triggered'
+    label: Optional[str] = None
 
 
-class PolicyGraphType(graphene.ObjectType):
-    nodes = graphene.List(PolicyGraphNodeType)
-    edges = graphene.List(PolicyGraphEdgeType)
-    node_count = graphene.Int()
-    edge_count = graphene.Int()
+@strawberry.type
+class PolicyGraphType:
+    nodes: Optional[list[PolicyGraphNodeType]] = None
+    edges: Optional[list[PolicyGraphEdgeType]] = None
+    node_count: Optional[int] = None
+    edge_count: Optional[int] = None
 
 
-class UsageAlertType(graphene.ObjectType):
-    id = graphene.ID()
-    alert_type = graphene.String()
-    alert_type_display = graphene.String()
-    severity = graphene.String()
-    severity_display = graphene.String()
-    title = graphene.String()
-    message = graphene.String()
-    details = graphene.JSONString()
-    threshold_value = graphene.Float()
-    current_value = graphene.Float()
-    acknowledged = graphene.Boolean()
-    acknowledged_at = graphene.DateTime()
-    acknowledged_by_email = graphene.String()
-    resolved = graphene.Boolean()
-    resolved_at = graphene.DateTime()
-    created_at = graphene.DateTime()
+@strawberry.type
+class UsageAlertType:
+    id: Optional[strawberry.ID] = None
+    alert_type: Optional[str] = None
+    alert_type_display: Optional[str] = None
+    severity: Optional[str] = None
+    severity_display: Optional[str] = None
+    title: Optional[str] = None
+    message: Optional[str] = None
+    details: Optional[JSON] = None
+    threshold_value: Optional[float] = None
+    current_value: Optional[float] = None
+    acknowledged: Optional[bool] = None
+    acknowledged_at: Optional[datetime] = None
+    acknowledged_by_email: Optional[str] = None
+    resolved: Optional[bool] = None
+    resolved_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
 
 
-class UsageAlertConnection(graphene.relay.Connection):
-    class Meta:
-        node = UsageAlertType
-
-    total_count = graphene.Int()
-
-    @staticmethod
-    def resolve_total_count(root, info, **kwargs):
-        return 0
+@strawberry.type
+class UsageAlertConnection:
+    nodes: list[UsageAlertType]
+    total_count: int
 
 
-class ComplianceReportType(graphene.ObjectType):
+@strawberry.type
+class ComplianceReportType:
     """Maps ComplianceAssessment model instances to the report list type."""
-    id = graphene.ID()
-    name = graphene.String()
-    framework = graphene.String()
-    generated_at = graphene.DateTime()
-    period = graphene.String()
-    status = graphene.String()
-    download_url = graphene.String()
 
-    def resolve_id(self, info):
-        return str(self.id)
+    @strawberry.field
+    def id(self) -> Optional[strawberry.ID]:
+        return strawberry.ID(str(self.id))
 
-    def resolve_name(self, info):
+    @strawberry.field
+    def name(self) -> Optional[str]:
         return f"Compliance Report {self.assessed_at.strftime('%Y-%m-%d')}"
 
-    def resolve_framework(self, info):
+    @strawberry.field
+    def framework(self) -> Optional[str]:
         return self.framework_id or 'all'
 
-    def resolve_generated_at(self, info):
+    @strawberry.field
+    def generated_at(self) -> Optional[datetime]:
         return self.assessed_at
 
-    def resolve_period(self, info):
+    @strawberry.field
+    def period(self) -> Optional[str]:
         return self.assessment_type
 
-    def resolve_status(self, info):
+    @strawberry.field
+    def status(self) -> Optional[str]:
         return self.status
 
-    def resolve_download_url(self, info):
+    @strawberry.field
+    def download_url(self) -> Optional[str]:
         return f'/api/zentinelle/v1/export/summary.json?assessment={self.id}'
 
 
-class ComplianceReportConnection(graphene.relay.Connection):
-    class Meta:
-        node = ComplianceReportType
-
-    total_count = graphene.Int()
-
-    @staticmethod
-    def resolve_total_count(root, info, **kwargs):
-        if root.iterable is not None:
-            try:
-                return root.iterable.count()
-            except (AttributeError, TypeError):
-                return len(list(root.iterable))
-        return 0
+@strawberry.type
+class ComplianceReportConnection:
+    nodes: list[ComplianceReportType]
+    total_count: int
 
 
-class EffectivePolicyType(graphene.ObjectType):
-    id = graphene.ID()
-    name = graphene.String()
-    description = graphene.String()
-    policy_type = graphene.String()
-    scope_type = graphene.String()
-    scope_name = graphene.String()
-    config = graphene.JSONString()
-    priority = graphene.Int()
-    enforcement = graphene.String()
-    enabled = graphene.Boolean()
-    inherited_from = graphene.String()
-    overrides = graphene.JSONString()
+@strawberry.type
+class EffectivePolicyType:
+    id: Optional[strawberry.ID] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    policy_type: Optional[str] = None
+    scope_type: Optional[str] = None
+    scope_name: Optional[str] = None
+    config: Optional[JSON] = None
+    priority: Optional[int] = None
+    enforcement: Optional[str] = None
+    enabled: Optional[bool] = None
+    inherited_from: Optional[str] = None
+    overrides: Optional[JSON] = None
 
 
-class EffectivePolicyConnection(graphene.relay.Connection):
-    class Meta:
-        node = EffectivePolicyType
-
-    total_count = graphene.Int()
-
-    @staticmethod
-    def resolve_total_count(root, info, **kwargs):
-        if root.iterable is not None:
-            try:
-                return len(list(root.iterable))
-            except (AttributeError, TypeError):
-                pass
-        return 0
+@strawberry.type
+class EffectivePolicyConnection:
+    nodes: list[EffectivePolicyType]
+    total_count: int
 
 
 # ---------------------------------------------------------------------------
 # Audit Analytics Types (ClickHouse-backed)
 # ---------------------------------------------------------------------------
 
-class AuditTimelinePointType(graphene.ObjectType):
+@strawberry.type
+class AuditTimelinePointType:
     """A single time-bucketed point in the audit event timeline."""
-    bucket = graphene.DateTime()
-    event_type = graphene.String()
-    count = graphene.Int()
+    bucket: Optional[datetime] = None
+    event_type: Optional[str] = None
+    count: Optional[int] = None
 
 
-class AuditEventCountType(graphene.ObjectType):
+@strawberry.type
+class AuditEventCountType:
     """Audit event count broken down by event type."""
-    event_type = graphene.String()
-    count = graphene.Int()
+    event_type: Optional[str] = None
+    count: Optional[int] = None
 
 
-class AuditTopAgentType(graphene.ObjectType):
+@strawberry.type
+class AuditTopAgentType:
     """Agent ranked by total event count."""
-    agent_id = graphene.String()
-    event_count = graphene.Int()
+    agent_id: Optional[str] = None
+    event_count: Optional[int] = None
 
 
-class AuditAnalyticsType(graphene.ObjectType):
+@strawberry.type
+class AuditAnalyticsType:
     """Aggregated audit analytics sourced from ClickHouse."""
-    timeline = graphene.List(AuditTimelinePointType)
-    by_type = graphene.List(AuditEventCountType)
-    top_agents = graphene.List(AuditTopAgentType)
+    timeline: Optional[list[AuditTimelinePointType]] = None
+    by_type: Optional[list[AuditEventCountType]] = None
+    top_agents: Optional[list[AuditTopAgentType]] = None

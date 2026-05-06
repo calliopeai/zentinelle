@@ -3,9 +3,14 @@ GraphQL Queries for Zentinelle GRC Portal.
 
 Standalone version — no dependency on deployments, organization, or billing apps.
 """
-import graphene
-from graphene_django import DjangoConnectionField
+import uuid
+from datetime import datetime
+from typing import Optional
+
+import strawberry
+from strawberry.scalars import JSON
 from django.db.models import Q, Count
+from zentinelle.schema.mutations.policy_document import PolicyDocumentType
 
 # Agent-level models (from zentinelle)
 from zentinelle.models import (
@@ -104,935 +109,614 @@ from .auth_helpers import filter_by_org, get_request_tenant_id, is_internal_admi
 
 
 # Dashboard Stats Types
-class AgentStatsType(graphene.ObjectType):
-    total = graphene.Int()
-    active = graphene.Int()
-    inactive = graphene.Int()
-    healthy = graphene.Int()
-    unhealthy = graphene.Int()
+@strawberry.type
+class AgentStatsType:
+    total: int = 0
+    active: int = 0
+    inactive: int = 0
+    healthy: int = 0
+    unhealthy: int = 0
 
 
-class PolicyByTypeType(graphene.ObjectType):
-    type = graphene.String()
-    count = graphene.Int()
+@strawberry.type
+class PolicyByTypeType:
+    type: Optional[str] = None
+    count: int = 0
 
 
-class PolicyStatsType(graphene.ObjectType):
-    total = graphene.Int()
-    enabled = graphene.Int()
-    disabled = graphene.Int()
-    by_type = graphene.List(PolicyByTypeType)
+@strawberry.type
+class PolicyStatsType:
+    total: int = 0
+    enabled: int = 0
+    disabled: int = 0
+    by_type: list[PolicyByTypeType] = strawberry.field(default_factory=list)
 
 
-class ApiUsageType(graphene.ObjectType):
-    today = graphene.Int()
-    this_week = graphene.Int()
-    this_month = graphene.Int()
-    trend = graphene.Float()
+@strawberry.type
+class ApiUsageType:
+    today: int = 0
+    this_week: int = 0
+    this_month: int = 0
+    trend: float = 0.0
 
 
-class RecentActivityType(graphene.ObjectType):
-    id = graphene.String()
-    type = graphene.String()
-    description = graphene.String()
-    timestamp = graphene.DateTime()
-    actor = graphene.String()
+@strawberry.type
+class RecentActivityType:
+    id: Optional[str] = None
+    type: Optional[str] = None
+    description: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    actor: Optional[str] = None
 
 
-class AlertType(graphene.ObjectType):
-    id = graphene.String()
-    severity = graphene.String()
-    title = graphene.String()
-    description = graphene.String()
-    created_at = graphene.DateTime()
+@strawberry.type
+class AlertType:
+    id: Optional[str] = None
+    severity: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    created_at: Optional[datetime] = None
 
 
-
-
-class ChecklistItemStatsType(graphene.ObjectType):
+@strawberry.type
+class ChecklistItemStatsType:
     """Inline checklist item for dashboard stats."""
-    key = graphene.String()
-    is_complete = graphene.Boolean()
-    completed_at = graphene.DateTime()
+    key: Optional[str] = None
+    is_complete: bool = False
+    completed_at: Optional[datetime] = None
 
 
-class ChecklistStatsType(graphene.ObjectType):
+@strawberry.type
+class ChecklistStatsType:
     """Getting started checklist state embedded in dashboard stats."""
-    items = graphene.List(ChecklistItemStatsType)
-    completed_count = graphene.Int()
-    total_count = graphene.Int()
-    progress_percent = graphene.Float()
-    is_all_complete = graphene.Boolean()
-    dismissed = graphene.Boolean()
+    items: list[ChecklistItemStatsType] = strawberry.field(default_factory=list)
+    completed_count: int = 0
+    total_count: int = 0
+    progress_percent: float = 0.0
+    is_all_complete: bool = False
+    dismissed: bool = False
 
 
-class DashboardStatsType(graphene.ObjectType):
-    agents = graphene.Field(AgentStatsType)
-    policies = graphene.Field(PolicyStatsType)
-    api_usage = graphene.Field(ApiUsageType)
-    recent_activity = graphene.List(RecentActivityType)
-    alerts = graphene.List(AlertType)
-    checklist = graphene.Field(ChecklistStatsType)
+@strawberry.type
+class DashboardStatsType:
+    agents: Optional[AgentStatsType] = None
+    policies: Optional[PolicyStatsType] = None
+    api_usage: Optional[ApiUsageType] = None
+    recent_activity: list[RecentActivityType] = strawberry.field(default_factory=list)
+    alerts: list[AlertType] = strawberry.field(default_factory=list)
+    checklist: Optional[ChecklistStatsType] = None
 
 
 # Compliance Types - Capability-Based Approach
-class ComplianceCapabilityType(graphene.ObjectType):
+@strawberry.type
+class ComplianceCapabilityType:
     """A compliance capability that Zentinelle can measure/control."""
-    id = graphene.String()
-    name = graphene.String()
-    description = graphene.String()
-    capability_type = graphene.String()  # 'observe' or 'control'
-    enabled = graphene.Boolean()
-    supporting_policies = graphene.List(graphene.String)
-    supporting_rules = graphene.List(graphene.String)
-    enforcement_options = graphene.List(graphene.String)
-    supports_frameworks = graphene.List(graphene.String)
+    id: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    capability_type: Optional[str] = None  # 'observe' or 'control'
+    enabled: bool = False
+    supporting_policies: list[str] = strawberry.field(default_factory=list)
+    supporting_rules: list[str] = strawberry.field(default_factory=list)
+    enforcement_options: list[str] = strawberry.field(default_factory=list)
+    supports_frameworks: list[str] = strawberry.field(default_factory=list)
 
 
-class FrameworkCoverageType(graphene.ObjectType):
+@strawberry.type
+class FrameworkCoverageType:
     """Coverage stats for a compliance framework."""
-    id = graphene.String()
-    name = graphene.String()
-    description = graphene.String()
+    id: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
     # Required capabilities coverage
-    required_covered = graphene.Int()
-    required_total = graphene.Int()
-    required_percentage = graphene.Float()
-    missing_required = graphene.List(graphene.String)
+    required_covered: int = 0
+    required_total: int = 0
+    required_percentage: float = 0.0
+    missing_required: list[str] = strawberry.field(default_factory=list)
     # Total coverage (required + recommended)
-    total_covered = graphene.Int()
-    total_count = graphene.Int()
-    total_percentage = graphene.Float()
-    missing_recommended = graphene.List(graphene.String)
+    total_covered: int = 0
+    total_count: int = 0
+    total_percentage: float = 0.0
+    missing_recommended: list[str] = strawberry.field(default_factory=list)
 
 
-class ComplianceOverviewType(graphene.ObjectType):
+@strawberry.type
+class ComplianceOverviewType:
     """
     Capability-based compliance overview.
 
     Shows what Zentinelle can observe/control and how that maps to frameworks.
     """
     # Capabilities by type
-    observe_capabilities = graphene.List(ComplianceCapabilityType)
-    control_capabilities = graphene.List(ComplianceCapabilityType)
+    observe_capabilities: list[ComplianceCapabilityType] = strawberry.field(default_factory=list)
+    control_capabilities: list[ComplianceCapabilityType] = strawberry.field(default_factory=list)
 
     # Summary stats
-    capabilities_enabled = graphene.Int()
-    capabilities_total = graphene.Int()
+    capabilities_enabled: int = 0
+    capabilities_total: int = 0
 
     # Framework coverage
-    framework_coverage = graphene.List(FrameworkCoverageType)
+    framework_coverage: list[FrameworkCoverageType] = strawberry.field(default_factory=list)
 
 
 # Legacy types kept for backwards compatibility
-class ComplianceControlType(graphene.ObjectType):
-    id = graphene.String()
-    name = graphene.String()
-    status = graphene.String()
-    severity = graphene.String()
-    description = graphene.String()
+@strawberry.type
+class ComplianceControlType:
+    id: Optional[str] = None
+    name: Optional[str] = None
+    status: Optional[str] = None
+    severity: Optional[str] = None
+    description: Optional[str] = None
 
 
-class ComplianceFrameworkType(graphene.ObjectType):
-    id = graphene.String()
-    name = graphene.String()
-    description = graphene.String()
-    enabled = graphene.Boolean()
-    score = graphene.Int()
-    status = graphene.String()
-    last_checked = graphene.DateTime()
-    controls = graphene.List(ComplianceControlType)
+@strawberry.type
+class ComplianceFrameworkType:
+    id: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    enabled: bool = False
+    score: int = 0
+    status: Optional[str] = None
+    last_checked: Optional[datetime] = None
+    controls: list[ComplianceControlType] = strawberry.field(default_factory=list)
 
 
-class ComplianceFindingType(graphene.ObjectType):
-    id = graphene.String()
-    title = graphene.String()
-    severity = graphene.String()
-    framework = graphene.String()
-    control = graphene.String()
-    status = graphene.String()
-    found_at = graphene.DateTime()
-    resolved_at = graphene.DateTime()
+@strawberry.type
+class ComplianceFindingType:
+    id: Optional[str] = None
+    title: Optional[str] = None
+    severity: Optional[str] = None
+    framework: Optional[str] = None
+    control: Optional[str] = None
+    status: Optional[str] = None
+    found_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
 
 
-class ComplianceStatusType(graphene.ObjectType):
-    overall_score = graphene.Int()
-    last_assessment = graphene.DateTime()
-    next_assessment = graphene.DateTime()
-    frameworks = graphene.List(ComplianceFrameworkType)
-    recent_findings = graphene.List(ComplianceFindingType)
+@strawberry.type
+class ComplianceStatusType:
+    overall_score: int = 0
+    last_assessment: Optional[datetime] = None
+    next_assessment: Optional[datetime] = None
+    frameworks: list[ComplianceFrameworkType] = strawberry.field(default_factory=list)
+    recent_findings: list[ComplianceFindingType] = strawberry.field(default_factory=list)
 
 
 # Event Sourcing Types
-class EventEnvelopeType(graphene.ObjectType):
+@strawberry.type
+class EventEnvelopeType:
     """Event envelope with full metadata for event sourcing."""
-    event_id = graphene.String()
-    event_type = graphene.String()
-    category = graphene.String()
-    version = graphene.Int()
-    aggregate_id = graphene.String()
-    aggregate_type = graphene.String()
-    sequence_number = graphene.Int()
-    correlation_id = graphene.String()
-    causation_id = graphene.String()
-    timestamp = graphene.DateTime()
-    payload = graphene.JSONString()
-    metadata = graphene.JSONString()
+    event_id: Optional[str] = None
+    event_type: Optional[str] = None
+    category: Optional[str] = None
+    version: int = 0
+    aggregate_id: Optional[str] = None
+    aggregate_type: Optional[str] = None
+    sequence_number: int = 0
+    correlation_id: Optional[str] = None
+    causation_id: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    payload: Optional[JSON] = None
+    metadata: Optional[JSON] = None
 
 
-class EventStreamType(graphene.ObjectType):
+@strawberry.type
+class EventStreamType:
     """Stream of events for an aggregate."""
-    aggregate_type = graphene.String()
-    aggregate_id = graphene.String()
-    events = graphene.List(EventEnvelopeType)
-    last_sequence = graphene.Int()
-    event_count = graphene.Int()
+    aggregate_type: Optional[str] = None
+    aggregate_id: Optional[str] = None
+    events: list[EventEnvelopeType] = strawberry.field(default_factory=list)
+    last_sequence: int = 0
+    event_count: int = 0
 
 
-class DeadLetterEventType(graphene.ObjectType):
+@strawberry.type
+class DeadLetterEventType:
     """Event that failed processing and is in the dead letter queue."""
-    id = graphene.String()
-    event_type = graphene.String()
-    category = graphene.String()
-    error_message = graphene.String()
-    retry_count = graphene.Int()
-    received_at = graphene.DateTime()
-    last_failed_at = graphene.DateTime()
-    payload = graphene.JSONString()
+    id: Optional[str] = None
+    event_type: Optional[str] = None
+    category: Optional[str] = None
+    error_message: Optional[str] = None
+    retry_count: int = 0
+    received_at: Optional[datetime] = None
+    last_failed_at: Optional[datetime] = None
+    payload: Optional[JSON] = None
 
 
-class DeadLetterQueueStatsType(graphene.ObjectType):
+@strawberry.type
+class DeadLetterQueueStatsType:
     """Statistics about the dead letter queue."""
-    total_count = graphene.Int()
-    by_category = graphene.List(graphene.List(graphene.String))
-    oldest_event = graphene.DateTime()
+    total_count: int = 0
+    by_category: list[list[str]] = strawberry.field(default_factory=list)
+    oldest_event: Optional[datetime] = None
 
 
 # Policy Options Types (for dynamic UI)
-class PolicyTypeOptionType(graphene.ObjectType):
+@strawberry.type
+class PolicyTypeOptionType:
     """A policy type option with value, label, description, and config schema."""
-    value = graphene.String()
-    label = graphene.String()
-    description = graphene.String()
-    category = graphene.String()
-    config_schema = graphene.JSONString()
+    value: Optional[str] = None
+    label: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    config_schema: Optional[JSON] = None
 
 
-class ScopeTypeOptionType(graphene.ObjectType):
+@strawberry.type
+class ScopeTypeOptionType:
     """A scope type option with value and label."""
-    value = graphene.String()
-    label = graphene.String()
+    value: Optional[str] = None
+    label: Optional[str] = None
 
 
-class EnforcementOptionType(graphene.ObjectType):
+@strawberry.type
+class EnforcementOptionType:
     """An enforcement level option with value, label, and description."""
-    value = graphene.String()
-    label = graphene.String()
-    description = graphene.String()
+    value: Optional[str] = None
+    label: Optional[str] = None
+    description: Optional[str] = None
 
 
-class PolicyOptionsType(graphene.ObjectType):
+@strawberry.type
+class PolicyOptionsType:
     """All policy form options from the backend."""
-    policy_types = graphene.List(PolicyTypeOptionType)
-    scope_types = graphene.List(ScopeTypeOptionType)
-    enforcement_levels = graphene.List(EnforcementOptionType)
+    policy_types: list[PolicyTypeOptionType] = strawberry.field(default_factory=list)
+    scope_types: list[ScopeTypeOptionType] = strawberry.field(default_factory=list)
+    enforcement_levels: list[EnforcementOptionType] = strawberry.field(default_factory=list)
 
 
 # Risk/Incident Options Types (for dynamic UI)
-class LabelValueOptionType(graphene.ObjectType):
+@strawberry.type
+class LabelValueOptionType:
     """Generic option with value and label."""
-    value = graphene.String()
-    label = graphene.String()
+    value: Optional[str] = None
+    label: Optional[str] = None
 
 
-class RiskOptionsType(graphene.ObjectType):
+@strawberry.type
+class RiskOptionsType:
     """All risk form options from the backend."""
-    categories = graphene.List(LabelValueOptionType)
-    statuses = graphene.List(LabelValueOptionType)
-    likelihoods = graphene.List(LabelValueOptionType)
-    impacts = graphene.List(LabelValueOptionType)
+    categories: list[LabelValueOptionType] = strawberry.field(default_factory=list)
+    statuses: list[LabelValueOptionType] = strawberry.field(default_factory=list)
+    likelihoods: list[LabelValueOptionType] = strawberry.field(default_factory=list)
+    impacts: list[LabelValueOptionType] = strawberry.field(default_factory=list)
 
 
-class IncidentOptionsType(graphene.ObjectType):
+@strawberry.type
+class IncidentOptionsType:
     """All incident form options from the backend."""
-    incident_types = graphene.List(LabelValueOptionType)
-    severities = graphene.List(LabelValueOptionType)
-    statuses = graphene.List(LabelValueOptionType)
+    incident_types: list[LabelValueOptionType] = strawberry.field(default_factory=list)
+    severities: list[LabelValueOptionType] = strawberry.field(default_factory=list)
+    statuses: list[LabelValueOptionType] = strawberry.field(default_factory=list)
 
 
-class ContentRuleOptionsType(graphene.ObjectType):
+@strawberry.type
+class ContentRuleOptionsType:
     """All content rule form options from the backend."""
-    rule_types = graphene.List(LabelValueOptionType)
-    severities = graphene.List(LabelValueOptionType)
-    enforcements = graphene.List(LabelValueOptionType)
-    scan_modes = graphene.List(LabelValueOptionType)
-    scope_types = graphene.List(LabelValueOptionType)
+    rule_types: list[LabelValueOptionType] = strawberry.field(default_factory=list)
+    severities: list[LabelValueOptionType] = strawberry.field(default_factory=list)
+    enforcements: list[LabelValueOptionType] = strawberry.field(default_factory=list)
+    scan_modes: list[LabelValueOptionType] = strawberry.field(default_factory=list)
+    scope_types: list[LabelValueOptionType] = strawberry.field(default_factory=list)
 
 
-class RetentionOptionsType(graphene.ObjectType):
+@strawberry.type
+class RetentionOptionsType:
     """All retention policy form options from the backend."""
-    entity_types = graphene.List(LabelValueOptionType)
-    expiration_actions = graphene.List(LabelValueOptionType)
-    compliance_requirements = graphene.List(LabelValueOptionType)
+    entity_types: list[LabelValueOptionType] = strawberry.field(default_factory=list)
+    expiration_actions: list[LabelValueOptionType] = strawberry.field(default_factory=list)
+    compliance_requirements: list[LabelValueOptionType] = strawberry.field(default_factory=list)
 
 
-class LegalHoldOptionsType(graphene.ObjectType):
+@strawberry.type
+class LegalHoldOptionsType:
     """All legal hold form options from the backend."""
-    hold_types = graphene.List(LabelValueOptionType)
-    statuses = graphene.List(LabelValueOptionType)
+    hold_types: list[LabelValueOptionType] = strawberry.field(default_factory=list)
+    statuses: list[LabelValueOptionType] = strawberry.field(default_factory=list)
 
 
 # Note: AI Key Types (OrganizationAIKeyType, DeploymentAIKeyType, AIProviderStatusType,
 # DeploymentAIProvidersType) are now in deployments.schema.queries
 
 # AI Usage Types
-class AIUsageRecordType(graphene.ObjectType):
+@strawberry.type
+class AIUsageRecordType:
     """Individual AI usage record."""
-    id = graphene.ID()
-    user_identifier = graphene.String()
-    provider = graphene.String()
-    provider_display = graphene.String()
-    model = graphene.String()
-    request_type = graphene.String()
-    input_tokens = graphene.Int()
-    output_tokens = graphene.Int()
-    total_tokens = graphene.Int()
-    input_cost_usd = graphene.Float()
-    output_cost_usd = graphene.Float()
-    total_cost_usd = graphene.Float()
-    latency_ms = graphene.Int()
-    timestamp = graphene.DateTime()
+    id: Optional[strawberry.ID] = None
+    user_identifier: Optional[str] = None
+    provider: Optional[str] = None
+    provider_display: Optional[str] = None
+    model: Optional[str] = None
+    request_type: Optional[str] = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    input_cost_usd: float = 0.0
+    output_cost_usd: float = 0.0
+    total_cost_usd: float = 0.0
+    latency_ms: int = 0
+    timestamp: Optional[datetime] = None
 
 
-class AIUsageByProviderType(graphene.ObjectType):
+@strawberry.type
+class AIUsageByProviderType:
     """Usage aggregated by provider."""
-    provider = graphene.String()
-    provider_display = graphene.String()
-    total_requests = graphene.Int()
-    total_tokens = graphene.Int()
-    total_cost_usd = graphene.Float()
+    provider: Optional[str] = None
+    provider_display: Optional[str] = None
+    total_requests: int = 0
+    total_tokens: int = 0
+    total_cost_usd: float = 0.0
 
 
-class AIUsageByUserType(graphene.ObjectType):
+@strawberry.type
+class AIUsageByUserType:
     """Usage aggregated by user."""
-    user_identifier = graphene.String()
-    total_requests = graphene.Int()
-    total_tokens = graphene.Int()
-    total_cost_usd = graphene.Float()
+    user_identifier: Optional[str] = None
+    total_requests: int = 0
+    total_tokens: int = 0
+    total_cost_usd: float = 0.0
 
 
-class AIUsageByModelType(graphene.ObjectType):
+@strawberry.type
+class AIUsageByModelType:
     """Usage aggregated by model."""
-    provider = graphene.String()
-    model = graphene.String()
-    total_requests = graphene.Int()
-    total_tokens = graphene.Int()
-    total_cost_usd = graphene.Float()
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    total_requests: int = 0
+    total_tokens: int = 0
+    total_cost_usd: float = 0.0
 
 
-class AIUsageSummaryType(graphene.ObjectType):
+@strawberry.type
+class AIUsageSummaryType:
     """Summary of AI usage for an organization."""
     # Time period
-    period_start = graphene.DateTime()
-    period_end = graphene.DateTime()
+    period_start: Optional[datetime] = None
+    period_end: Optional[datetime] = None
 
     # Totals
-    total_requests = graphene.Int()
-    total_tokens = graphene.Int()
-    total_input_tokens = graphene.Int()
-    total_output_tokens = graphene.Int()
-    total_cost_usd = graphene.Float()
+    total_requests: int = 0
+    total_tokens: int = 0
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_cost_usd: float = 0.0
 
     # Breakdowns
-    by_provider = graphene.List(AIUsageByProviderType)
-    by_user = graphene.List(AIUsageByUserType)
-    by_model = graphene.List(AIUsageByModelType)
+    by_provider: list[AIUsageByProviderType] = strawberry.field(default_factory=list)
+    by_user: list[AIUsageByUserType] = strawberry.field(default_factory=list)
+    by_model: list[AIUsageByModelType] = strawberry.field(default_factory=list)
 
     # Top users
-    top_users = graphene.List(AIUsageByUserType)
+    top_users: list[AIUsageByUserType] = strawberry.field(default_factory=list)
 
     # Recent records
-    recent_records = graphene.List(AIUsageRecordType)
+    recent_records: list[AIUsageRecordType] = strawberry.field(default_factory=list)
 
 
 # AI Budget Types
-class AIBudgetStatusType(graphene.ObjectType):
+@strawberry.type
+class AIBudgetStatusType:
     """AI budget status for an organization."""
     # Budget limits
-    budget_usd = graphene.Float(description="Monthly budget in USD (null = unlimited)")
-    spent_usd = graphene.Float(description="Amount spent this period")
-    remaining_usd = graphene.Float(description="Remaining budget")
-    percentage_used = graphene.Float(description="Percentage of budget used")
+    budget_usd: Optional[float] = strawberry.field(default=None, description="Monthly budget in USD (null = unlimited)")
+    spent_usd: float = strawberry.field(default=0.0, description="Amount spent this period")
+    remaining_usd: float = strawberry.field(default=0.0, description="Remaining budget")
+    percentage_used: float = strawberry.field(default=0.0, description="Percentage of budget used")
 
     # Status flags
-    has_budget = graphene.Boolean(description="Whether budget is configured")
-    is_exceeded = graphene.Boolean(description="Whether budget is exceeded")
-    should_block = graphene.Boolean(description="Whether requests should be blocked")
+    has_budget: bool = strawberry.field(default=False, description="Whether budget is configured")
+    is_exceeded: bool = strawberry.field(default=False, description="Whether budget is exceeded")
+    should_block: bool = strawberry.field(default=False, description="Whether requests should be blocked")
 
     # Policy
-    overage_policy = graphene.String(description="What happens when budget exceeded")
-    overage_policy_display = graphene.String()
-    has_payment_method = graphene.Boolean(description="Whether payment method on file")
+    overage_policy: Optional[str] = strawberry.field(default=None, description="What happens when budget exceeded")
+    overage_policy_display: Optional[str] = None
+    has_payment_method: bool = strawberry.field(default=False, description="Whether payment method on file")
 
     # Alerts
-    alert_threshold = graphene.Int(description="Alert threshold percentage")
-    alert_sent = graphene.Boolean(description="Whether alert sent this period")
+    alert_threshold: int = strawberry.field(default=0, description="Alert threshold percentage")
+    alert_sent: bool = strawberry.field(default=False, description="Whether alert sent this period")
 
     # Period
-    period_start = graphene.DateTime(description="Start of current billing period")
+    period_start: Optional[datetime] = strawberry.field(default=None, description="Start of current billing period")
 
     # Per-provider limits (optional)
-    provider_limits = graphene.JSONString(description="Per-provider budget limits")
+    provider_limits: Optional[JSON] = strawberry.field(default=None, description="Per-provider budget limits")
 
 
 # Monitoring Stats Types
-class ViolationByTypeType(graphene.ObjectType):
-    rule_type = graphene.String()
-    count = graphene.Int()
+@strawberry.type
+class ViolationByTypeType:
+    rule_type: Optional[str] = None
+    count: int = 0
 
 
-class ViolationBySeverityType(graphene.ObjectType):
-    severity = graphene.String()
-    count = graphene.Int()
+@strawberry.type
+class ViolationBySeverityType:
+    severity: Optional[str] = None
+    count: int = 0
 
 
-class MonitoringStatsType(graphene.ObjectType):
+@strawberry.type
+class MonitoringStatsType:
     """Aggregated monitoring statistics."""
     # Interaction stats
-    total_interactions = graphene.Int()
-    interactions_today = graphene.Int()
-    interactions_this_hour = graphene.Int()
+    total_interactions: int = 0
+    interactions_today: int = 0
+    interactions_this_hour: int = 0
 
     # Scan stats
-    total_scans = graphene.Int()
-    scans_with_violations = graphene.Int()
-    scans_blocked = graphene.Int()
+    total_scans: int = 0
+    scans_with_violations: int = 0
+    scans_blocked: int = 0
 
     # Violation breakdowns
-    violations_by_type = graphene.List(ViolationByTypeType)
-    violations_by_severity = graphene.List(ViolationBySeverityType)
+    violations_by_type: list[ViolationByTypeType] = strawberry.field(default_factory=list)
+    violations_by_severity: list[ViolationBySeverityType] = strawberry.field(default_factory=list)
 
     # Token and cost
-    total_tokens_today = graphene.Int()
-    total_cost_today = graphene.Float()
+    total_tokens_today: int = 0
+    total_cost_today: float = 0.0
 
     # Performance
-    avg_latency_ms = graphene.Float()
-    avg_scan_duration_ms = graphene.Float()
+    avg_latency_ms: float = 0.0
+    avg_scan_duration_ms: float = 0.0
 
 
 # Risk Stats Types
-class RiskByLevelType(graphene.ObjectType):
-    level = graphene.String()
-    count = graphene.Int()
+@strawberry.type
+class RiskByLevelType:
+    level: Optional[str] = None
+    count: int = 0
 
 
-class RiskByCategoryType(graphene.ObjectType):
-    category = graphene.String()
-    count = graphene.Int()
+@strawberry.type
+class RiskByCategoryType:
+    category: Optional[str] = None
+    count: int = 0
 
 
-class IncidentBySeverityType(graphene.ObjectType):
-    severity = graphene.String()
-    count = graphene.Int()
+@strawberry.type
+class IncidentBySeverityType:
+    severity: Optional[str] = None
+    count: int = 0
 
 
-class IncidentByStatusType(graphene.ObjectType):
-    status = graphene.String()
-    count = graphene.Int()
+@strawberry.type
+class IncidentByStatusType:
+    status: Optional[str] = None
+    count: int = 0
 
 
-class RiskStatsType(graphene.ObjectType):
+@strawberry.type
+class RiskStatsType:
     """Aggregated risk and incident statistics."""
     # Risk stats
-    total_risks = graphene.Int()
-    open_risks = graphene.Int()
-    critical_risks = graphene.Int()
-    high_risks = graphene.Int()
-    risks_by_level = graphene.List(RiskByLevelType)
-    risks_by_category = graphene.List(RiskByCategoryType)
+    total_risks: int = 0
+    open_risks: int = 0
+    critical_risks: int = 0
+    high_risks: int = 0
+    risks_by_level: list[RiskByLevelType] = strawberry.field(default_factory=list)
+    risks_by_category: list[RiskByCategoryType] = strawberry.field(default_factory=list)
 
     # Incident stats
-    total_incidents = graphene.Int()
-    open_incidents = graphene.Int()
-    incidents_today = graphene.Int()
-    incidents_by_severity = graphene.List(IncidentBySeverityType)
-    incidents_by_status = graphene.List(IncidentByStatusType)
+    total_incidents: int = 0
+    open_incidents: int = 0
+    incidents_today: int = 0
+    incidents_by_severity: list[IncidentBySeverityType] = strawberry.field(default_factory=list)
+    incidents_by_status: list[IncidentByStatusType] = strawberry.field(default_factory=list)
 
     # SLA stats
-    sla_met_count = graphene.Int()
-    sla_breached_count = graphene.Int()
+    sla_met_count: int = 0
+    sla_breached_count: int = 0
 
 
 # Tool Usage Stats Types
-class ToolUsageByModelType(graphene.ObjectType):
+@strawberry.type
+class ToolUsageByModelType:
     """AI usage breakdown by model."""
-    model = graphene.String()
-    provider = graphene.String()
-    requests = graphene.Int()
-    input_tokens = graphene.Int()
-    output_tokens = graphene.Int()
-    total_tokens = graphene.Int()
+    model: Optional[str] = None
+    provider: Optional[str] = None
+    requests: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
 
 
-class ToolUsageStatsType(graphene.ObjectType):
+@strawberry.type
+class ToolUsageStatsType:
     """Usage statistics for a tool in PLATFORM mode."""
-    tool_type = graphene.String()
-    tool_type_display = graphene.String()
+    tool_type: Optional[str] = None
+    tool_type_display: Optional[str] = None
 
     # Period info
-    period_start = graphene.DateTime()
-    period_end = graphene.DateTime()
+    period_start: Optional[datetime] = None
+    period_end: Optional[datetime] = None
 
     # Request counts
-    total_requests = graphene.Int()
-    requests_today = graphene.Int()
-    requests_this_week = graphene.Int()
-    requests_this_month = graphene.Int()
+    total_requests: int = 0
+    requests_today: int = 0
+    requests_this_week: int = 0
+    requests_this_month: int = 0
 
     # Token counts
-    total_input_tokens = graphene.Int()
-    total_output_tokens = graphene.Int()
-    total_tokens = graphene.Int()
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_tokens: int = 0
 
     # Cost estimates (for PLATFORM mode billing)
-    estimated_cost = graphene.Float()
+    estimated_cost: float = 0.0
 
     # Breakdown by model
-    by_model = graphene.List(ToolUsageByModelType)
+    by_model: list[ToolUsageByModelType] = strawberry.field(default_factory=list)
 
     # Unique users
-    unique_users = graphene.Int()
-    unique_users_today = graphene.Int()
+    unique_users: int = 0
+    unique_users_today: int = 0
 
 
 # License Compliance Types
-class LicenseUsageSummaryType(graphene.ObjectType):
+@strawberry.type
+class LicenseUsageSummaryType:
     """Summary of license usage."""
-    current_users = graphene.Int()
-    max_users = graphene.Int()
-    users_percent = graphene.Float()
-    current_deployments = graphene.Int()
-    max_deployments = graphene.Int()
-    deployments_percent = graphene.Float()
-    current_agents = graphene.Int()
-    max_agents = graphene.Int()
-    agents_percent = graphene.Float()
-    is_over_limit = graphene.Boolean()
-    over_limit_details = graphene.List(graphene.String)
+    current_users: int = 0
+    max_users: int = 0
+    users_percent: float = 0.0
+    current_deployments: int = 0
+    max_deployments: int = 0
+    deployments_percent: float = 0.0
+    current_agents: int = 0
+    max_agents: int = 0
+    agents_percent: float = 0.0
+    is_over_limit: bool = False
+    over_limit_details: list[str] = strawberry.field(default_factory=list)
 
 
-class LicenseComplianceSummaryType(graphene.ObjectType):
+@strawberry.type
+class LicenseComplianceSummaryType:
     """Summary of license compliance status."""
-    status = graphene.String()  # 'compliant', 'non_compliant', 'no_license'
-    compliance_score = graphene.Float()
-    has_violations = graphene.Boolean()
-    open_violations = graphene.Int()
+    status: Optional[str] = None  # 'compliant', 'non_compliant', 'no_license'
+    compliance_score: float = 0.0
+    has_violations: bool = False
+    open_violations: int = 0
     # License info
-    license_type = graphene.String()
-    license_valid_until = graphene.DateTime()
-    is_expired = graphene.Boolean()
+    license_type: Optional[str] = None
+    license_valid_until: Optional[datetime] = None
+    is_expired: bool = False
     # Usage summary
-    usage = graphene.Field(LicenseUsageSummaryType)
+    usage: Optional[LicenseUsageSummaryType] = None
 
 
-class LicenseViolationSummaryType(graphene.ObjectType):
+@strawberry.type
+class LicenseViolationSummaryType:
     """Summary of violations."""
-    total_count = graphene.Int()
-    open_count = graphene.Int()
-    resolved_count = graphene.Int()
-    by_type = graphene.JSONString()
-    by_severity = graphene.JSONString()
+    total_count: int = 0
+    open_count: int = 0
+    resolved_count: int = 0
+    by_type: Optional[JSON] = None
+    by_severity: Optional[JSON] = None
 
 
-class SimulatePolicyResultType(graphene.ObjectType):
+@strawberry.type
+class SimulatePolicyResultType:
     """Result of a policy simulation dry-run."""
-    total_events = graphene.Int()
-    would_block = graphene.Int()
-    would_warn = graphene.Int()
-    would_pass = graphene.Int()
-    impact_percent = graphene.Float()
-    blocked_samples = graphene.List(graphene.JSONString)
-    simulated_policy_type = graphene.String()
-    lookback_days = graphene.Int()
+    total_events: int = 0
+    would_block: int = 0
+    would_warn: int = 0
+    would_pass: int = 0
+    impact_percent: float = 0.0
+    blocked_samples: list[str] = strawberry.field(default_factory=list)
+    simulated_policy_type: Optional[str] = None
+    lookback_days: int = 0
 
 
-class Query(graphene.ObjectType):
+@strawberry.type
+class Query:
     """Zentinelle GraphQL queries."""
 
     # Policy Options (for dynamic UI)
-    policy_options = graphene.Field(PolicyOptionsType)
-
-    # Risk/Incident Options (for dynamic UI)
-    risk_options = graphene.Field(RiskOptionsType)
-    incident_options = graphene.Field(IncidentOptionsType)
-    content_rule_options = graphene.Field(ContentRuleOptionsType)
-    retention_options = graphene.Field(RetentionOptionsType)
-    legal_hold_options = graphene.Field(LegalHoldOptionsType)
-
-    # Compliance - Capability-Based
-    compliance_overview = graphene.Field(ComplianceOverviewType)
-
-    # Compliance - Legacy
-    compliance_status = graphene.Field(ComplianceStatusType)
-
-    # Note: Deployment queries (deployment, deployments, junohub_config, junohub_configs,
-    # terraform_provision, terraform_provisions, organization_ai_keys, deployment_ai_keys,
-    # deployment_ai_providers) are now in deployments.schema.queries.DeploymentsQuery
-
-    # Agent Groups
-    agent_groups = DjangoConnectionField(AgentGroupType, search=graphene.String(), tier=graphene.String())
-    agent_group = graphene.Field(AgentGroupType, id=graphene.UUID())
-
-    # Endpoints
-    endpoint = graphene.Field(AgentEndpointType, id=graphene.ID())
-    endpoints = DjangoConnectionField(
-        AgentEndpointType,
-        search=graphene.String(),
-        status=graphene.String(),
-        agent_type=graphene.String(),
-        deployment_id=graphene.ID(),
-    )
-
-    # Policies
-    policy = graphene.Field(PolicyType, id=graphene.ID())
-    policies = DjangoConnectionField(
-        PolicyType,
-        search=graphene.String(),
-        policy_type=graphene.String(),
-        scope_type=graphene.String(),
-    )
-    policy_revisions = graphene.List(
-        PolicyRevisionType,
-        policy_id=graphene.String(required=True),
-        description="Return all revisions for a given policy, ordered by version descending.",
-    )
-
-    # Events
-    events = DjangoConnectionField(
-        EventType,
-        event_type=graphene.String(),
-        category=graphene.String(),
-        endpoint_id=graphene.ID(),
-        user_id=graphene.String(),
-    )
-
-    # Audit Logs
-    audit_logs = DjangoConnectionField(
-        AuditLogType,
-        search=graphene.String(),
-        actor=graphene.String(),
-        action=graphene.String(),
-        resource=graphene.String(),
-        resource_type=graphene.String(),
-        resource_id=graphene.String(),
-        start_date=graphene.DateTime(),
-        end_date=graphene.DateTime(),
-    )
-    audit_analytics = graphene.Field(
-        AuditAnalyticsType,
-        days=graphene.Int(default_value=7),
-        description="ClickHouse-backed analytics for the audit logs page.",
-    )
-
-    # Dashboard Stats
-    dashboard_stats = graphene.Field(DashboardStatsType)
-
-    # AI Providers
-    ai_provider = graphene.Field(AIProviderType, id=graphene.ID(), slug=graphene.String())
-    ai_providers = DjangoConnectionField(
-        AIProviderType,
-        active_only=graphene.Boolean(),
-        supports_managed_keys=graphene.Boolean(),
-    )
-
-    # Platform API Keys
-    api_key = graphene.Field(APIKeyType, id=graphene.ID())
-    api_keys = DjangoConnectionField(
-        APIKeyType,
-        search=graphene.String(),
-        status=graphene.String(),
-    )
-
-    # Note: AI Key Management queries (organization_ai_keys, deployment_ai_keys,
-    # deployment_ai_providers) are now in deployments.schema.queries.DeploymentsQuery
-
-    # AI Usage
-    ai_usage_summary = graphene.Field(
-        AIUsageSummaryType,
-        organization_id=graphene.ID(required=True, description="Organization UUID or Relay global ID"),
-        deployment_id=graphene.UUID(),
-        days=graphene.Int(default_value=30, description="Number of days to look back"),
-        description="Get AI usage summary for organization or deployment"
-    )
-
-    # AI Budget Status
-    ai_budget_status = graphene.Field(
-        AIBudgetStatusType,
-        organization_id=graphene.ID(required=True, description="Organization UUID or Relay global ID"),
-        description="Get AI budget status for organization"
-    )
-
-    # Model Registry
-    ai_model = graphene.Field(AIModelType, id=graphene.ID())
-    ai_models = DjangoConnectionField(
-        AIModelType,
-        search=graphene.String(),
-        provider_slug=graphene.String(),
-        model_type=graphene.String(),
-        risk_level=graphene.String(),
-        available_only=graphene.Boolean(),
-    )
-    model_approval = graphene.Field(OrganizationModelApprovalType, id=graphene.ID())
-    model_approvals = DjangoConnectionField(
-        OrganizationModelApprovalType,
-        status=graphene.String(),
-        provider_slug=graphene.String(),
-    )
-
-    # Event Sourcing
-    event_stream = graphene.Field(
-        EventStreamType,
-        aggregate_type=graphene.String(required=True),
-        aggregate_id=graphene.String(required=True),
-        from_sequence=graphene.Int(),
-    )
-    events_by_correlation = graphene.List(
-        EventEnvelopeType,
-        correlation_id=graphene.String(required=True),
-    )
-    dead_letter_queue = graphene.List(
-        DeadLetterEventType,
-        limit=graphene.Int(),
-    )
-    dead_letter_queue_stats = graphene.Field(DeadLetterQueueStatsType)
-
-    # Content Rules & Monitoring
-    content_rule = graphene.Field(ContentRuleType, id=graphene.ID())
-    content_rules = DjangoConnectionField(
-        ContentRuleType,
-        search=graphene.String(),
-        rule_type=graphene.String(),
-        severity=graphene.String(),
-        enforcement=graphene.String(),
-        enabled=graphene.Boolean(),
-    )
-    content_scan = graphene.Field(ContentScanType, id=graphene.ID())
-    content_scans = DjangoConnectionField(
-        ContentScanType,
-        user_identifier=graphene.String(),
-        endpoint_id=graphene.ID(),
-        has_violations=graphene.Boolean(),
-        content_type=graphene.String(),
-        start_date=graphene.DateTime(),
-        end_date=graphene.DateTime(),
-    )
-    content_violations = DjangoConnectionField(
-        ContentViolationType,
-        rule_type=graphene.String(),
-        severity=graphene.String(),
-        start_date=graphene.DateTime(),
-        end_date=graphene.DateTime(),
-    )
-    compliance_alerts = DjangoConnectionField(
-        ComplianceAlertType,
-        status=graphene.String(),
-        severity=graphene.String(),
-        alert_type=graphene.String(),
-    )
-    interaction_log = graphene.Field(InteractionLogType, id=graphene.ID())
-    interaction_logs = DjangoConnectionField(
-        InteractionLogType,
-        user_identifier=graphene.String(),
-        endpoint_id=graphene.ID(),
-        ai_provider=graphene.String(),
-        ai_model=graphene.String(),
-        interaction_type=graphene.String(),
-        has_violations=graphene.Boolean(),
-        start_date=graphene.DateTime(),
-        end_date=graphene.DateTime(),
-    )
-
-    # Monitoring Stats
-    monitoring_stats = graphene.Field('zentinelle.schema.queries.MonitoringStatsType')
-
-    # Risk Management
-    risk = graphene.Field(RiskType, id=graphene.ID())
-    risks = DjangoConnectionField(
-        RiskType,
-        search=graphene.String(),
-        category=graphene.String(),
-        status=graphene.String(),
-        risk_level=graphene.String(),
-    )
-    incident = graphene.Field(IncidentType, id=graphene.ID())
-    incidents = DjangoConnectionField(
-        IncidentType,
-        search=graphene.String(),
-        incident_type=graphene.String(),
-        severity=graphene.String(),
-        status=graphene.String(),
-        start_date=graphene.DateTime(),
-        end_date=graphene.DateTime(),
-    )
-    risk_stats = graphene.Field('zentinelle.schema.queries.RiskStatsType')
-
-    # Retention Policies
-    retention_policy = graphene.Field(RetentionPolicyType, id=graphene.ID())
-    retention_policies = DjangoConnectionField(
-        RetentionPolicyType,
-        search=graphene.String(),
-        entity_type=graphene.String(),
-        enabled=graphene.Boolean(),
-    )
-
-    # Legal Holds
-    legal_hold = graphene.Field(LegalHoldType, id=graphene.ID())
-    legal_holds = DjangoConnectionField(
-        LegalHoldType,
-        hold_type=graphene.String(),
-        status=graphene.String(),
-    )
-
-    # Policy Documents
-    policy_document = graphene.Field(
-        'zentinelle.schema.mutations.policy_document.PolicyDocumentType',
-        id=graphene.ID()
-    )
-    policy_documents = graphene.List(
-        'zentinelle.schema.mutations.policy_document.PolicyDocumentType',
-        search=graphene.String(),
-        status=graphene.String(),
-    )
-
-    # License Compliance
-    license_compliance_summary = graphene.Field(
-        LicenseComplianceSummaryType,
-        organization_id=graphene.UUID(),
-        description="Get license compliance summary for an organization"
-    )
-    license_compliance_report = graphene.Field(
-        LicenseComplianceReportType,
-        id=graphene.ID()
-    )
-    license_compliance_reports = DjangoConnectionField(
-        LicenseComplianceReportType,
-        report_type=graphene.String(),
-        status=graphene.String(),
-        start_date=graphene.DateTime(),
-        end_date=graphene.DateTime(),
-    )
-    license_compliance_violation = graphene.Field(
-        LicenseComplianceViolationGraphType,
-        id=graphene.ID()
-    )
-    license_compliance_violations = DjangoConnectionField(
-        LicenseComplianceViolationGraphType,
-        violation_type=graphene.String(),
-        severity=graphene.String(),
-        status=graphene.String(),
-    )
-    license_violation_summary = graphene.Field(
-        LicenseViolationSummaryType,
-        organization_id=graphene.UUID(),
-        days=graphene.Int(default_value=30),
-        description="Get violation summary for an organization"
-    )
-
-    # Policy Simulation (#27)
-    simulate_policy = graphene.Field(
-        SimulatePolicyResultType,
-        policy_type=graphene.String(required=True),
-        config=graphene.JSONString(required=True),
-        enforcement=graphene.String(),
-        lookback_days=graphene.Int(),
-        description="Dry-run a proposed policy config against historical events",
-    )
-
-    # Organization settings (standalone stub)
-    my_organization = graphene.Field(OrganizationType)
-
-    # Client Cove Integration
-    client_cove_integration = graphene.Field(ClientCoveIntegrationType)
-
-    # Notifications (stub)
-    notifications = graphene.Field(
-        NotificationConnection,
-        first=graphene.Int(),
-        after=graphene.String(),
-        status=graphene.String(),
-    )
-
-    usage_metrics = graphene.Field(
-        UsageMetricsType,
-        start_date=graphene.DateTime(),
-        end_date=graphene.DateTime(),
-        granularity=graphene.String(),
-    )
-    # System Prompts (stub — prompt library not yet implemented in standalone)
-    prompt_categories = graphene.List(
-        PromptCategoryType,
-        active_only=graphene.Boolean(),
-    )
-    system_prompts = graphene.Field(
-        SystemPromptConnection,
-        first=graphene.Int(),
-        after=graphene.String(),
-        search=graphene.String(),
-        category_slug=graphene.String(),
-        system_prompt_type=graphene.String(),
-        provider=graphene.String(),
-        tag_slugs=graphene.List(graphene.String),
-        featured_only=graphene.Boolean(),
-        verified_only=graphene.Boolean(),
-        favorites_only=graphene.Boolean(),
-    )
-    system_prompt = graphene.Field(
-        SystemPromptType,
-        id=graphene.UUID(),
-        slug=graphene.String(),
-    )
-
-    # Usage Alerts (stub)
-    usage_alerts = graphene.Field(
-        UsageAlertConnection,
-        alert_type=graphene.String(),
-        severity=graphene.String(),
-        acknowledged=graphene.Boolean(),
-        resolved=graphene.Boolean(),
-        first=graphene.Int(),
-        after=graphene.String(),
-    )
-
-    # Compliance Reports (stub)
-    compliance_reports = graphene.Field(
-        ComplianceReportConnection,
-        first=graphene.Int(),
-        after=graphene.String(),
-    )
-
-    # Effective Policies (stub — computed policy inheritance for a context)
-    effective_policies = graphene.Field(
-        EffectivePolicyConnection,
-        deployment_id=graphene.ID(),
-        endpoint_id=graphene.ID(),
-        user_id=graphene.String(),
-        first=graphene.Int(),
-        after=graphene.String(),
-    )
-
-    # Policy relationship graph
-    policy_graph = graphene.Field(
-        PolicyGraphType,
-        policy_type=graphene.String(),
-        endpoint_status=graphene.String(),
-        risk_severity=graphene.String(),
-        include_incidents=graphene.Boolean(),
-    )
-
-    # Resolvers
-    @staticmethod
-    def resolve_policy_options(root, info):
+    @strawberry.field
+    def policy_options(self, info: strawberry.types.Info) -> Optional[PolicyOptionsType]:
         """Return all policy form options for dynamic UI."""
         from zentinelle.models.policy import Policy, POLICY_CONFIG_SCHEMAS
 
@@ -1165,8 +849,9 @@ class Query(graphene.ObjectType):
             enforcement_levels=enforcement_levels,
         )
 
-    @staticmethod
-    def resolve_risk_options(root, info):
+    # Risk/Incident Options (for dynamic UI)
+    @strawberry.field
+    def risk_options(self, info: strawberry.types.Info) -> Optional[RiskOptionsType]:
         """Return all risk form options for dynamic UI."""
         from zentinelle.models import Risk
 
@@ -1197,8 +882,8 @@ class Query(graphene.ObjectType):
             impacts=impacts,
         )
 
-    @staticmethod
-    def resolve_incident_options(root, info):
+    @strawberry.field
+    def incident_options(self, info: strawberry.types.Info) -> Optional[IncidentOptionsType]:
         """Return all incident form options for dynamic UI."""
         from zentinelle.models import Incident
 
@@ -1223,8 +908,8 @@ class Query(graphene.ObjectType):
             statuses=statuses,
         )
 
-    @staticmethod
-    def resolve_content_rule_options(root, info):
+    @strawberry.field
+    def content_rule_options(self, info: strawberry.types.Info) -> Optional[ContentRuleOptionsType]:
         """Return all content rule form options for dynamic UI."""
         from zentinelle.models import ContentRule
 
@@ -1261,8 +946,8 @@ class Query(graphene.ObjectType):
             scope_types=scope_types,
         )
 
-    @staticmethod
-    def resolve_retention_options(root, info):
+    @strawberry.field
+    def retention_options(self, info: strawberry.types.Info) -> Optional[RetentionOptionsType]:
         """Return all retention policy form options for dynamic UI."""
         from zentinelle.models import RetentionPolicy
 
@@ -1287,8 +972,8 @@ class Query(graphene.ObjectType):
             compliance_requirements=compliance_requirements,
         )
 
-    @staticmethod
-    def resolve_legal_hold_options(root, info):
+    @strawberry.field
+    def legal_hold_options(self, info: strawberry.types.Info) -> Optional[LegalHoldOptionsType]:
         """Return all legal hold form options for dynamic UI."""
         from zentinelle.models import LegalHold
 
@@ -1307,423 +992,15 @@ class Query(graphene.ObjectType):
             statuses=statuses,
         )
 
-    @staticmethod
-    def resolve_agent_groups(root, info, search=None, tier=None, **kwargs):
-        from zentinelle.models.agent_group import AgentGroup
-        tenant_id = get_request_tenant_id(info.context.user)
-        qs = AgentGroup.objects.filter(tenant_id=tenant_id)
-        if search:
-            qs = qs.filter(name__icontains=search)
-        if tier:
-            qs = qs.filter(tier=tier)
-        return qs
-
-    @staticmethod
-    def resolve_agent_group(root, info, id):
-        from zentinelle.models.agent_group import AgentGroup
-        tenant_id = get_request_tenant_id(info.context.user)
-        return AgentGroup.objects.filter(id=id, tenant_id=tenant_id).first()
-
-    @staticmethod
-    def resolve_endpoint(root, info, id):
-        if not info.context.user.is_authenticated:
-            return None
-        qs = filter_by_org(
-            AgentEndpoint.objects.all(),
-            info.context.user
-        )
-        return qs.filter(id=id).first()
-
-    @staticmethod
-    def resolve_endpoints(root, info, search=None, status=None, agent_type=None, deployment_id=None, **kwargs):
-        if not info.context.user.is_authenticated:
-            return AgentEndpoint.objects.none()
-
-        qs = filter_by_org(
-            AgentEndpoint.objects.all(),
-            info.context.user
-        )
-        if search:
-            qs = qs.filter(Q(name__icontains=search) | Q(agent_id__icontains=search))
-        if status:
-            qs = qs.filter(status=status)
-        if agent_type:
-            qs = qs.filter(agent_type=agent_type)
-        if deployment_id:
-            qs = qs.filter(deployment_id=deployment_id)
-        return qs
-
-    @staticmethod
-    def resolve_policy(root, info, id):
-        if not info.context.user.is_authenticated:
-            return None
-        qs = filter_by_org(Policy.objects.all(), info.context.user)
-        return qs.filter(id=id).first()
-
-    @staticmethod
-    def resolve_policies(root, info, search=None, policy_type=None, scope_type=None, **kwargs):
-        if not info.context.user.is_authenticated:
-            return Policy.objects.none()
-
-        qs = filter_by_org(Policy.objects.all(), info.context.user)
-        if search:
-            qs = qs.filter(Q(name__icontains=search))
-        if policy_type:
-            qs = qs.filter(policy_type=policy_type)
-        if scope_type:
-            qs = qs.filter(scope_type=scope_type)
-        return qs
-
-    @staticmethod
-    def resolve_policy_revisions(root, info, policy_id, **kwargs):
-        """Return all revisions for a given policy, ordered by version descending."""
-        if not info.context.user.is_authenticated:
-            return PolicyRevision.objects.none()
-        # Decode relay global ID if needed
-        from graphql_relay import from_global_id
-        try:
-            _type, raw_id = from_global_id(policy_id)
-            if raw_id:
-                policy_id = raw_id
-        except Exception:
-            pass
-        # Ensure the caller can see the parent policy
-        policy_qs = filter_by_org(Policy.objects.all(), info.context.user)
-        if not policy_qs.filter(id=policy_id).exists():
-            return PolicyRevision.objects.none()
-        return PolicyRevision.objects.filter(policy_id=policy_id).order_by('-version')
-
-    @staticmethod
-    def resolve_simulate_policy(
-        root, info, policy_type, config, enforcement='enforce', lookback_days=7, **kwargs
-    ):
-        """Dry-run a proposed policy against historical events."""
-        if not info.context.user.is_authenticated:
-            return None
-
-        from zentinelle.services.policy_simulator import simulate_policy
-        import json
-
-        tenant_id = get_request_tenant_id(info.context.user)
-        if not tenant_id:
-            return None
-
-        # config may arrive as a JSON string (graphene.JSONString input)
-        if isinstance(config, str):
-            try:
-                config = json.loads(config)
-            except (ValueError, TypeError):
-                config = {}
-
-        policy_config = {
-            'policy_type': policy_type,
-            'config': config,
-            'enforcement': enforcement,
-        }
-
-        result = simulate_policy(tenant_id, policy_config, lookback_days=lookback_days)
-        return SimulatePolicyResultType(
-            total_events=result['total_events'],
-            would_block=result['would_block'],
-            would_warn=result['would_warn'],
-            would_pass=result['would_pass'],
-            impact_percent=result['impact_percent'],
-            blocked_samples=[str(s) for s in result['blocked_samples']],
-            simulated_policy_type=result['simulated_policy_type'],
-            lookback_days=result['lookback_days'],
-        )
-
-    @staticmethod
-    def resolve_events(root, info, event_type=None, category=None, endpoint_id=None, user_id=None, **kwargs):
-        if not info.context.user.is_authenticated:
-            return Event.objects.none()
-
-        qs = filter_by_org(Event.objects.all(), info.context.user).order_by('-occurred_at')
-        if event_type:
-            qs = qs.filter(event_type=event_type)
-        if category:
-            qs = qs.filter(event_category=category)
-        if endpoint_id:
-            qs = qs.filter(endpoint_id=endpoint_id)
-        if user_id:
-            qs = qs.filter(user_identifier=user_id)
-        return qs
-
-    @staticmethod
-    def resolve_audit_logs(
-        root, info,
-        search=None, actor=None, action=None,
-        resource=None, resource_type=None, resource_id=None,
-        start_date=None, end_date=None,
-        **kwargs
-    ):
-        if not info.context.user.is_authenticated:
-            return AuditLog.objects.none()
-
-        qs = filter_by_org(AuditLog.objects.all(), info.context.user).order_by('-timestamp')
-        if search:
-            qs = qs.filter(
-                Q(resource_name__icontains=search) |
-                Q(resource_type__icontains=search) |
-                Q(action__icontains=search) |
-                Q(ext_user_id__icontains=search)
-            )
-        if actor:
-            qs = qs.filter(Q(ext_user_id__icontains=actor) | Q(api_key_prefix__icontains=actor))
-        if action:
-            qs = qs.filter(action=action)
-        if resource:
-            qs = qs.filter(resource_type=resource)
-        if resource_type:
-            qs = qs.filter(resource_type=resource_type)
-        if resource_id:
-            qs = qs.filter(resource_id=resource_id)
-        if start_date:
-            qs = qs.filter(timestamp__gte=start_date)
-        if end_date:
-            qs = qs.filter(timestamp__lte=end_date)
-        return qs
-
-    # Note: resolve_junohub_config, resolve_junohub_configs, resolve_terraform_provision,
-    # and resolve_terraform_provisions are now in deployments.schema.queries.DeploymentsQuery
-
-    @staticmethod
-    def resolve_dashboard_stats(root, info):
-        """Resolve dashboard statistics from real data."""
-        if not info.context.user.is_authenticated:
-            return None
-
-        from django.utils import timezone
-        from datetime import timedelta
-
-        user = info.context.user
-        now = timezone.now()
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        week_start = today_start - timedelta(days=7)
-        month_start = today_start - timedelta(days=30)
-
-        # Agent stats - filtered by org
-        agents = filter_by_org(
-            AgentEndpoint.objects.all(),
-            user
-        )
-        agent_stats = AgentStatsType(
-            total=agents.count(),
-            active=agents.filter(status=AgentEndpoint.Status.ACTIVE).count(),
-            inactive=agents.exclude(status=AgentEndpoint.Status.ACTIVE).count(),
-            healthy=agents.filter(health='healthy').count(),
-            unhealthy=agents.exclude(health='healthy').count(),
-        )
-
-        # Policy stats - filtered by org
-        policies = filter_by_org(Policy.objects.all(), user)
-        policy_type_counts = policies.values('policy_type').annotate(count=Count('id'))
-        policy_stats = PolicyStatsType(
-            total=policies.count(),
-            enabled=policies.filter(enabled=True).count(),
-            disabled=policies.filter(enabled=False).count(),
-            by_type=[
-                PolicyByTypeType(type=item['policy_type'], count=item['count'])
-                for item in policy_type_counts
-            ],
-        )
-
-        # API Usage - from Events - filtered by org
-        events_base = filter_by_org(Event.objects.all(), user)
-        events_today = events_base.filter(occurred_at__gte=today_start).count()
-        events_week = events_base.filter(occurred_at__gte=week_start).count()
-        events_month = events_base.filter(occurred_at__gte=month_start).count()
-
-        # Calculate week-over-week trend (compare this week to last week)
-        last_week_start = week_start - timedelta(days=7)
-        events_last_week = events_base.filter(
-            occurred_at__gte=last_week_start,
-            occurred_at__lt=week_start
-        ).count()
-
-        if events_last_week > 0:
-            trend = ((events_week - events_last_week) / events_last_week) * 100
-        elif events_week > 0:
-            trend = 100.0  # Infinite increase (from 0 to some value)
-        else:
-            trend = 0.0  # No change (both are 0)
-
-        api_usage = ApiUsageType(
-            today=events_today,
-            this_week=events_week,
-            this_month=events_month,
-            trend=round(trend, 1),
-        )
-
-        # Recent activity from audit logs - filtered by org
-        recent_logs = filter_by_org(AuditLog.objects.all(), user).order_by('-timestamp')[:10]
-        recent_activity = [
-            RecentActivityType(
-                id=str(log.id),
-                type=log.action,
-                description=f"{log.action} {log.resource_type}: {log.resource_name}",
-                timestamp=log.timestamp,
-                actor=log.ext_user_id or 'System',
-            )
-            for log in recent_logs
-        ]
-
-        # Alerts - for now return empty list
-        alerts = []
-
-        # Getting started checklist - not available in standalone mode
-        checklist_stats = None
-
-        return DashboardStatsType(
-            agents=agent_stats,
-            policies=policy_stats,
-            api_usage=api_usage,
-            recent_activity=recent_activity,
-            alerts=alerts,
-            checklist=checklist_stats,
-        )
-
-    # ==========================================================================
-    # AI Provider Resolvers
-    # ==========================================================================
-
-    @staticmethod
-    def resolve_ai_provider(root, info, id=None, slug=None):
-        if not info.context.user.is_authenticated:
-            return None
-        if id:
-            return AIProvider.objects.filter(id=id).first()
-        if slug:
-            return AIProvider.objects.filter(slug=slug).first()
-        return None
-
-    @staticmethod
-    def resolve_ai_providers(root, info, active_only=None, supports_managed_keys=None, **kwargs):
-        if not info.context.user.is_authenticated:
-            return AIProvider.objects.none()
-
-        qs = AIProvider.objects.all().order_by('name')
-        if active_only:
-            qs = qs.filter(is_active=True)
-        if supports_managed_keys:
-            qs = qs.filter(supports_managed_keys=True)
-        return qs
-
-    # ==========================================================================
-    # Platform API Key Resolvers
-    # ==========================================================================
-
-    @staticmethod
-    def resolve_api_key(root, info, id):
-        if not info.context.user.is_authenticated:
-            return None
-        user = info.context.user
-        tenant_id = get_request_tenant_id(user)
-        if not tenant_id:
-            return None
-        if is_internal_admin(user):
-            return APIKey.objects.filter(id=id).first()
-        return APIKey.objects.filter(id=id, tenant_id=tenant_id).first()
-
-    @staticmethod
-    def resolve_api_keys(root, info, search=None, status=None, **kwargs):
-        if not info.context.user.is_authenticated:
-            return APIKey.objects.none()
-
-        user = info.context.user
-        tenant_id = get_request_tenant_id(user)
-        if not tenant_id:
-            return APIKey.objects.none()
-
-        qs = filter_by_org(APIKey.objects.all(), user).order_by('-created_at')
-        if search:
-            qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search))
-        if status:
-            qs = qs.filter(status=status)
-        return qs
-
-    # ==========================================================================
-    # Model Registry Resolvers
-    # ==========================================================================
-
-    @staticmethod
-    def resolve_ai_model(root, info, id):
-        if not info.context.user.is_authenticated:
-            return None
-        # AI Models are global, no org filtering needed
-        return AIModel.objects.filter(id=id, is_available=True).first()
-
-    @staticmethod
-    def resolve_ai_models(
-        root, info, search=None, provider_slug=None, model_type=None,
-        risk_level=None, available_only=None, **kwargs
-    ):
-        if not info.context.user.is_authenticated:
-            return AIModel.objects.none()
-
-        qs = AIModel.objects.filter(is_global=True).select_related('provider')
-
-        if search:
-            qs = qs.filter(
-                Q(name__icontains=search) |
-                Q(model_id__icontains=search) |
-                Q(description__icontains=search)
-            )
-        if provider_slug:
-            qs = qs.filter(provider__slug=provider_slug)
-        if model_type:
-            qs = qs.filter(model_type=model_type)
-        if risk_level:
-            qs = qs.filter(risk_level=risk_level)
-        if available_only:
-            qs = qs.filter(is_available=True, deprecated=False)
-
-        return qs.order_by('provider__name', 'name')
-
-    @staticmethod
-    def resolve_model_approval(root, info, id):
-        if not info.context.user.is_authenticated:
-            return None
-        user = info.context.user
-        tenant_id = get_request_tenant_id(user)
-        if not tenant_id:
-            return None
-        qs = filter_by_org(
-            OrganizationModelApproval.objects.select_related('model', 'model__provider'),
-            user
-        )
-        return qs.filter(id=id).first()
-
-    @staticmethod
-    def resolve_model_approvals(root, info, status=None, provider_slug=None, **kwargs):
-        if not info.context.user.is_authenticated:
-            return OrganizationModelApproval.objects.none()
-
-        user = info.context.user
-        qs = filter_by_org(
-            OrganizationModelApproval.objects.select_related('model', 'model__provider'),
-            user
-        )
-
-        if status:
-            qs = qs.filter(status=status)
-        if provider_slug:
-            qs = qs.filter(model__provider__slug=provider_slug)
-
-        return qs.order_by('model__provider__name', 'model__name')
-
-    # ==========================================================================
-    # Compliance Resolvers
-    # ==========================================================================
-
-    @staticmethod
-    def resolve_compliance_overview(root, info):
+    # Compliance - Capability-Based
+    @strawberry.field
+    def compliance_overview(self, info: strawberry.types.Info) -> Optional[ComplianceOverviewType]:
         """
         Get capability-based compliance overview.
 
         Shows what Zentinelle can observe/control and maps to framework coverage.
         """
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return None
 
         from zentinelle.models.compliance import (
@@ -1734,7 +1011,7 @@ class Query(graphene.ObjectType):
         )
 
         # Get user's tenant
-        user = info.context.user
+        user = info.context.request.user
         tenant_id = get_request_tenant_id(user)
         if not tenant_id:
             # Return empty/default state
@@ -1858,17 +1135,18 @@ class Query(graphene.ObjectType):
             framework_coverage=fw_coverage,
         )
 
-    @staticmethod
-    def resolve_compliance_status(root, info):
+    # Compliance - Legacy
+    @strawberry.field
+    def compliance_status(self, info: strawberry.types.Info) -> Optional[ComplianceStatusType]:
         """Get compliance status overview."""
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return None
 
         from django.utils import timezone
         from datetime import timedelta
         from zentinelle.models import ComplianceAlert, ContentRule, ContentViolation
 
-        user = info.context.user
+        user = info.context.request.user
         now = timezone.now()
 
         # Get violation counts by severity - filtered by org
@@ -1979,10 +1257,615 @@ class Query(graphene.ObjectType):
             recent_findings=recent_findings,
         )
 
-    @staticmethod
-    def resolve_event_stream(root, info, aggregate_type, aggregate_id, from_sequence=0):
+    # Note: Deployment queries (deployment, deployments, junohub_config, junohub_configs,
+    # terraform_provision, terraform_provisions, organization_ai_keys, deployment_ai_keys,
+    # deployment_ai_providers) are now in deployments.schema.queries.DeploymentsQuery
+
+    # Agent Groups
+    @strawberry.field
+    def agent_groups(
+        self,
+        info: strawberry.types.Info,
+        search: Optional[str] = None,
+        tier: Optional[str] = None,
+    ) -> list[AgentGroupType]:
+        from zentinelle.models.agent_group import AgentGroup
+        tenant_id = get_request_tenant_id(info.context.request.user)
+        qs = AgentGroup.objects.filter(tenant_id=tenant_id)
+        if search:
+            qs = qs.filter(name__icontains=search)
+        if tier:
+            qs = qs.filter(tier=tier)
+        return qs
+
+    @strawberry.field
+    def agent_group(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[uuid.UUID] = None,
+    ) -> Optional[AgentGroupType]:
+        from zentinelle.models.agent_group import AgentGroup
+        tenant_id = get_request_tenant_id(info.context.request.user)
+        return AgentGroup.objects.filter(id=id, tenant_id=tenant_id).first()
+
+    # Endpoints
+    @strawberry.field
+    def endpoint(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[AgentEndpointType]:
+        if not info.context.request.user.is_authenticated:
+            return None
+        qs = filter_by_org(
+            AgentEndpoint.objects.all(),
+            info.context.request.user
+        )
+        return qs.filter(id=id).first()
+
+    @strawberry.field
+    def endpoints(
+        self,
+        info: strawberry.types.Info,
+        search: Optional[str] = None,
+        status: Optional[str] = None,
+        agent_type: Optional[str] = None,
+        deployment_id: Optional[strawberry.ID] = None,
+    ) -> list[AgentEndpointType]:
+        if not info.context.request.user.is_authenticated:
+            return AgentEndpoint.objects.none()
+
+        qs = filter_by_org(
+            AgentEndpoint.objects.all(),
+            info.context.request.user
+        )
+        if search:
+            qs = qs.filter(Q(name__icontains=search) | Q(agent_id__icontains=search))
+        if status:
+            qs = qs.filter(status=status)
+        if agent_type:
+            qs = qs.filter(agent_type=agent_type)
+        if deployment_id:
+            qs = qs.filter(deployment_id=deployment_id)
+        return qs
+
+    # Policies
+    @strawberry.field
+    def policy(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[PolicyType]:
+        if not info.context.request.user.is_authenticated:
+            return None
+        qs = filter_by_org(Policy.objects.all(), info.context.request.user)
+        return qs.filter(id=id).first()
+
+    @strawberry.field
+    def policies(
+        self,
+        info: strawberry.types.Info,
+        search: Optional[str] = None,
+        policy_type: Optional[str] = None,
+        scope_type: Optional[str] = None,
+    ) -> list[PolicyType]:
+        if not info.context.request.user.is_authenticated:
+            return Policy.objects.none()
+
+        qs = filter_by_org(Policy.objects.all(), info.context.request.user)
+        if search:
+            qs = qs.filter(Q(name__icontains=search))
+        if policy_type:
+            qs = qs.filter(policy_type=policy_type)
+        if scope_type:
+            qs = qs.filter(scope_type=scope_type)
+        return qs
+
+    @strawberry.field(description="Return all revisions for a given policy, ordered by version descending.")
+    def policy_revisions(
+        self,
+        info: strawberry.types.Info,
+        policy_id: str,
+    ) -> list[PolicyRevisionType]:
+        """Return all revisions for a given policy, ordered by version descending."""
+        if not info.context.request.user.is_authenticated:
+            return PolicyRevision.objects.none()
+        # Try to extract raw UUID from the policy_id
+        try:
+            uuid.UUID(policy_id)
+        except ValueError:
+            try:
+                from graphql_relay import from_global_id
+                _type, raw_id = from_global_id(policy_id)
+                if raw_id:
+                    policy_id = raw_id
+            except Exception:
+                pass
+        # Ensure the caller can see the parent policy
+        policy_qs = filter_by_org(Policy.objects.all(), info.context.request.user)
+        if not policy_qs.filter(id=policy_id).exists():
+            return PolicyRevision.objects.none()
+        return PolicyRevision.objects.filter(policy_id=policy_id).order_by('-version')
+
+    # Policy Simulation (#27)
+    @strawberry.field(description="Dry-run a proposed policy config against historical events")
+    def simulate_policy(
+        self,
+        info: strawberry.types.Info,
+        policy_type: str,
+        config: JSON,
+        enforcement: Optional[str] = 'enforce',
+        lookback_days: Optional[int] = 7,
+    ) -> Optional[SimulatePolicyResultType]:
+        """Dry-run a proposed policy against historical events."""
+        if not info.context.request.user.is_authenticated:
+            return None
+
+        from zentinelle.services.policy_simulator import simulate_policy
+        import json
+
+        tenant_id = get_request_tenant_id(info.context.request.user)
+        if not tenant_id:
+            return None
+
+        # config may arrive as a JSON string
+        if isinstance(config, str):
+            try:
+                config = json.loads(config)
+            except (ValueError, TypeError):
+                config = {}
+
+        policy_config = {
+            'policy_type': policy_type,
+            'config': config,
+            'enforcement': enforcement,
+        }
+
+        result = simulate_policy(tenant_id, policy_config, lookback_days=lookback_days)
+        return SimulatePolicyResultType(
+            total_events=result['total_events'],
+            would_block=result['would_block'],
+            would_warn=result['would_warn'],
+            would_pass=result['would_pass'],
+            impact_percent=result['impact_percent'],
+            blocked_samples=[str(s) for s in result['blocked_samples']],
+            simulated_policy_type=result['simulated_policy_type'],
+            lookback_days=result['lookback_days'],
+        )
+
+    # Events
+    @strawberry.field
+    def events(
+        self,
+        info: strawberry.types.Info,
+        event_type: Optional[str] = None,
+        category: Optional[str] = None,
+        endpoint_id: Optional[strawberry.ID] = None,
+        user_id: Optional[str] = None,
+    ) -> list[EventType]:
+        if not info.context.request.user.is_authenticated:
+            return Event.objects.none()
+
+        qs = filter_by_org(Event.objects.all(), info.context.request.user).order_by('-occurred_at')
+        if event_type:
+            qs = qs.filter(event_type=event_type)
+        if category:
+            qs = qs.filter(event_category=category)
+        if endpoint_id:
+            qs = qs.filter(endpoint_id=endpoint_id)
+        if user_id:
+            qs = qs.filter(user_identifier=user_id)
+        return qs
+
+    # Audit Logs
+    @strawberry.field
+    def audit_logs(
+        self,
+        info: strawberry.types.Info,
+        search: Optional[str] = None,
+        actor: Optional[str] = None,
+        action: Optional[str] = None,
+        resource: Optional[str] = None,
+        resource_type: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> list[AuditLogType]:
+        if not info.context.request.user.is_authenticated:
+            return AuditLog.objects.none()
+
+        qs = filter_by_org(AuditLog.objects.all(), info.context.request.user).order_by('-timestamp')
+        if search:
+            qs = qs.filter(
+                Q(resource_name__icontains=search) |
+                Q(resource_type__icontains=search) |
+                Q(action__icontains=search) |
+                Q(ext_user_id__icontains=search)
+            )
+        if actor:
+            qs = qs.filter(Q(ext_user_id__icontains=actor) | Q(api_key_prefix__icontains=actor))
+        if action:
+            qs = qs.filter(action=action)
+        if resource:
+            qs = qs.filter(resource_type=resource)
+        if resource_type:
+            qs = qs.filter(resource_type=resource_type)
+        if resource_id:
+            qs = qs.filter(resource_id=resource_id)
+        if start_date:
+            qs = qs.filter(timestamp__gte=start_date)
+        if end_date:
+            qs = qs.filter(timestamp__lte=end_date)
+        return qs
+
+    @strawberry.field(description="ClickHouse-backed analytics for the audit logs page.")
+    def audit_analytics(
+        self,
+        info: strawberry.types.Info,
+        days: int = 7,
+    ) -> Optional[AuditAnalyticsType]:
+        """Return ClickHouse-backed analytics for the audit logs page.
+
+        Returns None gracefully when ClickHouse is not configured.
+        """
+        if not info.context.request.user.is_authenticated:
+            return None
+
+        from zentinelle.services import clickhouse_service
+
+        if not clickhouse_service.is_enabled():
+            return None
+
+        tenant_id = get_request_tenant_id(info.context.request.user)
+
+        timeline_rows = clickhouse_service.event_timeline(
+            days=days,
+            granularity='day',
+            organization_id=tenant_id,
+        )
+        by_type_rows = clickhouse_service.event_counts_by_type(
+            days=days,
+            organization_id=tenant_id,
+        )
+        top_agents_rows = clickhouse_service.top_agents_by_event_count(
+            days=days,
+            organization_id=tenant_id,
+        )
+
+        timeline = [
+            AuditTimelinePointType(
+                bucket=row.get('timestamp'),
+                event_type=row.get('event_type'),
+                count=row.get('count', 0),
+            )
+            for row in timeline_rows
+        ]
+        by_type = [
+            AuditEventCountType(
+                event_type=row.get('event_type', ''),
+                count=row.get('count', 0),
+            )
+            for row in by_type_rows
+        ]
+        top_agents = [
+            AuditTopAgentType(
+                agent_id=row.get('agent_id', ''),
+                event_count=row.get('event_count', 0),
+            )
+            for row in top_agents_rows
+        ]
+
+        return AuditAnalyticsType(
+            timeline=timeline,
+            by_type=by_type,
+            top_agents=top_agents,
+        )
+
+    # Note: resolve_junohub_config, resolve_junohub_configs, resolve_terraform_provision,
+    # and resolve_terraform_provisions are now in deployments.schema.queries.DeploymentsQuery
+
+    # Dashboard Stats
+    @strawberry.field
+    def dashboard_stats(self, info: strawberry.types.Info) -> Optional[DashboardStatsType]:
+        """Resolve dashboard statistics from real data."""
+        if not info.context.request.user.is_authenticated:
+            return None
+
+        from django.utils import timezone
+        from datetime import timedelta
+
+        user = info.context.request.user
+        now = timezone.now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_start = today_start - timedelta(days=7)
+        month_start = today_start - timedelta(days=30)
+
+        # Agent stats - filtered by org
+        agents = filter_by_org(
+            AgentEndpoint.objects.all(),
+            user
+        )
+        agent_stats = AgentStatsType(
+            total=agents.count(),
+            active=agents.filter(status=AgentEndpoint.Status.ACTIVE).count(),
+            inactive=agents.exclude(status=AgentEndpoint.Status.ACTIVE).count(),
+            healthy=agents.filter(health='healthy').count(),
+            unhealthy=agents.exclude(health='healthy').count(),
+        )
+
+        # Policy stats - filtered by org
+        policies = filter_by_org(Policy.objects.all(), user)
+        policy_type_counts = policies.values('policy_type').annotate(count=Count('id'))
+        policy_stats = PolicyStatsType(
+            total=policies.count(),
+            enabled=policies.filter(enabled=True).count(),
+            disabled=policies.filter(enabled=False).count(),
+            by_type=[
+                PolicyByTypeType(type=item['policy_type'], count=item['count'])
+                for item in policy_type_counts
+            ],
+        )
+
+        # API Usage - from Events - filtered by org
+        events_base = filter_by_org(Event.objects.all(), user)
+        events_today = events_base.filter(occurred_at__gte=today_start).count()
+        events_week = events_base.filter(occurred_at__gte=week_start).count()
+        events_month = events_base.filter(occurred_at__gte=month_start).count()
+
+        # Calculate week-over-week trend (compare this week to last week)
+        last_week_start = week_start - timedelta(days=7)
+        events_last_week = events_base.filter(
+            occurred_at__gte=last_week_start,
+            occurred_at__lt=week_start
+        ).count()
+
+        if events_last_week > 0:
+            trend = ((events_week - events_last_week) / events_last_week) * 100
+        elif events_week > 0:
+            trend = 100.0  # Infinite increase (from 0 to some value)
+        else:
+            trend = 0.0  # No change (both are 0)
+
+        api_usage = ApiUsageType(
+            today=events_today,
+            this_week=events_week,
+            this_month=events_month,
+            trend=round(trend, 1),
+        )
+
+        # Recent activity from audit logs - filtered by org
+        recent_logs = filter_by_org(AuditLog.objects.all(), user).order_by('-timestamp')[:10]
+        recent_activity = [
+            RecentActivityType(
+                id=str(log.id),
+                type=log.action,
+                description=f"{log.action} {log.resource_type}: {log.resource_name}",
+                timestamp=log.timestamp,
+                actor=log.ext_user_id or 'System',
+            )
+            for log in recent_logs
+        ]
+
+        # Alerts - for now return empty list
+        alerts = []
+
+        # Getting started checklist - not available in standalone mode
+        checklist_stats = None
+
+        return DashboardStatsType(
+            agents=agent_stats,
+            policies=policy_stats,
+            api_usage=api_usage,
+            recent_activity=recent_activity,
+            alerts=alerts,
+            checklist=checklist_stats,
+        )
+
+    # ==========================================================================
+    # AI Provider Resolvers
+    # ==========================================================================
+
+    @strawberry.field
+    def ai_provider(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+        slug: Optional[str] = None,
+    ) -> Optional[AIProviderType]:
+        if not info.context.request.user.is_authenticated:
+            return None
+        if id:
+            return AIProvider.objects.filter(id=id).first()
+        if slug:
+            return AIProvider.objects.filter(slug=slug).first()
+        return None
+
+    @strawberry.field
+    def ai_providers(
+        self,
+        info: strawberry.types.Info,
+        active_only: Optional[bool] = None,
+        supports_managed_keys: Optional[bool] = None,
+    ) -> list[AIProviderType]:
+        if not info.context.request.user.is_authenticated:
+            return AIProvider.objects.none()
+
+        qs = AIProvider.objects.all().order_by('name')
+        if active_only:
+            qs = qs.filter(is_active=True)
+        if supports_managed_keys:
+            qs = qs.filter(supports_managed_keys=True)
+        return qs
+
+    # ==========================================================================
+    # Platform API Key Resolvers
+    # ==========================================================================
+
+    @strawberry.field
+    def api_key(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[APIKeyType]:
+        if not info.context.request.user.is_authenticated:
+            return None
+        user = info.context.request.user
+        tenant_id = get_request_tenant_id(user)
+        if not tenant_id:
+            return None
+        if is_internal_admin(user):
+            return APIKey.objects.filter(id=id).first()
+        return APIKey.objects.filter(id=id, tenant_id=tenant_id).first()
+
+    @strawberry.field
+    def api_keys(
+        self,
+        info: strawberry.types.Info,
+        search: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> list[APIKeyType]:
+        if not info.context.request.user.is_authenticated:
+            return APIKey.objects.none()
+
+        user = info.context.request.user
+        tenant_id = get_request_tenant_id(user)
+        if not tenant_id:
+            return APIKey.objects.none()
+
+        qs = filter_by_org(APIKey.objects.all(), user).order_by('-created_at')
+        if search:
+            qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search))
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+    # ==========================================================================
+    # AI Usage
+    # ==========================================================================
+
+    @strawberry.field(description="Get AI usage summary for organization or deployment")
+    def ai_usage_summary(
+        self,
+        info: strawberry.types.Info,
+        organization_id: strawberry.ID,
+        deployment_id: Optional[uuid.UUID] = None,
+        days: int = 30,
+    ) -> Optional[AIUsageSummaryType]:
+        """Get AI usage summary. Not available in standalone mode (requires billing app)."""
+        return None
+
+    # AI Budget Status
+    @strawberry.field(description="Get AI budget status for organization")
+    def ai_budget_status(
+        self,
+        info: strawberry.types.Info,
+        organization_id: strawberry.ID,
+    ) -> Optional[AIBudgetStatusType]:
+        """Get AI budget status. Not available in standalone mode (requires organization app)."""
+        return None
+
+    # ==========================================================================
+    # Model Registry Resolvers
+    # ==========================================================================
+
+    @strawberry.field
+    def ai_model(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[AIModelType]:
+        if not info.context.request.user.is_authenticated:
+            return None
+        # AI Models are global, no org filtering needed
+        return AIModel.objects.filter(id=id, is_available=True).first()
+
+    @strawberry.field
+    def ai_models(
+        self,
+        info: strawberry.types.Info,
+        search: Optional[str] = None,
+        provider_slug: Optional[str] = None,
+        model_type: Optional[str] = None,
+        risk_level: Optional[str] = None,
+        available_only: Optional[bool] = None,
+    ) -> list[AIModelType]:
+        if not info.context.request.user.is_authenticated:
+            return AIModel.objects.none()
+
+        qs = AIModel.objects.filter(is_global=True).select_related('provider')
+
+        if search:
+            qs = qs.filter(
+                Q(name__icontains=search) |
+                Q(model_id__icontains=search) |
+                Q(description__icontains=search)
+            )
+        if provider_slug:
+            qs = qs.filter(provider__slug=provider_slug)
+        if model_type:
+            qs = qs.filter(model_type=model_type)
+        if risk_level:
+            qs = qs.filter(risk_level=risk_level)
+        if available_only:
+            qs = qs.filter(is_available=True, deprecated=False)
+
+        return qs.order_by('provider__name', 'name')
+
+    @strawberry.field
+    def model_approval(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[OrganizationModelApprovalType]:
+        if not info.context.request.user.is_authenticated:
+            return None
+        user = info.context.request.user
+        tenant_id = get_request_tenant_id(user)
+        if not tenant_id:
+            return None
+        qs = filter_by_org(
+            OrganizationModelApproval.objects.select_related('model', 'model__provider'),
+            user
+        )
+        return qs.filter(id=id).first()
+
+    @strawberry.field
+    def model_approvals(
+        self,
+        info: strawberry.types.Info,
+        status: Optional[str] = None,
+        provider_slug: Optional[str] = None,
+    ) -> list[OrganizationModelApprovalType]:
+        if not info.context.request.user.is_authenticated:
+            return OrganizationModelApproval.objects.none()
+
+        user = info.context.request.user
+        qs = filter_by_org(
+            OrganizationModelApproval.objects.select_related('model', 'model__provider'),
+            user
+        )
+
+        if status:
+            qs = qs.filter(status=status)
+        if provider_slug:
+            qs = qs.filter(model__provider__slug=provider_slug)
+
+        return qs.order_by('model__provider__name', 'model__name')
+
+    # ==========================================================================
+    # Event Sourcing
+    # ==========================================================================
+
+    @strawberry.field
+    def event_stream(
+        self,
+        info: strawberry.types.Info,
+        aggregate_type: str,
+        aggregate_id: str,
+        from_sequence: Optional[int] = 0,
+    ) -> Optional[EventStreamType]:
         """Get event stream for an aggregate."""
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return None
 
         from zentinelle.services.event_store import event_store
@@ -2014,10 +1897,14 @@ class Query(graphene.ObjectType):
             event_count=len(events),
         )
 
-    @staticmethod
-    def resolve_events_by_correlation(root, info, correlation_id):
+    @strawberry.field
+    def events_by_correlation(
+        self,
+        info: strawberry.types.Info,
+        correlation_id: str,
+    ) -> list[EventEnvelopeType]:
         """Get all events in a correlation chain."""
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return []
 
         from zentinelle.services.event_store import event_store
@@ -2041,16 +1928,20 @@ class Query(graphene.ObjectType):
             for e in envelopes
         ]
 
-    @staticmethod
-    def resolve_dead_letter_queue(root, info, limit=50):
+    @strawberry.field
+    def dead_letter_queue(
+        self,
+        info: strawberry.types.Info,
+        limit: Optional[int] = 50,
+    ) -> list[DeadLetterEventType]:
         """Get events in the dead letter queue."""
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return []
 
         from zentinelle.services.event_store import dead_letter_queue
 
         # Get tenant from user context
-        user = info.context.user
+        user = info.context.request.user
         tenant_id = get_request_tenant_id(user)
         if not tenant_id:
             return []
@@ -2070,15 +1961,15 @@ class Query(graphene.ObjectType):
             for e in events
         ]
 
-    @staticmethod
-    def resolve_dead_letter_queue_stats(root, info):
+    @strawberry.field
+    def dead_letter_queue_stats(self, info: strawberry.types.Info) -> Optional[DeadLetterQueueStatsType]:
         """Get statistics about the dead letter queue."""
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return None
 
         from django.db.models import Count, Min
 
-        user = info.context.user
+        user = info.context.request.user
         tenant_id = get_request_tenant_id(user)
         if not tenant_id:
             return DeadLetterQueueStatsType(
@@ -2117,23 +2008,32 @@ class Query(graphene.ObjectType):
     # Content Monitoring Resolvers
     # ==========================================================================
 
-    @staticmethod
-    def resolve_content_rule(root, info, id):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def content_rule(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[ContentRuleType]:
+        if not info.context.request.user.is_authenticated:
             return None
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(ContentRule.objects.all(), user)
         return qs.filter(id=id).first()
 
-    @staticmethod
-    def resolve_content_rules(
-        root, info, search=None, rule_type=None, severity=None,
-        enforcement=None, enabled=None, **kwargs
-    ):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def content_rules(
+        self,
+        info: strawberry.types.Info,
+        search: Optional[str] = None,
+        rule_type: Optional[str] = None,
+        severity: Optional[str] = None,
+        enforcement: Optional[str] = None,
+        enabled: Optional[bool] = None,
+    ) -> list[ContentRuleType]:
+        if not info.context.request.user.is_authenticated:
             return ContentRule.objects.none()
 
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(ContentRule.objects.all(), user)
 
         if search:
@@ -2149,24 +2049,33 @@ class Query(graphene.ObjectType):
 
         return qs.order_by('-priority', 'name')
 
-    @staticmethod
-    def resolve_content_scan(root, info, id):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def content_scan(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[ContentScanType]:
+        if not info.context.request.user.is_authenticated:
             return None
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(ContentScan.objects.all(), user)
         return qs.filter(id=id).first()
 
-    @staticmethod
-    def resolve_content_scans(
-        root, info, user_identifier=None, endpoint_id=None,
-        has_violations=None, content_type=None,
-        start_date=None, end_date=None, **kwargs
-    ):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def content_scans(
+        self,
+        info: strawberry.types.Info,
+        user_identifier: Optional[str] = None,
+        endpoint_id: Optional[strawberry.ID] = None,
+        has_violations: Optional[bool] = None,
+        content_type: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> list[ContentScanType]:
+        if not info.context.request.user.is_authenticated:
             return ContentScan.objects.none()
 
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(ContentScan.objects.all(), user)
 
         if user_identifier:
@@ -2184,15 +2093,19 @@ class Query(graphene.ObjectType):
 
         return qs.order_by('-created_at')
 
-    @staticmethod
-    def resolve_content_violations(
-        root, info, rule_type=None, severity=None,
-        start_date=None, end_date=None, **kwargs
-    ):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def content_violations(
+        self,
+        info: strawberry.types.Info,
+        rule_type: Optional[str] = None,
+        severity: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> list[ContentViolationType]:
+        if not info.context.request.user.is_authenticated:
             return ContentViolation.objects.none()
 
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(
             ContentViolation.objects.all(), user,
             org_field='scan__tenant_id'
@@ -2209,14 +2122,18 @@ class Query(graphene.ObjectType):
 
         return qs.order_by('-created_at')
 
-    @staticmethod
-    def resolve_compliance_alerts(
-        root, info, status=None, severity=None, alert_type=None, **kwargs
-    ):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def compliance_alerts(
+        self,
+        info: strawberry.types.Info,
+        status: Optional[str] = None,
+        severity: Optional[str] = None,
+        alert_type: Optional[str] = None,
+    ) -> list[ComplianceAlertType]:
+        if not info.context.request.user.is_authenticated:
             return ComplianceAlert.objects.none()
 
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(ComplianceAlert.objects.all(), user)
 
         if status:
@@ -2228,24 +2145,35 @@ class Query(graphene.ObjectType):
 
         return qs.order_by('-created_at')
 
-    @staticmethod
-    def resolve_interaction_log(root, info, id):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def interaction_log(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[InteractionLogType]:
+        if not info.context.request.user.is_authenticated:
             return None
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(InteractionLog.objects.all(), user)
         return qs.filter(id=id).first()
 
-    @staticmethod
-    def resolve_interaction_logs(
-        root, info, user_identifier=None, endpoint_id=None,
-        ai_provider=None, ai_model=None, interaction_type=None,
-        has_violations=None, start_date=None, end_date=None, **kwargs
-    ):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def interaction_logs(
+        self,
+        info: strawberry.types.Info,
+        user_identifier: Optional[str] = None,
+        endpoint_id: Optional[strawberry.ID] = None,
+        ai_provider: Optional[str] = None,
+        ai_model: Optional[str] = None,
+        interaction_type: Optional[str] = None,
+        has_violations: Optional[bool] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> list[InteractionLogType]:
+        if not info.context.request.user.is_authenticated:
             return InteractionLog.objects.none()
 
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(
             InteractionLog.objects.select_related('endpoint', 'scan'),
             user
@@ -2270,17 +2198,18 @@ class Query(graphene.ObjectType):
 
         return qs.order_by('-occurred_at')
 
-    @staticmethod
-    def resolve_monitoring_stats(root, info):
+    # Monitoring Stats
+    @strawberry.field
+    def monitoring_stats(self, info: strawberry.types.Info) -> Optional[MonitoringStatsType]:
         """Get aggregated monitoring statistics."""
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return None
 
         from django.utils import timezone
         from datetime import timedelta
         from django.db.models import Avg, Sum
 
-        user = info.context.user
+        user = info.context.request.user
         tenant_id = get_request_tenant_id(user)
         if not tenant_id:
             return None
@@ -2356,22 +2285,31 @@ class Query(graphene.ObjectType):
     # Risk Management Resolvers
     # ==========================================================================
 
-    @staticmethod
-    def resolve_risk(root, info, id):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def risk(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[RiskType]:
+        if not info.context.request.user.is_authenticated:
             return None
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(Risk.objects.all(), user)
         return qs.filter(id=id).first()
 
-    @staticmethod
-    def resolve_risks(
-        root, info, search=None, category=None, status=None, risk_level=None, **kwargs
-    ):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def risks(
+        self,
+        info: strawberry.types.Info,
+        search: Optional[str] = None,
+        category: Optional[str] = None,
+        status: Optional[str] = None,
+        risk_level: Optional[str] = None,
+    ) -> list[RiskType]:
+        if not info.context.request.user.is_authenticated:
             return Risk.objects.none()
 
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(Risk.objects.all(), user)
 
         if search:
@@ -2391,23 +2329,33 @@ class Query(graphene.ObjectType):
 
         return qs.order_by('-likelihood', '-impact', '-created_at')
 
-    @staticmethod
-    def resolve_incident(root, info, id):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def incident(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[IncidentType]:
+        if not info.context.request.user.is_authenticated:
             return None
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(Incident.objects.all(), user)
         return qs.filter(id=id).first()
 
-    @staticmethod
-    def resolve_incidents(
-        root, info, search=None, incident_type=None, severity=None, status=None,
-        start_date=None, end_date=None, **kwargs
-    ):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def incidents(
+        self,
+        info: strawberry.types.Info,
+        search: Optional[str] = None,
+        incident_type: Optional[str] = None,
+        severity: Optional[str] = None,
+        status: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> list[IncidentType]:
+        if not info.context.request.user.is_authenticated:
             return Incident.objects.none()
 
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(Incident.objects.all(), user)
 
         if search:
@@ -2425,13 +2373,13 @@ class Query(graphene.ObjectType):
 
         return qs.order_by('-severity', '-detected_at')
 
-    @staticmethod
-    def resolve_risk_stats(root, info):
+    @strawberry.field
+    def risk_stats(self, info: strawberry.types.Info) -> Optional[RiskStatsType]:
         """Get aggregated risk and incident statistics."""
         from django.utils import timezone
         from datetime import timedelta
 
-        user = info.context.user
+        user = info.context.request.user
 
         now = timezone.now()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -2513,20 +2461,30 @@ class Query(graphene.ObjectType):
         )
 
     # Retention Policy resolvers
-    @staticmethod
-    def resolve_retention_policy(root, info, id=None):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def retention_policy(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[RetentionPolicyType]:
+        if not info.context.request.user.is_authenticated:
             return None
         from zentinelle.models import RetentionPolicy
-        qs = filter_by_org(RetentionPolicy.objects.all(), info.context.user)
+        qs = filter_by_org(RetentionPolicy.objects.all(), info.context.request.user)
         return qs.filter(id=id).first() if id else None
 
-    @staticmethod
-    def resolve_retention_policies(root, info, search=None, entity_type=None, enabled=None, **kwargs):
+    @strawberry.field
+    def retention_policies(
+        self,
+        info: strawberry.types.Info,
+        search: Optional[str] = None,
+        entity_type: Optional[str] = None,
+        enabled: Optional[bool] = None,
+    ) -> list[RetentionPolicyType]:
         from zentinelle.models import RetentionPolicy
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return RetentionPolicy.objects.none()
-        qs = filter_by_org(RetentionPolicy.objects.all(), info.context.user)
+        qs = filter_by_org(RetentionPolicy.objects.all(), info.context.request.user)
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search))
         if entity_type:
@@ -2536,20 +2494,29 @@ class Query(graphene.ObjectType):
         return qs
 
     # Legal Hold resolvers
-    @staticmethod
-    def resolve_legal_hold(root, info, id=None):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def legal_hold(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[LegalHoldType]:
+        if not info.context.request.user.is_authenticated:
             return None
         from zentinelle.models import LegalHold
-        qs = filter_by_org(LegalHold.objects.all(), info.context.user)
+        qs = filter_by_org(LegalHold.objects.all(), info.context.request.user)
         return qs.filter(id=id).first() if id else None
 
-    @staticmethod
-    def resolve_legal_holds(root, info, hold_type=None, status=None, **kwargs):
+    @strawberry.field
+    def legal_holds(
+        self,
+        info: strawberry.types.Info,
+        hold_type: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> list[LegalHoldType]:
         from zentinelle.models import LegalHold
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return LegalHold.objects.none()
-        qs = filter_by_org(LegalHold.objects.all(), info.context.user)
+        qs = filter_by_org(LegalHold.objects.all(), info.context.request.user)
         if hold_type:
             qs = qs.filter(hold_type=hold_type)
         if status:
@@ -2557,20 +2524,29 @@ class Query(graphene.ObjectType):
         return qs
 
     # Policy Document resolvers
-    @staticmethod
-    def resolve_policy_document(root, info, id):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def policy_document(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[PolicyDocumentType]:
+        if not info.context.request.user.is_authenticated:
             return None
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(PolicyDocument.objects.all(), user)
         return qs.filter(id=id).first()
 
-    @staticmethod
-    def resolve_policy_documents(root, info, search=None, status=None, **kwargs):
-        if not info.context.user.is_authenticated:
+    @strawberry.field
+    def policy_documents(
+        self,
+        info: strawberry.types.Info,
+        search: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> list[PolicyDocumentType]:
+        if not info.context.request.user.is_authenticated:
             return []
 
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(PolicyDocument.objects.all(), user)
 
         if search:
@@ -2583,241 +2559,47 @@ class Query(graphene.ObjectType):
     # Note: resolve_organization_ai_keys, resolve_deployment_ai_keys, and
     # resolve_deployment_ai_providers are now in deployments.schema.queries.DeploymentsQuery
 
-    @staticmethod
-    def resolve_ai_usage_summary(root, info, organization_id, deployment_id=None, days=30, **kwargs):
-        """Get AI usage summary. Not available in standalone mode (requires billing app)."""
-        return None
-
-    @staticmethod
-    def _resolve_ai_usage_summary_DISABLED(root, info, organization_id, deployment_id=None, days=30, **kwargs):
-        """DISABLED: Original resolver depends on billing.models.AIUsage."""
-        if not info.context.user.is_authenticated:
-            return None
-
-        org_id_str = str(organization_id)
-        try:
-            import uuid
-            uuid.UUID(org_id_str)
-        except ValueError:
-            try:
-                from graphql_relay import from_global_id
-                _, org_id_str = from_global_id(org_id_str)
-                organization_id = org_id_str
-            except Exception:
-                return None
-
-        user = info.context.user
-        # DISABLED: org_ids check removed (standalone mode)
-        if False:
-            return None
-
-        from django.utils import timezone
-        from datetime import timedelta
-        from django.db.models import Sum, Count
-        AIUsage = None  # billing.models.AIUsage not available
-
-        now = timezone.now()
-        period_start = now - timedelta(days=days)
-
-        # Base query
-        qs = AIUsage.objects.filter(
-            organization_id=organization_id,
-            timestamp__gte=period_start,
-        )
-
-        if deployment_id:
-            qs = qs.filter(deployment_id=deployment_id)
-
-        # Totals
-        totals = qs.aggregate(
-            total_requests=Count('id'),
-            total_tokens=Sum('total_tokens'),
-            total_input_tokens=Sum('input_tokens'),
-            total_output_tokens=Sum('output_tokens'),
-            total_cost=Sum('total_cost_usd'),
-        )
-
-        # By provider
-        by_provider_qs = qs.values('provider').annotate(
-            total_requests=Count('id'),
-            total_tokens=Sum('total_tokens'),
-            total_cost=Sum('total_cost_usd'),
-        ).order_by('-total_cost')
-
-        by_provider = [
-            AIUsageByProviderType(
-                provider=p['provider'],
-                provider_display=AIUsage.Provider(p['provider']).label if p['provider'] else 'Unknown',
-                total_requests=p['total_requests'] or 0,
-                total_tokens=p['total_tokens'] or 0,
-                total_cost_usd=float(p['total_cost'] or 0),
-            )
-            for p in by_provider_qs
-        ]
-
-        # By user
-        by_user_qs = qs.values('user_identifier').annotate(
-            total_requests=Count('id'),
-            total_tokens=Sum('total_tokens'),
-            total_cost=Sum('total_cost_usd'),
-        ).order_by('-total_cost')[:20]
-
-        by_user = [
-            AIUsageByUserType(
-                user_identifier=u['user_identifier'],
-                total_requests=u['total_requests'] or 0,
-                total_tokens=u['total_tokens'] or 0,
-                total_cost_usd=float(u['total_cost'] or 0),
-            )
-            for u in by_user_qs
-        ]
-
-        # By model
-        by_model_qs = qs.values('provider', 'model').annotate(
-            total_requests=Count('id'),
-            total_tokens=Sum('total_tokens'),
-            total_cost=Sum('total_cost_usd'),
-        ).order_by('-total_cost')[:20]
-
-        by_model = [
-            AIUsageByModelType(
-                provider=m['provider'],
-                model=m['model'],
-                total_requests=m['total_requests'] or 0,
-                total_tokens=m['total_tokens'] or 0,
-                total_cost_usd=float(m['total_cost'] or 0),
-            )
-            for m in by_model_qs
-        ]
-
-        # Top users (same as by_user but limited to top 10)
-        top_users = by_user[:10]
-
-        # Recent records
-        recent_qs = qs.order_by('-timestamp')[:50]
-        recent_records = [
-            AIUsageRecordType(
-                id=r.id,
-                user_identifier=r.user_identifier,
-                provider=r.provider,
-                provider_display=r.get_provider_display(),
-                model=r.model,
-                request_type=r.request_type,
-                input_tokens=r.input_tokens,
-                output_tokens=r.output_tokens,
-                total_tokens=r.total_tokens,
-                input_cost_usd=float(r.input_cost_usd),
-                output_cost_usd=float(r.output_cost_usd),
-                total_cost_usd=float(r.total_cost_usd),
-                latency_ms=r.latency_ms,
-                timestamp=r.timestamp,
-            )
-            for r in recent_qs
-        ]
-
-        return AIUsageSummaryType(
-            period_start=period_start,
-            period_end=now,
-            total_requests=totals['total_requests'] or 0,
-            total_tokens=totals['total_tokens'] or 0,
-            total_input_tokens=totals['total_input_tokens'] or 0,
-            total_output_tokens=totals['total_output_tokens'] or 0,
-            total_cost_usd=float(totals['total_cost'] or 0),
-            by_provider=by_provider,
-            by_user=by_user,
-            by_model=by_model,
-            top_users=top_users,
-            recent_records=recent_records,
-        )
-
-    @staticmethod
-    def resolve_ai_budget_status(root, info, organization_id, **kwargs):
-        """Get AI budget status. Not available in standalone mode (requires organization app)."""
-        return None
-
     # ==========================================================================
     # License Compliance Resolvers
     # ==========================================================================
 
-    @staticmethod
-    def resolve_license_compliance_summary(root, info, organization_id=None):
+    @strawberry.field(description="Get license compliance summary for an organization")
+    def license_compliance_summary(
+        self,
+        info: strawberry.types.Info,
+        organization_id: Optional[uuid.UUID] = None,
+    ) -> Optional[LicenseComplianceSummaryType]:
         """Get license compliance summary. Not available in standalone mode (requires organization app)."""
         return None
 
-    @staticmethod
-    def _resolve_license_compliance_summary_DISABLED(root, info, organization_id=None):
-        """DISABLED: Original resolver depends on organization.models."""
-        if not info.context.user.is_authenticated:
-            return None
-
-        return None  # organization.models not available
-
-        user = info.context.user
-        membership = None
-        if not membership:
-            return None
-
-        if organization_id:
-            org_ids = get_user_org_ids(user)
-            if org_ids is not None and str(organization_id) not in [str(oid) for oid in org_ids]:
-                return None
-            org = Organization.objects.filter(id=organization_id).first()
-        else:
-            org = membership.organization
-
-        if not org:
-            return None
-
-        # Get compliance summary from service
-        summary = license_compliance_service.get_compliance_summary(org)
-
-        # Build usage object
-        usage = None
-        if 'usage' in summary:
-            u = summary['usage']
-            usage = LicenseUsageSummaryType(
-                current_users=u.get('users', 0),
-                max_users=u.get('max_users', 0),
-                users_percent=(u.get('users', 0) / u.get('max_users', 1) * 100) if u.get('max_users', 0) > 0 else 0,
-                current_deployments=u.get('deployments', 0),
-                max_deployments=u.get('max_deployments', 0),
-                deployments_percent=(u.get('deployments', 0) / u.get('max_deployments', 1) * 100) if u.get('max_deployments', 0) > 0 else 0,
-                current_agents=0,  # Could add agents to summary
-                max_agents=0,
-                agents_percent=0,
-                is_over_limit=False,
-                over_limit_details=[],
-            )
-
-        license_info = summary.get('license', {})
-        return LicenseComplianceSummaryType(
-            status=summary.get('status', 'unknown'),
-            compliance_score=summary.get('compliance_score', 0),
-            has_violations=summary.get('has_violations', False),
-            open_violations=summary.get('open_violations', 0),
-            license_type=license_info.get('type'),
-            license_valid_until=license_info.get('valid_until'),
-            is_expired=license_info.get('is_expired', False),
-            usage=usage,
-        )
-
-    @staticmethod
-    def resolve_license_compliance_report(root, info, id):
+    @strawberry.field
+    def license_compliance_report(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[LicenseComplianceReportType]:
         """Get a single compliance report by ID."""
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return None
 
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(LicenseComplianceReport.objects.all(), user)
         return qs.filter(id=id).first()
 
-    @staticmethod
-    def resolve_license_compliance_reports(root, info, report_type=None, status=None, start_date=None, end_date=None, **kwargs):
+    @strawberry.field
+    def license_compliance_reports(
+        self,
+        info: strawberry.types.Info,
+        report_type: Optional[str] = None,
+        status: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> list[LicenseComplianceReportType]:
         """Get compliance reports for organization."""
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return LicenseComplianceReport.objects.none()
 
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(LicenseComplianceReport.objects.all(), user)
 
         if report_type:
@@ -2831,23 +2613,33 @@ class Query(graphene.ObjectType):
 
         return qs.order_by('-created_at')
 
-    @staticmethod
-    def resolve_license_compliance_violation(root, info, id):
+    @strawberry.field
+    def license_compliance_violation(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[strawberry.ID] = None,
+    ) -> Optional[LicenseComplianceViolationGraphType]:
         """Get a single compliance violation by ID."""
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return None
 
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(LicenseComplianceViolation.objects.all(), user)
         return qs.filter(id=id).first()
 
-    @staticmethod
-    def resolve_license_compliance_violations(root, info, violation_type=None, severity=None, status=None, **kwargs):
+    @strawberry.field
+    def license_compliance_violations(
+        self,
+        info: strawberry.types.Info,
+        violation_type: Optional[str] = None,
+        severity: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> list[LicenseComplianceViolationGraphType]:
         """Get compliance violations for organization."""
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return LicenseComplianceViolation.objects.none()
 
-        user = info.context.user
+        user = info.context.request.user
         qs = filter_by_org(LicenseComplianceViolation.objects.all(), user)
 
         if violation_type:
@@ -2859,74 +2651,22 @@ class Query(graphene.ObjectType):
 
         return qs.order_by('-detected_at')
 
-    @staticmethod
-    def resolve_license_violation_summary(root, info, organization_id=None, days=30):
+    @strawberry.field(description="Get violation summary for an organization")
+    def license_violation_summary(
+        self,
+        info: strawberry.types.Info,
+        organization_id: Optional[uuid.UUID] = None,
+        days: int = 30,
+    ) -> Optional[LicenseViolationSummaryType]:
         """Get violation summary. Not available in standalone mode (requires organization app)."""
         return None
 
-    @staticmethod
-    def _resolve_license_violation_summary_DISABLED(root, info, organization_id=None, days=30):
-        """DISABLED: Original resolver depends on organization.models."""
-        if not info.context.user.is_authenticated:
-            return None
-
-        from django.utils import timezone
-        from datetime import timedelta
-
-        user = info.context.user
-        membership = user.memberships.filter(is_active=True).first()
-        if not membership:
-            return None
-
-        # Use specified org or user's current org
-        if organization_id:
-            org_ids = get_user_org_ids(user)
-            if org_ids is not None and str(organization_id) not in [str(oid) for oid in org_ids]:
-                return None
-            org = Organization.objects.filter(id=organization_id).first()
-        else:
-            org = membership.organization
-
-        if not org:
-            return None
-
-        # Get violations in period
-        period_start = timezone.now() - timedelta(days=days)
-        violations = LicenseComplianceViolation.objects.filter(
-            organization=org,
-            detected_at__gte=period_start
-        )
-
-        # Group by type
-        by_type = {}
-        for vt in LicenseComplianceViolation.ViolationType.choices:
-            count = violations.filter(violation_type=vt[0]).count()
-            if count > 0:
-                by_type[vt[0]] = count
-
-        # Group by severity
-        by_severity = {}
-        for sev in LicenseComplianceViolation.Severity.choices:
-            count = violations.filter(severity=sev[0]).count()
-            if count > 0:
-                by_severity[sev[0]] = count
-
-        return LicenseViolationSummaryType(
-            total_count=violations.count(),
-            open_count=violations.filter(status=LicenseComplianceViolation.Status.OPEN).count(),
-            resolved_count=violations.filter(status__in=[
-                LicenseComplianceViolation.Status.RESOLVED,
-                LicenseComplianceViolation.Status.WAIVED
-            ]).count(),
-            by_type=by_type,
-            by_severity=by_severity,
-        )
-
-    @staticmethod
-    def resolve_my_organization(root, info):
+    # Organization settings (standalone stub)
+    @strawberry.field
+    def my_organization(self, info: strawberry.types.Info) -> Optional[OrganizationType]:
         """Return the organization object for the current tenant, backed by TenantConfig."""
         from zentinelle.models.tenant_config import TenantConfig
-        tenant_id = get_request_tenant_id(info.context.user) or "default"
+        tenant_id = get_request_tenant_id(info.context.request.user) or "default"
         config, _ = TenantConfig.objects.get_or_create(tenant_id=tenant_id)
         return OrganizationType(
             id=tenant_id,
@@ -2944,36 +2684,50 @@ class Query(graphene.ObjectType):
             created_at=config.updated_at,
         )
 
-    @staticmethod
-    def resolve_client_cove_integration(root, info):
+    # Client Cove Integration
+    @strawberry.field
+    def client_cove_integration(self, info: strawberry.types.Info) -> Optional[ClientCoveIntegrationType]:
         from zentinelle.models.integration import ClientCoveIntegration
-        tenant_id = get_request_tenant_id(info.context.user) or 'default'
+        tenant_id = get_request_tenant_id(info.context.request.user) or 'default'
         return ClientCoveIntegration.objects.filter(tenant_id=tenant_id).first()
 
-    @staticmethod
-    def resolve_notifications(root, info, first=None, after=None, status=None):
+    # Notifications (stub)
+    @strawberry.field
+    def notifications(
+        self,
+        info: strawberry.types.Info,
+        first: Optional[int] = None,
+        after: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> list[NotificationType]:
         from zentinelle.models.notification import Notification
-        tenant_id = get_request_tenant_id(info.context.user)
+        tenant_id = get_request_tenant_id(info.context.request.user)
         qs = Notification.objects.filter(tenant_id=tenant_id)
         if status:
             qs = qs.filter(status=status)
         return qs
 
-    @staticmethod
-    def resolve_usage_metrics(root, info, start_date=None, end_date=None, granularity=None):
+    @strawberry.field
+    def usage_metrics(
+        self,
+        info: strawberry.types.Info,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        granularity: Optional[str] = None,
+    ) -> Optional[UsageMetricsType]:
         from zentinelle.models import InteractionLog, AgentEndpoint
         from django.db.models import Sum, Count
         from django.db.models.functions import TruncDay
         from django.utils import timezone
         from datetime import timedelta
 
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return UsageMetricsType(
                 summary=UsageMetricsSummaryType(total_api_calls=0, total_tokens=0, total_cost=0.0, active_agents=0, storage_used_mb=0.0),
                 time_series=[], by_agent=[], by_endpoint=[],
             )
 
-        tenant_id = get_request_tenant_id(info.context.user)
+        tenant_id = get_request_tenant_id(info.context.request.user)
 
         end_dt = timezone.now()
         start_dt = end_dt - timedelta(days=30)
@@ -3041,29 +2795,41 @@ class Query(graphene.ObjectType):
             by_endpoint=[],
         )
 
-    @staticmethod
-    def resolve_prompt_categories(root, info, active_only=None):
+    # System Prompts (stub -- prompt library not yet implemented in standalone)
+    @strawberry.field
+    def prompt_categories(
+        self,
+        info: strawberry.types.Info,
+        active_only: Optional[bool] = None,
+    ) -> list[PromptCategoryType]:
         from zentinelle.models import PromptCategory
         qs = PromptCategory.objects.all()
         if active_only:
             qs = qs.filter(is_active=True)
         return list(qs)
 
-    @staticmethod
-    def resolve_system_prompts(
-        root, info,
-        first=None, after=None,
-        search=None, category_slug=None, system_prompt_type=None,
-        provider=None, tag_slugs=None, featured_only=None, verified_only=None,
-        favorites_only=None,
-    ):
+    @strawberry.field
+    def system_prompts(
+        self,
+        info: strawberry.types.Info,
+        first: Optional[int] = None,
+        after: Optional[str] = None,
+        search: Optional[str] = None,
+        category_slug: Optional[str] = None,
+        system_prompt_type: Optional[str] = None,
+        provider: Optional[str] = None,
+        tag_slugs: Optional[list[str]] = None,
+        featured_only: Optional[bool] = None,
+        verified_only: Optional[bool] = None,
+        favorites_only: Optional[bool] = None,
+    ) -> list[SystemPromptType]:
         from zentinelle.models import SystemPrompt
         from django.db.models import Q
 
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return SystemPrompt.objects.none()
 
-        tenant_id = get_request_tenant_id(info.context.user)
+        tenant_id = get_request_tenant_id(info.context.request.user)
 
         # Public library prompts + this tenant's own prompts
         qs = SystemPrompt.objects.filter(
@@ -3088,15 +2854,20 @@ class Query(graphene.ObjectType):
 
         return qs.order_by('-is_featured', '-created_at')
 
-    @staticmethod
-    def resolve_system_prompt(root, info, id=None, slug=None):
+    @strawberry.field
+    def system_prompt(
+        self,
+        info: strawberry.types.Info,
+        id: Optional[uuid.UUID] = None,
+        slug: Optional[str] = None,
+    ) -> Optional[SystemPromptType]:
         from zentinelle.models import SystemPrompt
         from django.db.models import Q
 
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return None
 
-        tenant_id = get_request_tenant_id(info.context.user)
+        tenant_id = get_request_tenant_id(info.context.request.user)
         visible = Q(visibility='public', status='active') | Q(tenant_id=tenant_id)
 
         try:
@@ -3108,18 +2879,28 @@ class Query(graphene.ObjectType):
             return None
         return None
 
-    @staticmethod
-    def resolve_usage_alerts(root, info, alert_type=None, severity=None, acknowledged=None, resolved=None, first=None, after=None):
+    # Usage Alerts (stub)
+    @strawberry.field
+    def usage_alerts(
+        self,
+        info: strawberry.types.Info,
+        alert_type: Optional[str] = None,
+        severity: Optional[str] = None,
+        acknowledged: Optional[bool] = None,
+        resolved: Optional[bool] = None,
+        first: Optional[int] = None,
+        after: Optional[str] = None,
+    ) -> list[UsageAlertType]:
         from zentinelle.models import InteractionLog, Policy
         from django.db.models import Sum
         from django.utils import timezone
         from datetime import timedelta
         import uuid as _uuid
 
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return []
 
-        tenant_id = get_request_tenant_id(info.context.user)
+        tenant_id = get_request_tenant_id(info.context.request.user)
         if not tenant_id:
             return []
 
@@ -3152,7 +2933,7 @@ class Query(graphene.ObjectType):
                     if severity and sev != severity:
                         continue
                     if acknowledged is not None and acknowledged:
-                        continue  # No stored acknowledgements — skip filter
+                        continue  # No stored acknowledgements -- skip filter
                     if resolved is not None and resolved:
                         continue
                     alerts.append(UsageAlertType(
@@ -3172,25 +2953,40 @@ class Query(graphene.ObjectType):
 
         return alerts
 
-    @staticmethod
-    def resolve_compliance_reports(root, info, first=None, after=None):
+    # Compliance Reports (stub)
+    @strawberry.field
+    def compliance_reports(
+        self,
+        info: strawberry.types.Info,
+        first: Optional[int] = None,
+        after: Optional[str] = None,
+    ) -> list[ComplianceReportType]:
         from zentinelle.models import ComplianceAssessment
 
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return ComplianceAssessment.objects.none()
 
-        tenant_id = get_request_tenant_id(info.context.user)
+        tenant_id = get_request_tenant_id(info.context.request.user)
         return ComplianceAssessment.objects.filter(tenant_id=tenant_id).order_by('-assessed_at')
 
-    @staticmethod
-    def resolve_effective_policies(root, info, deployment_id=None, endpoint_id=None, user_id=None, first=None, after=None):
+    # Effective Policies (stub -- computed policy inheritance for a context)
+    @strawberry.field
+    def effective_policies(
+        self,
+        info: strawberry.types.Info,
+        deployment_id: Optional[strawberry.ID] = None,
+        endpoint_id: Optional[strawberry.ID] = None,
+        user_id: Optional[str] = None,
+        first: Optional[int] = None,
+        after: Optional[str] = None,
+    ) -> list[EffectivePolicyType]:
         import json
         from zentinelle.models import Policy
 
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return []
 
-        tenant_id = get_request_tenant_id(info.context.user)
+        tenant_id = get_request_tenant_id(info.context.request.user)
         if not tenant_id:
             return []
 
@@ -3220,15 +3016,23 @@ class Query(graphene.ObjectType):
             ))
         return results
 
-    @staticmethod
-    def resolve_policy_graph(root, info, policy_type=None, endpoint_status=None, risk_severity=None, include_incidents=False):
+    # Policy relationship graph
+    @strawberry.field
+    def policy_graph(
+        self,
+        info: strawberry.types.Info,
+        policy_type: Optional[str] = None,
+        endpoint_status: Optional[str] = None,
+        risk_severity: Optional[str] = None,
+        include_incidents: Optional[bool] = False,
+    ) -> Optional[PolicyGraphType]:
         import json
         from zentinelle.models import Policy, AgentEndpoint, Risk, Incident
 
-        if not info.context.user.is_authenticated:
+        if not info.context.request.user.is_authenticated:
             return PolicyGraphType(nodes=[], edges=[], node_count=0, edge_count=0)
 
-        tenant_id = get_request_tenant_id(info.context.user)
+        tenant_id = get_request_tenant_id(info.context.request.user)
         if not tenant_id:
             return PolicyGraphType(nodes=[], edges=[], node_count=0, edge_count=0)
 
@@ -3320,7 +3124,7 @@ class Query(graphene.ObjectType):
                 id=f"risk:{risk.id}",
                 node_type='risk',
                 label=risk.title,
-                sub_label=f"L{risk.likelihood}×I{risk.impact}",
+                sub_label=f"L{risk.likelihood}xI{risk.impact}",
                 status=risk.status,
                 color=risk_color,
                 meta={
@@ -3375,63 +3179,4 @@ class Query(graphene.ObjectType):
             edges=edges,
             node_count=len(nodes),
             edge_count=len(edges),
-        )
-
-    @staticmethod
-    def resolve_audit_analytics(root, info, days=7):
-        """Return ClickHouse-backed analytics for the audit logs page.
-
-        Returns None gracefully when ClickHouse is not configured.
-        """
-        if not info.context.user.is_authenticated:
-            return None
-
-        from zentinelle.services import clickhouse_service
-
-        if not clickhouse_service.is_enabled():
-            return None
-
-        tenant_id = get_request_tenant_id(info.context.user)
-
-        timeline_rows = clickhouse_service.event_timeline(
-            days=days,
-            granularity='day',
-            organization_id=tenant_id,
-        )
-        by_type_rows = clickhouse_service.event_counts_by_type(
-            days=days,
-            organization_id=tenant_id,
-        )
-        top_agents_rows = clickhouse_service.top_agents_by_event_count(
-            days=days,
-            organization_id=tenant_id,
-        )
-
-        timeline = [
-            AuditTimelinePointType(
-                bucket=row.get('timestamp'),
-                event_type=row.get('event_type'),
-                count=row.get('count', 0),
-            )
-            for row in timeline_rows
-        ]
-        by_type = [
-            AuditEventCountType(
-                event_type=row.get('event_type', ''),
-                count=row.get('count', 0),
-            )
-            for row in by_type_rows
-        ]
-        top_agents = [
-            AuditTopAgentType(
-                agent_id=row.get('agent_id', ''),
-                event_count=row.get('event_count', 0),
-            )
-            for row in top_agents_rows
-        ]
-
-        return AuditAnalyticsType(
-            timeline=timeline,
-            by_type=by_type,
-            top_agents=top_agents,
         )

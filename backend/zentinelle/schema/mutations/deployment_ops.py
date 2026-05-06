@@ -5,8 +5,11 @@ Infrastructure operations for managed deployments:
 - Restart, scale, sync, import, drift detection
 """
 import logging
+from datetime import datetime
+from typing import Optional
 
-import graphene
+import strawberry
+from strawberry.scalars import JSON
 from asgiref.sync import async_to_sync
 from graphql_relay import from_global_id
 
@@ -37,903 +40,811 @@ def get_deployment_by_id(deployment_id):
 # Result Types
 # =============================================================================
 
-class RestartResultType(graphene.ObjectType):
-    """Result of a restart operation."""
-    success = graphene.Boolean(required=True)
-    message = graphene.String()
-    deployment_id = graphene.String()
-    triggered_at = graphene.DateTime()
+@strawberry.type
+class RestartResultType:
+    success: bool
+    message: Optional[str] = None
+    deployment_id: Optional[str] = None
+    triggered_at: Optional[datetime] = None
 
 
-class ScaleResultType(graphene.ObjectType):
-    """Result of a scale operation."""
-    success = graphene.Boolean(required=True)
-    message = graphene.String()
-    previous_count = graphene.Int()
-    desired_count = graphene.Int()
+@strawberry.type
+class ScaleResultType:
+    success: bool
+    message: Optional[str] = None
+    previous_count: Optional[int] = None
+    desired_count: Optional[int] = None
 
 
-class SyncResultType(graphene.ObjectType):
-    """Result of a sync operation."""
-    success = graphene.Boolean(required=True)
-    message = graphene.String()
-    direction = graphene.String()
-    synced_at = graphene.DateTime()
-    drift_detected = graphene.Boolean()
-    changes = graphene.JSONString()
+@strawberry.type
+class SyncResultType:
+    success: bool
+    message: Optional[str] = None
+    direction: Optional[str] = None
+    synced_at: Optional[datetime] = None
+    drift_detected: Optional[bool] = None
+    changes: Optional[JSON] = None
 
 
-class ImportResultType(graphene.ObjectType):
-    """Result of importing state from infrastructure."""
-    success = graphene.Boolean(required=True)
-    message = graphene.String()
-    imported_at = graphene.DateTime()
-    config_imported = graphene.Boolean()
-    secrets_imported = graphene.Boolean()
-    config_keys = graphene.List(graphene.String)
-    secrets_keys = graphene.List(graphene.String)
+@strawberry.type
+class ImportResultType:
+    success: bool
+    message: Optional[str] = None
+    imported_at: Optional[datetime] = None
+    config_imported: Optional[bool] = None
+    secrets_imported: Optional[bool] = None
+    config_keys: Optional[list[str]] = None
+    secrets_keys: Optional[list[str]] = None
 
 
-class LogEntryType(graphene.ObjectType):
-    """A single log entry."""
-    timestamp = graphene.DateTime()
-    message = graphene.String()
-    container = graphene.String()
-    stream = graphene.String()
+@strawberry.type
+class LogEntryType:
+    timestamp: Optional[datetime] = None
+    message: Optional[str] = None
+    container: Optional[str] = None
+    stream: Optional[str] = None
 
 
-class DeploymentLogsType(graphene.ObjectType):
-    """Result of fetching deployment logs."""
-    success = graphene.Boolean(required=True)
-    error = graphene.String()
-    logs = graphene.List(LogEntryType)
-    log_group = graphene.String()
-    next_token = graphene.String()
+@strawberry.type
+class DeploymentLogsType:
+    success: bool
+    error: Optional[str] = None
+    logs: Optional[list[LogEntryType]] = None
+    log_group: Optional[str] = None
+    next_token: Optional[str] = None
 
 
-class ServiceMetricsType(graphene.ObjectType):
-    """Service metrics from infrastructure."""
-    cpu_percent = graphene.Float()
-    memory_percent = graphene.Float()
-    memory_mb = graphene.Float()
-    network_rx_bytes = graphene.Float()
-    network_tx_bytes = graphene.Float()
-    running_count = graphene.Int()
-    desired_count = graphene.Int()
-    collected_at = graphene.DateTime()
+@strawberry.type
+class ServiceMetricsType:
+    cpu_percent: Optional[float] = None
+    memory_percent: Optional[float] = None
+    memory_mb: Optional[float] = None
+    network_rx_bytes: Optional[float] = None
+    network_tx_bytes: Optional[float] = None
+    running_count: Optional[int] = None
+    desired_count: Optional[int] = None
+    collected_at: Optional[datetime] = None
 
 
-class DeploymentStatusType(graphene.ObjectType):
-    """Live status of a deployment from infrastructure."""
-    success = graphene.Boolean(required=True)
-    error = graphene.String()
-    deployment_id = graphene.String()
-    state = graphene.String()
-    running_count = graphene.Int()
-    desired_count = graphene.Int()
-    pending_count = graphene.Int()
-    deployment_state = graphene.String()
-    last_deployment_at = graphene.DateTime()
-    metrics = graphene.Field(ServiceMetricsType)
-    drift_detected = graphene.Boolean()
-    config_in_sync = graphene.Boolean()
-    secrets_healthy = graphene.Boolean()
+@strawberry.type
+class DeploymentStatusType:
+    success: bool
+    error: Optional[str] = None
+    deployment_id: Optional[str] = None
+    state: Optional[str] = None
+    running_count: Optional[int] = None
+    desired_count: Optional[int] = None
+    pending_count: Optional[int] = None
+    deployment_state: Optional[str] = None
+    last_deployment_at: Optional[datetime] = None
+    metrics: Optional[ServiceMetricsType] = None
+    drift_detected: Optional[bool] = None
+    config_in_sync: Optional[bool] = None
+    secrets_healthy: Optional[bool] = None
 
 
-class DriftStatusType(graphene.ObjectType):
-    """Drift detection status."""
-    success = graphene.Boolean(required=True)
-    error = graphene.String()
-    drift_detected = graphene.Boolean()
-    config_drift = graphene.Boolean()
-    secrets_drift = graphene.Boolean()
-    desired_config_hash = graphene.String()
-    last_config_hash = graphene.String()
-    desired_secrets_hash = graphene.String()
-    last_secrets_hash = graphene.String()
-    drift_detected_at = graphene.DateTime()
+@strawberry.type
+class DriftStatusType:
+    success: bool
+    error: Optional[str] = None
+    drift_detected: Optional[bool] = None
+    config_drift: Optional[bool] = None
+    secrets_drift: Optional[bool] = None
+    desired_config_hash: Optional[str] = None
+    last_config_hash: Optional[str] = None
+    desired_secrets_hash: Optional[str] = None
+    last_secrets_hash: Optional[str] = None
+    drift_detected_at: Optional[datetime] = None
+
+
+@strawberry.type
+class DeprovisionResultType:
+    success: bool
+    message: Optional[str] = None
+    provision_id: Optional[str] = None
+    triggered_at: Optional[datetime] = None
+
+
+@strawberry.type
+class AdminDeploymentResultType:
+    success: bool
+    message: Optional[str] = None
+    previous_status: Optional[str] = None
+    new_status: Optional[str] = None
+
+
+# =============================================================================
+# Mutation Payloads
+# =============================================================================
+
+@strawberry.type
+class RestartDeploymentPayload:
+    result: Optional[RestartResultType] = None
+    deployment: Optional[DeploymentType] = None
+
+
+@strawberry.type
+class ScaleDeploymentPayload:
+    result: Optional[ScaleResultType] = None
+    deployment: Optional[DeploymentType] = None
+
+
+@strawberry.type
+class SyncDeploymentPayload:
+    result: Optional[SyncResultType] = None
+    deployment: Optional[DeploymentType] = None
+
+
+@strawberry.type
+class ImportDeploymentStatePayload:
+    result: Optional[ImportResultType] = None
+    deployment: Optional[DeploymentType] = None
+
+
+@strawberry.type
+class GetDeploymentStatusPayload:
+    result: Optional[DeploymentStatusType] = None
+
+
+@strawberry.type
+class GetDeploymentLogsPayload:
+    result: Optional[DeploymentLogsType] = None
+
+
+@strawberry.type
+class CheckDeploymentDriftPayload:
+    result: Optional[DriftStatusType] = None
+    deployment: Optional[DeploymentType] = None
+
+
+@strawberry.type
+class ClearDeploymentDriftPayload:
+    success: Optional[bool] = None
+    error: Optional[str] = None
+    deployment: Optional[DeploymentType] = None
+
+
+@strawberry.type
+class DeprovisionDeploymentPayload:
+    result: Optional[DeprovisionResultType] = None
+    deployment: Optional[DeploymentType] = None
+
+
+@strawberry.type
+class AdminSuspendDeploymentPayload:
+    result: Optional[AdminDeploymentResultType] = None
+    deployment: Optional[DeploymentType] = None
+
+
+@strawberry.type
+class AdminReactivateDeploymentPayload:
+    result: Optional[AdminDeploymentResultType] = None
+    deployment: Optional[DeploymentType] = None
+
+
+@strawberry.type
+class AdminTerminateDeploymentPayload:
+    result: Optional[DeprovisionResultType] = None
+    deployment: Optional[DeploymentType] = None
 
 
 # =============================================================================
 # Mutations
 # =============================================================================
 
-class RestartDeployment(graphene.Mutation):
-    """Restart a deployment's infrastructure (ECS service, Docker container, etc.)."""
-
-    class Arguments:
-        deployment_id = graphene.ID(required=True)
-        reason = graphene.String(description="Reason for restart")
-        force = graphene.Boolean(default_value=False, description="Force restart even if unhealthy")
-
-    result = graphene.Field(RestartResultType)
-    deployment = graphene.Field(DeploymentType)
-
-    @classmethod
-    def mutate(cls, root, info, deployment_id, reason=None, force=False):
-        if not info.context.user.is_authenticated:
-            return RestartDeployment(
-                result=RestartResultType(success=False, message="Authentication required")
-            )
-
-        try:
-            deployment = get_deployment_by_id(deployment_id)
-        except Deployment.DoesNotExist:
-            return RestartDeployment(
-                result=RestartResultType(success=False, message="Deployment not found")
-            )
-
-        manager = DeploymentManager()
-        restart_result = async_to_sync(manager.restart)(
-            deployment,
-            reason=reason or "Manual restart via portal",
-            force=force
+def restart_deployment(info: strawberry.types.Info, deployment_id: strawberry.ID, reason: Optional[str] = None, force: Optional[bool] = False) -> RestartDeploymentPayload:
+    if not info.context.request.user.is_authenticated:
+        return RestartDeploymentPayload(
+            result=RestartResultType(success=False, message="Authentication required")
         )
 
-        return RestartDeployment(
-            result=RestartResultType(
-                success=restart_result.success,
-                message=restart_result.message,
-                deployment_id=restart_result.deployment_id,
-                triggered_at=restart_result.triggered_at,
-            ),
-            deployment=deployment,
+    try:
+        deployment = get_deployment_by_id(deployment_id)
+    except Deployment.DoesNotExist:
+        return RestartDeploymentPayload(
+            result=RestartResultType(success=False, message="Deployment not found")
         )
 
+    manager = DeploymentManager()
+    restart_result = async_to_sync(manager.restart)(
+        deployment,
+        reason=reason or "Manual restart via portal",
+        force=force
+    )
 
-class ScaleDeployment(graphene.Mutation):
-    """Scale a deployment to a desired count."""
+    return RestartDeploymentPayload(
+        result=RestartResultType(
+            success=restart_result.success,
+            message=restart_result.message,
+            deployment_id=restart_result.deployment_id,
+            triggered_at=restart_result.triggered_at,
+        ),
+        deployment=deployment,
+    )
 
-    class Arguments:
-        deployment_id = graphene.ID(required=True)
-        desired_count = graphene.Int(required=True)
 
-    result = graphene.Field(ScaleResultType)
-    deployment = graphene.Field(DeploymentType)
-
-    @classmethod
-    def mutate(cls, root, info, deployment_id, desired_count):
-        if not info.context.user.is_authenticated:
-            return ScaleDeployment(
-                result=ScaleResultType(success=False, message="Authentication required")
-            )
-
-        try:
-            deployment = get_deployment_by_id(deployment_id)
-        except Deployment.DoesNotExist:
-            return ScaleDeployment(
-                result=ScaleResultType(success=False, message="Deployment not found")
-            )
-
-        manager = DeploymentManager()
-        scale_result = async_to_sync(manager.scale)(deployment, desired_count)
-
-        return ScaleDeployment(
-            result=ScaleResultType(
-                success=scale_result.success,
-                message=scale_result.message,
-                previous_count=scale_result.previous_count,
-                desired_count=scale_result.desired_count,
-            ),
-            deployment=deployment,
+def scale_deployment(info: strawberry.types.Info, deployment_id: strawberry.ID, desired_count: int) -> ScaleDeploymentPayload:
+    if not info.context.request.user.is_authenticated:
+        return ScaleDeploymentPayload(
+            result=ScaleResultType(success=False, message="Authentication required")
         )
 
-
-class SyncDeployment(graphene.Mutation):
-    """Sync configuration/secrets between Client Cove and infrastructure."""
-
-    class Arguments:
-        deployment_id = graphene.ID(required=True)
-        direction = graphene.String(
-            required=True,
-            description="'push' (to infrastructure) or 'import' (from infrastructure)"
-        )
-        restart_after = graphene.Boolean(
-            default_value=False,
-            description="Restart service after pushing config"
+    try:
+        deployment = get_deployment_by_id(deployment_id)
+    except Deployment.DoesNotExist:
+        return ScaleDeploymentPayload(
+            result=ScaleResultType(success=False, message="Deployment not found")
         )
 
-    result = graphene.Field(SyncResultType)
-    deployment = graphene.Field(DeploymentType)
+    manager = DeploymentManager()
+    scale_result = async_to_sync(manager.scale)(deployment, desired_count)
 
-    @classmethod
-    def mutate(cls, root, info, deployment_id, direction, restart_after=False):
-        if not info.context.user.is_authenticated:
-            return SyncDeployment(
-                result=SyncResultType(success=False, message="Authentication required")
-            )
+    return ScaleDeploymentPayload(
+        result=ScaleResultType(
+            success=scale_result.success,
+            message=scale_result.message,
+            previous_count=scale_result.previous_count,
+            desired_count=scale_result.desired_count,
+        ),
+        deployment=deployment,
+    )
 
-        try:
-            deployment = get_deployment_by_id(deployment_id)
-        except Deployment.DoesNotExist:
-            return SyncDeployment(
-                result=SyncResultType(success=False, message="Deployment not found")
-            )
 
-        try:
-            sync_dir = SyncDirection(direction.lower())
-        except ValueError:
-            return SyncDeployment(
-                result=SyncResultType(
-                    success=False,
-                    message=f"Invalid direction: {direction}. Use 'push' or 'import'"
-                )
-            )
+def sync_deployment(info: strawberry.types.Info, deployment_id: strawberry.ID, direction: str, restart_after: Optional[bool] = False) -> SyncDeploymentPayload:
+    if not info.context.request.user.is_authenticated:
+        return SyncDeploymentPayload(
+            result=SyncResultType(success=False, message="Authentication required")
+        )
 
-        manager = DeploymentManager()
+    try:
+        deployment = get_deployment_by_id(deployment_id)
+    except Deployment.DoesNotExist:
+        return SyncDeploymentPayload(
+            result=SyncResultType(success=False, message="Deployment not found")
+        )
 
-        if sync_dir == SyncDirection.PUSH:
-            sync_result = async_to_sync(manager.push_config)(
-                deployment, restart=restart_after
-            )
-        else:
-            import_result = async_to_sync(manager.import_current_state)(deployment)
-            sync_result = type('SyncResult', (), {
-                'success': import_result.success,
-                'message': import_result.message,
-                'synced_at': import_result.imported_at,
-                'direction': sync_dir,
-                'drift_detected': False,
-                'changes': {
-                    'config_keys': import_result.config_keys,
-                    'secrets_keys': import_result.secrets_keys,
-                },
-            })()
-
-        return SyncDeployment(
+    try:
+        sync_dir = SyncDirection(direction.lower())
+    except ValueError:
+        return SyncDeploymentPayload(
             result=SyncResultType(
-                success=sync_result.success,
-                message=sync_result.message,
-                direction=sync_result.direction.value if hasattr(sync_result.direction, 'value') else str(sync_result.direction),
-                synced_at=sync_result.synced_at,
-                drift_detected=sync_result.drift_detected,
-                changes=sync_result.changes,
-            ),
-            deployment=deployment,
+                success=False,
+                message=f"Invalid direction: {direction}. Use 'push' or 'import'"
+            )
         )
 
+    manager = DeploymentManager()
 
-class ImportDeploymentState(graphene.Mutation):
-    """Import current state from infrastructure into Client Cove."""
-
-    class Arguments:
-        deployment_id = graphene.ID(required=True)
-
-    result = graphene.Field(ImportResultType)
-    deployment = graphene.Field(DeploymentType)
-
-    @classmethod
-    def mutate(cls, root, info, deployment_id):
-        if not info.context.user.is_authenticated:
-            return ImportDeploymentState(
-                result=ImportResultType(success=False, message="Authentication required")
-            )
-
-        try:
-            deployment = get_deployment_by_id(deployment_id)
-        except Deployment.DoesNotExist:
-            return ImportDeploymentState(
-                result=ImportResultType(success=False, message="Deployment not found")
-            )
-
-        manager = DeploymentManager()
+    if sync_dir == SyncDirection.PUSH:
+        sync_result = async_to_sync(manager.push_config)(
+            deployment, restart=restart_after
+        )
+    else:
         import_result = async_to_sync(manager.import_current_state)(deployment)
+        sync_result = type('SyncResult', (), {
+            'success': import_result.success,
+            'message': import_result.message,
+            'synced_at': import_result.imported_at,
+            'direction': sync_dir,
+            'drift_detected': False,
+            'changes': {
+                'config_keys': import_result.config_keys,
+                'secrets_keys': import_result.secrets_keys,
+            },
+        })()
 
-        return ImportDeploymentState(
-            result=ImportResultType(
-                success=import_result.success,
-                message=import_result.message,
-                imported_at=import_result.imported_at,
-                config_imported=import_result.config_imported,
-                secrets_imported=import_result.secrets_imported,
-                config_keys=import_result.config_keys,
-                secrets_keys=import_result.secrets_keys,
-            ),
-            deployment=deployment,
+    return SyncDeploymentPayload(
+        result=SyncResultType(
+            success=sync_result.success,
+            message=sync_result.message,
+            direction=sync_result.direction.value if hasattr(sync_result.direction, 'value') else str(sync_result.direction),
+            synced_at=sync_result.synced_at,
+            drift_detected=sync_result.drift_detected,
+            changes=sync_result.changes,
+        ),
+        deployment=deployment,
+    )
+
+
+def import_deployment_state(info: strawberry.types.Info, deployment_id: strawberry.ID) -> ImportDeploymentStatePayload:
+    if not info.context.request.user.is_authenticated:
+        return ImportDeploymentStatePayload(
+            result=ImportResultType(success=False, message="Authentication required")
+        )
+
+    try:
+        deployment = get_deployment_by_id(deployment_id)
+    except Deployment.DoesNotExist:
+        return ImportDeploymentStatePayload(
+            result=ImportResultType(success=False, message="Deployment not found")
+        )
+
+    manager = DeploymentManager()
+    import_result = async_to_sync(manager.import_current_state)(deployment)
+
+    return ImportDeploymentStatePayload(
+        result=ImportResultType(
+            success=import_result.success,
+            message=import_result.message,
+            imported_at=import_result.imported_at,
+            config_imported=import_result.config_imported,
+            secrets_imported=import_result.secrets_imported,
+            config_keys=import_result.config_keys,
+            secrets_keys=import_result.secrets_keys,
+        ),
+        deployment=deployment,
+    )
+
+
+def get_deployment_status(info: strawberry.types.Info, deployment_id: strawberry.ID) -> GetDeploymentStatusPayload:
+    if not info.context.request.user.is_authenticated:
+        return GetDeploymentStatusPayload(
+            result=DeploymentStatusType(success=False, error="Authentication required")
+        )
+
+    try:
+        deployment = get_deployment_by_id(deployment_id)
+    except Deployment.DoesNotExist:
+        return GetDeploymentStatusPayload(
+            result=DeploymentStatusType(success=False, error="Deployment not found")
+        )
+
+    manager = DeploymentManager()
+    try:
+        status = async_to_sync(manager.get_status)(deployment)
+
+        return GetDeploymentStatusPayload(
+            result=DeploymentStatusType(
+                success=True,
+                deployment_id=status.deployment_id,
+                state=status.service_status.state.value,
+                running_count=status.service_status.running_count,
+                desired_count=status.service_status.desired_count,
+                pending_count=status.service_status.pending_count,
+                deployment_state=status.service_status.deployment_state.value if status.service_status.deployment_state else None,
+                last_deployment_at=status.service_status.last_deployment_at,
+                drift_detected=status.drift_detected,
+                config_in_sync=status.config_in_sync,
+                secrets_healthy=status.secrets_healthy,
+            )
+        )
+    except Exception as e:
+        logger.exception(f"Error getting deployment status: {e}")
+        return GetDeploymentStatusPayload(
+            result=DeploymentStatusType(success=False, error="Failed to get deployment status")
         )
 
 
-class GetDeploymentStatus(graphene.Mutation):
-    """Get live status from infrastructure (not cached)."""
+def get_deployment_logs(info: strawberry.types.Info, deployment_id: strawberry.ID, lines: Optional[int] = 100, container: Optional[str] = None, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None) -> GetDeploymentLogsPayload:
+    if not info.context.request.user.is_authenticated:
+        return GetDeploymentLogsPayload(
+            result=DeploymentLogsType(success=False, error="Authentication required")
+        )
 
-    class Arguments:
-        deployment_id = graphene.ID(required=True)
+    try:
+        deployment = get_deployment_by_id(deployment_id)
+    except Deployment.DoesNotExist:
+        return GetDeploymentLogsPayload(
+            result=DeploymentLogsType(success=False, error="Deployment not found")
+        )
 
-    result = graphene.Field(DeploymentStatusType)
+    manager = DeploymentManager()
+    try:
+        logs = async_to_sync(manager.get_logs)(
+            deployment,
+            lines=lines,
+            container=container,
+            start_time=start_time,
+            end_time=end_time,
+        )
 
-    @classmethod
-    def mutate(cls, root, info, deployment_id):
-        if not info.context.user.is_authenticated:
-            return GetDeploymentStatus(
-                result=DeploymentStatusType(success=False, error="Authentication required")
+        return GetDeploymentLogsPayload(
+            result=DeploymentLogsType(
+                success=True,
+                logs=[
+                    LogEntryType(
+                        timestamp=log.timestamp,
+                        message=log.message,
+                        container=log.container,
+                        stream=log.stream,
+                    )
+                    for log in logs
+                ],
             )
+        )
+    except Exception as e:
+        logger.exception(f"Error getting deployment logs: {e}")
+        return GetDeploymentLogsPayload(
+            result=DeploymentLogsType(success=False, error="Failed to get deployment logs")
+        )
 
-        try:
-            deployment = get_deployment_by_id(deployment_id)
-        except Deployment.DoesNotExist:
-            return GetDeploymentStatus(
-                result=DeploymentStatusType(success=False, error="Deployment not found")
+
+def check_deployment_drift(info: strawberry.types.Info, deployment_id: strawberry.ID) -> CheckDeploymentDriftPayload:
+    if not info.context.request.user.is_authenticated:
+        return CheckDeploymentDriftPayload(
+            result=DriftStatusType(success=False, error="Authentication required")
+        )
+
+    try:
+        deployment = get_deployment_by_id(deployment_id)
+    except Deployment.DoesNotExist:
+        return CheckDeploymentDriftPayload(
+            result=DriftStatusType(success=False, error="Deployment not found")
+        )
+
+    manager = DeploymentManager()
+    try:
+        has_drift = async_to_sync(manager.check_drift)(deployment)
+        deployment.refresh_from_db()
+
+        config_drift = (
+            deployment.desired_config_hash and
+            deployment.last_config_hash and
+            deployment.desired_config_hash != deployment.last_config_hash
+        )
+        secrets_drift = (
+            deployment.desired_secrets_hash and
+            deployment.last_secrets_hash and
+            deployment.desired_secrets_hash != deployment.last_secrets_hash
+        )
+
+        return CheckDeploymentDriftPayload(
+            result=DriftStatusType(
+                success=True,
+                drift_detected=has_drift,
+                config_drift=config_drift,
+                secrets_drift=secrets_drift,
+                desired_config_hash=deployment.desired_config_hash,
+                last_config_hash=deployment.last_config_hash,
+                desired_secrets_hash=deployment.desired_secrets_hash,
+                last_secrets_hash=deployment.last_secrets_hash,
+                drift_detected_at=deployment.drift_detected_at,
+            ),
+            deployment=deployment,
+        )
+    except Exception as e:
+        logger.exception(f"Error checking deployment drift: {e}")
+        return CheckDeploymentDriftPayload(
+            result=DriftStatusType(success=False, error="Failed to check deployment drift")
+        )
+
+
+def clear_deployment_drift(info: strawberry.types.Info, deployment_id: strawberry.ID) -> ClearDeploymentDriftPayload:
+    if not info.context.request.user.is_authenticated:
+        return ClearDeploymentDriftPayload(success=False, error="Authentication required")
+
+    try:
+        deployment = get_deployment_by_id(deployment_id)
+    except Deployment.DoesNotExist:
+        return ClearDeploymentDriftPayload(success=False, error="Deployment not found")
+
+    manager = DeploymentManager()
+    try:
+        async_to_sync(manager.clear_drift)(deployment)
+        deployment.refresh_from_db()
+
+        return ClearDeploymentDriftPayload(success=True, deployment=deployment)
+    except Exception as e:
+        logger.exception(f"Error clearing deployment drift: {e}")
+        return ClearDeploymentDriftPayload(success=False, error="Failed to clear deployment drift")
+
+
+def deprovision_deployment(info: strawberry.types.Info, deployment_id: strawberry.ID, confirm: bool, reason: Optional[str] = None) -> DeprovisionDeploymentPayload:
+    if not info.context.request.user.is_authenticated:
+        return DeprovisionDeploymentPayload(
+            result=DeprovisionResultType(success=False, message="Authentication required")
+        )
+
+    # Require confirmation for destructive operation
+    if not confirm:
+        return DeprovisionDeploymentPayload(
+            result=DeprovisionResultType(
+                success=False,
+                message="Destructive operation requires confirm=True"
             )
+        )
 
-        manager = DeploymentManager()
-        try:
-            status = async_to_sync(manager.get_status)(deployment)
+    try:
+        deployment = get_deployment_by_id(deployment_id)
+    except Deployment.DoesNotExist:
+        return DeprovisionDeploymentPayload(
+            result=DeprovisionResultType(success=False, message="Deployment not found")
+        )
 
-            return GetDeploymentStatus(
-                result=DeploymentStatusType(
+    # Check if deployment can be deprovisioned
+    if deployment.status == Deployment.Status.TERMINATED:
+        return DeprovisionDeploymentPayload(
+            result=DeprovisionResultType(
+                success=False,
+                message="Deployment is already terminated"
+            )
+        )
+
+    try:
+        from deployments.models import TerraformProvision
+        from django.utils import timezone
+
+        # Create deprovisioning record and trigger
+        provision = TerraformProvision.create_for_deprovision(
+            deployment=deployment,
+            trigger_method='webhook',
+            reason=reason or f'manual_deprovision:{info.context.request.user.email}',
+        )
+
+        # Trigger the deprovision
+        if provision.trigger():
+            logger.info(
+                f"Triggered deprovision for {deployment.name} "
+                f"(org: {deployment.organization.name}, provision: {provision.id})"
+            )
+            return DeprovisionDeploymentPayload(
+                result=DeprovisionResultType(
                     success=True,
-                    deployment_id=status.deployment_id,
-                    state=status.service_status.state.value,
-                    running_count=status.service_status.running_count,
-                    desired_count=status.service_status.desired_count,
-                    pending_count=status.service_status.pending_count,
-                    deployment_state=status.service_status.deployment_state.value if status.service_status.deployment_state else None,
-                    last_deployment_at=status.service_status.last_deployment_at,
-                    drift_detected=status.drift_detected,
-                    config_in_sync=status.config_in_sync,
-                    secrets_healthy=status.secrets_healthy,
-                )
-            )
-        except Exception as e:
-            logger.exception(f"Error getting deployment status: {e}")
-            return GetDeploymentStatus(
-                result=DeploymentStatusType(success=False, error="Failed to get deployment status")
-            )
-
-
-class GetDeploymentLogs(graphene.Mutation):
-    """Fetch recent logs from deployment infrastructure."""
-
-    class Arguments:
-        deployment_id = graphene.ID(required=True)
-        lines = graphene.Int(default_value=100)
-        container = graphene.String(description="Specific container name")
-        start_time = graphene.DateTime(description="Filter logs after this time")
-        end_time = graphene.DateTime(description="Filter logs before this time")
-
-    result = graphene.Field(DeploymentLogsType)
-
-    @classmethod
-    def mutate(cls, root, info, deployment_id, lines=100, container=None, start_time=None, end_time=None):
-        if not info.context.user.is_authenticated:
-            return GetDeploymentLogs(
-                result=DeploymentLogsType(success=False, error="Authentication required")
-            )
-
-        try:
-            deployment = get_deployment_by_id(deployment_id)
-        except Deployment.DoesNotExist:
-            return GetDeploymentLogs(
-                result=DeploymentLogsType(success=False, error="Deployment not found")
-            )
-
-        manager = DeploymentManager()
-        try:
-            logs = async_to_sync(manager.get_logs)(
-                deployment,
-                lines=lines,
-                container=container,
-                start_time=start_time,
-                end_time=end_time,
-            )
-
-            return GetDeploymentLogs(
-                result=DeploymentLogsType(
-                    success=True,
-                    logs=[
-                        LogEntryType(
-                            timestamp=log.timestamp,
-                            message=log.message,
-                            container=log.container,
-                            stream=log.stream,
-                        )
-                        for log in logs
-                    ],
-                )
-            )
-        except Exception as e:
-            logger.exception(f"Error getting deployment logs: {e}")
-            return GetDeploymentLogs(
-                result=DeploymentLogsType(success=False, error="Failed to get deployment logs")
-            )
-
-
-class CheckDeploymentDrift(graphene.Mutation):
-    """Check for configuration drift between desired and actual state."""
-
-    class Arguments:
-        deployment_id = graphene.ID(required=True)
-
-    result = graphene.Field(DriftStatusType)
-    deployment = graphene.Field(DeploymentType)
-
-    @classmethod
-    def mutate(cls, root, info, deployment_id):
-        if not info.context.user.is_authenticated:
-            return CheckDeploymentDrift(
-                result=DriftStatusType(success=False, error="Authentication required")
-            )
-
-        try:
-            deployment = get_deployment_by_id(deployment_id)
-        except Deployment.DoesNotExist:
-            return CheckDeploymentDrift(
-                result=DriftStatusType(success=False, error="Deployment not found")
-            )
-
-        manager = DeploymentManager()
-        try:
-            has_drift = async_to_sync(manager.check_drift)(deployment)
-            deployment.refresh_from_db()
-
-            config_drift = (
-                deployment.desired_config_hash and
-                deployment.last_config_hash and
-                deployment.desired_config_hash != deployment.last_config_hash
-            )
-            secrets_drift = (
-                deployment.desired_secrets_hash and
-                deployment.last_secrets_hash and
-                deployment.desired_secrets_hash != deployment.last_secrets_hash
-            )
-
-            return CheckDeploymentDrift(
-                result=DriftStatusType(
-                    success=True,
-                    drift_detected=has_drift,
-                    config_drift=config_drift,
-                    secrets_drift=secrets_drift,
-                    desired_config_hash=deployment.desired_config_hash,
-                    last_config_hash=deployment.last_config_hash,
-                    desired_secrets_hash=deployment.desired_secrets_hash,
-                    last_secrets_hash=deployment.last_secrets_hash,
-                    drift_detected_at=deployment.drift_detected_at,
+                    message=f"Deprovisioning triggered for {deployment.name}",
+                    provision_id=str(provision.id),
+                    triggered_at=timezone.now(),
                 ),
                 deployment=deployment,
             )
-        except Exception as e:
-            logger.exception(f"Error checking deployment drift: {e}")
-            return CheckDeploymentDrift(
-                result=DriftStatusType(success=False, error="Failed to check deployment drift")
-            )
-
-
-class ClearDeploymentDrift(graphene.Mutation):
-    """Clear drift detection flag after resolving drift."""
-
-    class Arguments:
-        deployment_id = graphene.ID(required=True)
-
-    success = graphene.Boolean()
-    error = graphene.String()
-    deployment = graphene.Field(DeploymentType)
-
-    @classmethod
-    def mutate(cls, root, info, deployment_id):
-        if not info.context.user.is_authenticated:
-            return ClearDeploymentDrift(success=False, error="Authentication required")
-
-        try:
-            deployment = get_deployment_by_id(deployment_id)
-        except Deployment.DoesNotExist:
-            return ClearDeploymentDrift(success=False, error="Deployment not found")
-
-        manager = DeploymentManager()
-        try:
-            async_to_sync(manager.clear_drift)(deployment)
-            deployment.refresh_from_db()
-
-            return ClearDeploymentDrift(success=True, deployment=deployment)
-        except Exception as e:
-            logger.exception(f"Error clearing deployment drift: {e}")
-            return ClearDeploymentDrift(success=False, error="Failed to clear deployment drift")
-
-
-class DeprovisionResultType(graphene.ObjectType):
-    """Result of a deprovision operation."""
-    success = graphene.Boolean(required=True)
-    message = graphene.String()
-    provision_id = graphene.String()
-    triggered_at = graphene.DateTime()
-
-
-class DeprovisionDeployment(graphene.Mutation):
-    """
-    Trigger infrastructure teardown for a deployment.
-
-    This creates a TerraformProvision record with destroy action and triggers
-    the provisioner to tear down the infrastructure. Use with caution.
-    """
-
-    class Arguments:
-        deployment_id = graphene.ID(required=True)
-        reason = graphene.String(description="Reason for deprovisioning")
-        confirm = graphene.Boolean(
-            required=True,
-            description="Must be True to confirm destructive operation"
-        )
-
-    result = graphene.Field(DeprovisionResultType)
-    deployment = graphene.Field(DeploymentType)
-
-    @classmethod
-    def mutate(cls, root, info, deployment_id, confirm, reason=None):
-        if not info.context.user.is_authenticated:
-            return DeprovisionDeployment(
-                result=DeprovisionResultType(success=False, message="Authentication required")
-            )
-
-        # Require confirmation for destructive operation
-        if not confirm:
-            return DeprovisionDeployment(
+        else:
+            return DeprovisionDeploymentPayload(
                 result=DeprovisionResultType(
                     success=False,
-                    message="Destructive operation requires confirm=True"
-                )
-            )
-
-        try:
-            deployment = get_deployment_by_id(deployment_id)
-        except Deployment.DoesNotExist:
-            return DeprovisionDeployment(
-                result=DeprovisionResultType(success=False, message="Deployment not found")
-            )
-
-        # Check if deployment can be deprovisioned
-        if deployment.status == Deployment.Status.TERMINATED:
-            return DeprovisionDeployment(
-                result=DeprovisionResultType(
-                    success=False,
-                    message="Deployment is already terminated"
-                )
-            )
-
-        try:
-            from deployments.models import TerraformProvision
-            from django.utils import timezone
-
-            # Create deprovisioning record and trigger
-            provision = TerraformProvision.create_for_deprovision(
+                    message=f"Failed to trigger deprovision: {provision.error_message}",
+                    provision_id=str(provision.id),
+                ),
                 deployment=deployment,
-                trigger_method='webhook',
-                reason=reason or f'manual_deprovision:{info.context.user.email}',
             )
 
-            # Trigger the deprovision
-            if provision.trigger():
-                logger.info(
-                    f"Triggered deprovision for {deployment.name} "
-                    f"(org: {deployment.organization.name}, provision: {provision.id})"
-                )
-                return DeprovisionDeployment(
-                    result=DeprovisionResultType(
-                        success=True,
-                        message=f"Deprovisioning triggered for {deployment.name}",
-                        provision_id=str(provision.id),
-                        triggered_at=timezone.now(),
-                    ),
-                    deployment=deployment,
-                )
-            else:
-                return DeprovisionDeployment(
-                    result=DeprovisionResultType(
-                        success=False,
-                        message=f"Failed to trigger deprovision: {provision.error_message}",
-                        provision_id=str(provision.id),
-                    ),
-                    deployment=deployment,
-                )
-
-        except Exception as e:
-            logger.exception(f"Error triggering deprovision for {deployment_id}: {e}")
-            return DeprovisionDeployment(
-                result=DeprovisionResultType(
-                    success=False,
-                    message=f"Error: {str(e)}"
-                )
+    except Exception as e:
+        logger.exception(f"Error triggering deprovision for {deployment_id}: {e}")
+        return DeprovisionDeploymentPayload(
+            result=DeprovisionResultType(
+                success=False,
+                message=f"Error: {str(e)}"
             )
+        )
 
 
 # =============================================================================
 # Admin Operations (Staff Only)
 # =============================================================================
 
-class AdminDeploymentResultType(graphene.ObjectType):
-    """Result type for admin deployment operations."""
-    success = graphene.Boolean(required=True)
-    message = graphene.String()
-    previous_status = graphene.String()
-    new_status = graphene.String()
-
-
-class AdminSuspendDeployment(graphene.Mutation):
-    """
-    Admin-only: Suspend a deployment without terminating.
-
-    Sets deployment to SUSPENDED state. Can be reactivated later.
-    Use for payment issues, policy violations, or temporary holds.
-    """
-
-    class Arguments:
-        deployment_id = graphene.ID(required=True)
-        reason = graphene.String(required=True, description="Reason for suspension")
-        notify_customer = graphene.Boolean(default_value=True, description="Send notification to customer")
-
-    result = graphene.Field(AdminDeploymentResultType)
-    deployment = graphene.Field(DeploymentType)
-
-    @classmethod
-    def mutate(cls, root, info, deployment_id, reason, notify_customer=True):
-        user = info.context.user
-        if not user.is_authenticated or not user.is_staff:
-            return AdminSuspendDeployment(
-                result=AdminDeploymentResultType(
-                    success=False,
-                    message="Staff authentication required"
-                )
+def admin_suspend_deployment(info: strawberry.types.Info, deployment_id: strawberry.ID, reason: str, notify_customer: Optional[bool] = True) -> AdminSuspendDeploymentPayload:
+    user = info.context.request.user
+    if not user.is_authenticated or not user.is_staff:
+        return AdminSuspendDeploymentPayload(
+            result=AdminDeploymentResultType(
+                success=False,
+                message="Staff authentication required"
             )
-
-        try:
-            deployment = get_deployment_by_id(deployment_id)
-        except Deployment.DoesNotExist:
-            return AdminSuspendDeployment(
-                result=AdminDeploymentResultType(success=False, message="Deployment not found")
-            )
-
-        # Validate current status
-        if deployment.status == Deployment.Status.SUSPENDED:
-            return AdminSuspendDeployment(
-                result=AdminDeploymentResultType(
-                    success=False,
-                    message="Deployment is already suspended"
-                ),
-                deployment=deployment,
-            )
-
-        if deployment.status == Deployment.Status.TERMINATED:
-            return AdminSuspendDeployment(
-                result=AdminDeploymentResultType(
-                    success=False,
-                    message="Cannot suspend a terminated deployment"
-                ),
-                deployment=deployment,
-            )
-
-        previous_status = deployment.status
-        deployment.status = Deployment.Status.SUSPENDED
-        deployment.save(update_fields=['status', 'updated_at'])
-
-        logger.info(
-            f"Admin {user.email} suspended deployment {deployment.name}: {reason}"
         )
 
-        # Send notification if requested
-        if notify_customer:
-            try:
-                from zentinelle.services.alert_service import AlertService
-                alert_service = AlertService()
-                alert_service._create_notification(
-                    organization=deployment.organization,
-                    title="Deployment Suspended",
-                    message=f"Your deployment '{deployment.name}' has been suspended. Reason: {reason}",
-                    notification_type='deployment_suspended',
-                    severity='warning',
-                    metadata={'deployment_id': str(deployment.id), 'reason': reason},
-                )
-            except Exception as e:
-                logger.error(f"Failed to send suspension notification: {e}")
+    try:
+        deployment = get_deployment_by_id(deployment_id)
+    except Deployment.DoesNotExist:
+        return AdminSuspendDeploymentPayload(
+            result=AdminDeploymentResultType(success=False, message="Deployment not found")
+        )
 
-        return AdminSuspendDeployment(
+    # Validate current status
+    if deployment.status == Deployment.Status.SUSPENDED:
+        return AdminSuspendDeploymentPayload(
             result=AdminDeploymentResultType(
-                success=True,
-                message=f"Deployment suspended: {reason}",
-                previous_status=previous_status,
-                new_status=Deployment.Status.SUSPENDED,
+                success=False,
+                message="Deployment is already suspended"
             ),
             deployment=deployment,
         )
 
-
-class AdminReactivateDeployment(graphene.Mutation):
-    """
-    Admin-only: Reactivate a suspended deployment.
-
-    Sets deployment back to ACTIVE state.
-    """
-
-    class Arguments:
-        deployment_id = graphene.ID(required=True)
-        reason = graphene.String(description="Reason for reactivation")
-        notify_customer = graphene.Boolean(default_value=True)
-
-    result = graphene.Field(AdminDeploymentResultType)
-    deployment = graphene.Field(DeploymentType)
-
-    @classmethod
-    def mutate(cls, root, info, deployment_id, reason=None, notify_customer=True):
-        user = info.context.user
-        if not user.is_authenticated or not user.is_staff:
-            return AdminReactivateDeployment(
-                result=AdminDeploymentResultType(
-                    success=False,
-                    message="Staff authentication required"
-                )
-            )
-
-        try:
-            deployment = get_deployment_by_id(deployment_id)
-        except Deployment.DoesNotExist:
-            return AdminReactivateDeployment(
-                result=AdminDeploymentResultType(success=False, message="Deployment not found")
-            )
-
-        if deployment.status != Deployment.Status.SUSPENDED:
-            return AdminReactivateDeployment(
-                result=AdminDeploymentResultType(
-                    success=False,
-                    message=f"Deployment is not suspended (status: {deployment.status})"
-                ),
-                deployment=deployment,
-            )
-
-        previous_status = deployment.status
-        deployment.status = Deployment.Status.ACTIVE
-        deployment.save(update_fields=['status', 'updated_at'])
-
-        logger.info(
-            f"Admin {user.email} reactivated deployment {deployment.name}: {reason or 'No reason provided'}"
-        )
-
-        if notify_customer:
-            try:
-                from zentinelle.services.alert_service import AlertService
-                alert_service = AlertService()
-                alert_service._create_notification(
-                    organization=deployment.organization,
-                    title="Deployment Reactivated",
-                    message=f"Your deployment '{deployment.name}' has been reactivated and is now active.",
-                    notification_type='deployment_reactivated',
-                    severity='success',
-                    metadata={'deployment_id': str(deployment.id)},
-                )
-            except Exception as e:
-                logger.error(f"Failed to send reactivation notification: {e}")
-
-        return AdminReactivateDeployment(
+    if deployment.status == Deployment.Status.TERMINATED:
+        return AdminSuspendDeploymentPayload(
             result=AdminDeploymentResultType(
-                success=True,
-                message="Deployment reactivated",
-                previous_status=previous_status,
-                new_status=Deployment.Status.ACTIVE,
+                success=False,
+                message="Cannot suspend a terminated deployment"
             ),
             deployment=deployment,
         )
 
+    previous_status = deployment.status
+    deployment.status = Deployment.Status.SUSPENDED
+    deployment.save(update_fields=['status', 'updated_at'])
 
-class AdminTerminateDeployment(graphene.Mutation):
-    """
-    Admin-only: Immediately terminate a deployment.
+    logger.info(
+        f"Admin {user.email} suspended deployment {deployment.name}: {reason}"
+    )
 
-    This is destructive - triggers infrastructure teardown.
-    Use for fraud, abuse, or at customer request.
-    """
-
-    class Arguments:
-        deployment_id = graphene.ID(required=True)
-        reason = graphene.String(required=True, description="Reason for termination")
-        notify_customer = graphene.Boolean(default_value=True)
-        skip_terraform = graphene.Boolean(
-            default_value=False,
-            description="Skip Terraform destroy (use if infrastructure already gone)"
-        )
-
-    result = graphene.Field(DeprovisionResultType)
-    deployment = graphene.Field(DeploymentType)
-
-    @classmethod
-    def mutate(cls, root, info, deployment_id, reason, notify_customer=True, skip_terraform=False):
-        from deployments.models import TerraformProvision
-
-        user = info.context.user
-        if not user.is_authenticated or not user.is_staff:
-            return AdminTerminateDeployment(
-                result=DeprovisionResultType(
-                    success=False,
-                    message="Staff authentication required"
-                )
-            )
-
+    # Send notification if requested
+    if notify_customer:
         try:
-            deployment = get_deployment_by_id(deployment_id)
-        except Deployment.DoesNotExist:
-            return AdminTerminateDeployment(
-                result=DeprovisionResultType(success=False, message="Deployment not found")
+            from zentinelle.services.alert_service import AlertService
+            alert_service = AlertService()
+            alert_service._create_notification(
+                organization=deployment.organization,
+                title="Deployment Suspended",
+                message=f"Your deployment '{deployment.name}' has been suspended. Reason: {reason}",
+                notification_type='deployment_suspended',
+                severity='warning',
+                metadata={'deployment_id': str(deployment.id), 'reason': reason},
             )
+        except Exception as e:
+            logger.error(f"Failed to send suspension notification: {e}")
 
-        if deployment.status == Deployment.Status.TERMINATED:
-            return AdminTerminateDeployment(
-                result=DeprovisionResultType(
-                    success=False,
-                    message="Deployment is already terminated"
-                ),
-                deployment=deployment,
+    return AdminSuspendDeploymentPayload(
+        result=AdminDeploymentResultType(
+            success=True,
+            message=f"Deployment suspended: {reason}",
+            previous_status=previous_status,
+            new_status=Deployment.Status.SUSPENDED,
+        ),
+        deployment=deployment,
+    )
+
+
+def admin_reactivate_deployment(info: strawberry.types.Info, deployment_id: strawberry.ID, reason: Optional[str] = None, notify_customer: Optional[bool] = True) -> AdminReactivateDeploymentPayload:
+    user = info.context.request.user
+    if not user.is_authenticated or not user.is_staff:
+        return AdminReactivateDeploymentPayload(
+            result=AdminDeploymentResultType(
+                success=False,
+                message="Staff authentication required"
             )
-
-        logger.warning(
-            f"Admin {user.email} initiating termination for {deployment.name}: {reason}"
         )
 
-        if skip_terraform:
-            # Just update status without triggering Terraform
-            deployment.status = Deployment.Status.TERMINATED
-            deployment.save(update_fields=['status', 'updated_at'])
+    try:
+        deployment = get_deployment_by_id(deployment_id)
+    except Deployment.DoesNotExist:
+        return AdminReactivateDeploymentPayload(
+            result=AdminDeploymentResultType(success=False, message="Deployment not found")
+        )
 
-            return AdminTerminateDeployment(
+    if deployment.status != Deployment.Status.SUSPENDED:
+        return AdminReactivateDeploymentPayload(
+            result=AdminDeploymentResultType(
+                success=False,
+                message=f"Deployment is not suspended (status: {deployment.status})"
+            ),
+            deployment=deployment,
+        )
+
+    previous_status = deployment.status
+    deployment.status = Deployment.Status.ACTIVE
+    deployment.save(update_fields=['status', 'updated_at'])
+
+    logger.info(
+        f"Admin {user.email} reactivated deployment {deployment.name}: {reason or 'No reason provided'}"
+    )
+
+    if notify_customer:
+        try:
+            from zentinelle.services.alert_service import AlertService
+            alert_service = AlertService()
+            alert_service._create_notification(
+                organization=deployment.organization,
+                title="Deployment Reactivated",
+                message=f"Your deployment '{deployment.name}' has been reactivated and is now active.",
+                notification_type='deployment_reactivated',
+                severity='success',
+                metadata={'deployment_id': str(deployment.id)},
+            )
+        except Exception as e:
+            logger.error(f"Failed to send reactivation notification: {e}")
+
+    return AdminReactivateDeploymentPayload(
+        result=AdminDeploymentResultType(
+            success=True,
+            message="Deployment reactivated",
+            previous_status=previous_status,
+            new_status=Deployment.Status.ACTIVE,
+        ),
+        deployment=deployment,
+    )
+
+
+def admin_terminate_deployment(info: strawberry.types.Info, deployment_id: strawberry.ID, reason: str, notify_customer: Optional[bool] = True, skip_terraform: Optional[bool] = False) -> AdminTerminateDeploymentPayload:
+    from deployments.models import TerraformProvision
+    from django.utils import timezone
+
+    user = info.context.request.user
+    if not user.is_authenticated or not user.is_staff:
+        return AdminTerminateDeploymentPayload(
+            result=DeprovisionResultType(
+                success=False,
+                message="Staff authentication required"
+            )
+        )
+
+    try:
+        deployment = get_deployment_by_id(deployment_id)
+    except Deployment.DoesNotExist:
+        return AdminTerminateDeploymentPayload(
+            result=DeprovisionResultType(success=False, message="Deployment not found")
+        )
+
+    if deployment.status == Deployment.Status.TERMINATED:
+        return AdminTerminateDeploymentPayload(
+            result=DeprovisionResultType(
+                success=False,
+                message="Deployment is already terminated"
+            ),
+            deployment=deployment,
+        )
+
+    logger.warning(
+        f"Admin {user.email} initiating termination for {deployment.name}: {reason}"
+    )
+
+    if skip_terraform:
+        # Just update status without triggering Terraform
+        deployment.status = Deployment.Status.TERMINATED
+        deployment.save(update_fields=['status', 'updated_at'])
+
+        return AdminTerminateDeploymentPayload(
+            result=DeprovisionResultType(
+                success=True,
+                message=f"Deployment marked as terminated (Terraform skipped): {reason}",
+                triggered_at=timezone.now(),
+            ),
+            deployment=deployment,
+        )
+
+    try:
+        # Create deprovisioning record
+        provision = TerraformProvision.create_for_deprovision(
+            deployment=deployment,
+            trigger_method='admin_action',
+            reason=f'admin_terminated:{user.email}:{reason}',
+        )
+
+        if provision.trigger():
+            if notify_customer:
+                try:
+                    from zentinelle.services.alert_service import AlertService
+                    alert_service = AlertService()
+                    alert_service._create_notification(
+                        organization=deployment.organization,
+                        title="Deployment Terminated",
+                        message=f"Your deployment '{deployment.name}' has been terminated. Reason: {reason}",
+                        notification_type='deployment_terminated',
+                        severity='error',
+                        metadata={'deployment_id': str(deployment.id), 'reason': reason},
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send termination notification: {e}")
+
+            return AdminTerminateDeploymentPayload(
                 result=DeprovisionResultType(
                     success=True,
-                    message=f"Deployment marked as terminated (Terraform skipped): {reason}",
+                    message=f"Termination triggered: {reason}",
+                    provision_id=str(provision.id),
                     triggered_at=timezone.now(),
                 ),
                 deployment=deployment,
             )
-
-        try:
-            # Create deprovisioning record
-            provision = TerraformProvision.create_for_deprovision(
-                deployment=deployment,
-                trigger_method='admin_action',
-                reason=f'admin_terminated:{user.email}:{reason}',
-            )
-
-            if provision.trigger():
-                if notify_customer:
-                    try:
-                        from zentinelle.services.alert_service import AlertService
-                        alert_service = AlertService()
-                        alert_service._create_notification(
-                            organization=deployment.organization,
-                            title="Deployment Terminated",
-                            message=f"Your deployment '{deployment.name}' has been terminated. Reason: {reason}",
-                            notification_type='deployment_terminated',
-                            severity='error',
-                            metadata={'deployment_id': str(deployment.id), 'reason': reason},
-                        )
-                    except Exception as e:
-                        logger.error(f"Failed to send termination notification: {e}")
-
-                return AdminTerminateDeployment(
-                    result=DeprovisionResultType(
-                        success=True,
-                        message=f"Termination triggered: {reason}",
-                        provision_id=str(provision.id),
-                        triggered_at=timezone.now(),
-                    ),
-                    deployment=deployment,
-                )
-            else:
-                return AdminTerminateDeployment(
-                    result=DeprovisionResultType(
-                        success=False,
-                        message=f"Failed to trigger termination: {provision.error_message}",
-                        provision_id=str(provision.id),
-                    ),
-                    deployment=deployment,
-                )
-
-        except ValueError as e:
-            # Validation error from create_for_deprovision
-            return AdminTerminateDeployment(
+        else:
+            return AdminTerminateDeploymentPayload(
                 result=DeprovisionResultType(
                     success=False,
-                    message=str(e)
+                    message=f"Failed to trigger termination: {provision.error_message}",
+                    provision_id=str(provision.id),
                 ),
                 deployment=deployment,
             )
-        except Exception as e:
-            logger.exception(f"Error terminating deployment {deployment_id}: {e}")
-            return AdminTerminateDeployment(
-                result=DeprovisionResultType(
-                    success=False,
-                    message=f"Error: {str(e)}"
-                )
+
+    except ValueError as e:
+        # Validation error from create_for_deprovision
+        return AdminTerminateDeploymentPayload(
+            result=DeprovisionResultType(
+                success=False,
+                message=str(e)
+            ),
+            deployment=deployment,
+        )
+    except Exception as e:
+        logger.exception(f"Error terminating deployment {deployment_id}: {e}")
+        return AdminTerminateDeploymentPayload(
+            result=DeprovisionResultType(
+                success=False,
+                message=f"Error: {str(e)}"
             )
+        )

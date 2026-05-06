@@ -4,8 +4,10 @@ GraphQL mutations for Policy Document upload and processing.
 These mutations require the ZENTINELLE_POLICY_DOCUMENTS feature (Enterprise plan).
 """
 import base64
-import graphene
-from graphene_django import DjangoObjectType
+import uuid
+from typing import Optional
+
+import strawberry
 
 try:
     from billing.features import Features, require_feature_for_mutation
@@ -19,240 +21,215 @@ except ImportError:
 from zentinelle.models import PolicyDocument
 
 
-class PolicyDocumentType(DjangoObjectType):
-    """GraphQL type for PolicyDocument."""
-
-    class Meta:
-        model = PolicyDocument
-        fields = [
-            'id', 'name', 'description', 'document_type', 'file_size',
-            'status', 'error_message', 'page_count', 'word_count',
-            'analysis_results', 'processing_model', 'processed_at',
-            'created_at', 'updated_at',
-        ]
-
-    generated_prompt_count = graphene.Int()
-    extracted_text_preview = graphene.String()
-
-    def resolve_generated_prompt_count(self, info):
-        return self.generated_prompts.count()
-
-    def resolve_extracted_text_preview(self, info):
-        if self.extracted_text:
-            return self.extracted_text[:1000] + ('...' if len(self.extracted_text) > 1000 else '')
-        return None
+@strawberry.type
+class PolicyDocumentType:
+    id: Optional[uuid.UUID] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    document_type: Optional[str] = None
+    file_size: Optional[int] = None
+    status: Optional[str] = None
+    error_message: Optional[str] = None
+    page_count: Optional[int] = None
+    word_count: Optional[int] = None
+    analysis_results: Optional[strawberry.scalars.JSON] = None
+    processing_model: Optional[str] = None
+    processed_at: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    generated_prompt_count: Optional[int] = None
+    extracted_text_preview: Optional[str] = None
 
 
-class ExtractedPromptType(graphene.ObjectType):
-    """A prompt extracted from analysis."""
-    category = graphene.String()
-    title = graphene.String()
-    prompt_text = graphene.String()
-    source_excerpt = graphene.String()
-    confidence = graphene.Float()
+@strawberry.type
+class ExtractedPromptType:
+    category: Optional[str] = None
+    title: Optional[str] = None
+    prompt_text: Optional[str] = None
+    source_excerpt: Optional[str] = None
+    confidence: Optional[float] = None
 
 
-class UploadPolicyDocument(graphene.Mutation):
-    """
-    Upload a policy document (PDF, DOCX, or TXT) for prompt extraction.
+@strawberry.type
+class UploadPolicyDocumentPayload:
+    document: Optional[PolicyDocumentType] = None
+    success: Optional[bool] = None
+    error: Optional[str] = None
 
-    The document will be processed to extract text, which can then be
-    analyzed using AnalyzePolicyDocument mutation.
-    """
 
-    class Arguments:
-        organization_id = graphene.UUID(required=True)
-        name = graphene.String(required=True)
-        description = graphene.String()
-        document_type = graphene.String(required=True, description="pdf, docx, or txt")
-        file_content_base64 = graphene.String(
-            required=True,
-            description="Base64-encoded file content"
+@strawberry.type
+class AnalyzePolicyDocumentPayload:
+    document: Optional[PolicyDocumentType] = None
+    extracted_prompts: Optional[list[ExtractedPromptType]] = None
+    success: Optional[bool] = None
+    error: Optional[str] = None
+
+
+@strawberry.type
+class DeletePolicyDocumentPayload:
+    success: Optional[bool] = None
+    error: Optional[str] = None
+
+
+@strawberry.type
+class RetryPolicyDocumentPayload:
+    document: Optional[PolicyDocumentType] = None
+    success: Optional[bool] = None
+    error: Optional[str] = None
+
+
+def _document_to_type(doc) -> PolicyDocumentType:
+    """Convert a PolicyDocument model instance to the GraphQL type."""
+    return PolicyDocumentType(
+        id=doc.id,
+        name=doc.name,
+        description=doc.description,
+        document_type=doc.document_type,
+        file_size=doc.file_size,
+        status=doc.status,
+        error_message=doc.error_message,
+        page_count=doc.page_count,
+        word_count=doc.word_count,
+        analysis_results=doc.analysis_results,
+        processing_model=doc.processing_model,
+        processed_at=str(doc.processed_at) if doc.processed_at else None,
+        created_at=str(doc.created_at) if doc.created_at else None,
+        updated_at=str(doc.updated_at) if doc.updated_at else None,
+        generated_prompt_count=doc.generated_prompts.count(),
+        extracted_text_preview=(
+            doc.extracted_text[:1000] + ('...' if len(doc.extracted_text) > 1000 else '')
+            if doc.extracted_text else None
+        ),
+    )
+
+
+def upload_policy_document(info: strawberry.types.Info, organization_id: uuid.UUID, name: str, document_type: str, file_content_base64: str, description: Optional[str] = '') -> UploadPolicyDocumentPayload:
+    if not info.context.request.user.is_authenticated:
+        return UploadPolicyDocumentPayload(success=False, error="Authentication required")
+
+    from organization.models import Organization
+    from zentinelle.services.document_processing import PolicyDocumentService
+
+    try:
+        org = Organization.objects.get(id=organization_id)
+    except Organization.DoesNotExist:
+        return UploadPolicyDocumentPayload(success=False, error="Organization not found")
+
+    valid_types = ['pdf', 'docx', 'txt']
+    if document_type.lower() not in valid_types:
+        return UploadPolicyDocumentPayload(
+            success=False,
+            error=f"Invalid document type. Must be one of: {', '.join(valid_types)}"
         )
 
-    document = graphene.Field(PolicyDocumentType)
-    success = graphene.Boolean()
-    error = graphene.String()
+    try:
+        file_content = base64.b64decode(file_content_base64)
+    except Exception as e:
+        return UploadPolicyDocumentPayload(success=False, error=f"Invalid base64 content: {e}")
 
-    @classmethod
-    @require_feature_for_mutation(Features.ZENTINELLE_POLICY_DOCUMENTS)
-    def mutate(cls, root, info, organization_id, name, document_type, file_content_base64, description=''):
-        if not info.context.user.is_authenticated:
-            return UploadPolicyDocument(success=False, error="Authentication required")
+    max_size = 10 * 1024 * 1024
+    if len(file_content) > max_size:
+        return UploadPolicyDocumentPayload(
+            success=False,
+            error=f"File too large. Maximum size is {max_size // (1024*1024)}MB"
+        )
 
-        from organization.models import Organization
-        from zentinelle.services.document_processing import PolicyDocumentService
+    try:
+        service = PolicyDocumentService(organization=org)
+        document = service.upload_document(
+            name=name,
+            file_content=file_content,
+            document_type=document_type.lower(),
+            description=description,
+        )
+        return UploadPolicyDocumentPayload(success=True, document=_document_to_type(document))
 
+    except Exception as e:
+        return UploadPolicyDocumentPayload(success=False, error=str(e))
+
+
+def analyze_policy_document(info: strawberry.types.Info, document_id: uuid.UUID, model: Optional[str] = 'gpt-4o-mini') -> AnalyzePolicyDocumentPayload:
+    if not info.context.request.user.is_authenticated:
+        return AnalyzePolicyDocumentPayload(success=False, error="Authentication required")
+
+    import asyncio
+    from zentinelle.services.document_processing import PolicyDocumentService
+
+    try:
+        document = PolicyDocument.objects.get(id=document_id)
+    except PolicyDocument.DoesNotExist:
+        return AnalyzePolicyDocumentPayload(success=False, error="Document not found")
+
+    if document.status != PolicyDocument.Status.EXTRACTED:
+        return AnalyzePolicyDocumentPayload(
+            success=False,
+            error=f"Document must be in 'extracted' status, current status: {document.status}"
+        )
+
+    try:
+        service = PolicyDocumentService(organization=document.organization)
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            org = Organization.objects.get(id=organization_id)
-        except Organization.DoesNotExist:
-            return UploadPolicyDocument(success=False, error="Organization not found")
-
-        # Validate document type
-        valid_types = ['pdf', 'docx', 'txt']
-        if document_type.lower() not in valid_types:
-            return UploadPolicyDocument(
-                success=False,
-                error=f"Invalid document type. Must be one of: {', '.join(valid_types)}"
+            analysis = loop.run_until_complete(
+                service.analyze_document(document, model=model)
             )
+        finally:
+            loop.close()
 
-        # Decode file content
-        try:
-            file_content = base64.b64decode(file_content_base64)
-        except Exception as e:
-            return UploadPolicyDocument(success=False, error=f"Invalid base64 content: {e}")
-
-        # Size limit (10MB)
-        max_size = 10 * 1024 * 1024
-        if len(file_content) > max_size:
-            return UploadPolicyDocument(
-                success=False,
-                error=f"File too large. Maximum size is {max_size // (1024*1024)}MB"
+        extracted_prompts = [
+            ExtractedPromptType(
+                category=p.get('category'),
+                title=p.get('title'),
+                prompt_text=p.get('prompt_text'),
+                source_excerpt=p.get('source_excerpt'),
+                confidence=p.get('confidence'),
             )
+            for p in analysis.get('prompts', [])
+        ]
 
-        try:
-            service = PolicyDocumentService(organization=org)
-            document = service.upload_document(
-                name=name,
-                file_content=file_content,
-                document_type=document_type.lower(),
-                description=description,
-            )
-            return UploadPolicyDocument(success=True, document=document)
+        document.refresh_from_db()
 
-        except Exception as e:
-            return UploadPolicyDocument(success=False, error=str(e))
+        return AnalyzePolicyDocumentPayload(
+            success=True,
+            document=_document_to_type(document),
+            extracted_prompts=extracted_prompts,
+        )
 
-
-class AnalyzePolicyDocument(graphene.Mutation):
-    """
-    Analyze an uploaded document with LLM to extract prompts.
-
-    The document must be in 'extracted' status (text already extracted).
-    This will use the specified model to analyze the document and
-    generate SystemPrompt objects.
-    """
-
-    class Arguments:
-        document_id = graphene.UUID(required=True)
-        model = graphene.String(description="LLM model to use (default: gpt-4o-mini)")
-
-    document = graphene.Field(PolicyDocumentType)
-    extracted_prompts = graphene.List(ExtractedPromptType)
-    success = graphene.Boolean()
-    error = graphene.String()
-
-    @classmethod
-    @require_feature_for_mutation(Features.ZENTINELLE_POLICY_DOCUMENTS)
-    def mutate(cls, root, info, document_id, model='gpt-4o-mini'):
-        if not info.context.user.is_authenticated:
-            return AnalyzePolicyDocument(success=False, error="Authentication required")
-
-        import asyncio
-        from zentinelle.services.document_processing import PolicyDocumentService
-
-        try:
-            document = PolicyDocument.objects.get(id=document_id)
-        except PolicyDocument.DoesNotExist:
-            return AnalyzePolicyDocument(success=False, error="Document not found")
-
-        if document.status != PolicyDocument.Status.EXTRACTED:
-            return AnalyzePolicyDocument(
-                success=False,
-                error=f"Document must be in 'extracted' status, current status: {document.status}"
-            )
-
-        try:
-            service = PolicyDocumentService(organization=document.organization)
-
-            # Run async analysis
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                analysis = loop.run_until_complete(
-                    service.analyze_document(document, model=model)
-                )
-            finally:
-                loop.close()
-
-            # Convert prompts to GraphQL type
-            extracted_prompts = [
-                ExtractedPromptType(
-                    category=p.get('category'),
-                    title=p.get('title'),
-                    prompt_text=p.get('prompt_text'),
-                    source_excerpt=p.get('source_excerpt'),
-                    confidence=p.get('confidence'),
-                )
-                for p in analysis.get('prompts', [])
-            ]
-
-            # Refresh document
-            document.refresh_from_db()
-
-            return AnalyzePolicyDocument(
-                success=True,
-                document=document,
-                extracted_prompts=extracted_prompts,
-            )
-
-        except Exception as e:
-            return AnalyzePolicyDocument(success=False, error=str(e))
+    except Exception as e:
+        return AnalyzePolicyDocumentPayload(success=False, error=str(e))
 
 
-class DeletePolicyDocument(graphene.Mutation):
-    """Delete a policy document."""
+def delete_policy_document(info: strawberry.types.Info, document_id: uuid.UUID) -> DeletePolicyDocumentPayload:
+    if not info.context.request.user.is_authenticated:
+        return DeletePolicyDocumentPayload(success=False, error="Authentication required")
 
-    class Arguments:
-        document_id = graphene.UUID(required=True)
-
-    success = graphene.Boolean()
-    error = graphene.String()
-
-    @classmethod
-    @require_feature_for_mutation(Features.ZENTINELLE_POLICY_DOCUMENTS)
-    def mutate(cls, root, info, document_id):
-        if not info.context.user.is_authenticated:
-            return DeletePolicyDocument(success=False, error="Authentication required")
-
-        try:
-            document = PolicyDocument.objects.get(id=document_id)
-            document.delete()
-            return DeletePolicyDocument(success=True)
-        except PolicyDocument.DoesNotExist:
-            return DeletePolicyDocument(success=False, error="Document not found")
+    try:
+        document = PolicyDocument.objects.get(id=document_id)
+        document.delete()
+        return DeletePolicyDocumentPayload(success=True)
+    except PolicyDocument.DoesNotExist:
+        return DeletePolicyDocumentPayload(success=False, error="Document not found")
 
 
-class RetryPolicyDocument(graphene.Mutation):
-    """Retry processing a failed document."""
+def retry_policy_document(info: strawberry.types.Info, document_id: uuid.UUID) -> RetryPolicyDocumentPayload:
+    if not info.context.request.user.is_authenticated:
+        return RetryPolicyDocumentPayload(success=False, error="Authentication required")
 
-    class Arguments:
-        document_id = graphene.UUID(required=True)
+    try:
+        document = PolicyDocument.objects.get(id=document_id)
+    except PolicyDocument.DoesNotExist:
+        return RetryPolicyDocumentPayload(success=False, error="Document not found")
 
-    document = graphene.Field(PolicyDocumentType)
-    success = graphene.Boolean()
-    error = graphene.String()
+    if document.status != PolicyDocument.Status.FAILED:
+        return RetryPolicyDocumentPayload(
+            success=False,
+            error="Can only retry failed documents"
+        )
 
-    @classmethod
-    @require_feature_for_mutation(Features.ZENTINELLE_POLICY_DOCUMENTS)
-    def mutate(cls, root, info, document_id):
-        if not info.context.user.is_authenticated:
-            return RetryPolicyDocument(success=False, error="Authentication required")
+    document.status = PolicyDocument.Status.PENDING
+    document.error_message = ''
+    document.save()
 
-        try:
-            document = PolicyDocument.objects.get(id=document_id)
-        except PolicyDocument.DoesNotExist:
-            return RetryPolicyDocument(success=False, error="Document not found")
-
-        if document.status != PolicyDocument.Status.FAILED:
-            return RetryPolicyDocument(
-                success=False,
-                error="Can only retry failed documents"
-            )
-
-        # Reset status
-        document.status = PolicyDocument.Status.PENDING
-        document.error_message = ''
-        document.save()
-
-        return RetryPolicyDocument(success=True, document=document)
+    return RetryPolicyDocumentPayload(success=True, document=_document_to_type(document))

@@ -5,136 +5,96 @@ Provides a single mutation to activate a pre-configured compliance pack
 (HIPAA, SOC2, GDPR, EU AI Act) for a tenant with one call.
 """
 import logging
+from typing import Optional
 
-import graphene
+import strawberry
 
 from zentinelle.services.compliance_packs import activate_pack, list_packs
 
 logger = logging.getLogger(__name__)
 
 
-class CompliancePackMetaType(graphene.ObjectType):
-    """Metadata about an available compliance pack."""
-    name = graphene.String(description='Pack identifier (e.g. hipaa)')
-    display_name = graphene.String(description='Human-readable name')
-    version = graphene.String(description='Pack version string')
-    description = graphene.String(description='What this pack covers')
-    policy_count = graphene.Int(description='Number of policies in the pack')
+@strawberry.type
+class CompliancePackMetaType:
+    name: Optional[str] = None
+    display_name: Optional[str] = None
+    version: Optional[str] = None
+    description: Optional[str] = None
+    policy_count: Optional[int] = None
 
 
-class ActivateCompliancePack(graphene.Mutation):
-    """
-    Activate a compliance pack for a tenant.
+@strawberry.type
+class ActivateCompliancePackPayload:
+    policies_created: Optional[int] = None
+    policies_updated: Optional[int] = None
+    pack_version: Optional[str] = None
+    pack_name: Optional[str] = None
+    success: Optional[bool] = None
+    error: Optional[str] = None
 
-    Creates or updates policies in bulk to bring the tenant to baseline
-    compliance for the requested framework.
 
-    Example:
-        mutation {
-            activateCompliancePack(pack: "hipaa", enforcement: "enforce") {
-                policiesCreated
-                policiesUpdated
-                packVersion
-                packName
-            }
-        }
-    """
+@strawberry.type
+class ListCompliancePacksPayload:
+    packs: Optional[list[CompliancePackMetaType]] = None
+    success: Optional[bool] = None
 
-    class Arguments:
-        pack = graphene.String(
-            required=True,
-            description='Pack name: hipaa | soc2 | gdpr | eu_ai_act',
-        )
-        tenant_id = graphene.String(
-            required=False,
-            description='Tenant ID. Defaults to the authenticated user\'s tenant.',
-        )
-        enforcement = graphene.String(
-            required=False,
-            default_value='enforce',
-            description='enforce | audit | disabled (default: enforce)',
-        )
 
-    policies_created = graphene.Int()
-    policies_updated = graphene.Int()
-    pack_version = graphene.String()
-    pack_name = graphene.String()
-    success = graphene.Boolean()
-    error = graphene.String()
+def activate_compliance_pack(info: strawberry.types.Info, pack: str, tenant_id: Optional[str] = None, enforcement: Optional[str] = 'enforce') -> ActivateCompliancePackPayload:
+    if not info.context.request.user.is_authenticated:
+        return ActivateCompliancePackPayload(success=False, error='Authentication required')
 
-    @classmethod
-    def mutate(cls, root, info, pack, tenant_id=None, enforcement='enforce'):
-        if not info.context.user.is_authenticated:
-            return cls(success=False, error='Authentication required')
-
-        # Resolve tenant_id
+    if not tenant_id:
+        user = info.context.request.user
+        if hasattr(user, 'tenant_id'):
+            tenant_id = user.tenant_id
+        elif hasattr(user, 'memberships'):
+            membership = user.memberships.filter(is_active=True).first()
+            if membership:
+                tenant_id = str(membership.organization_id)
         if not tenant_id:
-            user = info.context.user
-            if hasattr(user, 'tenant_id'):
-                tenant_id = user.tenant_id
-            elif hasattr(user, 'memberships'):
-                membership = user.memberships.filter(is_active=True).first()
-                if membership:
-                    tenant_id = str(membership.organization_id)
-            if not tenant_id:
-                return cls(success=False, error='Could not determine tenant_id')
+            return ActivateCompliancePackPayload(success=False, error='Could not determine tenant_id')
 
-        # Validate enforcement value
-        valid_enforcement = ['enforce', 'audit', 'disabled']
-        if enforcement not in valid_enforcement:
-            return cls(
-                success=False,
-                error=f"Invalid enforcement '{enforcement}'. Must be one of: {', '.join(valid_enforcement)}",
-            )
-
-        try:
-            result = activate_pack(
-                tenant_id=tenant_id,
-                pack_name=pack,
-                enforcement=enforcement,
-            )
-        except ValueError as e:
-            return cls(success=False, error=str(e))
-        except Exception as e:
-            logger.exception("Error activating compliance pack '%s': %s", pack, e)
-            return cls(success=False, error='Failed to activate compliance pack')
-
-        return cls(
-            success=True,
-            policies_created=result['policies_created'],
-            policies_updated=result['policies_updated'],
-            pack_version=result['version'],
-            pack_name=result['pack'],
+    valid_enforcement = ['enforce', 'audit', 'disabled']
+    if enforcement not in valid_enforcement:
+        return ActivateCompliancePackPayload(
+            success=False,
+            error=f"Invalid enforcement '{enforcement}'. Must be one of: {', '.join(valid_enforcement)}",
         )
 
+    try:
+        result = activate_pack(
+            tenant_id=tenant_id,
+            pack_name=pack,
+            enforcement=enforcement,
+        )
+    except ValueError as e:
+        return ActivateCompliancePackPayload(success=False, error=str(e))
+    except Exception as e:
+        logger.exception("Error activating compliance pack '%s': %s", pack, e)
+        return ActivateCompliancePackPayload(success=False, error='Failed to activate compliance pack')
 
-class ListCompliancePacks(graphene.Mutation):
-    """
-    List all available compliance packs.
+    return ActivateCompliancePackPayload(
+        success=True,
+        policies_created=result['policies_created'],
+        policies_updated=result['policies_updated'],
+        pack_version=result['version'],
+        pack_name=result['pack'],
+    )
 
-    Returns metadata (without full policy lists) for all packs.
-    """
 
-    class Arguments:
-        pass
+def list_compliance_packs(info: strawberry.types.Info) -> ListCompliancePacksPayload:
+    if not info.context.request.user.is_authenticated:
+        return ListCompliancePacksPayload(success=False, packs=[])
 
-    packs = graphene.List(CompliancePackMetaType)
-    success = graphene.Boolean()
-
-    @classmethod
-    def mutate(cls, root, info):
-        if not info.context.user.is_authenticated:
-            return cls(success=False, packs=[])
-
-        packs_data = list_packs()
-        packs = [
-            CompliancePackMetaType(
-                name=p['name'],
-                display_name=p['display_name'],
-                version=p['version'],
-                description=p['description'],
-                policy_count=p['policy_count'],
-            )
-            for p in packs_data
-        ]
-        return cls(success=True, packs=packs)
+    packs_data = list_packs()
+    packs = [
+        CompliancePackMetaType(
+            name=p['name'],
+            display_name=p['display_name'],
+            version=p['version'],
+            description=p['description'],
+            policy_count=p['policy_count'],
+        )
+        for p in packs_data
+    ]
+    return ListCompliancePacksPayload(success=True, packs=packs)

@@ -4,9 +4,11 @@ License Hierarchy GraphQL Mutations.
 Enterprise-only mutations for managing parent/child license relationships.
 """
 import logging
+import uuid
+from typing import Optional
 
-import graphene
-from graphene import relay
+import strawberry
+from strawberry.scalars import JSON
 
 from zentinelle.models import License
 
@@ -28,45 +30,49 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-# =============================================================================
-# GraphQL Types for License Hierarchy
-# =============================================================================
-
-class LicenseHierarchyType(graphene.ObjectType):
-    """GraphQL type for license hierarchy information."""
-    id = graphene.UUID()
-    organization_id = graphene.UUID()
-    organization_name = graphene.String()
-    status = graphene.String()
-    license_type = graphene.String()
-    features = graphene.JSONString()
-    limits = graphene.JSONString()
-    inherit_entitlements = graphene.Boolean()
-    children = graphene.List(lambda: LicenseHierarchyType)
+def get_user_organizations(user):
+    """Get all organizations the user belongs to."""
+    from organization.models import OrganizationMember
+    return OrganizationMember.objects.filter(
+        member=user
+    ).values_list('organization_id', flat=True)
 
 
-class LicenseType(graphene.ObjectType):
-    """GraphQL type for License in hierarchy context."""
-    id = graphene.UUID()
-    organization_id = graphene.UUID()
-    organization_name = graphene.String()
-    license_key = graphene.String()
-    status = graphene.String()
-    license_type = graphene.String()
-    is_parent_license = graphene.Boolean()
-    is_child_license = graphene.Boolean()
-    parent_license_id = graphene.UUID()
-    max_child_licenses = graphene.Int()
-    child_license_count = graphene.Int()
-    inherit_entitlements = graphene.Boolean()
-    features = graphene.JSONString()
-    max_deployments = graphene.Int()
-    max_agents = graphene.Int()
-    max_users = graphene.Int()
+
+@strawberry.type
+class LicenseHierarchyType:
+    id: Optional[uuid.UUID] = None
+    organization_id: Optional[uuid.UUID] = None
+    organization_name: Optional[str] = None
+    status: Optional[str] = None
+    license_type: Optional[str] = None
+    features: Optional[JSON] = None
+    limits: Optional[JSON] = None
+    inherit_entitlements: Optional[bool] = None
+    children: Optional[list['LicenseHierarchyType']] = None
+
+
+@strawberry.type
+class LicenseType:
+    id: Optional[uuid.UUID] = None
+    organization_id: Optional[uuid.UUID] = None
+    organization_name: Optional[str] = None
+    license_key: Optional[str] = None
+    status: Optional[str] = None
+    license_type: Optional[str] = None
+    is_parent_license: Optional[bool] = None
+    is_child_license: Optional[bool] = None
+    parent_license_id: Optional[uuid.UUID] = None
+    max_child_licenses: Optional[int] = None
+    child_license_count: Optional[int] = None
+    inherit_entitlements: Optional[bool] = None
+    features: Optional[JSON] = None
+    max_deployments: Optional[int] = None
+    max_agents: Optional[int] = None
+    max_users: Optional[int] = None
 
     @staticmethod
     def from_model(license_obj: License) -> 'LicenseType':
-        """Create LicenseType from License model."""
         return LicenseType(
             id=license_obj.id,
             organization_id=license_obj.organization_id,
@@ -87,366 +93,298 @@ class LicenseType(graphene.ObjectType):
         )
 
 
-# =============================================================================
-# Input Types
-# =============================================================================
-
-class CreateChildLicenseInput(graphene.InputObjectType):
-    """Input for creating a child license."""
-    parent_license_id = graphene.UUID(required=True)
-    child_organization_id = graphene.UUID(required=True)
-    entitlements = graphene.JSONString()
-    max_deployments = graphene.Int()
-    max_agents = graphene.Int()
-    max_users = graphene.Int()
-    inherit_entitlements = graphene.Boolean()
+@strawberry.input
+class CreateChildLicenseInput:
+    parent_license_id: uuid.UUID
+    child_organization_id: uuid.UUID
+    entitlements: Optional[JSON] = None
+    max_deployments: Optional[int] = None
+    max_agents: Optional[int] = None
+    max_users: Optional[int] = None
+    inherit_entitlements: Optional[bool] = None
 
 
-class UpdateChildEntitlementsInput(graphene.InputObjectType):
-    """Input for updating child license entitlements."""
-    child_license_id = graphene.UUID(required=True)
-    entitlements = graphene.JSONString(required=True)
-    max_deployments = graphene.Int()
-    max_agents = graphene.Int()
-    max_users = graphene.Int()
+@strawberry.input
+class UpdateChildEntitlementsInput:
+    child_license_id: uuid.UUID
+    entitlements: JSON
+    max_deployments: Optional[int] = None
+    max_agents: Optional[int] = None
+    max_users: Optional[int] = None
 
 
-class TransferChildLicenseInput(graphene.InputObjectType):
-    """Input for transferring a child license to a new parent."""
-    child_license_id = graphene.UUID(required=True)
-    new_parent_license_id = graphene.UUID(required=True)
+@strawberry.input
+class TransferChildLicenseInput:
+    child_license_id: uuid.UUID
+    new_parent_license_id: uuid.UUID
 
 
-# =============================================================================
-# Mutations
-# =============================================================================
+@strawberry.type
+class CreateChildLicensePayload:
+    license: Optional[LicenseType] = None
+    success: Optional[bool] = None
+    error: Optional[str] = None
 
-class CreateChildLicense(graphene.Mutation):
-    """
-    Create a child license under a parent license.
 
-    Requires enterprise tier.
-    """
-    class Arguments:
-        input = CreateChildLicenseInput(required=True)
+@strawberry.type
+class UpdateChildEntitlementsPayload:
+    license: Optional[LicenseType] = None
+    success: Optional[bool] = None
+    error: Optional[str] = None
 
-    license = graphene.Field(LicenseType)
-    success = graphene.Boolean()
-    error = graphene.String()
 
-    @classmethod
-    @require_feature_for_mutation(Features.KEYS_BULK_PROVISIONING)
-    def mutate(cls, root, info, input):
-        if not info.context.user.is_authenticated:
-            return CreateChildLicense(success=False, error="Authentication required")
+@strawberry.type
+class TransferChildLicensePayload:
+    license: Optional[LicenseType] = None
+    success: Optional[bool] = None
+    error: Optional[str] = None
 
-        user_orgs = list(get_user_organizations(info.context.user))
 
-        try:
-            parent_license = License.objects.get(
-                id=input.parent_license_id,
-                organization_id__in=user_orgs
-            )
-        except License.DoesNotExist:
-            return CreateChildLicense(success=False, error="Parent license not found")
+@strawberry.type
+class RevokeChildLicensePayload:
+    success: Optional[bool] = None
+    error: Optional[str] = None
 
-        try:
-            child_org = Organization.objects.get(id=input.child_organization_id)
-        except Organization.DoesNotExist:
-            return CreateChildLicense(success=False, error="Child organization not found")
 
-        # Parse optional entitlements
-        entitlements = None
-        if input.entitlements:
-            import json
-            try:
-                entitlements = json.loads(input.entitlements) if isinstance(input.entitlements, str) else input.entitlements
-            except json.JSONDecodeError:
-                return CreateChildLicense(success=False, error="Invalid entitlements JSON")
+@strawberry.type
+class PropagateParentEntitlementsPayload:
+    updated_count: Optional[int] = None
+    errors: Optional[list[str]] = None
+    success: Optional[bool] = None
+    error: Optional[str] = None
 
-        # Create child license
-        child_license, error = license_hierarchy_service.create_child_license(
-            parent_license=parent_license,
-            child_org=child_org,
-            entitlements=entitlements,
-            max_deployments=input.max_deployments or 1,
-            max_agents=input.max_agents or 50,
-            max_users=input.max_users or 25,
-            inherit_entitlements=input.inherit_entitlements if input.inherit_entitlements is not None else True,
+
+@strawberry.type
+class GetLicenseHierarchyPayload:
+    hierarchy: Optional[LicenseHierarchyType] = None
+    success: Optional[bool] = None
+    error: Optional[str] = None
+
+
+def create_child_license(info: strawberry.types.Info, input: CreateChildLicenseInput) -> CreateChildLicensePayload:
+    if not info.context.request.user.is_authenticated:
+        return CreateChildLicensePayload(success=False, error="Authentication required")
+
+    user_orgs = list(get_user_organizations(info.context.request.user))
+
+    try:
+        parent_license = License.objects.get(
+            id=input.parent_license_id,
+            organization_id__in=user_orgs
         )
+    except License.DoesNotExist:
+        return CreateChildLicensePayload(success=False, error="Parent license not found")
 
-        if error:
-            return CreateChildLicense(success=False, error=error)
+    from organization.models import Organization
+    try:
+        child_org = Organization.objects.get(id=input.child_organization_id)
+    except Organization.DoesNotExist:
+        return CreateChildLicensePayload(success=False, error="Child organization not found")
 
-        return CreateChildLicense(
-            success=True,
-            license=LicenseType.from_model(child_license)
-        )
-
-
-class UpdateChildEntitlements(graphene.Mutation):
-    """
-    Update entitlements for a child license.
-
-    Requires enterprise tier.
-    """
-    class Arguments:
-        input = UpdateChildEntitlementsInput(required=True)
-
-    license = graphene.Field(LicenseType)
-    success = graphene.Boolean()
-    error = graphene.String()
-
-    @classmethod
-    @require_feature_for_mutation(Features.KEYS_BULK_PROVISIONING)
-    def mutate(cls, root, info, input):
-        if not info.context.user.is_authenticated:
-            return UpdateChildEntitlements(success=False, error="Authentication required")
-
-        user_orgs = list(get_user_organizations(info.context.user))
-
-        try:
-            child_license = License.objects.select_related('parent_license', 'organization').get(
-                id=input.child_license_id
-            )
-        except License.DoesNotExist:
-            return UpdateChildEntitlements(success=False, error="Child license not found")
-
-        # User must have access to parent license's organization
-        if child_license.parent_license_id:
-            if child_license.parent_license.organization_id not in user_orgs:
-                return UpdateChildEntitlements(success=False, error="Access denied to parent license")
-
-        # Parse entitlements
+    entitlements = None
+    if input.entitlements:
         import json
         try:
             entitlements = json.loads(input.entitlements) if isinstance(input.entitlements, str) else input.entitlements
         except json.JSONDecodeError:
-            return UpdateChildEntitlements(success=False, error="Invalid entitlements JSON")
+            return CreateChildLicensePayload(success=False, error="Invalid entitlements JSON")
 
-        # Build limits dict
-        limits = {}
-        if input.max_deployments is not None:
-            limits['max_deployments'] = input.max_deployments
-        if input.max_agents is not None:
-            limits['max_agents'] = input.max_agents
-        if input.max_users is not None:
-            limits['max_users'] = input.max_users
+    child_license, error = license_hierarchy_service.create_child_license(
+        parent_license=parent_license,
+        child_org=child_org,
+        entitlements=entitlements,
+        max_deployments=input.max_deployments or 1,
+        max_agents=input.max_agents or 50,
+        max_users=input.max_users or 25,
+        inherit_entitlements=input.inherit_entitlements if input.inherit_entitlements is not None else True,
+    )
 
-        # Update entitlements
-        success, error = license_hierarchy_service.update_child_entitlements(
-            child_license=child_license,
-            entitlements=entitlements,
-            limits=limits if limits else None
+    if error:
+        return CreateChildLicensePayload(success=False, error=error)
+
+    return CreateChildLicensePayload(
+        success=True,
+        license=LicenseType.from_model(child_license)
+    )
+
+
+def update_child_entitlements(info: strawberry.types.Info, input: UpdateChildEntitlementsInput) -> UpdateChildEntitlementsPayload:
+    if not info.context.request.user.is_authenticated:
+        return UpdateChildEntitlementsPayload(success=False, error="Authentication required")
+
+    user_orgs = list(get_user_organizations(info.context.request.user))
+
+    try:
+        child_license = License.objects.select_related('parent_license', 'organization').get(
+            id=input.child_license_id
+        )
+    except License.DoesNotExist:
+        return UpdateChildEntitlementsPayload(success=False, error="Child license not found")
+
+    if child_license.parent_license_id:
+        if child_license.parent_license.organization_id not in user_orgs:
+            return UpdateChildEntitlementsPayload(success=False, error="Access denied to parent license")
+
+    import json
+    try:
+        entitlements = json.loads(input.entitlements) if isinstance(input.entitlements, str) else input.entitlements
+    except json.JSONDecodeError:
+        return UpdateChildEntitlementsPayload(success=False, error="Invalid entitlements JSON")
+
+    limits = {}
+    if input.max_deployments is not None:
+        limits['max_deployments'] = input.max_deployments
+    if input.max_agents is not None:
+        limits['max_agents'] = input.max_agents
+    if input.max_users is not None:
+        limits['max_users'] = input.max_users
+
+    success, error = license_hierarchy_service.update_child_entitlements(
+        child_license=child_license,
+        entitlements=entitlements,
+        limits=limits if limits else None
+    )
+
+    if not success:
+        return UpdateChildEntitlementsPayload(success=False, error=error)
+
+    child_license.refresh_from_db()
+    return UpdateChildEntitlementsPayload(
+        success=True,
+        license=LicenseType.from_model(child_license)
+    )
+
+
+def transfer_child_license(info: strawberry.types.Info, input: TransferChildLicenseInput) -> TransferChildLicensePayload:
+    if not info.context.request.user.is_authenticated:
+        return TransferChildLicensePayload(success=False, error="Authentication required")
+
+    user_orgs = list(get_user_organizations(info.context.request.user))
+
+    try:
+        child_license = License.objects.select_related('parent_license', 'organization').get(
+            id=input.child_license_id
+        )
+    except License.DoesNotExist:
+        return TransferChildLicensePayload(success=False, error="Child license not found")
+
+    if child_license.parent_license_id:
+        if child_license.parent_license.organization_id not in user_orgs:
+            return TransferChildLicensePayload(success=False, error="Access denied to current parent")
+
+    try:
+        new_parent = License.objects.get(
+            id=input.new_parent_license_id,
+            organization_id__in=user_orgs
+        )
+    except License.DoesNotExist:
+        return TransferChildLicensePayload(success=False, error="New parent license not found")
+
+    success, error = license_hierarchy_service.transfer_child_license(
+        child_license=child_license,
+        new_parent_license=new_parent
+    )
+
+    if not success:
+        return TransferChildLicensePayload(success=False, error=error)
+
+    child_license.refresh_from_db()
+    return TransferChildLicensePayload(
+        success=True,
+        license=LicenseType.from_model(child_license)
+    )
+
+
+def revoke_child_license(info: strawberry.types.Info, child_license_id: uuid.UUID, reason: Optional[str] = None) -> RevokeChildLicensePayload:
+    if not info.context.request.user.is_authenticated:
+        return RevokeChildLicensePayload(success=False, error="Authentication required")
+
+    user_orgs = list(get_user_organizations(info.context.request.user))
+
+    try:
+        child_license = License.objects.select_related('parent_license', 'organization').get(
+            id=child_license_id
+        )
+    except License.DoesNotExist:
+        return RevokeChildLicensePayload(success=False, error="Child license not found")
+
+    if child_license.parent_license_id:
+        if child_license.parent_license.organization_id not in user_orgs:
+            return RevokeChildLicensePayload(success=False, error="Access denied to parent license")
+
+    success, error = license_hierarchy_service.revoke_child_license(
+        child_license=child_license,
+        reason=reason or ""
+    )
+
+    if not success:
+        return RevokeChildLicensePayload(success=False, error=error)
+
+    return RevokeChildLicensePayload(success=True)
+
+
+def propagate_parent_entitlements(info: strawberry.types.Info, parent_license_id: uuid.UUID, force: Optional[bool] = False) -> PropagateParentEntitlementsPayload:
+    if not info.context.request.user.is_authenticated:
+        return PropagateParentEntitlementsPayload(success=False, error="Authentication required")
+
+    user_orgs = list(get_user_organizations(info.context.request.user))
+
+    try:
+        parent_license = License.objects.get(
+            id=parent_license_id,
+            organization_id__in=user_orgs
+        )
+    except License.DoesNotExist:
+        return PropagateParentEntitlementsPayload(success=False, error="Parent license not found")
+
+    if not parent_license.is_parent_license:
+        return PropagateParentEntitlementsPayload(
+            success=False,
+            error="License is not configured as a parent license"
         )
 
-        if not success:
-            return UpdateChildEntitlements(success=False, error=error)
+    updated_count, errors = license_hierarchy_service.propagate_entitlements(
+        parent_license=parent_license,
+        force=force or False
+    )
 
-        child_license.refresh_from_db()
-        return UpdateChildEntitlements(
-            success=True,
-            license=LicenseType.from_model(child_license)
+    return PropagateParentEntitlementsPayload(
+        success=True,
+        updated_count=updated_count,
+        errors=errors
+    )
+
+
+def get_license_hierarchy(info: strawberry.types.Info, parent_license_id: uuid.UUID) -> GetLicenseHierarchyPayload:
+    if not info.context.request.user.is_authenticated:
+        return GetLicenseHierarchyPayload(success=False, error="Authentication required")
+
+    user_orgs = list(get_user_organizations(info.context.request.user))
+
+    try:
+        parent_license = License.objects.select_related('organization').get(
+            id=parent_license_id,
+            organization_id__in=user_orgs
+        )
+    except License.DoesNotExist:
+        return GetLicenseHierarchyPayload(success=False, error="Parent license not found")
+
+    hierarchy_dict = license_hierarchy_service.get_hierarchy_tree(parent_license)
+
+    def dict_to_type(d):
+        return LicenseHierarchyType(
+            id=d['id'],
+            organization_id=d['organization_id'],
+            organization_name=d['organization_name'],
+            status=d['status'],
+            license_type=d['license_type'],
+            features=d['features'],
+            limits=d['limits'],
+            inherit_entitlements=d['inherit_entitlements'],
+            children=[dict_to_type(c) for c in d['children']]
         )
 
-
-class TransferChildLicense(graphene.Mutation):
-    """
-    Transfer a child license to a new parent.
-
-    Requires enterprise tier.
-    """
-    class Arguments:
-        input = TransferChildLicenseInput(required=True)
-
-    license = graphene.Field(LicenseType)
-    success = graphene.Boolean()
-    error = graphene.String()
-
-    @classmethod
-    @require_feature_for_mutation(Features.KEYS_BULK_PROVISIONING)
-    def mutate(cls, root, info, input):
-        if not info.context.user.is_authenticated:
-            return TransferChildLicense(success=False, error="Authentication required")
-
-        user_orgs = list(get_user_organizations(info.context.user))
-
-        try:
-            child_license = License.objects.select_related('parent_license', 'organization').get(
-                id=input.child_license_id
-            )
-        except License.DoesNotExist:
-            return TransferChildLicense(success=False, error="Child license not found")
-
-        # User must have access to current parent's organization
-        if child_license.parent_license_id:
-            if child_license.parent_license.organization_id not in user_orgs:
-                return TransferChildLicense(success=False, error="Access denied to current parent")
-
-        try:
-            new_parent = License.objects.get(
-                id=input.new_parent_license_id,
-                organization_id__in=user_orgs
-            )
-        except License.DoesNotExist:
-            return TransferChildLicense(success=False, error="New parent license not found")
-
-        # Transfer
-        success, error = license_hierarchy_service.transfer_child_license(
-            child_license=child_license,
-            new_parent_license=new_parent
-        )
-
-        if not success:
-            return TransferChildLicense(success=False, error=error)
-
-        child_license.refresh_from_db()
-        return TransferChildLicense(
-            success=True,
-            license=LicenseType.from_model(child_license)
-        )
-
-
-class RevokeChildLicense(graphene.Mutation):
-    """
-    Revoke a child license.
-
-    Requires enterprise tier.
-    """
-    class Arguments:
-        child_license_id = graphene.UUID(required=True)
-        reason = graphene.String()
-
-    success = graphene.Boolean()
-    error = graphene.String()
-
-    @classmethod
-    @require_feature_for_mutation(Features.KEYS_BULK_PROVISIONING)
-    def mutate(cls, root, info, child_license_id, reason=None):
-        if not info.context.user.is_authenticated:
-            return RevokeChildLicense(success=False, error="Authentication required")
-
-        user_orgs = list(get_user_organizations(info.context.user))
-
-        try:
-            child_license = License.objects.select_related('parent_license', 'organization').get(
-                id=child_license_id
-            )
-        except License.DoesNotExist:
-            return RevokeChildLicense(success=False, error="Child license not found")
-
-        # User must have access to parent's organization
-        if child_license.parent_license_id:
-            if child_license.parent_license.organization_id not in user_orgs:
-                return RevokeChildLicense(success=False, error="Access denied to parent license")
-
-        # Revoke
-        success, error = license_hierarchy_service.revoke_child_license(
-            child_license=child_license,
-            reason=reason or ""
-        )
-
-        if not success:
-            return RevokeChildLicense(success=False, error=error)
-
-        return RevokeChildLicense(success=True)
-
-
-class PropagateParentEntitlements(graphene.Mutation):
-    """
-    Propagate entitlements from parent to all child licenses.
-
-    Requires enterprise tier.
-    """
-    class Arguments:
-        parent_license_id = graphene.UUID(required=True)
-        force = graphene.Boolean()
-
-    updated_count = graphene.Int()
-    errors = graphene.List(graphene.String)
-    success = graphene.Boolean()
-    error = graphene.String()
-
-    @classmethod
-    @require_feature_for_mutation(Features.KEYS_BULK_PROVISIONING)
-    def mutate(cls, root, info, parent_license_id, force=False):
-        if not info.context.user.is_authenticated:
-            return PropagateParentEntitlements(success=False, error="Authentication required")
-
-        user_orgs = list(get_user_organizations(info.context.user))
-
-        try:
-            parent_license = License.objects.get(
-                id=parent_license_id,
-                organization_id__in=user_orgs
-            )
-        except License.DoesNotExist:
-            return PropagateParentEntitlements(success=False, error="Parent license not found")
-
-        if not parent_license.is_parent_license:
-            return PropagateParentEntitlements(
-                success=False,
-                error="License is not configured as a parent license"
-            )
-
-        updated_count, errors = license_hierarchy_service.propagate_entitlements(
-            parent_license=parent_license,
-            force=force or False
-        )
-
-        return PropagateParentEntitlements(
-            success=True,
-            updated_count=updated_count,
-            errors=errors
-        )
-
-
-class GetLicenseHierarchy(graphene.Mutation):
-    """
-    Get the full license hierarchy tree for a parent license.
-
-    Requires enterprise tier.
-    """
-    class Arguments:
-        parent_license_id = graphene.UUID(required=True)
-
-    hierarchy = graphene.Field(LicenseHierarchyType)
-    success = graphene.Boolean()
-    error = graphene.String()
-
-    @classmethod
-    @require_feature_for_mutation(Features.KEYS_BULK_PROVISIONING)
-    def mutate(cls, root, info, parent_license_id):
-        if not info.context.user.is_authenticated:
-            return GetLicenseHierarchy(success=False, error="Authentication required")
-
-        user_orgs = list(get_user_organizations(info.context.user))
-
-        try:
-            parent_license = License.objects.select_related('organization').get(
-                id=parent_license_id,
-                organization_id__in=user_orgs
-            )
-        except License.DoesNotExist:
-            return GetLicenseHierarchy(success=False, error="Parent license not found")
-
-        hierarchy_dict = license_hierarchy_service.get_hierarchy_tree(parent_license)
-
-        # Convert to GraphQL type
-        def dict_to_type(d):
-            return LicenseHierarchyType(
-                id=d['id'],
-                organization_id=d['organization_id'],
-                organization_name=d['organization_name'],
-                status=d['status'],
-                license_type=d['license_type'],
-                features=d['features'],
-                limits=d['limits'],
-                inherit_entitlements=d['inherit_entitlements'],
-                children=[dict_to_type(c) for c in d['children']]
-            )
-
-        return GetLicenseHierarchy(
-            success=True,
-            hierarchy=dict_to_type(hierarchy_dict)
-        )
+    return GetLicenseHierarchyPayload(
+        success=True,
+        hierarchy=dict_to_type(hierarchy_dict)
+    )
