@@ -142,20 +142,42 @@ class EvaluateView(APIView):
             in_cost, out_cost = UsageTrackingService.calculate_cost(model, input_tokens, output_tokens)
             cost = float(in_cost + out_cost)
 
+        import json as _json
+
+        if tool_input and isinstance(tool_input, dict):
+            input_text = _json.dumps(tool_input, default=str)[:2000]
+        elif tool_input:
+            input_text = str(tool_input)[:2000]
+        else:
+            input_text = tool
+
+        classification = 'governance'
+        if action == 'tool_call':
+            classification = 'tool_use'
+        elif action in ('llm:invoke', 'llm:response'):
+            classification = 'model_request'
+
+        topics = [action]
+        if tool and tool != action:
+            topics.append(tool)
+
         try:
             InteractionLog.objects.create(
                 tenant_id=endpoint.tenant_id,
                 endpoint=endpoint,
                 deployment_id_ext=endpoint.deployment_id_ext,
                 user_identifier=request_data.get('user_id', ''),
+                session_id=ctx.get('session_id', ''),
                 interaction_type=interaction_type,
                 ai_provider=provider,
                 ai_model=model,
-                input_content=f"{tool}: {str(tool_input)[:200]}" if tool_input else tool,
+                input_content=input_text,
                 input_token_count=input_tokens or None,
                 output_token_count=output_tokens or None,
                 total_tokens=(input_tokens + output_tokens) or None,
                 estimated_cost_usd=cost,
+                classification=classification,
+                topics=topics,
                 tool_calls=[{'tool': tool, 'input': tool_input, 'status': 'allowed' if result.allowed else 'blocked'}],
                 occurred_at=timezone.now(),
             )

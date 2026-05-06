@@ -188,6 +188,8 @@ class ProxyView(View):
                 except (ValueError, TypeError):
                     pass
 
+        context['_body_bytes'] = body_bytes
+
         # 5. Policy evaluation
         engine = PolicyEngine()
         eval_result = engine.evaluate(endpoint, 'llm:invoke', context=context)
@@ -380,22 +382,44 @@ class ProxyView(View):
             in_cost, out_cost = UsageTrackingService.calculate_cost(model, input_tokens, output_tokens)
             cost = float(in_cost + out_cost)
 
+        body_bytes = context.get('_body_bytes', b'')
+        input_preview = ''
+        if body_bytes:
+            try:
+                body_json = json.loads(body_bytes)
+                messages = body_json.get('messages', [])
+                if messages:
+                    last_msg = messages[-1]
+                    content = last_msg.get('content', '')
+                    input_preview = content[:2000] if isinstance(content, str) else json.dumps(content, default=str)[:2000]
+                else:
+                    input_preview = body_json.get('prompt', '')[:2000]
+            except (ValueError, TypeError):
+                pass
+        if not input_preview:
+            input_preview = f"{provider}/{context.get('path', '')}"
+
+        user_identifier = context.get('user_id', '')
+
         try:
             InteractionLog.objects.create(
                 tenant_id=endpoint.tenant_id,
                 endpoint=endpoint,
                 deployment_id_ext=endpoint.deployment_id_ext,
-                user_identifier='',
+                user_identifier=user_identifier,
+                session_id=context.get('session_id', ''),
                 interaction_type=InteractionLog.InteractionType.CHAT,
                 ai_provider=provider,
                 ai_model=model or endpoint.agent_type,
-                input_content=f"llm:invoke {provider}/{context.get('path', '')}",
+                input_content=input_preview,
                 input_token_count=input_tokens or None,
                 output_content=output_content or None,
                 output_token_count=output_tokens or None,
                 total_tokens=total_tokens or None,
                 estimated_cost_usd=cost,
                 latency_ms=latency_ms,
+                classification='model_request',
+                topics=[provider, model] if model else [provider],
                 tool_calls=[],
                 occurred_at=timezone.now(),
             )
