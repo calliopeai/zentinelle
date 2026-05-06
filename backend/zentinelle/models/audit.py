@@ -1,7 +1,6 @@
 import uuid
 
 from django.db import models
-from django.conf import settings
 
 
 class AuditLog(models.Model):
@@ -136,22 +135,25 @@ class AuditLog(models.Model):
     @classmethod
     def log(
         cls,
-        organization,
+        tenant_id: str,
         action: str,
         resource_type: str,
         resource_id: str,
         resource_name: str = '',
-        user=None,
+        ext_user_id: str = '',
         api_key_prefix: str = '',
         ip_address: str = None,
         user_agent: str = '',
         changes: dict = None,
         metadata: dict = None,
+        # Legacy kwarg — maps to tenant_id for backward compatibility
+        organization=None,
     ) -> 'AuditLog':
         """Factory method to create an audit log entry."""
+        tid = tenant_id or (str(organization) if organization else '')
         return cls.objects.create(
-            organization=organization,
-            user=user,
+            tenant_id=tid,
+            ext_user_id=ext_user_id,
             api_key_prefix=api_key_prefix,
             ip_address=ip_address,
             user_agent=user_agent,
@@ -190,12 +192,11 @@ class AuditLog(models.Model):
             api_key_prefix = auth_header[:12]
 
         return cls.log(
-            organization=organization,
+            tenant_id=str(organization) if organization else '',
             action=action,
             resource_type=resource_type,
             resource_id=resource_id,
             resource_name=resource_name,
-            # user FK removed in standalone mode
             api_key_prefix=api_key_prefix,
             ip_address=ip_address,
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],

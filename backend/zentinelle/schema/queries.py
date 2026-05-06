@@ -43,7 +43,6 @@ from zentinelle.models import (
 )
 from .types import (
     AgentGroupType,
-    AgentGroupConnection,
     AgentEndpointType,
     PolicyType,
     PolicyRevisionType,
@@ -73,26 +72,16 @@ from .types import (
     LicenseComplianceViolationGraphType,
     # Organization (stub types for standalone mode)
     OrganizationType,
-    UpdateOrganizationSettingsPayload,
-    # Notifications (stub types for standalone mode)
     NotificationType,
-    NotificationConnection,
-    # Impersonation (stub)
-    # Billing (stubs)
     UsageMetricsType,
     UsageMetricsSummaryType,
-    UsageAlertConnection,
     UsageAlertType,
     UsageTimeSeriesPointType,
     UsageByAgentType,
-    UsageByEndpointType,
-    ComplianceReportConnection,
     ComplianceReportType,
-    EffectivePolicyConnection,
     EffectivePolicyType,
     PromptCategoryType,
     SystemPromptType,
-    SystemPromptConnection,
     PolicyGraphNodeType,
     PolicyGraphEdgeType,
     PolicyGraphType,
@@ -1144,7 +1133,7 @@ class Query:
 
         from django.utils import timezone
         from datetime import timedelta
-        from zentinelle.models import ComplianceAlert, ContentRule, ContentViolation
+        from zentinelle.models import ComplianceAlert, ContentViolation
 
         user = info.context.request.user
         now = timezone.now()
@@ -1504,62 +1493,55 @@ class Query:
         info: strawberry.types.Info,
         days: int = 7,
     ) -> Optional[AuditAnalyticsType]:
-        """Return ClickHouse-backed analytics for the audit logs page.
-
-        Returns None gracefully when ClickHouse is not configured.
-        """
+        """Audit analytics from ClickHouse (if available) or PostgreSQL fallback."""
         if not info.context.request.user.is_authenticated:
-            return None
-
-        from zentinelle.services import clickhouse_service
-
-        if not clickhouse_service.is_enabled():
             return None
 
         tenant_id = get_request_tenant_id(info.context.request.user)
 
-        timeline_rows = clickhouse_service.event_timeline(
-            days=days,
-            granularity='day',
-            organization_id=tenant_id,
-        )
-        by_type_rows = clickhouse_service.event_counts_by_type(
-            days=days,
-            organization_id=tenant_id,
-        )
-        top_agents_rows = clickhouse_service.top_agents_by_event_count(
-            days=days,
-            organization_id=tenant_id,
-        )
+        from zentinelle.services import clickhouse_service
+        if clickhouse_service.is_enabled():
+            return self._audit_analytics_clickhouse(clickhouse_service, tenant_id, days)
 
-        timeline = [
-            AuditTimelinePointType(
-                bucket=row.get('timestamp'),
-                event_type=row.get('event_type'),
-                count=row.get('count', 0),
-            )
-            for row in timeline_rows
-        ]
-        by_type = [
-            AuditEventCountType(
-                event_type=row.get('event_type', ''),
-                count=row.get('count', 0),
-            )
-            for row in by_type_rows
-        ]
-        top_agents = [
-            AuditTopAgentType(
-                agent_id=row.get('agent_id', ''),
-                event_count=row.get('event_count', 0),
-            )
-            for row in top_agents_rows
-        ]
+        return self._audit_analytics_postgres(tenant_id, days)
+
+    def _audit_analytics_clickhouse(self, ch, tenant_id, days):
+        timeline_rows = ch.event_timeline(days=days, granularity='day', organization_id=tenant_id)
+        by_type_rows = ch.event_counts_by_type(days=days, organization_id=tenant_id)
+        top_agents_rows = ch.top_agents_by_event_count(days=days, organization_id=tenant_id)
 
         return AuditAnalyticsType(
-            timeline=timeline,
-            by_type=by_type,
-            top_agents=top_agents,
+            timeline=[AuditTimelinePointType(bucket=r.get('timestamp'), event_type=r.get('event_type'), count=r.get('count', 0)) for r in timeline_rows],
+            by_type=[AuditEventCountType(event_type=r.get('event_type', ''), count=r.get('count', 0)) for r in by_type_rows],
+            top_agents=[AuditTopAgentType(agent_id=r.get('agent_id', ''), event_count=r.get('event_count', 0)) for r in top_agents_rows],
         )
+
+    @staticmethod
+    def _audit_analytics_postgres(tenant_id, days):
+        from django.utils import timezone
+        from datetime import timedelta
+        from zentinelle.models import AuditLog
+
+        cutoff = timezone.now() - timedelta(days=days)
+        base_qs = AuditLog.objects.filter(tenant_id=tenant_id, timestamp__gte=cutoff)
+
+        by_type_qs = base_qs.values('action').annotate(count=Count('id')).order_by('-count')
+        by_type = [AuditEventCountType(event_type=r['action'], count=r['count']) for r in by_type_qs]
+
+        timeline_qs = base_qs.extra(
+            select={'day': "DATE(timestamp)"}
+        ).values('day', 'action').annotate(count=Count('id')).order_by('day')
+        timeline = [AuditTimelinePointType(bucket=r['day'], event_type=r['action'], count=r['count']) for r in timeline_qs]
+
+        top_agents_qs = (
+            Event.objects.filter(tenant_id=tenant_id, occurred_at__gte=cutoff)
+            .values('endpoint__agent_id')
+            .annotate(event_count=Count('id'))
+            .order_by('-event_count')[:10]
+        )
+        top_agents = [AuditTopAgentType(agent_id=r['endpoint__agent_id'] or '', event_count=r['event_count']) for r in top_agents_qs]
+
+        return AuditAnalyticsType(timeline=timeline, by_type=by_type, top_agents=top_agents)
 
     # Note: resolve_junohub_config, resolve_junohub_configs, resolve_terraform_provision,
     # and resolve_terraform_provisions are now in deployments.schema.queries.DeploymentsQuery
@@ -2377,7 +2359,6 @@ class Query:
     def risk_stats(self, info: strawberry.types.Info) -> Optional[RiskStatsType]:
         """Get aggregated risk and incident statistics."""
         from django.utils import timezone
-        from datetime import timedelta
 
         user = info.context.request.user
 
@@ -2894,7 +2875,6 @@ class Query:
         from zentinelle.models import InteractionLog, Policy
         from django.db.models import Sum
         from django.utils import timezone
-        from datetime import timedelta
         import uuid as _uuid
 
         if not info.context.request.user.is_authenticated:
@@ -3026,7 +3006,6 @@ class Query:
         risk_severity: Optional[str] = None,
         include_incidents: Optional[bool] = False,
     ) -> Optional[PolicyGraphType]:
-        import json
         from zentinelle.models import Policy, AgentEndpoint, Risk, Incident
 
         if not info.context.request.user.is_authenticated:

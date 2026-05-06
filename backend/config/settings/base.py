@@ -144,6 +144,10 @@ DATABASES = {
         **_db_config,
         "OPTIONS": {"options": "-c search_path=zentinelle"},
     },
+    "analytics": {
+        **_db_config,
+        "OPTIONS": {"options": "-c search_path=zentinelle_analytics"},
+    },
 }
 
 DATABASE_ROUTERS = ["zentinelle.db_router.ZentinelleRouter"]
