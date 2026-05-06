@@ -110,15 +110,15 @@ class EvaluateView(APIView):
             logger.warning(f"Failed to queue evaluation event: {e}")
 
     def _log_interaction(self, endpoint: AgentEndpoint, request_data: dict, result):
-        """Create an InteractionLog so the monitoring dashboard shows real activity."""
+        """Create an InteractionLog and record usage metrics."""
         from django.utils import timezone
+        from zentinelle.services.usage_tracking import UsageTrackingService
 
         ctx = request_data.get('context', {})
         action = request_data['action']
         tool = ctx.get('tool', action)
         tool_input = ctx.get('tool_input', {})
 
-        # Map action to interaction type
         type_map = {
             'tool_call': InteractionLog.InteractionType.FUNCTION_CALL,
             'llm:invoke': InteractionLog.InteractionType.CHAT,
@@ -127,13 +127,20 @@ class EvaluateView(APIView):
         }
         interaction_type = type_map.get(action, InteractionLog.InteractionType.FUNCTION_CALL)
 
-        # Map agent type to provider
         provider_map = {
             'claude_code': 'anthropic',
             'codex': 'openai',
             'gemini': 'google',
         }
         provider = provider_map.get(endpoint.agent_type, ctx.get('source', ''))
+        model = ctx.get('model', endpoint.agent_type)
+        input_tokens = ctx.get('input_tokens', ctx.get('tokens', 0))
+        output_tokens = ctx.get('output_tokens', 0)
+
+        cost = None
+        if model and (input_tokens or output_tokens):
+            in_cost, out_cost = UsageTrackingService.calculate_cost(model, input_tokens, output_tokens)
+            cost = float(in_cost + out_cost)
 
         try:
             InteractionLog.objects.create(
@@ -143,10 +150,29 @@ class EvaluateView(APIView):
                 user_identifier=request_data.get('user_id', ''),
                 interaction_type=interaction_type,
                 ai_provider=provider,
-                ai_model=ctx.get('model', endpoint.agent_type),
+                ai_model=model,
                 input_content=f"{tool}: {str(tool_input)[:200]}" if tool_input else tool,
+                input_token_count=input_tokens or None,
+                output_token_count=output_tokens or None,
+                total_tokens=(input_tokens + output_tokens) or None,
+                estimated_cost_usd=cost,
                 tool_calls=[{'tool': tool, 'input': tool_input, 'status': 'allowed' if result.allowed else 'blocked'}],
                 occurred_at=timezone.now(),
             )
         except Exception as e:
             logger.warning(f"Failed to log interaction: {e}")
+
+        if input_tokens or output_tokens:
+            try:
+                UsageTrackingService.record_usage(
+                    tenant_id=endpoint.tenant_id,
+                    user_identifier=request_data.get('user_id', ''),
+                    provider=provider,
+                    model=model,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    endpoint=endpoint,
+                    deployment_id_ext=endpoint.deployment_id_ext,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to record usage: {e}")

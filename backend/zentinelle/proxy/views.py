@@ -192,8 +192,7 @@ class ProxyView(View):
         engine = PolicyEngine()
         eval_result = engine.evaluate(endpoint, 'llm:invoke', context=context)
 
-        # Log to InteractionLog for monitoring dashboard
-        self._log_interaction(endpoint, provider, context, eval_result)
+        # Interaction logging happens after we have the upstream response
 
         if not eval_result.allowed:
             return JsonResponse(
@@ -281,6 +280,9 @@ class ProxyView(View):
                         except Exception as exc:
                             logger.warning('Streaming output filter evaluation failed: %s', exc)
 
+                self._log_interaction(endpoint, provider, context, eval_result,
+                                     response_body=full_content, upstream_status=upstream_status)
+
                 def stream_generator():
                     for chunk in buffered_chunks:
                         yield chunk
@@ -318,6 +320,10 @@ class ProxyView(View):
                     except Exception as exc:  # noqa: BLE001
                         logger.warning('Output filter evaluation failed: %s', exc)
 
+                self._log_interaction(endpoint, provider, context, eval_result,
+                                     response_body=response_body,
+                                     upstream_status=upstream_response.status_code)
+
                 from django.http import HttpResponse
                 django_response = HttpResponse(
                     response_body,
@@ -347,13 +353,32 @@ class ProxyView(View):
                 status=502,
             )
 
-    def _log_interaction(self, endpoint, provider, context, eval_result):
-        """Log proxy request to InteractionLog for the monitoring dashboard."""
+    def _log_interaction(self, endpoint, provider, context, eval_result,
+                         response_body=None, upstream_status=None):
+        """Log proxy request to InteractionLog and record usage metrics."""
         from django.utils import timezone
         from zentinelle.models.compliance import InteractionLog
+        from zentinelle.services.usage_tracking import UsageTrackingService
 
         model = context.get('model', '')
         input_tokens = context.get('input_tokens', 0)
+        output_tokens = 0
+        output_content = ''
+        latency_ms = None
+        total_tokens = input_tokens
+
+        if response_body:
+            parsed = self._parse_provider_response(provider, response_body)
+            output_tokens = parsed.get('output_tokens', 0)
+            input_tokens = parsed.get('input_tokens', input_tokens)
+            total_tokens = input_tokens + output_tokens
+            output_content = parsed.get('output_text', '')[:2000]
+            latency_ms = parsed.get('latency_ms')
+
+        cost = None
+        if model and total_tokens > 0:
+            in_cost, out_cost = UsageTrackingService.calculate_cost(model, input_tokens, output_tokens)
+            cost = float(in_cost + out_cost)
 
         try:
             InteractionLog.objects.create(
@@ -366,8 +391,76 @@ class ProxyView(View):
                 ai_model=model or endpoint.agent_type,
                 input_content=f"llm:invoke {provider}/{context.get('path', '')}",
                 input_token_count=input_tokens or None,
+                output_content=output_content or None,
+                output_token_count=output_tokens or None,
+                total_tokens=total_tokens or None,
+                estimated_cost_usd=cost,
+                latency_ms=latency_ms,
                 tool_calls=[],
                 occurred_at=timezone.now(),
             )
         except Exception as e:
             logger.warning('Failed to log proxy interaction: %s', e)
+
+        if total_tokens > 0:
+            try:
+                UsageTrackingService.record_usage(
+                    tenant_id=endpoint.tenant_id,
+                    user_identifier='',
+                    provider=provider,
+                    model=model or endpoint.agent_type,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    endpoint=endpoint,
+                    deployment_id_ext=endpoint.deployment_id_ext,
+                )
+            except Exception as e:
+                logger.warning('Failed to record proxy usage: %s', e)
+
+    @staticmethod
+    def _parse_provider_response(provider, response_body):
+        """Extract token counts from upstream provider response."""
+        result = {}
+        try:
+            if isinstance(response_body, bytes):
+                text = response_body.decode('utf-8', errors='replace')
+            else:
+                text = str(response_body)
+
+            if text.startswith('data: '):
+                text_content = _extract_sse_text(response_body if isinstance(response_body, bytes) else response_body.encode())
+                result['output_text'] = text_content
+                for line in text.splitlines():
+                    if not line.startswith('data: '):
+                        continue
+                    data_str = line[6:].strip()
+                    if data_str == '[DONE]':
+                        break
+                    try:
+                        data = json.loads(data_str)
+                        usage = data.get('usage', {})
+                        if usage:
+                            result['input_tokens'] = usage.get('input_tokens', usage.get('prompt_tokens', 0))
+                            result['output_tokens'] = usage.get('output_tokens', usage.get('completion_tokens', 0))
+                    except (ValueError, TypeError):
+                        continue
+            else:
+                data = json.loads(text)
+                usage = data.get('usage', {})
+                if usage:
+                    result['input_tokens'] = usage.get('input_tokens', usage.get('prompt_tokens', 0))
+                    result['output_tokens'] = usage.get('output_tokens', usage.get('completion_tokens', 0))
+
+                choices = data.get('choices', [])
+                if choices:
+                    msg = choices[0].get('message', {})
+                    result['output_text'] = msg.get('content', '')
+
+                content = data.get('content', [])
+                if content and isinstance(content, list):
+                    texts = [c.get('text', '') for c in content if c.get('type') == 'text']
+                    result['output_text'] = ''.join(texts)
+
+        except Exception:
+            pass
+        return result
