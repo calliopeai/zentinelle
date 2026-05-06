@@ -51,18 +51,18 @@ class HeartbeatView(APIView):
         """Handle heartbeat from an agent."""
         auth_endpoint = get_endpoint_from_request(request)
 
-        # Verify agent_id matches
         if auth_endpoint.agent_id != data['agent_id']:
             return Response(
                 {'error': 'Agent ID mismatch'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Collect endpoint updates first, then save once
+        now = timezone.now()
         health_status = data.get('status', AgentEndpoint.Health.HEALTHY)
+        previous_heartbeat = auth_endpoint.last_heartbeat
 
         endpoint_update_fields = ['updated_at', 'last_heartbeat']
-        auth_endpoint.last_heartbeat = timezone.now()
+        auth_endpoint.last_heartbeat = now
 
         if health_status and health_status in AgentEndpoint.Health.values:
             auth_endpoint.health = health_status
@@ -70,7 +70,12 @@ class HeartbeatView(APIView):
 
         auth_endpoint.save(update_fields=endpoint_update_fields)
 
-        # Create heartbeat event (async)
+        config_changed = self._detect_config_change(
+            auth_endpoint, previous_heartbeat,
+            data.get('config_hash'), data.get('secrets_hash'),
+        )
+        next_heartbeat = self._compute_next_heartbeat(auth_endpoint)
+
         self._create_agent_heartbeat_event(
             auth_endpoint,
             health_status,
@@ -79,10 +84,32 @@ class HeartbeatView(APIView):
             data.get('secrets_hash'),
         )
 
-        return Response(
-            {'acknowledged': True},
-            status=status.HTTP_202_ACCEPTED
-        )
+        return Response({
+            'acknowledged': True,
+            'config_changed': config_changed,
+            'next_heartbeat_seconds': next_heartbeat,
+        }, status=status.HTTP_202_ACCEPTED)
+
+    def _detect_config_change(self, endpoint, previous_heartbeat, agent_config_hash, agent_secrets_hash):
+        """Detect whether the agent's config is stale."""
+        import hashlib
+        import json
+
+        if agent_config_hash:
+            server_hash = hashlib.sha256(
+                json.dumps(endpoint.config, sort_keys=True).encode()
+            ).hexdigest()
+            if agent_config_hash != server_hash:
+                return True
+
+        if previous_heartbeat and endpoint.updated_at > previous_heartbeat:
+            return True
+
+        return False
+
+    def _compute_next_heartbeat(self, endpoint):
+        """Return the suggested heartbeat interval based on agent config."""
+        return endpoint.config.get('heartbeat_interval_seconds', 60)
 
     def _create_agent_heartbeat_event(
         self,
