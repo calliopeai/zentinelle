@@ -9,7 +9,7 @@ Zentinelle is a Django 5.0 backend with a Next.js 14 management portal. Agents c
 │                         Zentinelle Service                           │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  REST API  /api/zentinelle/                                  │   │
+│  │  REST API  /api/zentinelle/v1/                               │   │
 │  │  register · evaluate · config · events · heartbeat · secrets │   │
 │  └───────────────────────┬──────────────────────────────────────┘   │
 │                          │                                           │
@@ -157,20 +157,20 @@ When running as a fully standalone service (no Client Cove): set `zentinelle` DB
 ```
 Agent SDK
   │
-  │ POST /api/zentinelle/evaluate
+  │ POST /api/zentinelle/v1/evaluate
   ▼
 nginx → Django (gunicorn)
   │
-  ├── Auth middleware: validate JWT → Redis cache → Client Cove callout
+  ├── Agent auth: validate X-Zentinelle-Key → AgentEndpoint lookup
   │
-  ├── Load tenant policy set (Redis cache → DB)
+  ├── Load endpoint + effective policy set (Redis cache → DB)
   │
   ├── Policy engine: evaluate all applicable policies
   │   └── scope resolution: org → team → deployment → endpoint → user
   │
   ├── Content scanner (if content policy present): PII / toxicity / jailbreak
   │
-  └── Response: { allowed: bool, reason: str, restrictions: {} }
+  └── Response: { allowed, reason, policies_evaluated, warnings, context }
 ```
 
 ### Management Portal Call

@@ -2,34 +2,54 @@
 
 Zentinelle exposes two API surfaces:
 
-- **REST API** (`/api/zentinelle/`) — agent-facing. Used by the SDK. Optimized for low latency.
+- **REST API** (`/api/zentinelle/v1/`) — agent-facing. Used by SDKs and direct agent integrations.
 - **GraphQL** (`/gql/zentinelle/`) — management portal. Used by the GRC frontend. Full CRUD.
 
 ---
 
 ## REST API (Agent-Facing)
 
-All endpoints require `Authorization: Bearer <api_key>` (obtained at registration).
+Base URL: `https://your-zentinelle.example.com/api/zentinelle/v1`
 
-Base URL: `https://your-zentinelle.example.com/api/zentinelle/`
+### Authentication
+
+- `POST /register` requires `X-Zentinelle-Bootstrap: bt_<tenant_id>_<signature>`
+- All other agent endpoints require `X-Zentinelle-Key: sk_agent_...`
+- In standalone mode, bootstrap tokens are HMAC-signed with `ZENTINELLE_BOOTSTRAP_SECRET`
+
+### Core SDK Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/register` | Register an agent and mint its runtime API key |
+| `GET` | `/config/{agent_id}` | Fetch current config and effective policies |
+| `GET` | `/secrets` | Fetch secrets for the authenticated agent |
+| `GET` | `/secrets/{agent_id}` | SDK-compatible secrets lookup scoped to one agent |
+| `POST` | `/evaluate` | Evaluate a guarded action before execution |
+| `POST` | `/events` | Submit buffered telemetry, audit, and alert events |
+| `POST` | `/heartbeat` | Report health and liveness |
+| `POST` | `/deregister` | Deactivate an agent endpoint |
+
+Additional compliance and reporting endpoints also live under `/api/zentinelle/v1`, but the sections below focus on the runtime contract consumed by the SDKs.
 
 ---
 
 ### POST /register
 
-Register a new agent. Returns an API key for all subsequent calls.
+Register a new agent and return the runtime key for all subsequent calls.
 
-**Auth:** `Authorization: Bearer <tenant_api_key>` (org-level key, not agent key)
+**Auth:** `X-Zentinelle-Bootstrap: bt_<tenant_id>_<signature>`
 
 **Request:**
 ```json
 {
-  "name": "my-research-agent",
-  "capabilities": ["llm:invoke", "tool:search", "tool:code_exec"],
-  "deployment_id": "dep_abc123",
+  "agent_id": "codex-dev-agent",
+  "name": "Codex Dev Agent",
+  "agent_type": "codex",
+  "capabilities": ["chat", "tool:search"],
   "metadata": {
     "version": "1.2.0",
-    "framework": "langchain"
+    "framework": "codex"
   }
 }
 ```
@@ -37,50 +57,124 @@ Register a new agent. Returns an API key for all subsequent calls.
 **Response `201`:**
 ```json
 {
-  "agent_id": "my-research-agent-x7k2",
-  "api_key": "zk_live_...",
-  "api_key_prefix": "zk_live_x7k",
-  "config": { ... },
-  "policies": [ ... ]
+  "agent_id": "codex-dev-agent",
+  "api_key": "sk_agent_...",
+  "config": {
+    "heartbeat_interval_seconds": 60,
+    "event_batch_size": 100,
+    "event_flush_interval_seconds": 5,
+    "config_refresh_interval_seconds": 300
+  },
+  "policies": []
 }
 ```
 
 **Notes:**
-- `agent_id` is a slug. Unique within tenant.
-- `api_key` is returned once — store it. Only `api_key_hash` and `api_key_prefix` are stored server-side.
-- `capabilities` determines which policy types apply to this agent.
+- `agent_id` is optional. If omitted, the server generates a slug from `agent_type`.
+- `name` is optional. If omitted, it defaults to the final `agent_id`.
+- `agent_type` must be one of the backend enum values such as `codex`, `claude_code`, `gemini`, `langchain`, or `custom`.
+- `api_key` is only returned during registration. SDKs must switch to `X-Zentinelle-Key` after this response.
+
+---
+
+### GET /config/{agent_id}
+
+Fetch runtime config and effective policies for the authenticated agent.
+
+**Auth:** `X-Zentinelle-Key: sk_agent_...`
+
+**Response `200`:**
+```json
+{
+  "agent_id": "codex-dev-agent",
+  "config": {
+    "heartbeat_interval_seconds": 60,
+    "event_batch_size": 100,
+    "event_flush_interval_seconds": 5,
+    "config_refresh_interval_seconds": 300
+  },
+  "policies": [
+    {
+      "id": "8f08664c-8f3e-4df7-b117-4af39b4d1fe0",
+      "name": "Tool Allowlist",
+      "type": "tool_permission",
+      "enforcement": "enforce",
+      "config": {
+        "allowed_tools": ["web_search"]
+      }
+    }
+  ],
+  "updated_at": "2026-04-09T18:00:00+00:00"
+}
+```
+
+**Notes:**
+- The `{agent_id}` path must match the authenticated agent or the server returns `403`.
+- SDKs cache this response and refresh it periodically or after a heartbeat drift signal.
+
+---
+
+### GET /secrets
+
+Return secrets scoped to the authenticated agent.
+
+**Auth:** `X-Zentinelle-Key: sk_agent_...`
+
+**Response `200`:**
+```json
+{
+  "secrets": {},
+  "providers": {},
+  "expires_at": "2026-04-09T18:01:00+00:00"
+}
+```
+
+### GET /secrets/{agent_id}
+
+SDK-compatible variant of the secrets endpoint. The authenticated agent may only request its own `agent_id`.
+
+**Notes:**
+- In this standalone repo, managed secret bundles are stubbed, so the endpoint currently returns an empty payload when no secrets are provisioned.
+- SDKs typically call `/secrets/{agent_id}`; `/secrets` is a convenience alias for the current agent.
 
 ---
 
 ### POST /evaluate
 
-Check a request against active policies. Call this before executing any LLM call or tool use.
+Check an action against active policies before executing it.
+
+**Auth:** `X-Zentinelle-Key: sk_agent_...`
 
 **Request:**
 ```json
 {
-  "request_type": "llm.invoke",
-  "model": "gpt-4o",
-  "tokens_requested": 2000,
-  "messages": [...],
+  "agent_id": "codex-dev-agent",
+  "action": "tool_call",
+  "user_id": "user_xyz",
   "context": {
-    "user_id": "user_xyz",
-    "session_id": "sess_abc"
+    "tool": "web_search"
   }
 }
 ```
 
-**Response `200`:**
+**Response `200` (allowed):**
 ```json
 {
   "allowed": true,
-  "policies_evaluated": 12,
-  "restrictions": {
-    "max_tokens": 4000,
-    "allowed_models": ["gpt-4o", "claude-3-5-sonnet"]
-  },
+  "reason": null,
+  "policies_evaluated": [
+    {
+      "id": "8f08664c-8f3e-4df7-b117-4af39b4d1fe0",
+      "name": "Tool Allowlist",
+      "type": "tool_permission",
+      "result": "pass",
+      "message": null
+    }
+  ],
   "warnings": [],
-  "evaluation_id": "eval_..."
+  "context": {
+    "tool": "web_search"
+  }
 }
 ```
 
@@ -88,78 +182,49 @@ Check a request against active policies. Call this before executing any LLM call
 ```json
 {
   "allowed": false,
-  "reason": "rate_limit_exceeded",
-  "policy_id": "pol_...",
-  "retry_after": 60
+  "reason": "Tool web_search is not permitted",
+  "policies_evaluated": [
+    {
+      "id": "8f08664c-8f3e-4df7-b117-4af39b4d1fe0",
+      "name": "Tool Allowlist",
+      "type": "tool_permission",
+      "result": "fail",
+      "message": "Tool web_search is not permitted"
+    }
+  ],
+  "warnings": [],
+  "context": {
+    "tool": "web_search"
+  }
 }
 ```
 
 **Notes:**
 - Always returns `200`. Check `allowed` field. Non-2xx means service error.
-- On timeout, SDK fails open (continues) unless `fail_open: false` is set.
-- `evaluation_id` links to the `InteractionLog` record.
-
----
-
-### GET /config
-
-Fetch current configuration and policy set for this agent. SDK caches this response.
-
-**Response `200`:**
-```json
-{
-  "agent_id": "my-research-agent-x7k2",
-  "policies": [
-    {
-      "id": "pol_...",
-      "type": "rate_limit",
-      "config": { "requests_per_minute": 60 },
-      "scope": "org"
-    }
-  ],
-  "allowed_models": ["gpt-4o", "claude-3-5-sonnet"],
-  "features": {
-    "content_scanning": true,
-    "audit_logging": true
-  },
-  "cache_ttl": 300
-}
-```
-
-**Notes:**
-- SDK caches this for `cache_ttl` seconds. Stale config is used if Zentinelle is unreachable.
-- Config changes propagate within one cache TTL cycle.
+- `policies_evaluated` entries use `result: "pass" | "fail"` plus an optional `message`.
+- The request `agent_id` must match the authenticated agent or the server returns `403`.
 
 ---
 
 ### POST /events
 
-Ingest telemetry events. Accepts bulk batches for efficiency.
+Ingest telemetry, audit, or alert events in bulk.
+
+**Auth:** `X-Zentinelle-Key: sk_agent_...`
 
 **Request:**
 ```json
 {
+  "agent_id": "codex-dev-agent",
   "events": [
     {
-      "type": "llm.response",
+      "type": "tool_call",
+      "category": "audit",
       "timestamp": "2026-03-14T18:00:00Z",
-      "evaluation_id": "eval_...",
-      "data": {
-        "model": "gpt-4o",
-        "tokens_input": 1200,
-        "tokens_output": 647,
-        "cost_usd": 0.0187,
-        "latency_ms": 1420,
-        "finish_reason": "stop"
-      }
-    },
-    {
-      "type": "tool.invoked",
-      "timestamp": "2026-03-14T18:00:01Z",
-      "data": {
-        "tool": "search",
-        "query": "...",
-        "result_count": 10
+      "user_id": "user_xyz",
+      "payload": {
+        "tool": "web_search",
+        "duration_ms": 1420
       }
     }
   ]
@@ -168,76 +233,55 @@ Ingest telemetry events. Accepts bulk batches for efficiency.
 
 **Response `202`:**
 ```json
-{ "accepted": 2, "dropped": 0 }
+{
+  "accepted": 1,
+  "batch_id": "batch_9e6d7d0f9b324d7c"
+}
 ```
 
-**Event types:**
-
-| Type | Description |
-|------|-------------|
-| `llm.invoke` | LLM call initiated |
-| `llm.response` | LLM response received (with token counts, cost) |
-| `tool.invoked` | Tool/function called |
-| `tool.result` | Tool result returned |
-| `agent.started` | Agent session started |
-| `agent.stopped` | Agent session ended |
-| `policy.blocked` | Request blocked by policy |
-| `error.occurred` | Agent error |
-
 **Notes:**
-- SDK buffers events locally and flushes in batches (default: 100 events or 5s).
+- `category` must be one of `telemetry`, `audit`, or `alert`.
+- `type` is free-form and stored as the event type.
 - `202 Accepted` means queued for processing, not yet committed to DB.
 
 ---
 
 ### POST /heartbeat
 
-Report agent health status. Call periodically (default: every 30s).
+Report agent health and liveness.
+
+**Auth:** `X-Zentinelle-Key: sk_agent_...`
 
 **Request:**
 ```json
 {
+  "agent_id": "codex-dev-agent",
   "status": "healthy",
   "metrics": {
     "requests_processed": 142,
     "errors_last_5min": 0,
     "avg_latency_ms": 1340
+  },
+  "config_hash": "sha256:abc123",
+  "secrets_hash": "sha256:def456",
+  "version": "1.2.0",
+  "telemetry": {
+    "uptime_seconds": 3600
   }
 }
 ```
 
-**Response `200`:**
+**Response `202`:**
 ```json
 {
-  "acknowledged": true,
-  "config_version": "v14",
-  "config_updated": false
+  "acknowledged": true
 }
 ```
 
 **Notes:**
-- If `config_updated: true`, SDK should re-fetch `/config`.
-- Agent status goes `unhealthy` after 3 missed heartbeats (90s default).
-
----
-
-### GET /secrets
-
-Retrieve scoped secrets for this agent. Secrets are stored encrypted, scoped to tenant/deployment/agent.
-
-**Response `200`:**
-```json
-{
-  "secrets": {
-    "OPENAI_API_KEY": "sk-...",
-    "ANTHROPIC_API_KEY": "sk-ant-..."
-  }
-}
-```
-
-**Notes:**
-- Only secrets explicitly granted to this agent's scope are returned.
-- Secrets are decrypted server-side and transmitted over TLS. Never stored in agent code or environment.
+- `status` must be one of `healthy`, `degraded`, `unhealthy`, or `unknown`.
+- The current standalone implementation returns `{"acknowledged": true}` and HTTP `202`.
+- SDKs should tolerate future optional fields such as drift or sync signals in the heartbeat response.
 
 ---
 

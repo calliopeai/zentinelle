@@ -7,6 +7,8 @@ Agent-facing REST endpoints:
 - POST /api/zentinelle/v1/register
 - POST /api/zentinelle/v1/deregister
 - GET  /api/zentinelle/v1/config/{agent_id}
+- GET  /api/zentinelle/v1/secrets
+- GET  /api/zentinelle/v1/secrets/{agent_id}
 - POST /api/zentinelle/v1/events
 - POST /api/zentinelle/v1/heartbeat
 - POST /api/zentinelle/v1/evaluate
@@ -40,6 +42,7 @@ from django.urls import path
 from zentinelle.api.views import (
     RegisterView,
     ConfigView,
+    SecretsView,
     EventsView,
     HeartbeatView,
     EvaluateView,
@@ -77,6 +80,8 @@ urlpatterns = [
     path('register', RegisterView.as_view(), name='register'),
     path('deregister', DeregisterView.as_view(), name='deregister'),
     path('config/<str:agent_id>', ConfigView.as_view(), name='config'),
+    path('secrets', SecretsView.as_view(), name='secrets'),
+    path('secrets/<str:agent_id>', SecretsView.as_view(), name='secrets-agent'),
     path('events', EventsView.as_view(), name='events'),
     path('heartbeat', HeartbeatView.as_view(), name='heartbeat'),
     path('evaluate', EvaluateView.as_view(), name='evaluate'),

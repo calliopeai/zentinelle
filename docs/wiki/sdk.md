@@ -1,297 +1,256 @@
 # SDK Guide
 
-The Zentinelle SDK is a lightweight client library that connects your agent to the Zentinelle service. It handles registration, policy evaluation, telemetry, and resilience patterns.
+The Zentinelle SDKs wrap the agent-facing REST API at `/api/zentinelle/v1`. All maintained clients now follow the same bootstrap-to-runtime auth flow and the same core endpoint set.
 
 SDK source: [github.com/calliopeai/zentinelle-sdk](https://github.com/calliopeai/zentinelle-sdk)
 
-## Supported Languages
+## Supported SDKs
 
-| Language | Package | Status |
-|----------|---------|--------|
-| Python | `zentinelle` (PyPI) | Stable |
-| TypeScript/Node | `zentinelle` (npm) | Stable |
-| Go | `github.com/calliopeai/zentinelle-go` | Stable |
-| Java | `ai.zentinelle:zentinelle-sdk` | Stable |
-| C# | `Zentinelle.SDK` (NuGet) | Stable |
+| Language | Source Directory | Notes |
+|----------|------------------|-------|
+| Python | `python/zentinelle` | Synchronous client with background flush and heartbeat threads |
+| TypeScript / Node | `typescript/src` | Async client for Node and compatible runtimes |
+| Go | `go/zentinelle` | `context.Context`-based API |
+| Java | `java/src/main/java/ai/zentinelle` | Builder-style client |
+| C# | `csharp/src/Zentinelle` | Async-first client |
 
-## Core Interface
+## Shared Flow
 
-All SDK implementations expose the same interface:
+1. Create a client with a bootstrap token (`bt_...`), `agent_type`, and the Zentinelle service endpoint.
+2. Call `register()` once on startup.
+3. The server returns `agent_id`, a runtime `api_key`, initial `config`, and `policies`.
+4. The SDK swaps from `X-Zentinelle-Bootstrap` to `X-Zentinelle-Key` automatically after registration.
+5. Call `evaluate()` before guarded actions, `emit()` after them, and use `getConfig()` / `getSecrets()` for cached runtime state.
+6. Let background heartbeat and flush loops run, or call the explicit flush/shutdown methods before exit.
 
-```
-register(capabilities)    → agent_id, api_key, initial_config
-evaluate(context)         → { allowed, restrictions, evaluation_id }
-get_config()              → current policy set (cached)
-get_secrets()             → scoped secrets dict
-emit(event)               → queued for async send
-heartbeat(metrics)        → ack, config_updated flag
-```
+## Shared Runtime Contract
 
----
+All maintained SDKs target these endpoints:
+
+| Method | Path | Used For |
+|--------|------|----------|
+| `POST` | `/register` | Bootstrap registration |
+| `GET` | `/config/{agent_id}` | Runtime config and effective policies |
+| `GET` | `/secrets/{agent_id}` | Scoped secrets |
+| `POST` | `/evaluate` | Guardrail and policy checks |
+| `POST` | `/events` | Buffered telemetry, audit, and alert events |
+| `POST` | `/heartbeat` | Health and liveness reporting |
+
+Notes:
+
+- Registration uses `X-Zentinelle-Bootstrap`; runtime requests use `X-Zentinelle-Key`.
+- In this standalone repo, `/secrets` and `/secrets/{agent_id}` currently return an empty bundle unless secret provisioning is implemented externally.
+- Heartbeat currently returns `202 Accepted` with `{"acknowledged": true}`. SDKs are tolerant of future drift/sync fields.
 
 ## Python
 
-```bash
-pip install zentinelle
-```
-
 ```python
-from zentinelle import ZentinelleClient, ZentinelleConfig
+from zentinelle import ZentinelleClient
 
-config = ZentinelleConfig(
-    api_key="zk_live_...",
-    endpoint="https://zentinelle.your-org.com",
-    fail_open=True,          # continue if Zentinelle unreachable
-    cache_ttl=300,           # seconds to cache config/policy set
-    batch_size=100,          # events to buffer before flush
-    flush_interval=5.0,      # seconds between event flushes
+client = ZentinelleClient(
+    api_key="bt_<tenant_id>_<signature>",
+    agent_type="codex",
+    endpoint="http://localhost:8080",
 )
 
-client = ZentinelleClient(config)
-await client.register(capabilities=["llm:invoke", "tool:search"])
+registration = client.register(
+    capabilities=["chat", "tool:search"],
+    metadata={"version": "1.0.0"},
+    name="codex-dev-agent",
+)
 
-# Before LLM call
-decision = await client.evaluate({
-    "request_type": "llm.invoke",
-    "model": "gpt-4o",
-    "tokens_requested": 2000,
-    "context": {"user_id": "user_xyz"}
-})
+decision = client.evaluate(
+    "tool_call",
+    user_id="user_123",
+    context={"tool": "web_search"},
+)
 
 if not decision.allowed:
-    raise PolicyViolation(f"Blocked: {decision.reason}")
+    raise PermissionError(decision.reason or "blocked by policy")
 
-# After LLM call
-await client.emit({
-    "type": "llm.response",
-    "evaluation_id": decision.evaluation_id,
-    "data": {
-        "model": "gpt-4o",
-        "tokens_input": 1200,
-        "tokens_output": 647,
-        "cost_usd": 0.0187,
-        "latency_ms": 1420,
-    }
-})
+client.emit(
+    "tool_call",
+    {"tool": "web_search", "duration_ms": 1420},
+    category="audit",
+    user_id="user_123",
+)
+client.flush_events()
+client.shutdown()
 ```
-
-### Context Manager (recommended)
-
-```python
-async with ZentinelleClient(config) as client:
-    await client.register(capabilities=["llm:invoke"])
-    # client flushes all pending events on __aexit__
-```
-
-### Sync API
-
-```python
-from zentinelle.sync import ZentinelleClient
-
-client = ZentinelleClient(config)
-decision = client.evaluate({"model": "gpt-4o", "tokens_requested": 1000})
-```
-
----
 
 ## TypeScript / Node
-
-```bash
-npm install zentinelle
-```
 
 ```typescript
 import { ZentinelleClient } from 'zentinelle';
 
 const client = new ZentinelleClient({
-  apiKey: 'zk_live_...',
-  endpoint: 'https://zentinelle.your-org.com',
-  failOpen: true,
-  cacheTtl: 300,
+  apiKey: 'bt_<tenant_id>_<signature>',
+  agentType: 'codex',
+  endpoint: 'http://localhost:8080',
 });
 
-await client.register({ capabilities: ['llm:invoke', 'tool:search'] });
+const registration = await client.register({
+  capabilities: ['chat', 'tool:search'],
+  metadata: { version: '1.0.0' },
+  name: 'codex-dev-agent',
+});
 
-const decision = await client.evaluate({
-  requestType: 'llm.invoke',
-  model: 'claude-3-5-sonnet',
-  tokensRequested: 2000,
-  context: { userId: 'user_xyz' },
+const decision = await client.evaluate('tool_call', {
+  userId: 'user_123',
+  context: { tool: 'web_search' },
 });
 
 if (!decision.allowed) {
-  throw new PolicyViolationError(decision.reason);
+  throw new Error(decision.reason ?? 'blocked by policy');
 }
 
-await client.emit({
-  type: 'llm.response',
-  evaluationId: decision.evaluationId,
-  data: { model: 'claude-3-5-sonnet', tokensInput: 1100, tokensOutput: 450, costUsd: 0.012 },
-});
-```
+client.emit(
+  'tool_call',
+  { tool: 'web_search', duration_ms: 1420 },
+  { category: 'audit', userId: 'user_123' }
+);
 
----
+await client.flushEvents();
+await client.shutdown();
+```
 
 ## Go
 
-```bash
-go get github.com/calliopeai/zentinelle-go
-```
-
 ```go
-import "github.com/calliopeai/zentinelle-go"
-
-client := zentinelle.NewClient(zentinelle.Config{
-    APIKey:   "zk_live_...",
-    Endpoint: "https://zentinelle.your-org.com",
-    FailOpen: true,
+client, err := zentinelle.NewClient(zentinelle.Config{
+	APIKey:    "bt_<tenant_id>_<signature>",
+	AgentType: "codex",
+	Endpoint:  "http://localhost:8080",
 })
+if err != nil {
+	log.Fatal(err)
+}
+defer client.Shutdown()
 
-if err := client.Register(ctx, []string{"llm:invoke"}); err != nil {
-    log.Fatal(err)
+registration, err := client.Register(ctx, zentinelle.RegisterOptions{
+	Capabilities: []string{"chat", "tool:search"},
+	Metadata:     map[string]interface{}{"version": "1.0.0"},
+	Name:         "codex-dev-agent",
+})
+if err != nil {
+	log.Fatal(err)
 }
 
-decision, err := client.Evaluate(ctx, zentinelle.EvaluateRequest{
-    RequestType:     "llm.invoke",
-    Model:           "gpt-4o",
-    TokensRequested: 2000,
+decision, err := client.Evaluate(ctx, "tool_call", zentinelle.EvaluateOptions{
+	UserID:  "user_123",
+	Context: map[string]interface{}{"tool": "web_search"},
 })
-
+if err != nil {
+	log.Fatal(err)
+}
 if !decision.Allowed {
-    return fmt.Errorf("blocked: %s", decision.Reason)
+	log.Fatalf("blocked: %s", decision.Reason)
 }
+
+client.Emit("tool_call", map[string]interface{}{
+	"tool":        "web_search",
+	"duration_ms": 1420,
+}, zentinelle.EmitOptions{
+	Category: "audit",
+	UserID:   "user_123",
+})
+
+if err := client.FlushEvents(ctx); err != nil {
+	log.Fatal(err)
+}
+
+_ = registration
 ```
 
----
+## Java
 
-## Framework Plugins
+```java
+ZentinelleClient client = ZentinelleClient.builder()
+    .apiKey("bt_<tenant_id>_<signature>")
+    .agentType("codex")
+    .endpoint("http://localhost:8080")
+    .build();
 
-Framework plugins wrap the core SDK methods so you don't need to instrument your agent code manually.
+RegisterResult registration = client.register(RegisterOptions.builder()
+    .capabilities(List.of("chat", "tool:search"))
+    .metadata(Map.of("version", "1.0.0"))
+    .name("codex-dev-agent")
+    .build());
 
-### LangChain (Python)
+EvaluateResult decision = client.evaluate("tool_call", EvaluateOptions.builder()
+    .userId("user_123")
+    .context(Map.of("tool", "web_search"))
+    .build());
 
-```python
-from zentinelle.plugins.langchain import ZentinelleCallbackHandler
+if (!decision.isAllowed()) {
+    throw new IllegalStateException(decision.getReason());
+}
 
-handler = ZentinelleCallbackHandler(client)
+client.emit(
+    "tool_call",
+    Map.of("tool", "web_search", "duration_ms", 1420),
+    EmitOptions.builder().category(EventCategory.AUDIT).userId("user_123").build()
+);
 
-llm = ChatOpenAI(
-    model="gpt-4o",
-    callbacks=[handler],   # wraps all LLM calls automatically
-)
+client.flushEvents();
+client.shutdown();
 ```
 
-The handler automatically calls `evaluate()` before each LLM invocation and `emit()` with token counts after.
+## C#
 
-### LangChain (TypeScript)
+```csharp
+var client = new ZentinelleClient(new ZentinelleOptions
+{
+    ApiKey = "bt_<tenant_id>_<signature>",
+    AgentType = "codex",
+    BaseUrl = "http://localhost:8080",
+});
 
-```typescript
-import { ZentinelleCallbackHandler } from 'zentinelle/plugins/langchain';
+var registration = await client.RegisterAsync(new RegisterOptions
+{
+    Capabilities = new List<string> { "chat", "tool:search" },
+    Metadata = new Dictionary<string, object> { ["version"] = "1.0.0" },
+    Name = "codex-dev-agent",
+});
 
-const handler = new ZentinelleCallbackHandler(client);
-const llm = new ChatOpenAI({ callbacks: [handler] });
+var decision = await client.EvaluateAsync("tool_call", new EvaluateOptions
+{
+    UserId = "user_123",
+    Context = new Dictionary<string, object> { ["tool"] = "web_search" },
+});
+
+if (!decision.Allowed)
+{
+    throw new InvalidOperationException(decision.Reason ?? "blocked by policy");
+}
+
+client.EmitToolCall("web_search", "user_123", 1420);
+await client.FlushAsync();
+await client.DisposeAsync();
 ```
 
-### CrewAI
+## Plugins
 
-```python
-from zentinelle.plugins.crewai import ZentinelleGuard
+The SDK repo also carries framework adapters and runtime integrations under `plugins/`, including:
 
-guard = ZentinelleGuard(client)
+- `plugins/agent`
+- `plugins/langchain`
+- `plugins/crewai`
+- `plugins/llamaindex`
+- `plugins/ms-agent-framework`
+- `plugins/n8n`
+- `plugins/vercel-ai`
 
-@guard.protect
-class MyAgent(Agent):
-    role = "researcher"
-    goal = "..."
-```
+Use the plugin-specific READMEs in the SDK repo when you want framework-native instrumentation rather than calling the core client directly.
 
-### Vercel AI SDK
+## Built-In Resilience
 
-```typescript
-import { withZentinelle } from 'zentinelle/plugins/vercel-ai';
+Across languages, the SDKs provide the same operational baseline:
 
-const model = withZentinelle(openai('gpt-4o'), client);
-// Use model as normal — evaluate/emit happen automatically
-```
+- Retry with backoff for transient HTTP failures
+- Circuit-breaker support plus configurable fail-open behavior
+- Buffered event emission with periodic flush
+- Cached config and secrets reads
+- Periodic heartbeats once registration succeeds
 
-### LlamaIndex, n8n, Microsoft Agent Framework
-
-See plugin-specific READMEs in `zentinelle-sdk/plugins/`.
-
----
-
-## Resilience Patterns
-
-### Circuit Breaker
-
-If Zentinelle returns errors above a threshold, the circuit opens and `evaluate()` fails-open (returns `allowed: true` without calling the service).
-
-```python
-config = ZentinelleConfig(
-    circuit_breaker_threshold=0.5,    # 50% error rate opens circuit
-    circuit_breaker_window=60,         # over 60 seconds
-    circuit_breaker_reset=30,          # retry after 30 seconds
-)
-```
-
-### Retry with Backoff
-
-Network failures retry with exponential backoff before failing open.
-
-```python
-config = ZentinelleConfig(
-    max_retries=3,
-    retry_base_delay=0.1,     # seconds
-    retry_max_delay=2.0,
-)
-```
-
-### Event Buffering
-
-Events are buffered in memory and flushed periodically. If the flush fails, events are queued for retry. Buffer is flushed on client close.
-
-```python
-config = ZentinelleConfig(
-    batch_size=100,           # flush when buffer hits 100 events
-    flush_interval=5.0,       # or every 5 seconds
-    max_buffer_size=10000,    # drop oldest events if buffer exceeds this
-)
-```
-
-### Config Caching
-
-Last-known-good config is cached locally. If Zentinelle is unreachable, the cached config is used. Evaluate decisions use stale-but-safe policy set.
-
-```python
-config = ZentinelleConfig(
-    cache_ttl=300,                # 5 min in-memory cache
-    cache_stale_on_error=True,    # use cached config if fetch fails
-)
-```
-
----
-
-## Secrets
-
-```python
-secrets = await client.get_secrets()
-openai_key = secrets["OPENAI_API_KEY"]
-```
-
-Secrets are fetched over TLS and decrypted server-side. Never stored in agent code or environment variables. Scoped to the agent's grant.
-
----
-
-## Configuration Reference
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `api_key` | required | Agent API key from registration |
-| `endpoint` | required | Zentinelle service base URL |
-| `fail_open` | `true` | Allow requests if Zentinelle unreachable |
-| `cache_ttl` | `300` | Seconds to cache config/policy set |
-| `batch_size` | `100` | Events to buffer before flush |
-| `flush_interval` | `5.0` | Seconds between event flushes |
-| `max_retries` | `3` | Retries on transient network failure |
-| `timeout` | `2.0` | Evaluate request timeout in seconds |
-| `heartbeat_interval` | `30` | Seconds between heartbeats |
+The exact option names vary by language, but the behavior is intentionally aligned around the same server contract.

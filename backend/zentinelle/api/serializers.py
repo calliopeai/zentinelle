@@ -17,6 +17,7 @@ from zentinelle.models import (
 class RegisterRequestSerializer(serializers.Serializer):
     """Request to register a new agent."""
     agent_id = serializers.SlugField(max_length=100, required=False, allow_blank=True)
+    name = serializers.CharField(max_length=255, required=False, allow_blank=True)
     agent_type = serializers.ChoiceField(choices=AgentEndpoint.AgentType.choices)
     capabilities = serializers.ListField(
         child=serializers.CharField(max_length=50),

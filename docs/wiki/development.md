@@ -19,7 +19,7 @@ docker compose up
 
 Services available:
 - GRC Portal: http://localhost:3002
-- API: http://localhost:8000/api/zentinelle/
+- API: http://localhost:8000/api/zentinelle/v1/
 - GraphQL: http://localhost:8000/gql/zentinelle/
 
 ## Local Dev (No Docker)

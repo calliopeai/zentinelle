@@ -35,7 +35,7 @@ docker compose up
 - `nginx` — reverse proxy (port 80)
 
 **Ports exposed (nginx):**
-- `/api/zentinelle/` → backend
+- `/api/zentinelle/v1/` → backend
 - `/gql/zentinelle/` → backend
 - `/` → GRC portal
 
@@ -102,7 +102,7 @@ Namespace: zentinelle
     - zentinelle-backend (ClusterIP, port 8000)
     - zentinelle-frontend (ClusterIP, port 3002)
   Ingress:
-    - /api/zentinelle/ → backend
+    - /api/zentinelle/v1/ → backend
     - /gql/zentinelle/ → backend
     - / → frontend
   External:
