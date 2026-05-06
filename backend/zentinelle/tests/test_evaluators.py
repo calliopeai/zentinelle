@@ -11,8 +11,9 @@ from django.utils import timezone
 from unittest.mock import patch, MagicMock
 from datetime import timedelta
 
-from organization.models import Organization
 from zentinelle.models import Policy
+
+STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 from zentinelle.services.evaluators import (
     BasePolicyEvaluator,
     NoOpEvaluator,
@@ -30,10 +31,9 @@ class NoOpEvaluatorTest(TestCase):
     """Tests for NoOpEvaluator."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
         self.evaluator = NoOpEvaluator()
         self.policy = Policy(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Test Policy',
             policy_type=Policy.PolicyType.SYSTEM_PROMPT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -64,7 +64,6 @@ class RateLimitEvaluatorTest(TestCase):
     """Tests for RateLimitEvaluator."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
         self.evaluator = RateLimitEvaluator()
         cache.clear()
 
@@ -73,7 +72,7 @@ class RateLimitEvaluatorTest(TestCase):
 
     def _create_policy(self, config):
         return Policy(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Rate Limit Policy',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -210,12 +209,11 @@ class ResourceQuotaEvaluatorTest(TestCase):
     """Tests for ResourceQuotaEvaluator."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
         self.evaluator = ResourceQuotaEvaluator()
 
     def _create_policy(self, config):
         return Policy(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Resource Quota Policy',
             policy_type=Policy.PolicyType.RESOURCE_QUOTA,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -348,12 +346,11 @@ class BudgetLimitEvaluatorTest(TestCase):
     """Tests for BudgetLimitEvaluator."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
         self.evaluator = BudgetLimitEvaluator()
 
     def _create_policy(self, config):
         return Policy(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Budget Limit Policy',
             policy_type=Policy.PolicyType.BUDGET_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -439,12 +436,11 @@ class ToolPermissionEvaluatorTest(TestCase):
     """Tests for ToolPermissionEvaluator."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
         self.evaluator = ToolPermissionEvaluator()
 
     def _create_policy(self, config):
         policy = Policy(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Tool Permission Policy',
             policy_type=Policy.PolicyType.TOOL_PERMISSION,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -762,12 +758,11 @@ class SecretAccessEvaluatorTest(TestCase):
     """Tests for SecretAccessEvaluator."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
         self.evaluator = SecretAccessEvaluator()
 
     def _create_policy(self, config):
         return Policy(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Secret Access Policy',
             policy_type=Policy.PolicyType.SECRET_ACCESS,
             scope_type=Policy.ScopeType.ORGANIZATION,

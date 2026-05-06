@@ -1,13 +1,9 @@
 """
 Tests for the Policy Engine service.
 """
-import pytest
 from django.test import TestCase
-from django.contrib.auth import get_user_model
 from unittest.mock import patch, MagicMock
 
-from organization.models import Organization, SubOrganization
-from deployments.models import Deployment
 from zentinelle.models import (
     AgentEndpoint,
     Policy,
@@ -18,24 +14,16 @@ from zentinelle.services.policy_engine import (
     EvaluationResult,
 )
 
-User = get_user_model()
+STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 
 
 class PolicyEngineTest(TestCase):
     """Tests for PolicyEngine service."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
-        self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
-
-        # Create endpoint
         full_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
         self.endpoint = AgentEndpoint.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             agent_id='test-agent',
             name='Test Agent',
             api_key_hash=key_hash,
@@ -52,13 +40,13 @@ class PolicyEngineTest(TestCase):
     def test_get_effective_policies_org_level(self):
         """Test organization-level policies."""
         policy = Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Org Rate Limit',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
             enforcement=Policy.Enforcement.ENFORCE,
             config={'requests_per_minute': 100},
-            created_by=self.user,
+            user_id='testuser',
         )
 
         policies = self.engine.get_effective_policies(self.endpoint, use_cache=False)
@@ -67,9 +55,8 @@ class PolicyEngineTest(TestCase):
 
     def test_policy_inheritance_more_specific_wins(self):
         """Test that more specific scope overrides broader scope."""
-        # Org-level policy
         org_policy = Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Org Rate Limit',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -77,9 +64,8 @@ class PolicyEngineTest(TestCase):
             config={'requests_per_minute': 100},
         )
 
-        # Endpoint-specific policy (more specific)
         endpoint_policy = Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Endpoint Rate Limit',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ENDPOINT,
@@ -90,38 +76,30 @@ class PolicyEngineTest(TestCase):
 
         policies = self.engine.get_effective_policies(self.endpoint, use_cache=False)
 
-        # Should get endpoint policy, not org policy
         self.assertEqual(len(policies), 1)
         self.assertEqual(policies[0].id, endpoint_policy.id)
         self.assertEqual(policies[0].config['requests_per_minute'], 50)
 
     def test_policy_inheritance_with_deployment(self):
         """Test policy inheritance through deployment scope."""
-        deployment = Deployment.objects.create(
-            organization=self.org,
-            name='Production',
-            deployment_type=Deployment.DeploymentType.JUNOHUB,
-            hosting_model=Deployment.HostingModel.MANAGED_ECS,
-        )
-        self.endpoint.deployment = deployment
+        deploy_id = 'deploy-prod-001'
+        self.endpoint.deployment_id_ext = deploy_id
         self.endpoint.save()
 
-        # Org-level policy
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Org Resource Quota',
             policy_type=Policy.PolicyType.RESOURCE_QUOTA,
             scope_type=Policy.ScopeType.ORGANIZATION,
             config={'max_servers': 100},
         )
 
-        # Deployment-specific policy
         deploy_policy = Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Deploy Resource Quota',
             policy_type=Policy.PolicyType.RESOURCE_QUOTA,
             scope_type=Policy.ScopeType.DEPLOYMENT,
-            scope_deployment=deployment,
+            scope_deployment_id_ext=deploy_id,
             config={'max_servers': 20},
         )
 
@@ -133,21 +111,21 @@ class PolicyEngineTest(TestCase):
     def test_multiple_policy_types(self):
         """Test getting multiple policy types."""
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Rate Limit',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
             config={'requests_per_minute': 100},
         )
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Resource Quota',
             policy_type=Policy.PolicyType.RESOURCE_QUOTA,
             scope_type=Policy.ScopeType.ORGANIZATION,
             config={'max_servers': 10},
         )
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Budget Limit',
             policy_type=Policy.PolicyType.BUDGET_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -165,14 +143,14 @@ class PolicyEngineTest(TestCase):
     def test_filter_by_policy_types(self):
         """Test filtering by specific policy types."""
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Rate Limit',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
             config={},
         )
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Resource Quota',
             policy_type=Policy.PolicyType.RESOURCE_QUOTA,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -191,7 +169,7 @@ class PolicyEngineTest(TestCase):
     def test_disabled_policies_not_included(self):
         """Test that disabled policies are filtered out."""
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Enabled Policy',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -199,7 +177,7 @@ class PolicyEngineTest(TestCase):
             config={},
         )
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Disabled Policy',
             policy_type=Policy.PolicyType.RESOURCE_QUOTA,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -214,7 +192,7 @@ class PolicyEngineTest(TestCase):
     def test_priority_ordering(self):
         """Test that higher priority policies win within same scope."""
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Low Priority',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -222,7 +200,7 @@ class PolicyEngineTest(TestCase):
             config={'requests_per_minute': 50},
         )
         high_priority = Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='High Priority',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -239,10 +217,9 @@ class PolicyEvaluationTest(TestCase):
     """Tests for policy evaluation."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
         full_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
         self.endpoint = AgentEndpoint.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             agent_id='test-agent',
             name='Test Agent',
             api_key_hash=key_hash,
@@ -270,7 +247,7 @@ class PolicyEvaluationTest(TestCase):
         mock_get_evaluator.return_value = mock_evaluator
 
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Test Policy',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -299,7 +276,7 @@ class PolicyEvaluationTest(TestCase):
         mock_get_evaluator.return_value = mock_evaluator
 
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Rate Limit',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -328,7 +305,7 @@ class PolicyEvaluationTest(TestCase):
         mock_get_evaluator.return_value = mock_evaluator
 
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Rate Limit Audit',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -342,7 +319,7 @@ class PolicyEvaluationTest(TestCase):
             user_id='user123',
         )
 
-        self.assertTrue(result.allowed)  # Still allowed in audit mode
+        self.assertTrue(result.allowed)
         self.assertIn('[Audit]', result.warnings[0])
 
     @patch('zentinelle.services.policy_engine.PolicyEngine._get_evaluator')
@@ -352,7 +329,7 @@ class PolicyEvaluationTest(TestCase):
         mock_get_evaluator.return_value = mock_evaluator
 
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Disabled Enforcement',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -365,7 +342,6 @@ class PolicyEvaluationTest(TestCase):
             action='spawn',
         )
 
-        # Evaluator should not be called
         mock_evaluator.evaluate.assert_not_called()
         self.assertTrue(result.allowed)
 
@@ -380,7 +356,7 @@ class PolicyEvaluationTest(TestCase):
         mock_get_evaluator.return_value = mock_evaluator
 
         Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Rate Limit',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -409,9 +385,8 @@ class PolicyMergingTest(TestCase):
 
     def test_merge_single_layer(self):
         """Test merging with single layer."""
-        org = Organization.objects.create(name="Test")
         policy = Policy(
-            organization=org,
+            tenant_id=STANDALONE_TENANT,
             name='Test',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -423,10 +398,8 @@ class PolicyMergingTest(TestCase):
 
     def test_merge_later_layer_overrides(self):
         """Test that later layers override earlier ones."""
-        org = Organization.objects.create(name="Test")
-
         org_policy = Policy(
-            organization=org,
+            tenant_id=STANDALONE_TENANT,
             name='Org Policy',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -435,7 +408,7 @@ class PolicyMergingTest(TestCase):
         )
 
         endpoint_policy = Policy(
-            organization=org,
+            tenant_id=STANDALONE_TENANT,
             name='Endpoint Policy',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ENDPOINT,
@@ -444,8 +417,8 @@ class PolicyMergingTest(TestCase):
         )
 
         result = self.engine._merge_policies([
-            [org_policy],  # Layer 1 (org)
-            [endpoint_policy],  # Layer 2 (endpoint)
+            [org_policy],
+            [endpoint_policy],
         ])
 
         self.assertEqual(len(result), 1)

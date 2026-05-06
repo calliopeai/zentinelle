@@ -1,13 +1,10 @@
 """
 Tests for Zentinelle models.
 """
-import pytest
 from django.test import TestCase
-from django.contrib.auth import get_user_model
-from unittest.mock import patch, MagicMock
 
-from organization.models import Organization
-from deployments.models import Deployment
+STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
+
 from zentinelle.models import (
     AgentEndpoint,
     Policy,
@@ -19,14 +16,8 @@ from zentinelle.models import (
     License,
 )
 
-User = get_user_model()
-
-
 class AgentEndpointModelTest(TestCase):
     """Tests for AgentEndpoint model."""
-
-    def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
 
     def test_generate_api_key_format(self):
         """Test API key generation format."""
@@ -55,7 +46,7 @@ class AgentEndpointModelTest(TestCase):
         full_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
 
         endpoint = AgentEndpoint.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             agent_id='test-agent-001',
             name='Test Agent',
             agent_type=AgentEndpoint.AgentType.JUPYTERHUB,
@@ -72,7 +63,7 @@ class AgentEndpointModelTest(TestCase):
         full_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
 
         endpoint = AgentEndpoint.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             agent_id='test-agent-002',
             name='Test Agent',
             api_key_hash=key_hash,
@@ -94,7 +85,7 @@ class AgentEndpointModelTest(TestCase):
         full_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
 
         endpoint = AgentEndpoint.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             agent_id='test-agent-003',
             name='Test Agent',
             api_key_hash=key_hash,
@@ -112,24 +103,16 @@ class AgentEndpointModelTest(TestCase):
 class PolicyModelTest(TestCase):
     """Tests for Policy model."""
 
-    def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
-        self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
-
     def test_create_policy(self):
         """Test creating a policy."""
         policy = Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Resource Quota',
             policy_type=Policy.PolicyType.RESOURCE_QUOTA,
             scope_type=Policy.ScopeType.ORGANIZATION,
             enforcement=Policy.Enforcement.ENFORCE,
             config={'max_servers': 10, 'max_memory_gb': 32},
-            created_by=self.user,
+            user_id='testuser',
         )
 
         self.assertEqual(policy.name, 'Resource Quota')
@@ -142,7 +125,7 @@ class PolicyModelTest(TestCase):
         # and DEPLOYMENT/ENDPOINT/USER scopes require their respective objects
         # We only test ORGANIZATION scope here; other scopes tested separately
         policy = Policy.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Org Policy',
             policy_type=Policy.PolicyType.RESOURCE_QUOTA,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -151,64 +134,13 @@ class PolicyModelTest(TestCase):
         self.assertEqual(policy.scope_type, Policy.ScopeType.ORGANIZATION)
 
 
-class DeploymentModelTest(TestCase):
-    """Tests for Deployment model."""
-
-    def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
-        self.license = License.objects.create(
-            organization=self.org,
-            license_type=License.LicenseType.MANAGED,
-            status=License.Status.ACTIVE,
-            billing_model=License.BillingModel.PER_USER,
-            max_deployments=10,
-            max_agents=100,
-            max_users=50,
-        )
-
-    def test_create_deployment(self):
-        """Test creating a deployment."""
-        deployment = Deployment.objects.create(
-            organization=self.org,
-            license=self.license,
-            name='Production JunoHub',
-            deployment_type=Deployment.DeploymentType.JUNOHUB,
-            hosting_model=Deployment.HostingModel.MANAGED_ECS,
-            status=Deployment.Status.ACTIVE,
-        )
-
-        self.assertEqual(deployment.name, 'Production JunoHub')
-        self.assertEqual(deployment.hosting_model, Deployment.HostingModel.MANAGED_ECS)
-
-    def test_deployment_hosting_models(self):
-        """Test different hosting models."""
-        hosting_models = [
-            Deployment.HostingModel.MANAGED_ECS,
-            Deployment.HostingModel.BYOC_AWS,
-            Deployment.HostingModel.ONPREM_DOCKER,
-        ]
-
-        for hosting_model in hosting_models:
-            deployment = Deployment.objects.create(
-                organization=self.org,
-                license=self.license,
-                name=f'Deploy {hosting_model}',
-                deployment_type=Deployment.DeploymentType.JUNOHUB,
-                hosting_model=hosting_model,
-            )
-            self.assertEqual(deployment.hosting_model, hosting_model)
-
-
 class ContentRuleModelTest(TestCase):
     """Tests for ContentRule model."""
-
-    def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
 
     def test_create_secret_detection_rule(self):
         """Test creating a secret detection rule."""
         rule = ContentRule.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='AWS Key Detection',
             rule_type=ContentRule.RuleType.SECRET_DETECTION,
             severity=ContentRule.Severity.CRITICAL,
@@ -226,7 +158,7 @@ class ContentRuleModelTest(TestCase):
     def test_create_pii_detection_rule(self):
         """Test creating a PII detection rule."""
         rule = ContentRule.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='PII Detection',
             rule_type=ContentRule.RuleType.PII_DETECTION,
             severity=ContentRule.Severity.HIGH,
@@ -251,7 +183,7 @@ class ContentRuleModelTest(TestCase):
 
         for mode in modes:
             rule = ContentRule.objects.create(
-                organization=self.org,
+                tenant_id=STANDALONE_TENANT,
                 name=f'Rule {mode}',
                 rule_type=ContentRule.RuleType.CUSTOM_PATTERN,
                 scan_mode=mode,
@@ -264,10 +196,10 @@ class EventModelTest(TestCase):
     """Tests for Event model."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
+        pass  # tenant_id used inline
         full_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
         self.endpoint = AgentEndpoint.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             agent_id='test-agent',
             name='Test Agent',
             api_key_hash=key_hash,
@@ -278,7 +210,7 @@ class EventModelTest(TestCase):
         """Test creating a telemetry event."""
         from django.utils import timezone
         event = Event.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             endpoint=self.endpoint,
             event_type='spawn',
             event_category=Event.Category.TELEMETRY,
@@ -294,7 +226,7 @@ class EventModelTest(TestCase):
         """Test creating an audit event."""
         from django.utils import timezone
         event = Event.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             endpoint=self.endpoint,
             event_type='policy_violation',
             event_category=Event.Category.AUDIT,

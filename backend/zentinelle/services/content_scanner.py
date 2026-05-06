@@ -63,7 +63,7 @@ class ContentScanner:
     Main content scanning service.
 
     Usage:
-        scanner = ContentScanner(organization)
+        scanner = ContentScanner(tenant_id)
         result = scanner.scan(content, user_id, endpoint)
 
         if result.action == 'block':
@@ -72,8 +72,8 @@ class ContentScanner:
             content = result.redacted_content
     """
 
-    def __init__(self, organization):
-        self.organization = organization
+    def __init__(self, tenant_id):
+        self.tenant_id = tenant_id
         self._rules_cache = None
         self._rules_cache_time = None
         self._cache_ttl = timedelta(minutes=5)
@@ -100,7 +100,7 @@ class ContentScanner:
 
         # Build query
         base_filter = {
-            'organization': self.organization,
+            'tenant_id': self.tenant_id,
             'enabled': True,
         }
 
@@ -147,8 +147,8 @@ class ContentScanner:
             return True
 
         if rule.scope_type == ContentRule.ScopeType.USER:
-            if user_id and rule.scope_user:
-                return rule.scope_user.username == user_id
+            if user_id and rule.scope_user_id_ext:
+                return rule.scope_user_id_ext == user_id
             return False
 
         if rule.scope_type == ContentRule.ScopeType.ENDPOINT:
@@ -157,51 +157,15 @@ class ContentScanner:
             return False
 
         if rule.scope_type == ContentRule.ScopeType.DEPLOYMENT:
-            if endpoint and endpoint.deployment and rule.scope_deployment:
-                return rule.scope_deployment_id == endpoint.deployment_id
+            if endpoint and rule.scope_deployment_id_ext:
+                return rule.scope_deployment_id_ext == str(endpoint.deployment_id_ext or '')
             return False
 
         if rule.scope_type == ContentRule.ScopeType.SUB_ORGANIZATION:
-            if not rule.scope_sub_organization:
-                return False
-            if not user_id:
-                return False
-
-            # Look up user's sub-org membership
-            from organization.models import OrganizationMember
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-
-            try:
-                user = User.objects.get(username=user_id)
-                membership = OrganizationMember.objects.filter(
-                    member=user,
-                    organization=self.organization,
-                    is_active=True,
-                    status=OrganizationMember.Status.ACTIVE,
-                ).first()
-
-                if not membership or not membership.sub_organization:
-                    return False
-
-                # Check if user's sub-org is the target or a descendant
-                target_sub_org = rule.scope_sub_organization
-                user_sub_org = membership.sub_organization
-
-                # Direct match
-                if user_sub_org.id == target_sub_org.id:
-                    return True
-
-                # Check if user's sub-org is a descendant of target
-                current = user_sub_org.parent
-                while current:
-                    if current.id == target_sub_org.id:
-                        return True
-                    current = current.parent
-
-                return False
-            except User.DoesNotExist:
-                return False
+            # Sub-organization scope not available in standalone mode
+            # (requires organization.models.OrganizationMember which is
+            # part of the client-cove platform, not this standalone repo)
+            return False
 
         return True
 
@@ -251,9 +215,8 @@ class ContentScanner:
         # Create scan record
         content_hash = hashlib.sha256(content.encode()).hexdigest()
         scan = ContentScan.objects.create(
-            organization=self.organization,
+            tenant_id=self.tenant_id,
             endpoint=endpoint,
-            deployment=endpoint.deployment if endpoint else None,
             user_identifier=user_id,
             content_type=content_type,
             content_hash=content_hash,
@@ -971,7 +934,7 @@ class ContentScanner:
         max_severity = max(violations, key=lambda v: ['info', 'low', 'medium', 'high', 'critical'].index(v.severity))
 
         ComplianceAlert.objects.create(
-            organization=self.organization,
+            tenant_id=self.tenant_id,
             alert_type=ComplianceAlert.AlertType.SINGLE_VIOLATION if len(violations) == 1 else ComplianceAlert.AlertType.REPEATED_VIOLATIONS,
             severity=max_severity.severity,
             title=f"Content violation detected: {max_severity.rule_type}",

@@ -7,36 +7,33 @@ Tests the license grace period functionality including:
 - Notifications
 - Integration with license validation
 """
-import pytest
 from datetime import timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 from django.utils import timezone
 
-from organization.models import Organization
 from zentinelle.models import License, Subscription
-from zentinelle.services.grace_period_service import (
-    GracePeriodService,
-    GracePeriodStatus,
-    get_grace_period_service,
-    GRACE_PERIOD_DURATIONS,
-)
+from zentinelle.services.grace_period_service import (GracePeriodService,
+                                                      GracePeriodStatus,
+                                                      get_grace_period_service)
 from zentinelle.services.license_service import LicenseService
+
+STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
+TENANT_2 = '00000000-0000-0000-0000-000000000002'
 
 
 class GracePeriodServiceTest(TestCase):
     """Tests for GracePeriodService."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org", slug="test-org")
         self.subscription = Subscription.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             plan_code='byoc',
             status=Subscription.Status.ACTIVE,
         )
         self.license = License.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             subscription=self.subscription,
             license_type=License.LicenseType.MANAGED,
             status=License.Status.ACTIVE,
@@ -208,10 +205,9 @@ class GracePeriodServiceTest(TestCase):
 
     def test_get_licenses_in_grace_period(self):
         """Test getting all licenses in grace period."""
-        # Create another org and license
-        org2 = Organization.objects.create(name="Test Org 2", slug="test-org-2")
+        # Create another license for a different tenant
         license2 = License.objects.create(
-            organization=org2,
+            tenant_id=TENANT_2,
             license_type=License.LicenseType.MANAGED,
             status=License.Status.ACTIVE,
         )
@@ -310,9 +306,8 @@ class LicenseModelGracePeriodTest(TestCase):
     """Tests for License model grace period properties."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org", slug="test-org")
         self.license = License.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             license_type=License.LicenseType.MANAGED,
             status=License.Status.ACTIVE,
         )
@@ -394,9 +389,8 @@ class LicenseValidationWithGracePeriodTest(TestCase):
     """Tests for license validation with grace periods."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org", slug="test-org")
         self.license = License.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             license_type=License.LicenseType.MANAGED,
             status=License.Status.ACTIVE,
         )

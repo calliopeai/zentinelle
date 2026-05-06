@@ -5,7 +5,6 @@ import pytest
 from django.test import TestCase
 from unittest.mock import patch, MagicMock
 
-from organization.models import Organization
 from zentinelle.models import (
     AgentEndpoint,
     ContentRule,
@@ -19,17 +18,18 @@ from zentinelle.services.content_scanner import (
     ScanResult,
 )
 
+STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
+
 
 class ContentScannerSecretDetectionTest(TestCase):
     """Tests for secret detection."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
-        self.scanner = ContentScanner(self.org)
+        self.scanner = ContentScanner(STANDALONE_TENANT)
 
         # Create a secret detection rule
         self.rule = ContentRule.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Secret Detection',
             rule_type=ContentRule.RuleType.SECRET_DETECTION,
             severity=ContentRule.Severity.CRITICAL,
@@ -113,11 +113,10 @@ class ContentScannerPIIDetectionTest(TestCase):
     """Tests for PII detection."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
-        self.scanner = ContentScanner(self.org)
+        self.scanner = ContentScanner(STANDALONE_TENANT)
 
         self.rule = ContentRule.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='PII Detection',
             rule_type=ContentRule.RuleType.PII_DETECTION,
             severity=ContentRule.Severity.HIGH,
@@ -188,11 +187,10 @@ class ContentScannerPromptInjectionTest(TestCase):
     """Tests for prompt injection detection."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
-        self.scanner = ContentScanner(self.org)
+        self.scanner = ContentScanner(STANDALONE_TENANT)
 
         self.rule = ContentRule.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Prompt Injection Detection',
             rule_type=ContentRule.RuleType.PROMPT_INJECTION,
             severity=ContentRule.Severity.HIGH,
@@ -241,11 +239,10 @@ class ContentScannerJailbreakTest(TestCase):
     """Tests for jailbreak detection."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
-        self.scanner = ContentScanner(self.org)
+        self.scanner = ContentScanner(STANDALONE_TENANT)
 
         self.rule = ContentRule.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Jailbreak Detection',
             rule_type=ContentRule.RuleType.JAILBREAK_ATTEMPT,
             severity=ContentRule.Severity.HIGH,
@@ -287,11 +284,10 @@ class ContentScannerKeywordBlockTest(TestCase):
     """Tests for keyword blocking."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
-        self.scanner = ContentScanner(self.org)
+        self.scanner = ContentScanner(STANDALONE_TENANT)
 
         self.rule = ContentRule.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Keyword Block',
             rule_type=ContentRule.RuleType.KEYWORD_BLOCK,
             severity=ContentRule.Severity.MEDIUM,
@@ -333,21 +329,20 @@ class ContentScannerFullScanTest(TestCase):
     """Tests for full content scanning workflow."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
         full_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
         self.endpoint = AgentEndpoint.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             agent_id='test-agent',
             name='Test Agent',
             api_key_hash=key_hash,
             api_key_prefix=key_prefix,
         )
-        self.scanner = ContentScanner(self.org)
+        self.scanner = ContentScanner(STANDALONE_TENANT)
 
     def test_scan_creates_record(self):
         """Test that scanning creates a ContentScan record."""
         ContentRule.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Secret Detection',
             rule_type=ContentRule.RuleType.SECRET_DETECTION,
             severity=ContentRule.Severity.CRITICAL,
@@ -362,14 +357,14 @@ class ContentScannerFullScanTest(TestCase):
         )
 
         self.assertIsNotNone(scan)
-        self.assertEqual(scan.organization, self.org)
+        self.assertEqual(scan.tenant_id, STANDALONE_TENANT)
         self.assertEqual(scan.user_identifier, 'user123')
         self.assertEqual(scan.status, ContentScan.ScanStatus.COMPLETED)
 
     def test_scan_detects_violation(self):
         """Test that scanning detects and records violations."""
         ContentRule.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Secret Detection',
             rule_type=ContentRule.RuleType.SECRET_DETECTION,
             severity=ContentRule.Severity.CRITICAL,
@@ -391,7 +386,7 @@ class ContentScannerFullScanTest(TestCase):
     def test_scan_redaction(self):
         """Test content redaction."""
         ContentRule.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='PII Detection',
             rule_type=ContentRule.RuleType.PII_DETECTION,
             severity=ContentRule.Severity.HIGH,
@@ -414,7 +409,7 @@ class ContentScannerFullScanTest(TestCase):
     def test_scan_warn_action(self):
         """Test warn action (no blocking)."""
         ContentRule.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Keyword Watch',
             rule_type=ContentRule.RuleType.KEYWORD_BLOCK,
             severity=ContentRule.Severity.LOW,
@@ -435,7 +430,7 @@ class ContentScannerFullScanTest(TestCase):
     def test_scan_creates_alert_for_critical(self):
         """Test that critical violations create compliance alerts."""
         ContentRule.objects.create(
-            organization=self.org,
+            tenant_id=STANDALONE_TENANT,
             name='Secret Detection',
             rule_type=ContentRule.RuleType.SECRET_DETECTION,
             severity=ContentRule.Severity.CRITICAL,
@@ -450,7 +445,7 @@ class ContentScannerFullScanTest(TestCase):
         )
 
         # Check alert was created
-        alerts = ComplianceAlert.objects.filter(organization=self.org)
+        alerts = ComplianceAlert.objects.filter(tenant_id=STANDALONE_TENANT)
         self.assertEqual(alerts.count(), 1)
         self.assertEqual(alerts.first().severity, 'critical')
 
@@ -459,8 +454,7 @@ class ContentScannerHelperMethodsTest(TestCase):
     """Tests for helper methods."""
 
     def setUp(self):
-        self.org = Organization.objects.create(name="Test Org")
-        self.scanner = ContentScanner(self.org)
+        self.scanner = ContentScanner(STANDALONE_TENANT)
 
     def test_luhn_check_valid(self):
         """Test Luhn algorithm with valid card numbers."""
