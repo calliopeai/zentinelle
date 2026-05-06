@@ -171,6 +171,18 @@ CACHES = {
 
 AUTH_MODE = os.environ.get("AUTH_MODE", "standalone")
 
+# Session-based auth (httpOnly cookies — immune to XSS)
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 1 week
+SESSION_COOKIE_NAME = "zentinelle_session"
+CSRF_COOKIE_HTTPONLY = False  # frontend needs to read CSRF token
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "http://localhost:3002").split(",")
+]
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},

@@ -39,6 +39,7 @@ Note: Deployment operations and provisioner callbacks have moved to:
 - /api/deployments/v1/...
 """
 from django.urls import path
+from zentinelle.api.views.auth import LoginView, LogoutView, MeView
 from zentinelle.api.views import (
     RegisterView,
     ConfigView,
@@ -76,6 +77,11 @@ from zentinelle.api.views import (
 app_name = 'zentinelle'
 
 urlpatterns = [
+    # Portal auth (session-based, httpOnly cookies)
+    path('auth/login', LoginView.as_view(), name='auth-login'),
+    path('auth/logout', LogoutView.as_view(), name='auth-logout'),
+    path('auth/me', MeView.as_view(), name='auth-me'),
+
     # Agent-facing endpoints
     path('register', RegisterView.as_view(), name='register'),
     path('deregister', DeregisterView.as_view(), name='deregister'),
