@@ -92,6 +92,9 @@ from zentinelle.models.agent_group import AgentGroup
 # Client Cove Integration
 from zentinelle.models.integration import ClientCoveIntegration
 
+# Bootstrap Tokens
+from zentinelle.models.bootstrap_token import BootstrapToken
+
 __all__ = [
     # Agent-level
     'AgentEndpoint',
@@ -160,4 +163,6 @@ __all__ = [
     'AgentGroup',
     # Client Cove Integration
     'ClientCoveIntegration',
+    # Bootstrap Tokens
+    'BootstrapToken',
 ]

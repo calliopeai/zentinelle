@@ -17,10 +17,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import BasePermission
 from django.utils.text import slugify
-from django.conf import settings
 
-from zentinelle.models import AgentEndpoint, ZentinelleLicense
-from zentinelle.api.serializers import RegisterRequestSerializer, RegisterResponseSerializer
+from zentinelle.models import AgentEndpoint
+from zentinelle.api.serializers import RegisterRequestSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -38,24 +37,30 @@ class BootstrapTokenPermission(BasePermission):
     message = 'Invalid or missing bootstrap token.'
 
     def has_permission(self, request, view):
-        import os
         bootstrap_token = request.META.get('HTTP_X_ZENTINELLE_BOOTSTRAP', '')
 
-        if not bootstrap_token:
+        if not bootstrap_token or not bootstrap_token.startswith('bt_'):
             return False
 
-        # Bootstrap token format: bt_<tenant_id>_<hmac_sha256>
-        # The HMAC is computed as: HMAC-SHA256(key=BOOTSTRAP_SECRET, msg=tenant_id)
-        if not bootstrap_token.startswith('bt_'):
-            return False
+        # Try database-issued tokens first
+        from zentinelle.models.bootstrap_token import BootstrapToken
+        tenant_id, record = BootstrapToken.validate(bootstrap_token)
+        if tenant_id:
+            request._zentinelle_tenant_id = tenant_id
+            return True
 
+        # Fall back to HMAC validation (simple deployments)
+        return self._validate_hmac(request, bootstrap_token)
+
+    @staticmethod
+    def _validate_hmac(request, bootstrap_token):
+        import os
         try:
             parts = bootstrap_token.split('_', 2)
             if len(parts) != 3:
                 return False
 
             _, tenant_id, provided_sig = parts
-
             if not tenant_id:
                 return False
 
