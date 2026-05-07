@@ -54,7 +54,8 @@ docs/wiki/        # deep technical documentation
 | M1: Bootstrap | Repo scaffold, wiki, docs, MIT license, DB schema isolation | ✅ Done |
 | M2: Extraction | Code extracted from client-cove, standalone service running | ✅ Done |
 | M3: Decoupled | No client-cove Django model imports, auth callout working | ✅ Done (in client-cove) |
-| M4: v0.1.0 OSS | Feature complete, public release | In Progress |
+| M4: v0.1.0 OSS | Feature complete, standalone service | ✅ Done |
+| M5: v1.0.0 | Production-ready: Strawberry GraphQL, new frontend, RBAC, OIDC, multi-cloud infra, security hardened | ✅ Done |
 
 ### M4 Progress (2026-03-16)
 
