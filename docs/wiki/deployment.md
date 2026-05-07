@@ -2,154 +2,188 @@
 
 Zentinelle is designed to run as an **internal service** — not publicly exposed. Deploy it inside your network, VPN, or private subnet. Agents connect to it from within the same trust boundary.
 
-## Deployment Models
+## Quick Start (Docker Compose)
 
-| Model | Description |
-|-------|-------------|
-| Docker Compose | Local dev or small self-hosted setups |
-| Kubernetes / Helm | Production self-hosted |
-| BYOC (Bring Your Own Cloud) | Your infra, Calliope AI manages remotely |
-| Managed (Zentinelle.ai) | Calliope AI hosts and operates everything |
+```bash
+git clone https://github.com/calliopeai/zentinelle.git
+cd zentinelle
+cp .env.example .env
+# Edit .env: set ZENTINELLE_BOOTSTRAP_SECRET and SECRET_KEY
+docker compose up -d
+```
+
+This starts: PostgreSQL 16, Redis 7, Django backend, Celery worker + beat, Nginx reverse proxy.
+
+**First-time setup:**
+```bash
+docker compose exec backend python manage.py createsuperuser
+docker compose exec backend python manage.py bootstrap_token generate \
+  00000000-0000-0000-0000-000000000001 --label "default tenant"
+```
+
+**Access:**
+- Portal: http://localhost:8080
+- GraphQL: http://localhost:8080/gql/zentinelle/
+- Admin: http://localhost:8080/admin/
+- API: http://localhost:8080/api/zentinelle/v1/
 
 ---
 
-## Docker Compose (Self-Hosted)
+## Architecture
 
-Minimum setup for getting Zentinelle running:
-
-```bash
-git clone https://github.com/calliopeai/zentinelle
-cd zentinelle
-cp .env.example .env
-# Edit .env with your values
-docker compose up
+```
+                    ┌──────────┐
+                    │  Nginx   │ :8080
+                    └────┬─────┘
+              ┌──────────┼──────────┐
+         ┌────▼──┐  ┌────▼───┐  ┌──▼────┐
+         │Frontend│  │Backend │  │ Proxy │
+         │Next.js │  │Django  │  │ LLM   │
+         │ :3002  │  │ :8000  │  │       │
+         └────────┘  └───┬────┘  └───────┘
+              ┌───────────┼───────────┐
+         ┌────▼──┐  ┌─────▼────┐  ┌──▼──────────┐
+         │ Redis │  │PostgreSQL│  │ ClickHouse   │
+         │ :6379 │  │  :5432   │  │ (optional)   │
+         └───────┘  └──────────┘  └──────────────┘
 ```
 
-**Services started:**
-- `backend` — Django API (port 8000)
-- `frontend` — GRC portal (port 3002)
-- `celery` — async task worker
-- `celery-beat` — periodic task scheduler
-- `postgres` — PostgreSQL (port 5432)
-- `redis` — cache + broker (port 6379)
-- `nginx` — reverse proxy (port 80)
+### Database Schemas
 
-**Ports exposed (nginx):**
-- `/api/zentinelle/v1/` → backend
-- `/gql/zentinelle/` → backend
-- `/` → GRC portal
+| Schema | Contents | Purpose |
+|--------|----------|---------|
+| `public` | Django auth, sessions | Framework tables |
+| `zentinelle` | Agents, policies, events, risks, compliance | Core GRC data |
+| `zentinelle_analytics` | UsageMetric, UsageAggregate, AuditLog | High-volume analytics |
 
-### First-Time Setup
-
+All schemas live in the same PostgreSQL instance. Split off analytics with:
 ```bash
-# Run migrations
-docker compose run backend python manage.py migrate
-
-# Create superuser (for GRC portal login)
-docker compose run backend python manage.py createsuperuser
-
-# (Optional) Load sample data
-docker compose run backend python manage.py loaddata fixtures/sample_policies.json
+pg_dump --schema=zentinelle_analytics -f analytics_backup.sql
 ```
 
-### Environment Variables
+---
 
-See `.env.example`. Key variables:
+## Production Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SECRET_KEY` | Yes | Django secret key |
+| `ZENTINELLE_BOOTSTRAP_SECRET` | Yes | HMAC secret for agent registration |
+| `POSTGRES_HOST` | Yes | Database host |
+| `POSTGRES_PASSWORD` | Yes | Database password |
+| `REDIS_URL` | Yes | Redis connection URL |
+| `ALLOWED_HOSTS` | Yes | Comma-separated hostnames |
+| `CSRF_TRUSTED_ORIGINS` | Yes | Frontend URL(s) |
+| `DEBUG` | No | Always `false` in production |
+
+**Optional:**
 
 | Variable | Description |
 |----------|-------------|
-| `SECRET_KEY` | Django secret key |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis connection string |
-| `ALLOWED_HOSTS` | Comma-separated hostnames |
-| `AUTH_MODE` | `standalone` or `client_cove` |
-| `CLIENT_COVE_URL` | If `AUTH_MODE=client_cove` — base URL of Client Cove |
-| `ZENTINELLE_INTERNAL_TOKEN` | Shared secret for Client Cove callout |
-| `ENCRYPTION_KEY` | Key for secrets encryption (Fernet) |
-
-### Auth Modes
-
-**Standalone** (`AUTH_MODE=standalone`): Zentinelle manages its own auth. Users log in directly to the GRC portal with username/password or OIDC. No Client Cove dependency.
-
-**Client Cove** (`AUTH_MODE=client_cove`): Auth delegated to Client Cove. JWT tokens are validated by calling Client Cove's internal API. Used when running as part of the Calliope AI platform.
+| `CLICKHOUSE_URL` | Enable ClickHouse analytics |
+| `OIDC_DISCOVERY_URL` | Enable SSO (any OIDC provider) |
+| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | OIDC credentials |
+| `ENCRYPTION_KEY` | Fernet key for secrets encryption |
 
 ---
 
-## Kubernetes / Helm
+## SSL/TLS
 
-Helm chart: `calliopeai/zentinelle` (coming — tracked in [#10](https://github.com/calliopeai/zentinelle/issues/10))
+Use a reverse proxy for TLS termination:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name zentinelle.example.com;
+    ssl_certificate /etc/ssl/zentinelle.crt;
+    ssl_certificate_key /etc/ssl/zentinelle.key;
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+---
+
+## Scaling
+
+| Signal | Action |
+|--------|--------|
+| API latency > 500ms | Add backend replicas |
+| Celery queue depth > 100 | Add Celery workers |
+| Analytics queries slow | Split analytics DB or add ClickHouse |
+| > 1M events/day | Enable ClickHouse (`CLICKHOUSE_URL`) |
 
 ```bash
-helm repo add calliopeai https://charts.calliopeai.com
-helm install zentinelle calliopeai/zentinelle \
-  --namespace zentinelle \
-  --create-namespace \
-  --set auth.mode=standalone \
-  --set database.url="postgresql://..." \
-  --set redis.url="redis://..."
-```
+# Scale Celery workers
+docker compose up -d --scale celery=3
 
-### Recommended Kubernetes Architecture
-
-```
-Namespace: zentinelle
-  Deployments:
-    - zentinelle-backend (Django, 2+ replicas)
-    - zentinelle-frontend (Next.js, 2+ replicas)
-    - zentinelle-celery (1+ replicas)
-    - zentinelle-celery-beat (1 replica, leader election)
-  Services:
-    - zentinelle-backend (ClusterIP, port 8000)
-    - zentinelle-frontend (ClusterIP, port 3002)
-  Ingress:
-    - /api/zentinelle/v1/ → backend
-    - /gql/zentinelle/ → backend
-    - / → frontend
-  External:
-    - PostgreSQL (RDS, Cloud SQL, or in-cluster)
-    - Redis (ElastiCache, Memorystore, or in-cluster)
+# Enable ClickHouse
+docker compose --profile analytics up -d
 ```
 
 ---
 
-## BYOC (Bring Your Own Cloud)
+## Backup & Restore
 
-In BYOC mode, Zentinelle runs in **your** infrastructure. Calliope AI manages it remotely via an outbound-only management plane connection.
+```bash
+# Full backup
+pg_dump -U zentinelle zentinelle > backup.sql
 
-```
-Your Cloud (VPC / private subnet)
-  └── Zentinelle
-        └── management-agent (sidecar)
-              │ outbound HTTPS only
-              ▼
-        Calliope AI Management Plane
-          - Version management
-          - Remote config push
-          - Fleet health monitoring
-          - Incident surfacing
+# Core only (exclude analytics — can be rebuilt)
+pg_dump -U zentinelle --schema=zentinelle zentinelle > backup_core.sql
+
+# Restore
+psql -U zentinelle zentinelle < backup.sql
 ```
 
-The management agent makes outbound calls only. No inbound ports required from Calliope AI's side. Your data never leaves your cloud.
-
-**BYOC setup:** Contact [support@zentinelle.ai](mailto:support@zentinelle.ai) or your Calliope AI account team.
+Automated (crontab):
+```bash
+0 2 * * * pg_dump -U zentinelle zentinelle | gzip > /backups/zentinelle_$(date +\%Y\%m\%d).sql.gz
+```
 
 ---
 
-## Production Checklist
+## Health Checks
 
-- [ ] PostgreSQL with daily backups and point-in-time recovery
-- [ ] Redis with persistence enabled (`appendonly yes`)
-- [ ] TLS termination at ingress (nginx or load balancer)
-- [ ] `ENCRYPTION_KEY` stored in secrets manager (not in `.env`)
-- [ ] `SECRET_KEY` rotated from default
-- [ ] `ALLOWED_HOSTS` set to your actual hostnames
-- [ ] Celery workers have sufficient replicas for event volume
-- [ ] Log aggregation configured (CloudWatch, Datadog, etc.)
-- [ ] Backup and restore tested
+| Endpoint | Purpose | Kubernetes |
+|----------|---------|------------|
+| `GET /api/zentinelle/v1/health` | Liveness | `livenessProbe` |
+| `GET /api/zentinelle/v1/ready` | Readiness (DB + Redis) | `readinessProbe` |
 
-## Scaling Notes
+```yaml
+livenessProbe:
+  httpGet:
+    path: /api/zentinelle/v1/health
+    port: 8000
+readinessProbe:
+  httpGet:
+    path: /api/zentinelle/v1/ready
+    port: 8000
+  initialDelaySeconds: 15
+```
 
-- **Event volume**: The Celery event processing worker is the primary scaling surface. Each worker handles ~500 events/sec. Scale horizontally.
-- **Policy evaluation**: Backend is stateless — scale horizontally behind a load balancer.
-- **High-volume agents**: Use batch event submission (`POST /events` with array) to reduce connection overhead.
-- **DB separation**: When ready to split from a shared DB, run `pg_dump --schema=zentinelle` and restore as `public` schema in a new database. Update `DATABASE_URL`.
+---
+
+## Monitoring
+
+Built-in observability:
+- **InteractionLog** — AI usage, tokens, costs per agent
+- **AuditLog** — admin actions with tamper-evident hash chain
+- **Events** — agent telemetry, policy violations, alerts
+- **UsageMetric** — token/cost aggregations
+
+Export via REST:
+```bash
+# Audit logs (CSV, NDJSON, or CEF format)
+GET /api/zentinelle/v1/audit/export/?format=csv&from=2026-01-01&to=2026-12-31
+
+# Compliance summary
+GET /api/zentinelle/v1/export/summary.json
+```
+
+Webhook notifications fire automatically for policy violations, incidents, and compliance alerts when `NotificationConfig` is configured per tenant.
