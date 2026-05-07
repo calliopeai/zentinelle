@@ -40,6 +40,7 @@ Note: Deployment operations and provisioner callbacks have moved to:
 """
 from django.urls import path
 from zentinelle.api.views.auth import LoginView, LogoutView, MeView
+from zentinelle.api.views.health import HealthView, ReadyView
 from zentinelle.api.views import (
     RegisterView,
     ConfigView,
@@ -77,6 +78,10 @@ from zentinelle.api.views import (
 app_name = 'zentinelle'
 
 urlpatterns = [
+    # Platform health (Kubernetes probes)
+    path('health', HealthView.as_view(), name='health'),
+    path('ready', ReadyView.as_view(), name='ready'),
+
     # Portal auth (session-based, httpOnly cookies)
     path('auth/login', LoginView.as_view(), name='auth-login'),
     path('auth/logout', LogoutView.as_view(), name='auth-logout'),
