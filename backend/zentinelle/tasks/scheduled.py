@@ -77,7 +77,7 @@ def cleanup_old_events():
     Delete events older than retention period.
     Run daily via Celery Beat.
     """
-    from zentinelle.models import Event, Policy
+    from zentinelle.models import Event
 
     default_retention_days = 90
 
@@ -279,13 +279,13 @@ def enforce_retention_policies():
     """
     from django.utils import timezone
     from datetime import timedelta
-    from zentinelle.models import Policy, AuditLog
+    from zentinelle.models import Policy, AuditLog, Event
+    from zentinelle.models.retention_policy import LegalHold
 
-    try:
-        from zentinelle.models import Event
-        event_model_available = True
-    except ImportError:
-        event_model_available = False
+    active_holds = set(
+        LegalHold.objects.filter(status='active')
+        .values_list('tenant_id', flat=True)
+    )
 
     retention_policies = Policy.objects.filter(
         policy_type=Policy.PolicyType.DATA_RETENTION,
@@ -301,6 +301,10 @@ def enforce_retention_policies():
         tenant_id = policy.tenant_id
         config = policy.config or {}
 
+        if tenant_id in active_holds:
+            logger.info("Retention[%s]: skipped — active legal hold", tenant_id)
+            continue
+
         event_retention_days = config.get('event_retention_days')
         audit_log_retention_days = config.get('audit_log_retention_days')
         auto_delete_user_data = config.get('auto_delete_user_data', False)
@@ -309,7 +313,7 @@ def enforce_retention_policies():
             now = timezone.now()
 
             # Delete old Event records
-            if event_model_available and event_retention_days:
+            if event_retention_days:
                 event_cutoff = now - timedelta(days=event_retention_days)
                 deleted, _ = Event.objects.filter(
                     tenant_id=tenant_id,
@@ -336,8 +340,7 @@ def enforce_retention_policies():
 
             # Null out user-identifying fields in remaining records
             if auto_delete_user_data:
-                if event_model_available:
-                    Event.objects.filter(tenant_id=tenant_id).update(
+                Event.objects.filter(tenant_id=tenant_id).update(
                         user_identifier='',
                     )
                 AuditLog.objects.filter(tenant_id=tenant_id).update(
