@@ -350,13 +350,18 @@ class ProxyView(View):
                 ).exists()
 
                 if output_filter_policies and response_body:
-                    # Re-evaluate with output context so OUTPUT_FILTER evaluator can run
                     try:
                         out_text = response_body.decode('utf-8', errors='replace')
                         output_context = dict(context)
                         output_context['output'] = out_text
-                        engine.evaluate(endpoint, 'llm:response', context=output_context)
-                    except Exception as exc:  # noqa: BLE001
+                        filter_result = engine.evaluate(endpoint, 'llm:response', context=output_context)
+                        if not filter_result.allowed:
+                            return JsonResponse(
+                                {'error': 'output_policy_denied',
+                                 'detail': filter_result.reason or 'Response blocked by output filter'},
+                                status=403,
+                            )
+                    except Exception as exc:
                         logger.warning('Output filter evaluation failed: %s', exc)
 
                 self._log_interaction(endpoint, provider, context, eval_result,

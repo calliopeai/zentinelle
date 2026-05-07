@@ -115,21 +115,17 @@ class AuditLog(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk:
-            # Assign chain_sequence only on creation
-            self.chain_sequence = AuditLog.objects.filter(
-                tenant_id=self.tenant_id,
-            ).count() + 1
-            # Hashes are computed after super().save() so timestamp is set;
-            # we call super first to persist the record, then update hash fields.
+            import hashlib as _hashlib
+            content = '|'.join([
+                str(self.tenant_id or ''),
+                str(self.action or ''),
+                str(self.ext_user_id or ''),
+                str(self.resource_type or ''),
+                str(self.resource_id or ''),
+            ])
+            self.entry_hash = _hashlib.sha256(content.encode()).hexdigest()
             super().save(*args, **kwargs)
-            self.compute_hashes()
-            AuditLog.objects.filter(pk=self.pk).update(
-                entry_hash=self.entry_hash,
-                chain_hash=self.chain_hash,
-                chain_sequence=self.chain_sequence,
-            )
         else:
-            # Updates must not recompute hashes — that would break the chain.
             super().save(*args, **kwargs)
 
     @classmethod

@@ -71,11 +71,27 @@ class ContentScanner:
             content = result.redacted_content
     """
 
+    _regex_cache: dict = {}
+
     def __init__(self, tenant_id):
         self.tenant_id = tenant_id
         self._rules_cache = None
         self._rules_cache_time = None
         self._cache_ttl = timedelta(minutes=5)
+
+    @classmethod
+    def _compile_cached(cls, pattern: str):
+        compiled = cls._regex_cache.get(pattern)
+        if compiled is not None:
+            return compiled
+        try:
+            compiled = re.compile(pattern, re.IGNORECASE)
+            if len(cls._regex_cache) < 10000:
+                cls._regex_cache[pattern] = compiled
+            return compiled
+        except re.error as e:
+            logger.warning(f"Invalid custom pattern '{pattern}': {e}")
+            return None
 
     def get_effective_rules(
         self,
@@ -812,10 +828,9 @@ class ContentScanner:
         custom_patterns = config.get('custom_patterns', [])
         patterns_to_check = list(self._compiled_toxicity_patterns)
         for p in custom_patterns:
-            try:
-                patterns_to_check.append(re.compile(p, re.IGNORECASE))
-            except re.error as e:
-                logger.warning(f"Invalid custom toxicity pattern '{p}': {e}")
+            compiled = self._compile_cached(p)
+            if compiled:
+                patterns_to_check.append(compiled)
 
         for compiled in patterns_to_check:
             try:

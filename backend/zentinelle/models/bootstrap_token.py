@@ -21,6 +21,8 @@ class BootstrapToken(models.Model):
     token_prefix = models.CharField(max_length=16)
     label = models.CharField(max_length=255, blank=True, help_text='Human-readable label')
     revoked = models.BooleanField(default=False)
+    single_use = models.BooleanField(default=False, help_text='Revoke after first use')
+    max_uses = models.PositiveIntegerField(default=0, help_text='0 = unlimited')
     expires_at = models.DateTimeField(null=True, blank=True)
     last_used_at = models.DateTimeField(null=True, blank=True)
     use_count = models.PositiveIntegerField(default=0)
@@ -41,10 +43,17 @@ class BootstrapToken(models.Model):
             return False
         if self.expires_at and timezone.now() > self.expires_at:
             return False
+        if self.max_uses and self.use_count >= self.max_uses:
+            return False
         return True
 
     def record_use(self):
         self.last_used_at = timezone.now()
+        self.use_count += 1
+        if self.single_use:
+            self.revoked = True
+            self.save(update_fields=['last_used_at', 'use_count', 'revoked'])
+            return
         self.use_count = models.F('use_count') + 1
         self.save(update_fields=['last_used_at', 'use_count'])
 

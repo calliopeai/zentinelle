@@ -96,6 +96,12 @@ class PolicyEngine:
                 scope_sub_organization_id_ext=sub_organization_id,
             )
 
+        if endpoint.deployment_id_ext:
+            scope_conditions |= Q(
+                scope_type=Policy.ScopeType.DEPLOYMENT,
+                scope_deployment_id_ext=endpoint.deployment_id_ext,
+            )
+
         scope_conditions |= Q(
             scope_type=Policy.ScopeType.ENDPOINT,
             scope_endpoint=endpoint,
@@ -123,6 +129,7 @@ class PolicyEngine:
         # Group policies by scope for proper merging
         org_policies = []
         sub_org_policies = []
+        deployment_policies = []
         endpoint_policies = []
         user_policies = []
 
@@ -131,6 +138,8 @@ class PolicyEngine:
                 org_policies.append(policy)
             elif policy.scope_type == Policy.ScopeType.SUB_ORGANIZATION:
                 sub_org_policies.append(policy)
+            elif policy.scope_type == Policy.ScopeType.DEPLOYMENT:
+                deployment_policies.append(policy)
             elif policy.scope_type == Policy.ScopeType.ENDPOINT:
                 endpoint_policies.append(policy)
             elif policy.scope_type == Policy.ScopeType.USER:
@@ -140,6 +149,7 @@ class PolicyEngine:
         result = self._merge_policies([
             org_policies,
             sub_org_policies,
+            deployment_policies,
             endpoint_policies,
             user_policies,
         ])
@@ -154,6 +164,11 @@ class PolicyEngine:
         """
         Invalidate policy cache for a tenant by bumping a version counter.
         Call this when policies are created/updated/deleted.
+
+        Race window: a request in-flight when the version bumps may use the
+        old cache key for its remaining duration. This is at most the time
+        between the version read and the DB query — typically microseconds.
+        The 5-minute cache TTL bounds maximum staleness.
         """
         version_key = f"policies_version:{tenant_id}"
         try:
