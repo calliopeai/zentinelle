@@ -1,15 +1,80 @@
 """
 Django signals for Zentinelle.
 
-Connects model post_save signals to trigger asynchronous ClickHouse
-streaming of audit events.
+- Audit logging: auto-create AuditLog records for key model changes
+- ClickHouse sync: stream audit/event records asynchronously
 """
 import logging
 
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
 logger = logging.getLogger(__name__)
+
+AUDITED_MODELS = {
+    'zentinelle.AgentEndpoint': 'endpoint',
+    'zentinelle.Policy': 'policy',
+    'zentinelle.ContentRule': 'content_rule',
+    'zentinelle.Risk': 'risk',
+    'zentinelle.Incident': 'incident',
+    'zentinelle.RetentionPolicy': 'retention_policy',
+    'zentinelle.LegalHold': 'legal_hold',
+    'zentinelle.SystemPrompt': 'system_prompt',
+}
+
+
+def _get_model_label(instance):
+    return f'{instance._meta.app_label}.{instance._meta.object_name}'
+
+
+@receiver(post_save)
+def auto_audit_log_save(sender, instance, created, **kwargs):
+    label = _get_model_label(instance)
+    resource_type = AUDITED_MODELS.get(label)
+    if not resource_type:
+        return
+    if label == 'zentinelle.AuditLog':
+        return
+
+    tenant_id = getattr(instance, 'tenant_id', '')
+    if not tenant_id:
+        return
+
+    try:
+        from zentinelle.models.audit import AuditLog
+        AuditLog.objects.create(
+            tenant_id=tenant_id,
+            action=AuditLog.Action.CREATE if created else AuditLog.Action.UPDATE,
+            resource_type=resource_type,
+            resource_id=str(instance.pk),
+            resource_name=str(getattr(instance, 'name', ''))[:255],
+        )
+    except Exception as e:
+        logger.debug(f"Auto audit log failed for {label}: {e}")
+
+
+@receiver(post_delete)
+def auto_audit_log_delete(sender, instance, **kwargs):
+    label = _get_model_label(instance)
+    resource_type = AUDITED_MODELS.get(label)
+    if not resource_type:
+        return
+
+    tenant_id = getattr(instance, 'tenant_id', '')
+    if not tenant_id:
+        return
+
+    try:
+        from zentinelle.models.audit import AuditLog
+        AuditLog.objects.create(
+            tenant_id=tenant_id,
+            action=AuditLog.Action.DELETE,
+            resource_type=resource_type,
+            resource_id=str(instance.pk),
+            resource_name=str(getattr(instance, 'name', ''))[:255],
+        )
+    except Exception as e:
+        logger.debug(f"Auto audit log delete failed for {label}: {e}")
 
 
 @receiver(post_save, sender='zentinelle.AuditLog')
