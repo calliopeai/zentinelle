@@ -22,6 +22,7 @@ from zentinelle.services.evaluators.agent_delegation import AgentDelegationEvalu
 from zentinelle.services.evaluators.behavioral_baseline import BehavioralBaselineEvaluator
 from zentinelle.services.evaluators.session_quota import SessionQuotaEvaluator
 from zentinelle.services.evaluators.safety_settings import SafetySettingsEvaluator
+from zentinelle.services.evaluators.multimodal_policy import MultimodalPolicyEvaluator
 
 __all__ = [
     'BasePolicyEvaluator',

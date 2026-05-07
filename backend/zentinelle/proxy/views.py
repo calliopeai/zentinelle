@@ -194,6 +194,14 @@ class ProxyView(View):
                     safety_settings = body_json.get('safetySettings', body_json.get('safety_settings', []))
                     if safety_settings:
                         context['safety_settings'] = safety_settings
+
+                    from zentinelle.services.multimodal_scanner import analyze_request_body
+                    mm = analyze_request_body(body_json, provider)
+                    if mm.has_media:
+                        context['multimodal'] = mm.media_summary
+                        context['has_multimodal'] = True
+                    if mm.combined_text:
+                        context['extracted_text'] = mm.combined_text[:5000]
                 except (ValueError, TypeError):
                     pass
 

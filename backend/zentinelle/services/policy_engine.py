@@ -345,6 +345,7 @@ class PolicyEngine:
             BehavioralBaselineEvaluator,
             SessionQuotaEvaluator,
             SafetySettingsEvaluator,
+            MultimodalPolicyEvaluator,
             NoOpEvaluator,
         )
 
@@ -372,6 +373,7 @@ class PolicyEngine:
             Policy.PolicyType.BEHAVIORAL_BASELINE: BehavioralBaselineEvaluator(),
             Policy.PolicyType.SESSION_QUOTA: SessionQuotaEvaluator(),
             Policy.PolicyType.SAFETY_SETTINGS: SafetySettingsEvaluator(),
+            Policy.PolicyType.MULTIMODAL_POLICY: MultimodalPolicyEvaluator(),
         }
         return evaluators.get(policy_type, NoOpEvaluator())
 

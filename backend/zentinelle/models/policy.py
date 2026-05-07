@@ -57,6 +57,7 @@ class Policy(Tracking):
         SESSION_QUOTA = 'session_quota', 'Session Quota'
         DATA_RETENTION = 'data_retention', 'Data Retention'
         SAFETY_SETTINGS = 'safety_settings', 'Safety Settings (Gemini)'
+        MULTIMODAL_POLICY = 'multimodal_policy', 'Multimodal Content Policy'
 
     class Enforcement(models.TextChoices):
         ENFORCE = 'enforce', 'Enforce'
