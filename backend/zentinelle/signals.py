@@ -77,6 +77,42 @@ def auto_audit_log_delete(sender, instance, **kwargs):
         logger.debug(f"Auto audit log delete failed for {label}: {e}")
 
 
+WEBHOOK_TRIGGERS = {
+    'zentinelle.ComplianceAlert': ('compliance_alert', lambda i: getattr(i, 'severity', 'medium')),
+    'zentinelle.Incident': ('incident_created', lambda i: getattr(i, 'severity', 'medium')),
+}
+
+
+@receiver(post_save)
+def auto_webhook_dispatch(sender, instance, created, **kwargs):
+    if not created:
+        return
+    label = _get_model_label(instance)
+    trigger = WEBHOOK_TRIGGERS.get(label)
+    if not trigger:
+        return
+
+    event_type, severity_fn = trigger
+    tenant_id = getattr(instance, 'tenant_id', '')
+    if not tenant_id:
+        return
+
+    try:
+        from zentinelle.services.webhook_dispatcher import dispatch_webhook
+        dispatch_webhook(
+            tenant_id=tenant_id,
+            event_type=event_type,
+            severity=severity_fn(instance),
+            payload={
+                'id': str(instance.pk),
+                'title': getattr(instance, 'title', getattr(instance, 'name', str(instance))),
+                'description': getattr(instance, 'description', ''),
+            },
+        )
+    except Exception as e:
+        logger.debug(f"Webhook dispatch failed for {label}: {e}")
+
+
 @receiver(post_save, sender='zentinelle.AuditLog')
 def on_audit_log_created(sender, instance, created, **kwargs):
     """Stream new AuditLog records to ClickHouse asynchronously."""
@@ -96,7 +132,7 @@ def on_audit_log_created(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='zentinelle.Event')
 def on_event_created(sender, instance, created, **kwargs):
-    """Stream new Event records to ClickHouse asynchronously."""
+    """Stream new Event records to ClickHouse and dispatch webhooks for policy violations."""
     if not created:
         return
 
@@ -107,5 +143,16 @@ def on_event_created(sender, instance, created, **kwargs):
             countdown=1,
         )
     except Exception as e:
-        # Never block the main request cycle
         logger.debug(f"Failed to queue Event ClickHouse sync: {e}")
+
+    if instance.event_type == 'policy_violation' and instance.tenant_id:
+        try:
+            from zentinelle.services.webhook_dispatcher import dispatch_webhook
+            dispatch_webhook(
+                tenant_id=instance.tenant_id,
+                event_type='policy_violation',
+                severity='high',
+                payload=instance.payload or {},
+            )
+        except Exception as e:
+            logger.debug(f"Webhook dispatch failed for policy violation: {e}")
