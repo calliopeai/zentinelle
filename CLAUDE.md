@@ -16,6 +16,7 @@
 | `docs/wiki/sdk.md` | SDK integration guide | SDK-related work |
 | `docs/wiki/deployment.md` | Deployment guide — Docker, env vars, scaling | Infra/deployment changes |
 | `docs/wiki/development.md` | Development setup and contribution guide | Onboarding, dev environment |
+| `docs/codemap.json` | Codebase knowledge graph — nodes, edges, data flows | Navigating code, finding components |
 | `docs/pricing.yaml` | Pricing tier definitions — source of truth for billing config | Pricing or billing changes |
 
 <!-- END BOOTSTRAP-PRIMER -->

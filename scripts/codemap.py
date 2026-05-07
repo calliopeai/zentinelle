@@ -24,7 +24,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "codemap.sqlite"
 BACKEND_ROOT = Path(__file__).parent.parent / "backend"
-FRONTEND_ROOT = Path(__file__).parent.parent / "frontend" / "src"
+FRONTEND_ROOT = Path(__file__).parent.parent / "frontend"
 
 
 # =============================================================================

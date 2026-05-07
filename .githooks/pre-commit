@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook: regenerate codemap and add to commit.
+#
+# Runs the codemap builder when backend or frontend source files change,
+# then stages the updated codemap.json so it's always current.
+#
+# Install: git config core.hooksPath .githooks
+
+set -e
+
+# Check if any source files are staged
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+
+BACKEND_CHANGED=$(echo "$STAGED" | grep -c "^backend/zentinelle/" || true)
+FRONTEND_CHANGED=$(echo "$STAGED" | grep -c "^frontend/app/\|^frontend/graphql/\|^frontend/components/" || true)
+SCHEMA_CHANGED=$(echo "$STAGED" | grep -c "^backend/zentinelle/schema/" || true)
+
+if [ "$BACKEND_CHANGED" -gt 0 ] || [ "$FRONTEND_CHANGED" -gt 0 ] || [ "$SCHEMA_CHANGED" -gt 0 ]; then
+    echo "[pre-commit] Source files changed — regenerating codemap..."
+
+    if command -v python3 &>/dev/null; then
+        python3 scripts/codemap.py build 2>/dev/null
+        python3 scripts/codemap.py export 2>/dev/null
+
+        if [ -f docs/codemap.json ]; then
+            git add docs/codemap.json
+            echo "[pre-commit] codemap.json updated and staged."
+        fi
+    else
+        echo "[pre-commit] python3 not found — skipping codemap rebuild."
+    fi
+fi
