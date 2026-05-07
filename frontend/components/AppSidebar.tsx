@@ -1,0 +1,158 @@
+"use client";
+
+import * as React from "react";
+import { usePathname } from "next/navigation";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarRail,
+  SidebarSeparator,
+} from "@/components/ui/sidebar";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { NavUser } from "@/components/NavUser";
+import type { SessionUser } from "@/lib/auth/session";
+import {
+  LayoutDashboardIcon,
+  ShieldIcon,
+  FileTextIcon,
+  ScanLineIcon,
+  ActivityIcon,
+  ScrollTextIcon,
+  BarChart3Icon,
+  AlertTriangleIcon,
+  FlameIcon,
+  CheckCircleIcon,
+  BookOpenIcon,
+  SettingsIcon,
+} from "lucide-react";
+
+interface NavItem {
+  title: string;
+  url: string;
+  icon: React.ReactNode;
+}
+
+interface NavSection {
+  label?: string;
+  items: NavItem[];
+}
+
+const sections: NavSection[] = [
+  {
+    items: [
+      {
+        title: "Dashboard",
+        url: "/dashboard",
+        icon: <LayoutDashboardIcon />,
+      },
+    ],
+  },
+  {
+    label: "Governance",
+    items: [
+      { title: "Agents", url: "/agents", icon: <ShieldIcon /> },
+      { title: "Policies", url: "/policies", icon: <FileTextIcon /> },
+      { title: "Content Rules", url: "/content-rules", icon: <ScanLineIcon /> },
+    ],
+  },
+  {
+    label: "Observability",
+    items: [
+      { title: "Events", url: "/events", icon: <ActivityIcon /> },
+      { title: "Audit Logs", url: "/audit-logs", icon: <ScrollTextIcon /> },
+      { title: "Monitoring", url: "/monitoring", icon: <BarChart3Icon /> },
+    ],
+  },
+  {
+    label: "Risk",
+    items: [
+      { title: "Risks", url: "/risks", icon: <AlertTriangleIcon /> },
+      { title: "Incidents", url: "/incidents", icon: <FlameIcon /> },
+      { title: "Compliance", url: "/compliance", icon: <CheckCircleIcon /> },
+    ],
+  },
+  {
+    label: "Library",
+    items: [
+      {
+        title: "System Prompts",
+        url: "/system-prompts",
+        icon: <BookOpenIcon />,
+      },
+      { title: "Settings", url: "/settings", icon: <SettingsIcon /> },
+    ],
+  },
+];
+
+type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
+  ssrUser: SessionUser | null;
+};
+
+export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
+  const pathname = usePathname();
+
+  return (
+    <Sidebar collapsible="icon" {...props}>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <a href="/dashboard">
+                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                  <ShieldIcon className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">Zentinelle</span>
+                  <span className="truncate text-xs">GRC Portal</span>
+                </div>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        {sections.map((section, sectionIdx) => (
+          <SidebarGroup key={section.label ?? sectionIdx}>
+            {section.label && (
+              <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+            )}
+            <SidebarMenu>
+              {section.items.map((item) => {
+                const isActive =
+                  pathname === item.url ||
+                  pathname.startsWith(item.url + "/");
+                return (
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.title}
+                    >
+                      <a href={item.url}>
+                        {item.icon}
+                        <span>{item.title}</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+      <SidebarFooter>
+        <ThemeToggle />
+        <SidebarSeparator />
+        <NavUser ssrUser={ssrUser} />
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  );
+}

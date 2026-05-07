@@ -1,0 +1,15 @@
+export const routeLabels: Record<string, string> = {
+  dashboard: "Dashboard",
+  agents: "Agents",
+  policies: "Policies",
+  "content-rules": "Content Rules",
+  events: "Events",
+  "audit-logs": "Audit Logs",
+  monitoring: "Monitoring",
+  risks: "Risks",
+  incidents: "Incidents",
+  compliance: "Compliance",
+  "system-prompts": "System Prompts",
+  settings: "Settings",
+  new: "Create",
+};
