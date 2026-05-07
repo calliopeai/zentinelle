@@ -191,6 +191,9 @@ class ProxyView(View):
                     messages = body_json.get('messages', [])
                     if messages:
                         context['input_tokens'] = _estimate_input_tokens(messages)
+                    safety_settings = body_json.get('safetySettings', body_json.get('safety_settings', []))
+                    if safety_settings:
+                        context['safety_settings'] = safety_settings
                 except (ValueError, TypeError):
                     pass
 

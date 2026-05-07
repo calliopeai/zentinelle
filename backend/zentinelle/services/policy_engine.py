@@ -344,6 +344,7 @@ class PolicyEngine:
             AgentDelegationEvaluator,
             BehavioralBaselineEvaluator,
             SessionQuotaEvaluator,
+            SafetySettingsEvaluator,
             NoOpEvaluator,
         )
 
@@ -370,6 +371,7 @@ class PolicyEngine:
             Policy.PolicyType.AGENT_DELEGATION: AgentDelegationEvaluator(),
             Policy.PolicyType.BEHAVIORAL_BASELINE: BehavioralBaselineEvaluator(),
             Policy.PolicyType.SESSION_QUOTA: SessionQuotaEvaluator(),
+            Policy.PolicyType.SAFETY_SETTINGS: SafetySettingsEvaluator(),
         }
         return evaluators.get(policy_type, NoOpEvaluator())
 

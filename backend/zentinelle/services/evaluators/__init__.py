@@ -21,6 +21,7 @@ from zentinelle.services.evaluators.prompt_injection import PromptInjectionEvalu
 from zentinelle.services.evaluators.agent_delegation import AgentDelegationEvaluator
 from zentinelle.services.evaluators.behavioral_baseline import BehavioralBaselineEvaluator
 from zentinelle.services.evaluators.session_quota import SessionQuotaEvaluator
+from zentinelle.services.evaluators.safety_settings import SafetySettingsEvaluator
 
 __all__ = [
     'BasePolicyEvaluator',
