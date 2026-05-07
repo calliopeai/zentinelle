@@ -231,7 +231,20 @@ Agent SDK → local proxy (port 8742) → Zentinelle /proxy/<provider>/ → prov
 |----------|----------|---------------|
 | `anthropic` | api.anthropic.com | `ANTHROPIC_BASE_URL` |
 | `openai` | api.openai.com/v1 | `OPENAI_BASE_URL` |
-| `google` | generativelanguage.googleapis.com | `GOOGLE_GEMINI_BASE_URL` |
+| `google` | generativelanguage.googleapis.com | *(programmatic — see below)* |
+
+**Gemini note:** The Google Generative AI SDKs do not natively respect a base URL env var. Configure the proxy URL programmatically when initializing the client:
+
+```python
+# Python
+import google.generativeai as genai
+genai.configure(api_key="...", transport="rest", client_options={"api_endpoint": "http://localhost:8742/proxy/google"})
+```
+
+```typescript
+// TypeScript
+const genai = new GoogleGenerativeAI(apiKey, { apiEndpoint: "http://localhost:8742/proxy/google" });
+```
 
 - CSRF exempt (API-authenticated, not browser forms)
 - Strips `X-Zentinelle-Key` and reverse-proxy headers before forwarding
