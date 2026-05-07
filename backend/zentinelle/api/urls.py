@@ -41,6 +41,7 @@ Note: Deployment operations and provisioner callbacks have moved to:
 from django.urls import path
 from zentinelle.api.views.auth import LoginView, LogoutView, MeView
 from zentinelle.api.views.health import HealthView, ReadyView
+from zentinelle.auth.oidc import OIDCLoginView, OIDCCallbackView
 from zentinelle.api.views import (
     RegisterView,
     ConfigView,
@@ -86,6 +87,8 @@ urlpatterns = [
     path('auth/login', LoginView.as_view(), name='auth-login'),
     path('auth/logout', LogoutView.as_view(), name='auth-logout'),
     path('auth/me', MeView.as_view(), name='auth-me'),
+    path('auth/oidc/login', OIDCLoginView.as_view(), name='auth-oidc-login'),
+    path('auth/oidc/callback', OIDCCallbackView.as_view(), name='auth-oidc-callback'),
 
     # Agent-facing endpoints
     path('register', RegisterView.as_view(), name='register'),
