@@ -46,9 +46,8 @@ class AgentEndpoint(Tracking):
     # Identity
     agent_id = models.SlugField(
         max_length=100,
-        unique=True,
         db_index=True,
-        help_text='Unique identifier for this agent (e.g., junohub-prod-west-2)'
+        help_text='Unique identifier for this agent within a tenant (e.g., junohub-prod-west-2)'
     )
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -112,6 +111,7 @@ class AgentEndpoint(Tracking):
 
     class Meta:
         ordering = ['tenant_id', 'name']
+        unique_together = [('tenant_id', 'agent_id')]
         indexes = [
             models.Index(fields=['tenant_id', 'status']),
             models.Index(fields=['agent_type', 'status']),

@@ -36,8 +36,8 @@ def filter_by_org(queryset, user, org_field='tenant_id', global_view=False, orga
     """
     Filter a queryset by tenant access.
 
-    Admins and operators have full access. Viewers have read access.
-    When organization_id is provided, results are scoped to that tenant.
+    Always scopes to the user's tenant_id. Never returns unfiltered data.
+    When organization_id is provided, results are scoped to that tenant instead.
     """
     if not user or not getattr(user, 'is_authenticated', False):
         return queryset.none()
@@ -45,10 +45,12 @@ def filter_by_org(queryset, user, org_field='tenant_id', global_view=False, orga
     if not can_view(user):
         return queryset.none()
 
+    tenant_id = get_request_tenant_id(user)
     if organization_id:
         return queryset.filter(**{org_field: str(organization_id)})
-
-    return queryset
+    if tenant_id:
+        return queryset.filter(**{org_field: str(tenant_id)})
+    return queryset.none()
 
 
 def get_request_tenant_id(user):

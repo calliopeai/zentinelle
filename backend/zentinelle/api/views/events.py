@@ -30,10 +30,18 @@ class EventsView(APIView):
     authentication_classes = [ZentinelleAPIKeyAuthentication]
     permission_classes = [IsAuthenticated]
 
+    MAX_BATCH_SIZE = 1000
+
     def post(self, request):
         serializer = EventsRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+
+        if len(data['events']) > self.MAX_BATCH_SIZE:
+            return Response(
+                {'error': f'Batch too large: max {self.MAX_BATCH_SIZE} events per request'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Get authenticated endpoint
         auth_endpoint = get_endpoint_from_request(request)

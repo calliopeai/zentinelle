@@ -46,6 +46,8 @@ class PolicyEngine:
     More specific scopes override broader ones.
     """
 
+    _evaluator_cache = None
+
     def get_effective_policies(
         self,
         endpoint: AgentEndpoint,
@@ -235,7 +237,11 @@ class PolicyEngine:
                 continue
 
             evaluator = self._get_evaluator(policy.policy_type)
-            result = evaluator.evaluate(policy, action, user_id, context, dry_run=dry_run)
+            try:
+                result = evaluator.evaluate(policy, action, user_id, context, dry_run=dry_run)
+            except Exception as exc:
+                logger.error("Evaluator %s raised exception: %s", policy.policy_type, exc)
+                result = PolicyResult(passed=False, message=f"Policy evaluation error: {policy.name}")
 
             results.append({
                 'id': str(policy.id),
@@ -320,62 +326,64 @@ class PolicyEngine:
         return evaluation_result
 
     def _get_evaluator(self, policy_type: str) -> 'BasePolicyEvaluator':
-        """Get the appropriate evaluator for a policy type."""
-        from zentinelle.services.evaluators import (
-            ResourceQuotaEvaluator,
-            BudgetLimitEvaluator,
-            RateLimitEvaluator,
-            ToolPermissionEvaluator,
-            SecretAccessEvaluator,
-            ModelRestrictionEvaluator,
-            ContextLimitEvaluator,
-            NetworkPolicyEvaluator,
-            OutputFilterEvaluator,
-            AgentCapabilityEvaluator,
-            HumanOversightEvaluator,
-            SystemPromptEvaluator,
-            AIGuardrailEvaluator,
-            AgentMemoryEvaluator,
-            AuditPolicyEvaluator,
-            SessionPolicyEvaluator,
-            DataAccessEvaluator,
-            DataRetentionEvaluator,
-            PromptInjectionEvaluator,
-            AgentDelegationEvaluator,
-            BehavioralBaselineEvaluator,
-            SessionQuotaEvaluator,
-            SafetySettingsEvaluator,
-            MultimodalPolicyEvaluator,
-            NoOpEvaluator,
-        )
+        """Get the appropriate evaluator for a policy type (cached)."""
+        if PolicyEngine._evaluator_cache is None:
+            from zentinelle.services.evaluators import (
+                ResourceQuotaEvaluator,
+                BudgetLimitEvaluator,
+                RateLimitEvaluator,
+                ToolPermissionEvaluator,
+                SecretAccessEvaluator,
+                ModelRestrictionEvaluator,
+                ContextLimitEvaluator,
+                NetworkPolicyEvaluator,
+                OutputFilterEvaluator,
+                AgentCapabilityEvaluator,
+                HumanOversightEvaluator,
+                SystemPromptEvaluator,
+                AIGuardrailEvaluator,
+                AgentMemoryEvaluator,
+                AuditPolicyEvaluator,
+                SessionPolicyEvaluator,
+                DataAccessEvaluator,
+                DataRetentionEvaluator,
+                PromptInjectionEvaluator,
+                AgentDelegationEvaluator,
+                BehavioralBaselineEvaluator,
+                SessionQuotaEvaluator,
+                SafetySettingsEvaluator,
+                MultimodalPolicyEvaluator,
+                NoOpEvaluator,
+            )
 
-        evaluators = {
-            Policy.PolicyType.RESOURCE_QUOTA: ResourceQuotaEvaluator(),
-            Policy.PolicyType.BUDGET_LIMIT: BudgetLimitEvaluator(),
-            Policy.PolicyType.RATE_LIMIT: RateLimitEvaluator(),
-            Policy.PolicyType.TOOL_PERMISSION: ToolPermissionEvaluator(),
-            Policy.PolicyType.SECRET_ACCESS: SecretAccessEvaluator(),
-            Policy.PolicyType.MODEL_RESTRICTION: ModelRestrictionEvaluator(),
-            Policy.PolicyType.CONTEXT_LIMIT: ContextLimitEvaluator(),
-            Policy.PolicyType.NETWORK_POLICY: NetworkPolicyEvaluator(),
-            Policy.PolicyType.OUTPUT_FILTER: OutputFilterEvaluator(),
-            Policy.PolicyType.AGENT_CAPABILITY: AgentCapabilityEvaluator(),
-            Policy.PolicyType.HUMAN_OVERSIGHT: HumanOversightEvaluator(),
-            Policy.PolicyType.SYSTEM_PROMPT: SystemPromptEvaluator(),
-            Policy.PolicyType.AI_GUARDRAIL: AIGuardrailEvaluator(),
-            Policy.PolicyType.AGENT_MEMORY: AgentMemoryEvaluator(),
-            Policy.PolicyType.AUDIT_POLICY: AuditPolicyEvaluator(),
-            Policy.PolicyType.SESSION_POLICY: SessionPolicyEvaluator(),
-            Policy.PolicyType.DATA_ACCESS: DataAccessEvaluator(),
-            Policy.PolicyType.DATA_RETENTION: DataRetentionEvaluator(),
-            Policy.PolicyType.PROMPT_INJECTION: PromptInjectionEvaluator(),
-            Policy.PolicyType.AGENT_DELEGATION: AgentDelegationEvaluator(),
-            Policy.PolicyType.BEHAVIORAL_BASELINE: BehavioralBaselineEvaluator(),
-            Policy.PolicyType.SESSION_QUOTA: SessionQuotaEvaluator(),
-            Policy.PolicyType.SAFETY_SETTINGS: SafetySettingsEvaluator(),
-            Policy.PolicyType.MULTIMODAL_POLICY: MultimodalPolicyEvaluator(),
-        }
-        return evaluators.get(policy_type, NoOpEvaluator())
+            PolicyEngine._evaluator_cache = {
+                Policy.PolicyType.RESOURCE_QUOTA: ResourceQuotaEvaluator(),
+                Policy.PolicyType.BUDGET_LIMIT: BudgetLimitEvaluator(),
+                Policy.PolicyType.RATE_LIMIT: RateLimitEvaluator(),
+                Policy.PolicyType.TOOL_PERMISSION: ToolPermissionEvaluator(),
+                Policy.PolicyType.SECRET_ACCESS: SecretAccessEvaluator(),
+                Policy.PolicyType.MODEL_RESTRICTION: ModelRestrictionEvaluator(),
+                Policy.PolicyType.CONTEXT_LIMIT: ContextLimitEvaluator(),
+                Policy.PolicyType.NETWORK_POLICY: NetworkPolicyEvaluator(),
+                Policy.PolicyType.OUTPUT_FILTER: OutputFilterEvaluator(),
+                Policy.PolicyType.AGENT_CAPABILITY: AgentCapabilityEvaluator(),
+                Policy.PolicyType.HUMAN_OVERSIGHT: HumanOversightEvaluator(),
+                Policy.PolicyType.SYSTEM_PROMPT: SystemPromptEvaluator(),
+                Policy.PolicyType.AI_GUARDRAIL: AIGuardrailEvaluator(),
+                Policy.PolicyType.AGENT_MEMORY: AgentMemoryEvaluator(),
+                Policy.PolicyType.AUDIT_POLICY: AuditPolicyEvaluator(),
+                Policy.PolicyType.SESSION_POLICY: SessionPolicyEvaluator(),
+                Policy.PolicyType.DATA_ACCESS: DataAccessEvaluator(),
+                Policy.PolicyType.DATA_RETENTION: DataRetentionEvaluator(),
+                Policy.PolicyType.PROMPT_INJECTION: PromptInjectionEvaluator(),
+                Policy.PolicyType.AGENT_DELEGATION: AgentDelegationEvaluator(),
+                Policy.PolicyType.BEHAVIORAL_BASELINE: BehavioralBaselineEvaluator(),
+                Policy.PolicyType.SESSION_QUOTA: SessionQuotaEvaluator(),
+                Policy.PolicyType.SAFETY_SETTINGS: SafetySettingsEvaluator(),
+                Policy.PolicyType.MULTIMODAL_POLICY: MultimodalPolicyEvaluator(),
+                '_noop': NoOpEvaluator(),
+            }
+        return PolicyEngine._evaluator_cache.get(policy_type, PolicyEngine._evaluator_cache['_noop'])
 
     def _check_organization_budget(
         self,

@@ -68,6 +68,8 @@ from zentinelle.services.policy_engine import PolicyEngine
 
 logger = logging.getLogger(__name__)
 
+MAX_RESPONSE_SIZE = 50 * 1024 * 1024  # 50 MB
+
 PROVIDERS = {
     'anthropic': 'https://api.anthropic.com',
     'openai': 'https://api.openai.com/v1',
@@ -160,15 +162,8 @@ class ProxyView(View):
                 pass
 
         if endpoint is None:
-            # Fall back to first active endpoint for tenant (permissive)
-            endpoint = AgentEndpoint.objects.filter(
-                tenant_id=tenant_id,
-                status=AgentEndpoint.Status.ACTIVE,
-            ).first()
-
-        if endpoint is None:
             return JsonResponse(
-                {'error': 'no_endpoint', 'detail': 'No active agent endpoint found for this key'},
+                {'error': 'endpoint_not_found', 'detail': 'Agent key does not match any active endpoint'},
                 status=403,
             )
 
@@ -282,7 +277,17 @@ class ProxyView(View):
                         upstream_content_type = upstream_response.headers.get(
                             'content-type', 'text/event-stream'
                         )
-                        buffered_chunks = list(upstream_response.iter_bytes())
+                        buffered_chunks = []
+                        buffered_size = 0
+                        for chunk in upstream_response.iter_bytes():
+                            buffered_size += len(chunk)
+                            if buffered_size > MAX_RESPONSE_SIZE:
+                                return JsonResponse(
+                                    {'error': 'response_too_large',
+                                     'detail': f'Response exceeded {MAX_RESPONSE_SIZE} bytes limit'},
+                                    status=502,
+                                )
+                            buffered_chunks.append(chunk)
 
                 full_content = b''.join(buffered_chunks)
 

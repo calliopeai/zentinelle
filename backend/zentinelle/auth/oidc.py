@@ -179,9 +179,17 @@ class OIDCCallbackView(View):
         )
 
     def _provision_user(self, claims: dict, config: dict):
+        from zentinelle.auth.roles import (ROLE_ADMIN, ROLE_OPERATOR,
+                                           ROLE_VIEWER, assign_role)
+
         email = claims.get('email', '')
         sub = claims.get('sub', '')
-        name = claims.get('name', email.split('@')[0] if email else sub)
+
+        # Extract tenant and role from claims using configured claim names
+        tenant_id = claims.get(config['tenant_claim'], '')
+        role = claims.get(config['role_claim'], '')
+
+        is_admin = role == 'admin'
 
         username = email or sub
         user, created = User.objects.get_or_create(
@@ -190,7 +198,7 @@ class OIDCCallbackView(View):
                 'email': email,
                 'first_name': claims.get('given_name', ''),
                 'last_name': claims.get('family_name', ''),
-                'is_staff': True,
+                'is_staff': is_admin,
                 'is_active': True,
             },
         )
@@ -199,9 +207,15 @@ class OIDCCallbackView(View):
             user.email = email
             user.first_name = claims.get('given_name', user.first_name)
             user.last_name = claims.get('family_name', user.last_name)
-            user.save(update_fields=['email', 'first_name', 'last_name'])
+            user.is_staff = is_admin
+            user.save(update_fields=['email', 'first_name', 'last_name', 'is_staff'])
+
+        # Assign Zentinelle RBAC role based on OIDC claim
+        role_map = {'admin': ROLE_ADMIN, 'operator': ROLE_OPERATOR, 'viewer': ROLE_VIEWER}
+        if role in role_map:
+            assign_role(user, role_map[role])
 
         if created:
-            logger.info('OIDC: provisioned new user %s', username)
+            logger.info('OIDC: provisioned new user %s (tenant=%s, role=%s)', username, tenant_id, role)
 
         return user
