@@ -447,3 +447,12 @@ def retry_failed_events():
     logger.info(f"Retrying {total} failed events")
 
     return {'retried': total}
+
+
+@shared_task(name='zentinelle.sync_model_registry')
+def sync_model_registry():
+    """Daily: sync AI model registry from provider APIs."""
+    from zentinelle.services.model_sync import sync_all_providers
+    results = sync_all_providers()
+    logger.info('Model registry sync complete: %s', results)
+    return results

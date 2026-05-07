@@ -245,7 +245,11 @@ CELERY_TASK_ROUTES = {
 CELERY_BEAT_SCHEDULE = {
     'zentinelle-enforce-retention-policies': {
         'task': 'zentinelle.enforce_retention_policies',
-        'schedule': 86400,  # once per day (24 hours in seconds)
+        'schedule': 86400,
+    },
+    'zentinelle-sync-model-registry': {
+        'task': 'zentinelle.sync_model_registry',
+        'schedule': 86400,
     },
 }
 
