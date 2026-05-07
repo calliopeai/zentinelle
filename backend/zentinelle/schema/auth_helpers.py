@@ -1,101 +1,67 @@
 """
 Authorization helpers for Zentinelle GraphQL schema.
 
-Provides consistent authorization patterns for queries and mutations.
-
-Standalone version — no dependency on core.models or organization.models.
-Uses tenant_id-based access control.
+Uses the RBAC role system from zentinelle.auth.roles.
 """
+from zentinelle.auth.roles import can_view, can_admin
 
 
 def is_internal_admin(user):
-    """
-    Check if a user is an internal admin.
-
-    In standalone mode, staff and superuser flags are used.
-    """
-    if not user or not user.is_authenticated:
+    """Check if a user has admin-level access."""
+    if not user or not getattr(user, 'is_authenticated', False):
         return False
-    return getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False)
+    return can_admin(user)
 
 
 def get_user_org_ids(user):
     """
     Get organization IDs the user has access to.
-
-    Returns None for internal admins (meaning all orgs allowed).
-    Returns list of org IDs for regular users.
-
-    In standalone mode, tenant_id is used instead of org membership.
+    Returns None for admins (all orgs). Returns [] for non-authenticated.
     """
-    if not user or not user.is_authenticated:
+    if not user or not getattr(user, 'is_authenticated', False):
         return []
-
-    # Internal admins see all tenants
-    if is_internal_admin(user):
-        return None  # None means "all" - caller should not filter
-
-    # In standalone mode, return empty list (tenant filtering is
-    # handled at the API/middleware layer, not via org membership)
+    if can_admin(user):
+        return None
     return []
 
 
 def user_has_org_access(user, org_id) -> bool:
-    """
-    Check if a user has access to a specific organization/tenant.
-
-    Internal admins have access to all organizations.
-    """
-    if not user or not user.is_authenticated:
+    """Check if a user has access to a specific tenant."""
+    if not user or not getattr(user, 'is_authenticated', False):
         return False
-
-    if is_internal_admin(user):
-        return True
-
-    return False
+    return can_view(user)
 
 
 def filter_by_org(queryset, user, org_field='tenant_id', global_view=False, organization_id=None):
     """
     Filter a queryset by tenant access.
 
-    Internal admins always have full access.
+    Admins and operators have full access. Viewers have read access.
     When organization_id is provided, results are scoped to that tenant.
-
-    Args:
-        queryset: Django QuerySet to filter
-        user: Django User instance
-        org_field: Field name to filter on (default: 'tenant_id')
-        global_view: Deprecated
-        organization_id: If provided, scope results to this tenant only.
-
-    Returns:
-        Filtered queryset
     """
-    if is_internal_admin(user):
-        if organization_id:
-            return queryset.filter(**{org_field: str(organization_id)})
-        return queryset
+    if not user or not getattr(user, 'is_authenticated', False):
+        return queryset.none()
 
-    # Non-admin users: return nothing in standalone mode
-    # (tenant filtering should be handled upstream)
-    return queryset.none()
+    if not can_view(user):
+        return queryset.none()
+
+    if organization_id:
+        return queryset.filter(**{org_field: str(organization_id)})
+
+    return queryset
 
 
 def get_request_tenant_id(user):
     """
     Get the tenant_id for the current request user.
     - ZentinelleAgentUser (API key auth): returns user.tenant_id
-    - Django staff user (session auth): returns "default"
+    - Django user (session auth): returns stable default tenant
     - Unauthenticated: returns None
     """
     if not user or not getattr(user, 'is_authenticated', False):
         return None
-    # API key auth (ZentinelleAgentUser has tenant_id attribute)
     if hasattr(user, 'tenant_id') and not hasattr(user, 'is_staff'):
         return user.tenant_id
-    # Session auth (Django User) - staff only in standalone
-    # Use a stable UUID so it passes UUID! GraphQL type validation
-    if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+    if can_view(user):
         return "00000000-0000-0000-0000-000000000001"
     return None
