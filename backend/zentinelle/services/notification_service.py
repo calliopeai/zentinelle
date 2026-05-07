@@ -5,7 +5,6 @@ Sends notifications for deployment lifecycle events via email (AWS SES)
 and in-app notifications.
 """
 
-import json
 import logging
 from typing import Optional, TYPE_CHECKING
 
@@ -109,7 +108,7 @@ class NotificationService:
         # Create in-app notifications
         self._create_in_app_notification(
             org=org,
-            subject=f"Deployment Failed",
+            subject="Deployment Failed",
             message=(
                 f"Your JunoHub deployment '{deployment.name}' failed to provision.\n\n"
                 f"Error: {error or 'Unknown error'}\n\n"

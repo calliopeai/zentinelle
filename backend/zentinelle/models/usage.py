@@ -23,11 +23,9 @@ Architecture:
 """
 import uuid
 from decimal import Decimal
-from django.conf import settings
 from django.db import models
 from django.utils import timezone
-from django.db.models import Sum, Count, Avg, Max, Min
-from django.db.models.functions import TruncHour, TruncDay
+from django.db.models import Sum, Avg, Max, Min
 
 
 class UsageMetric(models.Model):

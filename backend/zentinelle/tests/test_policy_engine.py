@@ -11,7 +11,6 @@ from zentinelle.models import (
 from zentinelle.services.policy_engine import (
     PolicyEngine,
     PolicyResult,
-    EvaluationResult,
 )
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'

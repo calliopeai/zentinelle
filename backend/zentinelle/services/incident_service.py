@@ -9,7 +9,6 @@ from typing import List, Dict, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from zentinelle.services.policy_engine import EvaluationResult
-    from zentinelle.models import Policy
 
 logger = logging.getLogger(__name__)
 

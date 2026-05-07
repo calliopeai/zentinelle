@@ -4,7 +4,7 @@ Tests for the compliance packs service (zentinelle.services.compliance_packs).
 All tests use unittest.mock — no database required.
 """
 import unittest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 
 VALID_POLICY_TYPES = {

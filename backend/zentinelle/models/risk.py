@@ -5,7 +5,6 @@ Provides AI-specific risk register and incident tracking capabilities.
 """
 import uuid
 from django.db import models
-from django.conf import settings
 
 
 class Risk(models.Model):

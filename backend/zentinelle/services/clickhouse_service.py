@@ -11,11 +11,10 @@ so the rest of the application works normally without ClickHouse.
 """
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 from django.conf import settings
-from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -245,11 +244,11 @@ def event_timeline(
     if granularity == 'hour':
         time_col = 'hour'
         table = 'audit_events_hourly_counts'
-        date_filter = f"hour >= now() - INTERVAL {{days:UInt32}} DAY"
+        date_filter = "hour >= now() - INTERVAL {days:UInt32} DAY"
     else:
         time_col = 'toDate(hour) AS day'
         table = 'audit_events_hourly_counts'
-        date_filter = f"hour >= now() - INTERVAL {{days:UInt32}} DAY"
+        date_filter = "hour >= now() - INTERVAL {days:UInt32} DAY"
 
     params: Dict[str, Any] = {'days': days}
     extra_filters = ""

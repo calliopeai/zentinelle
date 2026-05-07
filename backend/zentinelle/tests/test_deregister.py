@@ -7,7 +7,7 @@ No real database or Redis — all external calls are mocked.
 import json
 import uuid
 import unittest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 from django.test import RequestFactory
 

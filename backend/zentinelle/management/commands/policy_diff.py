@@ -8,7 +8,6 @@ Usage:
 """
 import os
 
-import yaml
 from django.core.management.base import BaseCommand, CommandError
 
 from zentinelle.models.policy import Policy

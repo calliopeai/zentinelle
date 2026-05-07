@@ -6,7 +6,6 @@ to show impact before deployment.
 """
 import logging
 from datetime import timedelta
-from typing import Optional
 
 from django.utils import timezone
 

@@ -15,7 +15,7 @@ import hashlib
 import base64
 import json
 import logging
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Dict, Any
 from datetime import datetime, timezone as dt_timezone
 from dataclasses import dataclass
 

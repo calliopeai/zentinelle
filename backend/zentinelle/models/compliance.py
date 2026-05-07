@@ -15,8 +15,6 @@ import uuid
 from decimal import Decimal
 
 from django.db import models
-from django.conf import settings
-from django.utils import timezone
 from zentinelle.models.base import Tracking
 
 

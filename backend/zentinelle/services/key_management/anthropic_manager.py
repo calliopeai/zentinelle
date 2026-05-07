@@ -6,7 +6,6 @@ Docs: https://docs.anthropic.com/en/api/admin-api
 import logging
 import httpx
 from datetime import datetime
-from typing import Optional
 
 from .base import (
     BaseKeyManager,

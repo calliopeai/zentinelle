@@ -10,10 +10,6 @@ from zentinelle.models import (
     Policy,
     Event,
     ContentRule,
-    ContentScan,
-    ContentViolation,
-    ComplianceAlert,
-    License,
 )
 
 class AgentEndpointModelTest(TestCase):

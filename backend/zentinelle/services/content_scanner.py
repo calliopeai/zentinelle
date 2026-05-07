@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 
 from django.utils import timezone
-from django.db.models import Q
 
 from zentinelle.models import (
     ContentRule,

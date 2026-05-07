@@ -7,7 +7,7 @@ Run:
     PYTHONPATH=. .venv/bin/python -m pytest zentinelle/tests/test_policy_history.py -v
 """
 import unittest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -252,7 +252,6 @@ class TestPolicyHistoryListView(unittest.TestCase):
     @patch('zentinelle.api.views.policy_history.PolicyHistory')
     def test_returns_history_newest_first(self, MockHistory, MockPolicy, mock_get_tenant):
         """History results should be ordered by descending version."""
-        from datetime import datetime, timezone
 
         mock_get_tenant.return_value = 'tenant-abc'
         policy = MagicMock()
@@ -296,7 +295,6 @@ class TestPolicyHistoryListView(unittest.TestCase):
     @patch('zentinelle.api.views.policy_history.PolicyHistory')
     def test_response_structure(self, MockHistory, MockPolicy, mock_get_tenant):
         """Response should contain count and results keys."""
-        from datetime import datetime, timezone
 
         mock_get_tenant.return_value = 'tenant-abc'
         policy = MagicMock()

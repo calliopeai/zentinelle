@@ -16,7 +16,7 @@ Grace Period Durations:
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Optional, Tuple, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from django.utils import timezone
 
@@ -375,7 +375,7 @@ class GracePeriodService:
 
             # Determine urgency
             if days_remaining <= 1:
-                subject = f"URGENT: License Expires Tomorrow - Immediate Action Required"
+                subject = "URGENT: License Expires Tomorrow - Immediate Action Required"
                 urgency = "urgent"
             elif days_remaining <= 3:
                 subject = f"Warning: License Expires in {days_remaining} Days"

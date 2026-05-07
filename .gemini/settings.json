@@ -1,0 +1,35 @@
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ZENTINELLE_ENDPOINT='http://localhost:8080' ZENTINELLE_KEY='sk_agent_8IBICbZSxBKSkHMByPWr5t5EgT3UhIszgs2GfE0l4Do' ZENTINELLE_AGENT_ID='gemini-dev' ZENTINELLE_FAIL_OPEN=1 /opt/homebrew/bin/python3 '/Users/ragelink/repos/calliope/zentinelle-sdk.git/plugins/agent/zentinelle_agent/hooks/pre_tool.py'"
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ZENTINELLE_ENDPOINT='http://localhost:8080' ZENTINELLE_KEY='sk_agent_8IBICbZSxBKSkHMByPWr5t5EgT3UhIszgs2GfE0l4Do' ZENTINELLE_AGENT_ID='gemini-dev' /opt/homebrew/bin/python3 '/Users/ragelink/repos/calliope/zentinelle-sdk.git/plugins/agent/zentinelle_agent/hooks/post_tool.py'"
+          }
+        ]
+      }
+    ],
+    "BeforeAgent": [],
+    "AfterAgent": [],
+    "Notification": [],
+    "SessionStart": [],
+    "SessionEnd": [],
+    "PreCompress": [],
+    "BeforeModel": [],
+    "AfterModel": [],
+    "BeforeToolSelection": []
+  }
+}

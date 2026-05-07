@@ -6,11 +6,10 @@ policy violations, and generate alerts for remediation.
 """
 import logging
 from datetime import timedelta
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from celery import shared_task
 from django.utils import timezone
-from django.db import transaction
-from django.db.models import Count, Avg, Q, F
+from django.db.models import Count
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +30,8 @@ def check_compliance_drift():
     - New violations since last check
     """
     from zentinelle.models import (
-        Policy,
-        ComplianceAssessment,
-        ComplianceAlert,
-        ContentRule,
         ZentinelleLicense,
         AgentEndpoint,
-    )
-    from zentinelle.models.compliance import (
-        COMPLIANCE_FRAMEWORKS,
-        COMPLIANCE_CAPABILITIES,
     )
 
     results = {
@@ -219,7 +210,7 @@ def monitor_violation_rates():
     - New violation types
     - Repeated violations from same source
     """
-    from zentinelle.models import ContentViolation, ContentScan, ComplianceAlert, ZentinelleLicense, AgentEndpoint
+    from zentinelle.models import ContentViolation, ComplianceAlert, ZentinelleLicense, AgentEndpoint
 
     results = {
         'organizations_checked': 0,

@@ -6,7 +6,6 @@ Docs: https://openrouter.ai/docs
 import logging
 import httpx
 from datetime import datetime
-from typing import Optional
 
 from .base import (
     BaseKeyManager,

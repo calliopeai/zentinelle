@@ -6,7 +6,6 @@ Docs: https://docs.together.ai/reference/api-keys
 import logging
 import httpx
 from datetime import datetime
-from typing import Optional
 
 from .base import (
     BaseKeyManager,

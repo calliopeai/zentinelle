@@ -12,12 +12,11 @@ Features:
 """
 import logging
 from datetime import datetime, timedelta
-from decimal import Decimal
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 
 from django.db import transaction
-from django.db.models import Count, Sum, Avg, Q, F
+from django.db.models import Count
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)

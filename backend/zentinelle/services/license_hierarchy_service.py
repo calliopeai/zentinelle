@@ -77,7 +77,6 @@ class LicenseHierarchyService:
             License is None if creation failed, error_message is None if succeeded
         """
         from zentinelle.models import License
-        from organization.models import Organization
 
         # Validate parent license
         validation = self.validate_parent_for_child(parent_license)
@@ -213,7 +212,6 @@ class LicenseHierarchyService:
         Returns:
             Tuple of (number of updated licenses, list of errors)
         """
-        from zentinelle.models import License
 
         updated_count = 0
         errors = []
@@ -315,7 +313,6 @@ class LicenseHierarchyService:
         Returns:
             HierarchyValidationResult with validation status
         """
-        from zentinelle.models import License
 
         children = self.get_child_licenses(parent_license)
 
@@ -361,7 +358,6 @@ class LicenseHierarchyService:
         Returns:
             Tuple of (success, error_message)
         """
-        from zentinelle.models import License
 
         # Validate current license is a child
         if not child_license.is_child_license:

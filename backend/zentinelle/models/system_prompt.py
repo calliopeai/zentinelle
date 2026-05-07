@@ -11,7 +11,6 @@ A flexible prompt library system that supports:
 
 import uuid
 import re
-from django.conf import settings
 from django.db import models
 from django.core.validators import MinLengthValidator
 from django.contrib.postgres.fields import ArrayField

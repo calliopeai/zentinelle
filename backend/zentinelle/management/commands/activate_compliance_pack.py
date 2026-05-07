@@ -62,7 +62,7 @@ class Command(BaseCommand):
                     f"with enforcement='{enforcement}'"
                 )
             )
-            self.stdout.write(f"  Policies that would be created/updated:")
+            self.stdout.write("  Policies that would be created/updated:")
             for policy in pack['policies']:
                 self.stdout.write(
                     f"    - {policy['name']} "

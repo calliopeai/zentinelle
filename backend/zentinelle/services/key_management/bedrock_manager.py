@@ -21,7 +21,6 @@ from .base import (
     KeyCreationError,
     KeyRevocationError,
     KeyManagerError,
-    KeyNotSupportedError,
 )
 
 logger = logging.getLogger(__name__)

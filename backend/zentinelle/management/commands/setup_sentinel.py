@@ -5,9 +5,7 @@ Handles:
 - Loading AI Provider fixtures
 - Setting up Celery Beat periodic tasks
 """
-import json
 from django.core.management.base import BaseCommand
-from django.db import transaction
 
 
 class Command(BaseCommand):

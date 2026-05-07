@@ -6,7 +6,7 @@ All tests use unittest.mock — no database required.
 import hashlib
 import unittest
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 
 def _make_record(

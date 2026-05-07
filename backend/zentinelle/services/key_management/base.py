@@ -170,7 +170,7 @@ class BaseKeyManager(ABC):
             return new_key
 
         except KeyCreationError:
-            raise KeyRotationError(f"Failed to create replacement key")
+            raise KeyRotationError("Failed to create replacement key")
 
     @abstractmethod
     def list_keys(self) -> list[dict]:

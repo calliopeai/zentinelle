@@ -4,7 +4,6 @@ POST /api/zentinelle/v1/events
 """
 import uuid
 import logging
-from datetime import datetime
 
 from rest_framework import status
 from rest_framework.views import APIView
@@ -13,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from zentinelle.models import AgentEndpoint, Event
+from zentinelle.models import Event
 from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_endpoint_from_request
 from zentinelle.api.serializers import EventsRequestSerializer
 

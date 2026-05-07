@@ -2,7 +2,7 @@
 Tool permission (RBAC) policy evaluator.
 """
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
 from django.core import signing
 from django.utils import timezone

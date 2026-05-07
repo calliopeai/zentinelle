@@ -6,7 +6,6 @@ Docs: https://huggingface.co/docs/hub/api#access-tokens
 import logging
 import httpx
 from datetime import datetime
-from typing import Optional
 
 from .base import (
     BaseKeyManager,

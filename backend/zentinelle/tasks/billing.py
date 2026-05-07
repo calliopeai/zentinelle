@@ -15,7 +15,7 @@ import logging
 from datetime import datetime, timedelta
 from celery import shared_task
 from django.utils import timezone
-from django.db.models import Sum, Count
+from django.db.models import Sum
 from django.conf import settings
 
 logger = logging.getLogger(__name__)

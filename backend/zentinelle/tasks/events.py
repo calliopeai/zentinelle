@@ -3,11 +3,9 @@ Celery tasks for processing Zentinelle events.
 """
 import logging
 from celery import shared_task
-from django.utils import timezone
 
 from zentinelle.services.event_store import (
     EventEnvelope,
-    DeadLetterQueue,
     event_store,
     dead_letter_queue,
 )
@@ -241,7 +239,6 @@ def apply_event_projections(self, event_id: str, envelope_data: dict):
 
     Projections are materialized views built from events.
     """
-    from zentinelle.models import Event
 
     try:
         envelope = EventEnvelope.from_dict(envelope_data)
@@ -268,7 +265,6 @@ def process_dead_letter_queue(organization_id: str):
     Attempts to reprocess failed events that may have been
     blocked by temporary issues.
     """
-    from zentinelle.models import Event
 
     tenant_id = organization_id
 

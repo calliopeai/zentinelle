@@ -4,7 +4,7 @@ Key manager registry and factory.
 Provides access to provider-specific key managers with feature gating.
 """
 import logging
-from typing import Optional, Type
+from typing import Type
 
 # TODO: decouple - billing features not available in standalone mode
 try:

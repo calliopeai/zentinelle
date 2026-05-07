@@ -10,7 +10,6 @@ from datetime import datetime
 from typing import Optional
 
 import strawberry
-from strawberry.scalars import JSON
 from graphql_relay import from_global_id
 
 from deployments.models import Deployment

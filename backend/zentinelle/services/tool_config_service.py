@@ -10,7 +10,6 @@ Handles:
 import logging
 from typing import Dict, List, Optional, Any
 
-from django.utils import timezone
 
 # TODO: decouple - external models not available in standalone mode
 # These are lazy-loaded when used by the client-cove integration layer

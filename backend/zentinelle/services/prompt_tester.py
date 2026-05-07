@@ -14,11 +14,10 @@ IMPORTANT GUARDRAILS:
 
 import json
 import logging
-import hashlib
 import httpx
-from typing import Optional, Dict, Any, List
+from typing import Optional, List
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from django.conf import settings
 from django.core.cache import cache
 

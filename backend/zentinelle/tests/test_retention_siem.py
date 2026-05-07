@@ -3,11 +3,10 @@ Tests for event retention TTL enforcement and SIEM export (issue #35).
 
 All tests use unittest.TestCase + unittest.mock only — no database required.
 """
-import io
 import json
 import unittest
 from datetime import datetime, timezone as dt_timezone
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 
 # ---------------------------------------------------------------------------
@@ -260,7 +259,6 @@ class TestAuditExportView(unittest.TestCase):
     def test_returns_401_for_missing_key(self):
         """AuditExportView returns 401 when no API key is provided."""
         from zentinelle.api.views.audit_export import AuditExportView
-        from rest_framework.exceptions import AuthenticationFailed
 
         view = AuditExportView()
 

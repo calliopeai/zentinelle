@@ -10,7 +10,6 @@ import logging
 from datetime import timedelta
 from celery import shared_task
 from django.utils import timezone
-from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
@@ -282,7 +281,7 @@ def generate_monthly_compliance_reports():
         logger.info("Managed-only task skipped in standalone mode")
         return
 
-    from zentinelle.models import License, LicenseComplianceReport
+    from zentinelle.models import License
     from zentinelle.services.license_compliance_service import license_compliance_service
     from dateutil.relativedelta import relativedelta
 

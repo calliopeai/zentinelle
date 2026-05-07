@@ -16,7 +16,7 @@ For providers in MANAGED mode, this service handles:
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, List, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 from django.conf import settings
 from django.utils import timezone
 

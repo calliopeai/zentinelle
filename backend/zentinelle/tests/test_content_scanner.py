@@ -1,21 +1,17 @@
 """
 Tests for the Content Scanner service.
 """
-import pytest
 from django.test import TestCase
-from unittest.mock import patch, MagicMock
 
 from zentinelle.models import (
     AgentEndpoint,
     ContentRule,
     ContentScan,
-    ContentViolation,
     ComplianceAlert,
 )
 from zentinelle.services.content_scanner import (
     ContentScanner,
     DetectionResult,
-    ScanResult,
 )
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'

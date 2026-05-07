@@ -10,7 +10,6 @@ from strawberry.scalars import JSON
 
 from deployments.models import Deployment
 from organization.models import OrganizationMember
-from zentinelle.models import AgentEndpoint
 from zentinelle.schema.types import DeploymentType, TerraformProvisionType
 
 logger = logging.getLogger(__name__)

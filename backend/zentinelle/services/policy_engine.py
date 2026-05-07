@@ -4,9 +4,8 @@ Policy Engine - Evaluates policies for agents with inheritance support.
 import logging
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
-from functools import lru_cache
 
-from django.db.models import Q, Prefetch
+from django.db.models import Q
 from django.core.cache import cache
 
 from zentinelle.models import Policy, AgentEndpoint

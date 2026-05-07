@@ -16,7 +16,6 @@ from unittest.mock import Mock
 from zentinelle.services.tier_service import (
     ZentinelleTierService,
     ZentinelleTiers,
-    ZentinelleFeatures,
     TierLimits,
     zentinelle_tier_service,
     TIER_FEATURES,

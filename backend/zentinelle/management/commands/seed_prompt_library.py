@@ -9,7 +9,6 @@ Inspired by:
 """
 
 from django.core.management.base import BaseCommand
-from django.utils.text import slugify
 from zentinelle.models.system_prompt import PromptCategory, PromptTag, SystemPrompt
 
 

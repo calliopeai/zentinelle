@@ -9,12 +9,9 @@ Events are sent in batches for efficiency. The main entry points are:
 All tasks are fire-and-forget: failures are logged but never block
 the main Django request cycle.
 """
-import json
 import logging
-from datetime import datetime
 
 from celery import shared_task
-from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 

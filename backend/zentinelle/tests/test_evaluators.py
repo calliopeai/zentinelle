@@ -3,21 +3,16 @@ Tests for the individual policy evaluators.
 
 Issue: #23
 """
-import pytest
 from django.test import TestCase, override_settings
 from django.core.cache import cache
 from django.core import signing
-from django.utils import timezone
-from unittest.mock import patch, MagicMock
-from datetime import timedelta
+from unittest.mock import patch
 
 from zentinelle.models import Policy
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 from zentinelle.services.evaluators import (
-    BasePolicyEvaluator,
     NoOpEvaluator,
-    PolicyResult,
     RateLimitEvaluator,
     ResourceQuotaEvaluator,
     BudgetLimitEvaluator,

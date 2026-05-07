@@ -213,7 +213,7 @@ class OutputFilterEvaluator(BasePolicyEvaluator):
                 if re.search(raw_pattern, output_text):
                     return PolicyResult(
                         passed=False,
-                        message=f"Output blocked: matched restricted pattern",
+                        message="Output blocked: matched restricted pattern",
                     )
             except re.error as exc:
                 logger.warning(

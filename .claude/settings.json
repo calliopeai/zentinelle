@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ZENTINELLE_ENDPOINT='http://localhost:8080' ZENTINELLE_KEY='sk_agent_UUsk3pDm-fPYyloECeCRnoGTCPQ7tvD__s_uFoXcBBQ' ZENTINELLE_AGENT_ID='claude-code-dev' ZENTINELLE_FAIL_OPEN=1 /opt/homebrew/bin/python3 '/Users/ragelink/repos/calliope/zentinelle-sdk.git/plugins/agent/zentinelle_agent/hooks/pre_tool.py'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ZENTINELLE_ENDPOINT='http://localhost:8080' ZENTINELLE_KEY='sk_agent_UUsk3pDm-fPYyloECeCRnoGTCPQ7tvD__s_uFoXcBBQ' ZENTINELLE_AGENT_ID='claude-code-dev' /opt/homebrew/bin/python3 '/Users/ragelink/repos/calliope/zentinelle-sdk.git/plugins/agent/zentinelle_agent/hooks/post_tool.py'"
+          }
+        ]
+      }
+    ]
+  }
+}

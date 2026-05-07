@@ -5,7 +5,7 @@ Validates that data retention metadata is present and consistent with
 policy configuration. Surfaces warnings about upcoming retention windows.
 """
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 from zentinelle.models import Policy

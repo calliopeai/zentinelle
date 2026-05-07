@@ -5,7 +5,7 @@ Uses unittest.TestCase + unittest.mock only. No database required.
 """
 import json
 import unittest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 
 # ---------------------------------------------------------------------------
@@ -397,7 +397,6 @@ class TestIncidentDetailView(unittest.TestCase):
     def test_patch_resolved_sets_resolved_at(self, mock_inc_cls, mock_tenant):
         """PATCH with status=resolved auto-sets resolved_at."""
         from zentinelle.api.views.incidents import IncidentDetailView
-        from unittest.mock import PropertyMock
         import datetime
 
         fake_now = datetime.datetime(2026, 1, 1, 12, 0, 0)

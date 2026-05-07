@@ -3,11 +3,10 @@ Tests for policy-as-code management commands.
 """
 import os
 import tempfile
-import uuid
 import yaml
 
 from django.test import SimpleTestCase
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 
 
 VALID_POLICY_YAML = {

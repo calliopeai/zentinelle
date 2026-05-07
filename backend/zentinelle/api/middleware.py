@@ -9,7 +9,6 @@ from functools import wraps
 
 from django.http import JsonResponse
 from django.core.cache import cache
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
 

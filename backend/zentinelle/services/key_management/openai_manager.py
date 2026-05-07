@@ -6,7 +6,6 @@ Docs: https://platform.openai.com/docs/api-reference/api-keys
 import logging
 import httpx
 from datetime import datetime
-from typing import Optional
 
 from .base import (
     BaseKeyManager,

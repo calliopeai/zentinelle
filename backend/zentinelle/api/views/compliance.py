@@ -17,7 +17,6 @@ GET /api/zentinelle/v1/export/summary.json - Export JSON compliance summary
 """
 import csv
 import io
-import json
 import logging
 from datetime import timedelta
 from collections import defaultdict

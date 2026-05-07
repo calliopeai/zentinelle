@@ -9,7 +9,6 @@ Organizations can maintain a registry of approved AI models with:
 """
 import uuid
 from django.db import models
-from django.conf import settings
 from zentinelle.models.base import Tracking
 
 
