@@ -232,6 +232,7 @@ Agent SDK → local proxy (port 8742) → Zentinelle /proxy/<provider>/ → prov
 | `anthropic` | api.anthropic.com | `ANTHROPIC_BASE_URL` |
 | `openai` | api.openai.com/v1 | `OPENAI_BASE_URL` |
 | `google` | generativelanguage.googleapis.com | *(programmatic — see below)* |
+| `vertex` | {region}-aiplatform.googleapis.com | *(headers — see below)* |
 
 **Gemini note:** The Google Generative AI SDKs do not natively respect a base URL env var. Configure the proxy URL programmatically when initializing the client:
 
@@ -245,6 +246,18 @@ genai.configure(api_key="...", transport="rest", client_options={"api_endpoint":
 // TypeScript
 const genai = new GoogleGenerativeAI(apiKey, { apiEndpoint: "http://localhost:8742/proxy/google" });
 ```
+
+**Vertex AI note:** Pass project and region via headers:
+```bash
+curl -X POST http://localhost:8742/proxy/vertex/publishers/google/models/gemini-2.0-flash:generateContent \
+  -H "X-Zentinelle-Key: sk_agent_..." \
+  -H "X-Vertex-Region: us-central1" \
+  -H "X-Vertex-Project: my-gcp-project" \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -d '{"contents": [{"parts": [{"text": "Hello"}]}]}'
+```
+
+Or set `VERTEX_REGION` and `VERTEX_PROJECT` env vars on the Zentinelle backend.
 
 - CSRF exempt (API-authenticated, not browser forms)
 - Strips `X-Zentinelle-Key` and reverse-proxy headers before forwarding

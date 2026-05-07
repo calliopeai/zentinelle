@@ -74,6 +74,11 @@ PROVIDERS = {
     'google': 'https://generativelanguage.googleapis.com',
 }
 
+VERTEX_REGIONS = {
+    'us-central1', 'us-east1', 'us-west1', 'europe-west1',
+    'europe-west4', 'asia-northeast1', 'asia-southeast1',
+}
+
 # Headers that must not be forwarded to the upstream provider.
 _HOP_BY_HOP = frozenset([
     'connection',
@@ -137,7 +142,8 @@ class ProxyView(View):
         tenant_id = auth.tenant_id
 
         # 2. Validate provider
-        if provider not in PROVIDERS:
+        supported = set(PROVIDERS.keys()) | {'vertex'}
+        if provider not in supported:
             return JsonResponse(
                 {'error': 'unsupported_provider', 'detail': f"Provider '{provider}' is not supported"},
                 status=404,
@@ -206,8 +212,17 @@ class ProxyView(View):
             )
 
         # 6. Forward to upstream provider via httpx
-        base_url = PROVIDERS[provider]
-        upstream_url = f"{base_url}/{path}"
+        if provider == 'vertex':
+            upstream_url = self._build_vertex_url(request, path)
+            if not upstream_url:
+                return JsonResponse(
+                    {'error': 'vertex_config_missing',
+                     'detail': 'Set X-Vertex-Region and X-Vertex-Project headers'},
+                    status=400,
+                )
+        else:
+            base_url = PROVIDERS[provider]
+            upstream_url = f"{base_url}/{path}"
         if request.META.get('QUERY_STRING'):
             upstream_url += '?' + request.META['QUERY_STRING']
 
@@ -216,9 +231,15 @@ class ProxyView(View):
         for header, value in request.headers.items():
             if header.lower() not in _HOP_BY_HOP:
                 forward_headers[header] = value
+        for h in ('x-vertex-region', 'x-vertex-project'):
+            forward_headers.pop(h, None)
+            forward_headers.pop(h.title(), None)
         # Set correct Host (just the hostname, not the path)
         from urllib.parse import urlparse
-        forward_headers['Host'] = urlparse(PROVIDERS[provider]).hostname
+        if provider in PROVIDERS:
+            forward_headers['Host'] = urlparse(PROVIDERS[provider]).hostname
+        else:
+            forward_headers['Host'] = urlparse(upstream_url).hostname
 
         # Debug: log forwarded headers (redact auth values)
         debug_headers = {k: (v[:20] + '...' if k.lower() == 'authorization' else v) for k, v in forward_headers.items()}
@@ -354,6 +375,27 @@ class ProxyView(View):
                 {'error': 'proxy_error', 'detail': 'An internal proxy error occurred'},
                 status=502,
             )
+
+    @staticmethod
+    def _build_vertex_url(request, path):
+        """Build Vertex AI upstream URL from request headers."""
+        region = (request.headers.get('X-Vertex-Region', '') or
+                  request.META.get('HTTP_X_VERTEX_REGION', '')).strip()
+        project = (request.headers.get('X-Vertex-Project', '') or
+                   request.META.get('HTTP_X_VERTEX_PROJECT', '')).strip()
+
+        if not region or not project:
+            import os
+            region = region or os.environ.get('VERTEX_REGION', '')
+            project = project or os.environ.get('VERTEX_PROJECT', '')
+
+        if not region or not project:
+            return None
+
+        if region not in VERTEX_REGIONS:
+            logger.warning('Unknown Vertex AI region: %s', region)
+
+        return f'https://{region}-aiplatform.googleapis.com/v1/projects/{project}/locations/{region}/{path}'
 
     def _log_interaction(self, endpoint, provider, context, eval_result,
                          response_body=None, upstream_status=None):
