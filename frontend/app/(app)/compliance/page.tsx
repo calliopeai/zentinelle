@@ -266,7 +266,16 @@ export default function CompliancePage() {
           {frameworks.map((fw) => {
             const isEnabled = enabledFrameworks.has(fw.id);
             return (
-            <Card key={fw.id} className={isEnabled ? "" : "opacity-50"}>
+            <Card
+              key={fw.id}
+              className={`${isEnabled ? "cursor-pointer hover:border-primary/50 transition-colors" : "opacity-50"}`}
+              onClick={() => {
+                if (isEnabled) {
+                  const slug = (fw.name ?? "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+                  window.location.href = `/compliance/${slug}`;
+                }
+              }}
+            >
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>{fw.name}</span>

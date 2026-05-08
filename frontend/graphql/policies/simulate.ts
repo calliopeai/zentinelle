@@ -4,7 +4,7 @@ export const SIMULATE_POLICY = gql`
   query SimulatePolicy(
     $policyType: String!
     $config: JSON!
-    $enforcement: String!
+    $enforcement: String
     $lookbackDays: Int
   ) {
     simulatePolicy(
@@ -16,9 +16,11 @@ export const SIMULATE_POLICY = gql`
       totalEvents
       wouldBlock
       wouldWarn
-      wouldAllow
-      sampleBlocked
-      sampleWarned
+      wouldPass
+      impactPercent
+      blockedSamples
+      simulatedPolicyType
+      lookbackDays
     }
   }
 `;
@@ -50,8 +52,10 @@ export type SimulatePolicyResult = {
     totalEvents: number;
     wouldBlock: number;
     wouldWarn: number;
-    wouldAllow: number;
-    sampleBlocked: string[];
-    sampleWarned: string[];
+    wouldPass: number;
+    impactPercent: number;
+    blockedSamples: string[];
+    simulatedPolicyType: string | null;
+    lookbackDays: number;
   };
 };

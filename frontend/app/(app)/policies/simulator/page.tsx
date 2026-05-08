@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@apollo/client/react";
+import { useLazyQuery, useQuery } from "@apollo/client/react";
+import { toast } from "sonner";
 
 import {
   Card,
@@ -44,31 +45,52 @@ export default function PolicySimulatorPage() {
     JSON.stringify(POLICY_TYPE_CONFIGS["rate_limit"], null, 2),
   );
   const [result, setResult] = useState<SimulatePolicyResult["simulatePolicy"] | null>(null);
-  const [running, setRunning] = useState(false);
 
-  const { data: optionsData } = useQuery(GET_POLICY_OPTIONS);
+  // Pre-fetch policy options for future use (e.g. dynamic policy type list)
+  useQuery(GET_POLICY_OPTIONS);
+
+  const [executeSimulation, { loading: running }] = useLazyQuery<SimulatePolicyResult>(
+    SIMULATE_POLICY,
+    { fetchPolicy: "network-only" },
+  );
 
   const runSimulation = async () => {
-    setRunning(true);
+    let parsedConfig: Record<string, unknown>;
     try {
-      const parsedConfig = JSON.parse(config);
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/zentinelle/v1"}/health`,
-      );
-      // For now, simulate locally since the GraphQL query may not be connected
-      setResult({
-        totalEvents: Math.floor(Math.random() * 500) + 100,
-        wouldBlock: Math.floor(Math.random() * 50),
-        wouldWarn: Math.floor(Math.random() * 30),
-        wouldAllow: Math.floor(Math.random() * 400) + 50,
-        sampleBlocked: ["tool_call: shell (denied)", "tool_call: rm -rf (denied)"],
-        sampleWarned: ["Approaching rate limit (85% used)"],
-      });
+      parsedConfig = JSON.parse(config);
     } catch {
-      // fallback
+      toast.error("Invalid JSON configuration", {
+        description: "Please fix the JSON syntax and try again.",
+      });
+      return;
     }
-    setRunning(false);
+
+    setResult(null);
+    try {
+      const { data } = await executeSimulation({
+        variables: {
+          policyType,
+          config: parsedConfig,
+          enforcement,
+          lookbackDays,
+        },
+      });
+      if (data?.simulatePolicy) {
+        setResult(data.simulatePolicy);
+      } else {
+        toast.error("Simulation returned no results");
+      }
+    } catch (err: unknown) {
+      toast.error("Simulation failed", {
+        description: err instanceof Error ? err.message : "An unexpected error occurred.",
+      });
+    }
   };
+
+  const totalEvents = result?.totalEvents ?? 0;
+  const wouldAllow = result?.wouldPass ?? 0;
+  const wouldWarn = result?.wouldWarn ?? 0;
+  const wouldBlock = result?.wouldBlock ?? 0;
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -168,8 +190,13 @@ export default function PolicySimulatorPage() {
                 <CardHeader>
                   <CardTitle>Simulation Results</CardTitle>
                   <CardDescription>
-                    Impact on {result.totalEvents} events from the last{" "}
-                    {lookbackDays} days
+                    Impact on {totalEvents} events from the last{" "}
+                    {result.lookbackDays} days
+                    {result.impactPercent > 0 && (
+                      <span className="ml-1">
+                        ({result.impactPercent.toFixed(1)}% impact)
+                      </span>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -179,7 +206,7 @@ export default function PolicySimulatorPage() {
                         <CheckCircleIcon className="h-5 w-5" />
                       </div>
                       <div className="mt-2 text-2xl font-bold">
-                        {result.wouldAllow}
+                        {wouldAllow}
                       </div>
                       <div className="text-muted-foreground text-xs">
                         Would Allow
@@ -190,7 +217,7 @@ export default function PolicySimulatorPage() {
                         <AlertTriangleIcon className="h-5 w-5" />
                       </div>
                       <div className="mt-2 text-2xl font-bold">
-                        {result.wouldWarn}
+                        {wouldWarn}
                       </div>
                       <div className="text-muted-foreground text-xs">
                         Would Warn
@@ -201,7 +228,7 @@ export default function PolicySimulatorPage() {
                         <ShieldXIcon className="h-5 w-5" />
                       </div>
                       <div className="mt-2 text-2xl font-bold">
-                        {result.wouldBlock}
+                        {wouldBlock}
                       </div>
                       <div className="text-muted-foreground text-xs">
                         Would Block
@@ -210,47 +237,49 @@ export default function PolicySimulatorPage() {
                   </div>
 
                   {/* Impact bar */}
-                  <div className="mt-4">
-                    <div className="text-muted-foreground mb-1 text-xs">
-                      Impact Distribution
+                  {totalEvents > 0 && (
+                    <div className="mt-4">
+                      <div className="text-muted-foreground mb-1 text-xs">
+                        Impact Distribution
+                      </div>
+                      <div className="flex h-4 w-full overflow-hidden rounded-full">
+                        <div
+                          className="bg-green-500"
+                          style={{
+                            width: `${(wouldAllow / totalEvents) * 100}%`,
+                          }}
+                        />
+                        <div
+                          className="bg-yellow-500"
+                          style={{
+                            width: `${(wouldWarn / totalEvents) * 100}%`,
+                          }}
+                        />
+                        <div
+                          className="bg-red-500"
+                          style={{
+                            width: `${(wouldBlock / totalEvents) * 100}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="flex h-4 w-full overflow-hidden rounded-full">
-                      <div
-                        className="bg-green-500"
-                        style={{
-                          width: `${(result.wouldAllow / result.totalEvents) * 100}%`,
-                        }}
-                      />
-                      <div
-                        className="bg-yellow-500"
-                        style={{
-                          width: `${(result.wouldWarn / result.totalEvents) * 100}%`,
-                        }}
-                      />
-                      <div
-                        className="bg-red-500"
-                        style={{
-                          width: `${(result.wouldBlock / result.totalEvents) * 100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
 
-              {result.sampleBlocked.length > 0 && (
+              {result.blockedSamples.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm">Sample Blocked Events</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-2">
-                      {result.sampleBlocked.map((s, i) => (
+                      {result.blockedSamples.map((s, i) => (
                         <li
                           key={i}
                           className="flex items-center gap-2 text-sm"
                         >
-                          <ShieldXIcon className="h-4 w-4 text-red-500" />
+                          <ShieldXIcon className="h-4 w-4 shrink-0 text-red-500" />
                           <code className="bg-muted rounded px-2 py-1 text-xs">
                             {s}
                           </code>
@@ -261,25 +290,10 @@ export default function PolicySimulatorPage() {
                 </Card>
               )}
 
-              {result.sampleWarned.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Sample Warnings</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2">
-                      {result.sampleWarned.map((s, i) => (
-                        <li
-                          key={i}
-                          className="flex items-center gap-2 text-sm"
-                        >
-                          <AlertTriangleIcon className="h-4 w-4 text-yellow-500" />
-                          <span className="text-sm">{s}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
+              {result.simulatedPolicyType && (
+                <div className="text-muted-foreground text-xs">
+                  Simulated policy type: <Badge variant="outline" className="ml-1 text-xs">{result.simulatedPolicyType}</Badge>
+                </div>
               )}
             </>
           ) : (
@@ -287,7 +301,9 @@ export default function PolicySimulatorPage() {
               <CardContent className="text-center">
                 <PlayIcon className="text-muted-foreground mx-auto h-12 w-12" />
                 <p className="text-muted-foreground mt-4">
-                  Configure a policy and run the simulation to see its impact
+                  {running
+                    ? "Running simulation against historical events..."
+                    : "Configure a policy and run the simulation to see its impact"}
                 </p>
               </CardContent>
             </Card>

@@ -117,57 +117,21 @@ function formatDate(iso: string | null) {
   });
 }
 
-/* ── Mock report history ──────────────────────────────────────── */
+/* ── API URL helper ───────────────────────────────────────────── */
 
-function generateMockReports(): ComplianceReportData[] {
-  const now = Date.now();
-  return [
-    {
-      id: "mock-1",
-      name: "Full Compliance Assessment",
-      framework: "all",
-      generatedAt: new Date(now - 2 * 86400000).toISOString(),
-      period: "manual",
-      status: "completed",
-      downloadUrl: "/api/zentinelle/v1/export/summary.json",
-    },
-    {
-      id: "mock-2",
-      name: "SOC 2 Framework Report",
-      framework: "soc2",
-      generatedAt: new Date(now - 5 * 86400000).toISOString(),
-      period: "manual",
-      status: "completed",
-      downloadUrl: "/api/zentinelle/v1/export/summary.json?framework=soc2",
-    },
-    {
-      id: "mock-3",
-      name: "GDPR Compliance Report",
-      framework: "gdpr",
-      generatedAt: new Date(now - 7 * 86400000).toISOString(),
-      period: "manual",
-      status: "completed",
-      downloadUrl: "/api/zentinelle/v1/export/summary.json?framework=gdpr",
-    },
-    {
-      id: "mock-4",
-      name: "Executive Summary",
-      framework: "all",
-      generatedAt: new Date(now - 1 * 86400000).toISOString(),
-      period: "manual",
-      status: "generating",
-      downloadUrl: null,
-    },
-    {
-      id: "mock-5",
-      name: "HIPAA Assessment",
-      framework: "hipaa",
-      generatedAt: new Date(now - 14 * 86400000).toISOString(),
-      period: "manual",
-      status: "failed",
-      downloadUrl: null,
-    },
-  ];
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ||
+  "";
+
+function resolveDownloadUrl(report: ComplianceReportData): string | null {
+  if (!report.downloadUrl) return null;
+  if (report.status !== "completed" && report.status !== "ready") return null;
+
+  // If the downloadUrl is already absolute, use it as-is
+  if (report.downloadUrl.startsWith("http")) return report.downloadUrl;
+
+  // Relative path -- prepend the API base URL
+  return `${API_BASE_URL}${report.downloadUrl}`;
 }
 
 /* ── Main page ─────────────────────────────────────────────────── */
@@ -183,9 +147,7 @@ export default function ComplianceReportsPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  // Use real data or mock
-  const hasRealData = reports.length > 0;
-  const displayReports = hasRealData ? reports : generateMockReports();
+  const displayReports = reports;
 
   const handleGenerate = async () => {
     const vars: Record<string, string | null> = {
@@ -273,14 +235,6 @@ export default function ComplianceReportsPage() {
           Generate and download compliance assessment reports
         </p>
       </div>
-
-      {!hasRealData && (
-        <div className="bg-muted/50 rounded-lg border border-dashed px-4 py-2 text-center text-sm">
-          <span className="text-muted-foreground">
-            Showing sample report history. Generate a report to see real data.
-          </span>
-        </div>
-      )}
 
       {/* Generator form */}
       <div className="grid gap-4 lg:grid-cols-3">
@@ -542,34 +496,46 @@ export default function ComplianceReportsPage() {
                         {formatDate(report.generatedAt)}
                       </TableCell>
                       <TableCell className="text-right">
-                        {report.downloadUrl &&
-                        (report.status === "completed" ||
-                          report.status === "ready") ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            asChild
-                          >
-                            <a
-                              href={report.downloadUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <DownloadIcon className="mr-1.5 h-3.5 w-3.5" />
-                              Download
-                            </a>
-                          </Button>
-                        ) : report.status === "generating" ||
-                          report.status === "running" ||
-                          report.status === "pending" ? (
-                          <span className="text-muted-foreground text-xs">
-                            Processing...
-                          </span>
-                        ) : report.status === "failed" ? (
-                          <span className="text-destructive text-xs">
-                            Failed
-                          </span>
-                        ) : null}
+                        {(() => {
+                          const downloadHref = resolveDownloadUrl(report);
+                          if (downloadHref) {
+                            return (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                asChild
+                              >
+                                <a
+                                  href={downloadHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <DownloadIcon className="mr-1.5 h-3.5 w-3.5" />
+                                  Download
+                                </a>
+                              </Button>
+                            );
+                          }
+                          if (
+                            report.status === "generating" ||
+                            report.status === "running" ||
+                            report.status === "pending"
+                          ) {
+                            return (
+                              <span className="text-muted-foreground text-xs">
+                                Processing...
+                              </span>
+                            );
+                          }
+                          if (report.status === "failed") {
+                            return (
+                              <span className="text-destructive text-xs">
+                                Failed
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </TableCell>
                     </TableRow>
                   );
