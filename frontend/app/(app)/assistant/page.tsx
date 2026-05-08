@@ -26,6 +26,8 @@ export default function AssistantPage() {
     clearChat,
     stopStreaming,
     error,
+    approveAction,
+    rejectAction,
   } = useChat();
 
   const selectedModel = MODELS.find((m) => m.value === model);
@@ -97,6 +99,8 @@ export default function AssistantPage() {
           messages={messages}
           isStreaming={isStreaming}
           className="px-6 py-6 lg:px-16 xl:px-24"
+          onApprove={approveAction}
+          onReject={rejectAction}
         />
 
         {/* Error */}

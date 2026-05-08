@@ -30,7 +30,11 @@ import {
   UserIcon,
   SquareIcon,
   LoaderIcon,
+  WrenchIcon,
+  ExternalLinkIcon,
+  CheckIcon,
 } from "lucide-react";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import { useChat, useAvailableModels, MODELS, type Message, type ChatModel } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
@@ -201,7 +205,161 @@ function MarkdownContent({ content }: { content: string }) {
   );
 }
 
-function ChatMessage({ message, isStreaming }: { message: Message; isStreaming?: boolean }) {
+function humanizeToolName(name: string): string {
+  return name.replace(/_/g, " ");
+}
+
+function summarizeArgs(args: Record<string, unknown>): string {
+  const entries = Object.entries(args).filter(([, v]) => v !== undefined && v !== null && v !== "");
+  if (entries.length === 0) return "";
+  return entries
+    .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
+    .join(", ")
+    .slice(0, 80);
+}
+
+function summarizeResult(result: unknown): string {
+  if (!result || typeof result !== "object") return "";
+  const r = result as Record<string, unknown>;
+  if (r.error) return `error: ${String(r.error).slice(0, 60)}`;
+  if (r.success) return "done";
+  if (typeof r.count === "number") return `${r.count} result${r.count === 1 ? "" : "s"}`;
+  if (typeof r.missing_count === "number") return `${r.missing_count} gaps`;
+  return "";
+}
+
+function ToolCallList({ calls }: { calls: NonNullable<Message["toolCalls"]> }) {
+  return (
+    <div className="space-y-1">
+      {calls.map((c, i) => {
+        const argSummary = summarizeArgs(c.args);
+        const resultSummary = summarizeResult(c.result);
+        const hasResult = c.result !== undefined;
+        return (
+          <div
+            key={i}
+            className="flex items-start gap-1.5 text-[11px] text-muted-foreground bg-background/40 rounded px-2 py-1"
+          >
+            {hasResult ? (
+              <CheckIcon className="size-3 shrink-0 mt-0.5 text-emerald-500" />
+            ) : (
+              <WrenchIcon className="size-3 shrink-0 mt-0.5 animate-pulse" />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="font-mono">
+                {humanizeToolName(c.name)}
+                {argSummary && <span className="opacity-70"> ({argSummary})</span>}
+              </div>
+              {resultSummary && (
+                <div className="opacity-70 italic">{resultSummary}</div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function NavigationList({ items }: { items: NonNullable<Message["navigation"]> }) {
+  // Dedupe by path
+  const seen = new Set<string>();
+  const unique = items.filter((i) => {
+    if (seen.has(i.path)) return false;
+    seen.add(i.path);
+    return true;
+  });
+  return (
+    <div className="flex flex-wrap gap-1.5 pt-1">
+      {unique.map((item, i) => (
+        <Link
+          key={i}
+          href={item.path}
+          className="inline-flex items-center gap-1 rounded-md bg-primary/15 hover:bg-primary/25 px-2 py-1 text-[11px] text-primary transition-colors"
+        >
+          <ExternalLinkIcon className="size-3" />
+          <span>{item.label}</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function PendingActionList({
+  actions,
+  onApprove,
+  onReject,
+}: {
+  actions: NonNullable<Message["pendingActions"]>;
+  onApprove: (hash: string, preview: string) => void;
+  onReject: (hash: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      {actions.map((a) => {
+        const isPending = a.status === "pending";
+        const isApproved = a.status === "approved";
+        const isRejected = a.status === "rejected";
+        return (
+          <div
+            key={a.hash}
+            className={cn(
+              "rounded-md border px-2.5 py-2 text-[11px]",
+              isPending && "border-amber-500/40 bg-amber-500/5",
+              isApproved && "border-emerald-500/40 bg-emerald-500/5",
+              isRejected && "border-muted-foreground/30 bg-muted/40 opacity-70"
+            )}
+          >
+            <div className="flex items-start gap-1.5">
+              <WrenchIcon className="size-3 shrink-0 mt-0.5 opacity-70" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-foreground">Confirmation required</div>
+                <div className="text-muted-foreground break-words">{a.preview}</div>
+              </div>
+            </div>
+            {isPending && (
+              <div className="flex gap-1.5 mt-2">
+                <Button
+                  size="sm"
+                  className="h-6 text-[11px] px-2"
+                  onClick={() => onApprove(a.hash, a.preview)}
+                >
+                  Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-[11px] px-2"
+                  onClick={() => onReject(a.hash)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+            {isApproved && (
+              <div className="mt-1.5 text-[10px] text-emerald-500">Approved — running…</div>
+            )}
+            {isRejected && (
+              <div className="mt-1.5 text-[10px] text-muted-foreground">Cancelled</div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ChatMessage({
+  message,
+  isStreaming,
+  onApprove,
+  onReject,
+}: {
+  message: Message;
+  isStreaming?: boolean;
+  onApprove?: (hash: string, preview: string) => void;
+  onReject?: (hash: string) => void;
+}) {
   const isUser = message.role === "user";
   const isEmpty = !message.content && !isUser;
 
@@ -224,20 +382,37 @@ function ChatMessage({ message, isStreaming }: { message: Message; isStreaming?:
       </div>
       <div
         className={cn(
-          "rounded-lg px-3 py-2 text-sm leading-relaxed break-words",
+          "rounded-lg px-3 py-2 text-sm leading-relaxed break-words space-y-2",
           isUser
             ? "bg-primary/15 text-foreground whitespace-pre-wrap"
             : "bg-muted text-foreground"
         )}
       >
+        {!isUser && message.toolCalls && message.toolCalls.length > 0 && (
+          <ToolCallList calls={message.toolCalls} />
+        )}
+        {!isUser &&
+          message.pendingActions &&
+          message.pendingActions.length > 0 &&
+          onApprove &&
+          onReject && (
+            <PendingActionList
+              actions={message.pendingActions}
+              onApprove={onApprove}
+              onReject={onReject}
+            />
+          )}
         {isEmpty && isStreaming ? (
           <span className="text-muted-foreground">
             <StreamingDots />
           </span>
         ) : isUser ? (
           message.content
-        ) : (
+        ) : message.content ? (
           <MarkdownContent content={message.content} />
+        ) : null}
+        {!isUser && message.navigation && message.navigation.length > 0 && (
+          <NavigationList items={message.navigation} />
         )}
         {!isEmpty && isStreaming && (
           <span className="inline-block ml-0.5 text-muted-foreground">
@@ -330,10 +505,14 @@ function MessageList({
   messages,
   isStreaming,
   className,
+  onApprove,
+  onReject,
 }: {
   messages: Message[];
   isStreaming: boolean;
   className?: string;
+  onApprove?: (hash: string, preview: string) => void;
+  onReject?: (hash: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -377,6 +556,8 @@ function MessageList({
             msg.role === "assistant" &&
             i === messages.length - 1
           }
+          onApprove={onApprove}
+          onReject={onReject}
         />
       ))}
     </div>
@@ -395,6 +576,8 @@ export function ChatBubble() {
     clearChat,
     stopStreaming,
     error,
+    approveAction,
+    rejectAction,
   } = useChat();
 
   return (
@@ -458,6 +641,8 @@ export function ChatBubble() {
             messages={messages}
             isStreaming={isStreaming}
             className="px-4 py-4"
+            onApprove={approveAction}
+            onReject={rejectAction}
           />
 
           {/* Error */}

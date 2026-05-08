@@ -62,7 +62,8 @@ from zentinelle.api.views import (AcknowledgeAlertView, AlertsListView,
                                   RiskTrendView, ScanContentView,
                                   ScanResultView, SecretsView,
                                   SystemPromptsView, ViolationsListView)
-from zentinelle.api.views.assistant import AssistantChatView
+from zentinelle.api.views.assistant import (AssistantChatView,
+                                              AssistantExecuteToolView)
 from zentinelle.api.views.assistant_providers import AssistantProvidersView
 from zentinelle.api.views.llm_provider_keys import (LLMProviderKeyDeleteView,
                                                     LLMProviderKeysView)
@@ -86,6 +87,7 @@ urlpatterns = [
 
     # AI assistant (portal, session-authenticated)
     path('assistant/chat', AssistantChatView.as_view(), name='assistant-chat'),
+    path('assistant/execute-tool', AssistantExecuteToolView.as_view(), name='assistant-execute-tool'),
     path('assistant/providers', AssistantProvidersView.as_view(), name='assistant-providers'),
 
     # LLM provider key management (encrypted at rest, per-tenant)

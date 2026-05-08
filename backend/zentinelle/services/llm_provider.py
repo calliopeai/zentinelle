@@ -167,6 +167,534 @@ def get_api_key(provider: str, tenant_id: str = None) -> str:
     return _env_api_key(provider)
 
 
+def _hash_action(name: str, args: dict) -> str:
+    """Stable hash for (tool_name, args) so the frontend can confirm a specific call."""
+    import hashlib
+    payload = json.dumps({'name': name, 'args': args or {}}, sort_keys=True)
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
+
+async def agentic_chat(
+    messages: list[dict],
+    model: str,
+    provider: Optional[str] = None,
+    temperature: float = 0.7,
+    max_tokens: int = 4096,
+    system_prompt: Optional[str] = None,
+    tenant_id: Optional[str] = None,
+    max_tool_iterations: int = 6,
+    approved_actions: Optional[list[str]] = None,
+    actor: Optional[str] = None,
+) -> AsyncGenerator[dict, None]:
+    """Tool-use loop for the assistant — streams progressively.
+
+    Yields structured events:
+      {'type': 'tool_call', 'name': str, 'args': dict, 'hash': str}
+      {'type': 'tool_result', 'name': str, 'result': dict}
+      {'type': 'pending_action', 'name': str, 'args': dict, 'hash': str, 'preview': str}
+      {'type': 'text', 'content': str}              # streamed deltas
+      {'type': 'navigation', 'path': str, 'label': str}
+      {'type': 'done'}
+
+    approved_actions: list of action hashes the user has approved this session.
+    actor: identifier for audit logging (e.g. user.id or 'open-mode').
+
+    Anthropic and OpenAI both support tools. Other providers fall through.
+    """
+    if not provider:
+        provider = detect_provider(model)
+
+    if tenant_id:
+        api_key = await asyncio.to_thread(get_api_key, provider, tenant_id)
+    else:
+        api_key = _env_api_key(provider)
+
+    approved = set(approved_actions or [])
+
+    if provider == 'anthropic':
+        async for ev in _anthropic_tool_loop(
+            messages, model, api_key, temperature, max_tokens,
+            system_prompt, tenant_id, max_tool_iterations,
+            approved, actor,
+        ):
+            yield ev
+        return
+
+    if provider in OPENAI_COMPAT_PROVIDERS or provider == 'openai':
+        async for ev in _openai_tool_loop(
+            messages, model, provider, api_key,
+            temperature, max_tokens, system_prompt, tenant_id,
+            max_tool_iterations, approved, actor,
+        ):
+            yield ev
+        return
+
+    # Fallback: plain text stream, no tools
+    async for chunk in stream_chat(
+        messages, model, provider, temperature, max_tokens,
+        system_prompt, tenant_id,
+    ):
+        yield {'type': 'text', 'content': chunk}
+    yield {'type': 'done'}
+
+
+def _resource_id_from_args(name: str, args: dict, result_obj: dict) -> tuple[str, str]:
+    """Pull (resource_type, resource_id) from a tool's args/result, best-effort."""
+    a = args or {}
+    r = result_obj if isinstance(result_obj, dict) else {}
+    if name in ('create_policy', 'update_policy', 'toggle_policy'):
+        return ('policy', str(a.get('policy_id') or r.get('policy_id') or ''))
+    if name in ('create_risk', 'update_risk', 'review_risk'):
+        return ('risk', str(a.get('risk_id') or r.get('risk_id') or ''))
+    if name in ('acknowledge_incident', 'resolve_incident'):
+        return ('incident', str(a.get('incident_id') or r.get('incident_id') or ''))
+    if name == 'acknowledge_alert':
+        return ('alert', str(a.get('alert_id') or r.get('alert_id') or ''))
+    if name in ('run_compliance_check', 'generate_compliance_report'):
+        return ('compliance_assessment', str(r.get('assessment_id') or ''))
+    return ('assistant_action', '')
+
+
+async def _execute_tool_with_audit(name: str, args: dict, tenant_id: str,
+                                   actor: Optional[str]) -> str:
+    """Execute a tool and write an audit log entry for mutations."""
+    from zentinelle.services.llm_tools import (MUTATION_TOOLS, execute_tool)
+
+    result_str = await asyncio.to_thread(execute_tool, name, args, tenant_id)
+
+    if name in MUTATION_TOOLS:
+        try:
+            result_obj = json.loads(result_str)
+        except json.JSONDecodeError:
+            result_obj = {}
+
+        def _audit():
+            from zentinelle.models import AuditLog
+            res_type, res_id = _resource_id_from_args(name, args, result_obj)
+            AuditLog.log(
+                tenant_id=tenant_id,
+                action=f'assistant.{name}',
+                resource_type=res_type,
+                resource_id=res_id,
+                resource_name=str(args.get('name', '') or '')[:255],
+                ext_user_id=actor or 'ai_assistant',
+                changes={'args': args},
+                metadata={'tool': name, 'success': bool(result_obj.get('success'))},
+            )
+
+        try:
+            await asyncio.to_thread(_audit)
+        except Exception as e:
+            logger.warning('Audit log write failed for %s: %s', name, e)
+
+    return result_str
+
+
+async def _process_tool_calls(content_blocks: list, tenant_id: str,
+                              approved: set, actor: Optional[str]):
+    """Yield events for tool_use blocks. Returns list of tool_result blocks
+    to send back to the model.
+
+    Tools that require confirmation and aren't pre-approved emit a
+    'pending_action' event instead of executing — and the tool result fed
+    back to the model says "awaiting user approval".
+    """
+    from zentinelle.services.llm_tools import REQUIRES_CONFIRMATION
+
+    tool_results = []
+    for block in content_blocks:
+        if block.get('type') != 'tool_use':
+            continue
+        tool_name = block.get('name', '')
+        tool_args = block.get('input', {}) or {}
+        tool_use_id = block.get('id', '')
+        action_hash = _hash_action(tool_name, tool_args)
+
+        needs_confirm = (
+            tool_name in REQUIRES_CONFIRMATION and action_hash not in approved
+        )
+
+        if needs_confirm:
+            preview = _format_action_preview(tool_name, tool_args)
+            yield {
+                'type': 'pending_action',
+                'name': tool_name,
+                'args': tool_args,
+                'hash': action_hash,
+                'preview': preview,
+            }
+            pending_msg = {
+                'pending_confirmation': True,
+                'message': (
+                    f'Action "{tool_name}" is awaiting user confirmation. '
+                    f'Tell the user what you intend to do and that they '
+                    f'must click Approve to proceed.'
+                ),
+            }
+            tool_results.append({
+                'type': 'tool_result',
+                'tool_use_id': tool_use_id,
+                'content': json.dumps(pending_msg),
+            })
+            continue
+
+        yield {
+            'type': 'tool_call',
+            'name': tool_name,
+            'args': tool_args,
+            'hash': action_hash,
+        }
+
+        result_str = await _execute_tool_with_audit(
+            tool_name, tool_args, tenant_id, actor
+        )
+        try:
+            result_obj = json.loads(result_str)
+        except json.JSONDecodeError:
+            result_obj = {'raw': result_str}
+
+        yield {
+            'type': 'tool_result',
+            'name': tool_name,
+            'result': result_obj,
+        }
+
+        nav = result_obj.get('navigation') if isinstance(result_obj, dict) else None
+        if nav and isinstance(nav, dict):
+            yield {
+                'type': 'navigation',
+                'path': nav.get('path', ''),
+                'label': nav.get('label', ''),
+            }
+
+        tool_results.append({
+            'type': 'tool_result',
+            'tool_use_id': tool_use_id,
+            'content': result_str,
+        })
+
+    yield {'type': '__results__', 'results': tool_results}
+
+
+def _format_action_preview(name: str, args: dict) -> str:
+    """Short human-readable description of a pending action."""
+    if name == 'create_policy':
+        return f"Create policy '{args.get('name', '?')}' ({args.get('policy_type', '?')})"
+    if name == 'update_policy':
+        return f"Update policy {args.get('policy_id', '?')}"
+    if name == 'create_risk':
+        return f"Add risk '{args.get('name', '?')}'"
+    if name == 'toggle_policy':
+        return f"Toggle policy {args.get('policy_id', '?')}"
+    if name == 'acknowledge_incident':
+        return f"Acknowledge incident {args.get('incident_id', '?')}"
+    if name == 'resolve_incident':
+        return f"Resolve incident {args.get('incident_id', '?')}"
+    if name == 'run_compliance_check':
+        return "Run compliance assessment now"
+    return f"{name}({json.dumps(args)[:120]})"
+
+
+async def _anthropic_tool_loop(messages, model, api_key, temperature,
+                               max_tokens, system_prompt, tenant_id,
+                               max_iter, approved, actor):
+    from zentinelle.services.llm_tools import TOOL_SCHEMAS
+
+    convo = list(messages)
+    headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': api_key,
+        'anthropic-version': '2023-06-01',
+    }
+
+    for _ in range(max_iter):
+        body = {
+            'model': model,
+            'messages': convo,
+            'max_tokens': max_tokens,
+            'temperature': temperature,
+            'tools': TOOL_SCHEMAS,
+            'stream': True,
+        }
+        if system_prompt:
+            body['system'] = system_prompt
+
+        # Per-block accumulator: index → block dict
+        blocks: dict = {}
+        stop_reason = None
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            async with client.stream(
+                'POST',
+                'https://api.anthropic.com/v1/messages',
+                headers=headers, json=body,
+            ) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.startswith('data: '):
+                        continue
+                    raw = line[6:].strip()
+                    if not raw:
+                        continue
+                    try:
+                        ev = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
+
+                    et = ev.get('type')
+                    if et == 'content_block_start':
+                        idx = ev.get('index')
+                        cb = ev.get('content_block', {}) or {}
+                        kind = cb.get('type')
+                        if kind == 'text':
+                            blocks[idx] = {'type': 'text', 'text': ''}
+                        elif kind == 'tool_use':
+                            blocks[idx] = {
+                                'type': 'tool_use',
+                                'id': cb.get('id', ''),
+                                'name': cb.get('name', ''),
+                                'input': '',
+                            }
+                    elif et == 'content_block_delta':
+                        idx = ev.get('index')
+                        delta = ev.get('delta', {}) or {}
+                        block = blocks.get(idx)
+                        if not block:
+                            continue
+                        dt = delta.get('type')
+                        if dt == 'text_delta':
+                            piece = delta.get('text', '')
+                            block['text'] += piece
+                            if piece:
+                                yield {'type': 'text', 'content': piece}
+                        elif dt == 'input_json_delta':
+                            block['input'] += delta.get('partial_json', '')
+                    elif et == 'content_block_stop':
+                        idx = ev.get('index')
+                        block = blocks.get(idx)
+                        if block and block.get('type') == 'tool_use':
+                            try:
+                                block['input'] = json.loads(block['input'] or '{}')
+                            except json.JSONDecodeError:
+                                block['input'] = {}
+                    elif et == 'message_delta':
+                        sr = (ev.get('delta') or {}).get('stop_reason')
+                        if sr:
+                            stop_reason = sr
+                    elif et == 'message_stop':
+                        pass
+
+        # Reconstruct ordered content_blocks list for the assistant turn
+        content_blocks = [blocks[i] for i in sorted(blocks.keys())]
+
+        if stop_reason != 'tool_use':
+            break
+
+        convo.append({'role': 'assistant', 'content': content_blocks})
+
+        tool_results = []
+        async for ev in _process_tool_calls(content_blocks, tenant_id, approved, actor):
+            if ev.get('type') == '__results__':
+                tool_results = ev['results']
+            else:
+                yield ev
+
+        if not tool_results:
+            break
+
+        # If every tool call was pending, stop the loop — user must approve
+        # before we re-prompt.
+        all_pending = all(
+            isinstance(tr.get('content'), str)
+            and 'pending_confirmation' in tr['content']
+            for tr in tool_results
+        )
+        convo.append({'role': 'user', 'content': tool_results})
+        if all_pending:
+            # Let the model produce a one-pass explanation, then stop.
+            # We do another iteration so the model can narrate, but it
+            # won't be able to call the same tool again until approved.
+            pass
+
+    yield {'type': 'done'}
+
+
+async def _openai_tool_loop(messages, model, provider, api_key, temperature,
+                            max_tokens, system_prompt, tenant_id, max_iter,
+                            approved, actor):
+    """OpenAI-style function calling. Translates our schemas, accumulates
+    tool_call deltas from the stream, dispatches, feeds back as tool messages.
+    """
+    from zentinelle.services.llm_tools import TOOL_SCHEMAS
+
+    config = OPENAI_COMPAT_PROVIDERS.get(
+        provider, OPENAI_COMPAT_PROVIDERS['openai']
+    )
+    base_url = config['base_url']
+
+    # OpenAI tool schema: {type: function, function: {name, description, parameters}}
+    openai_tools = [
+        {
+            'type': 'function',
+            'function': {
+                'name': t['name'],
+                'description': t.get('description', ''),
+                'parameters': t.get('input_schema', {'type': 'object', 'properties': {}}),
+            },
+        }
+        for t in TOOL_SCHEMAS
+    ]
+
+    convo = []
+    if system_prompt:
+        convo.append({'role': 'system', 'content': system_prompt})
+    convo.extend(messages)
+
+    headers = {'Content-Type': 'application/json'}
+    if api_key:
+        headers['Authorization'] = f'Bearer {api_key}'
+
+    for _ in range(max_iter):
+        body = {
+            'model': model,
+            'messages': convo,
+            'temperature': temperature,
+            'max_tokens': max_tokens,
+            'stream': True,
+            'tools': openai_tools,
+            'tool_choice': 'auto',
+        }
+
+        # Accumulators
+        text_buf = ''
+        tool_calls: dict = {}  # index → {id, name, arguments}
+        finish_reason = None
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            async with client.stream(
+                'POST', f'{base_url}/chat/completions',
+                headers=headers, json=body,
+            ) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.startswith('data: '):
+                        continue
+                    raw = line[6:].strip()
+                    if raw == '[DONE]':
+                        break
+                    try:
+                        chunk = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
+                    choice = (chunk.get('choices') or [{}])[0]
+                    delta = choice.get('delta', {}) or {}
+                    fr = choice.get('finish_reason')
+                    if fr:
+                        finish_reason = fr
+
+                    txt = delta.get('content')
+                    if txt:
+                        text_buf += txt
+                        yield {'type': 'text', 'content': txt}
+
+                    for tc in delta.get('tool_calls', []) or []:
+                        idx = tc.get('index', 0)
+                        slot = tool_calls.setdefault(idx, {
+                            'id': '', 'name': '', 'arguments': '',
+                        })
+                        if tc.get('id'):
+                            slot['id'] = tc['id']
+                        fn = tc.get('function', {}) or {}
+                        if fn.get('name'):
+                            slot['name'] = fn['name']
+                        if fn.get('arguments'):
+                            slot['arguments'] += fn['arguments']
+
+        if finish_reason != 'tool_calls' or not tool_calls:
+            break
+
+        # Build assistant message with the tool calls
+        ordered = [tool_calls[i] for i in sorted(tool_calls.keys())]
+        convo.append({
+            'role': 'assistant',
+            'content': text_buf or None,
+            'tool_calls': [
+                {
+                    'id': tc['id'],
+                    'type': 'function',
+                    'function': {
+                        'name': tc['name'],
+                        'arguments': tc['arguments'],
+                    },
+                }
+                for tc in ordered
+            ],
+        })
+
+        any_pending = False
+        any_executed = False
+        for tc in ordered:
+            try:
+                args = json.loads(tc['arguments'] or '{}')
+            except json.JSONDecodeError:
+                args = {}
+            name = tc['name']
+            action_hash = _hash_action(name, args)
+
+            from zentinelle.services.llm_tools import REQUIRES_CONFIRMATION
+            needs_confirm = (
+                name in REQUIRES_CONFIRMATION and action_hash not in approved
+            )
+
+            if needs_confirm:
+                any_pending = True
+                yield {
+                    'type': 'pending_action',
+                    'name': name,
+                    'args': args,
+                    'hash': action_hash,
+                    'preview': _format_action_preview(name, args),
+                }
+                convo.append({
+                    'role': 'tool',
+                    'tool_call_id': tc['id'],
+                    'content': json.dumps({
+                        'pending_confirmation': True,
+                        'message': 'Awaiting user approval.',
+                    }),
+                })
+                continue
+
+            yield {'type': 'tool_call', 'name': name, 'args': args, 'hash': action_hash}
+            result_str = await _execute_tool_with_audit(
+                name, args, tenant_id, actor
+            )
+            any_executed = True
+            try:
+                result_obj = json.loads(result_str)
+            except json.JSONDecodeError:
+                result_obj = {'raw': result_str}
+            yield {'type': 'tool_result', 'name': name, 'result': result_obj}
+            nav = result_obj.get('navigation') if isinstance(result_obj, dict) else None
+            if nav and isinstance(nav, dict):
+                yield {
+                    'type': 'navigation',
+                    'path': nav.get('path', ''),
+                    'label': nav.get('label', ''),
+                }
+            convo.append({
+                'role': 'tool',
+                'tool_call_id': tc['id'],
+                'content': result_str,
+            })
+
+        if any_pending and not any_executed:
+            # All calls pending — let model narrate once more then stop.
+            pass
+
+    yield {'type': 'done'}
+
+
 async def stream_chat(
     messages: list[dict],
     model: str,

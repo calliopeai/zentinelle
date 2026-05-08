@@ -2,11 +2,34 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 
+export interface ToolCall {
+  name: string;
+  args: Record<string, unknown>;
+  hash?: string;
+  result?: unknown;
+}
+
+export interface PendingAction {
+  name: string;
+  args: Record<string, unknown>;
+  hash: string;
+  preview: string;
+  status: "pending" | "approved" | "rejected";
+}
+
+export interface NavigationSuggestion {
+  path: string;
+  label: string;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  toolCalls?: ToolCall[];
+  pendingActions?: PendingAction[];
+  navigation?: NavigationSuggestion[];
 }
 
 export interface ChatModel {
@@ -221,6 +244,84 @@ export function useChat() {
                   )
                 );
               }
+
+              if (parsed.tool_call) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          toolCalls: [
+                            ...(m.toolCalls ?? []),
+                            {
+                              name: parsed.tool_call,
+                              args: parsed.args ?? {},
+                              hash: parsed.hash,
+                            },
+                          ],
+                        }
+                      : m
+                  )
+                );
+              }
+
+              if (parsed.pending_action) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          pendingActions: [
+                            ...(m.pendingActions ?? []),
+                            {
+                              name: parsed.pending_action,
+                              args: parsed.args ?? {},
+                              hash: parsed.hash,
+                              preview: parsed.preview ?? "",
+                              status: "pending" as const,
+                            },
+                          ],
+                        }
+                      : m
+                  )
+                );
+              }
+
+              if (parsed.tool_result) {
+                setMessages((prev) =>
+                  prev.map((m) => {
+                    if (m.id !== assistantId) return m;
+                    const calls = [...(m.toolCalls ?? [])];
+                    // Attach the result to the last call without one
+                    for (let i = calls.length - 1; i >= 0; i--) {
+                      if (calls[i].name === parsed.tool_result && calls[i].result === undefined) {
+                        calls[i] = { ...calls[i], result: parsed.result };
+                        break;
+                      }
+                    }
+                    return { ...m, toolCalls: calls };
+                  })
+                );
+              }
+
+              if (parsed.navigation && parsed.navigation.path) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          navigation: [
+                            ...(m.navigation ?? []),
+                            {
+                              path: parsed.navigation.path,
+                              label: parsed.navigation.label || parsed.navigation.path,
+                            },
+                          ],
+                        }
+                      : m
+                  )
+                );
+              }
             } catch {
               // Ignore malformed JSON lines
             }
@@ -240,6 +341,96 @@ export function useChat() {
     },
     [isStreaming, messages, model]
   );
+
+  const approveAction = useCallback(
+    async (hash: string, _preview: string) => {
+      // Find the pending action across all messages
+      let target: PendingAction | undefined;
+      let targetMessageId: string | undefined;
+      setMessages((prev) => {
+        for (const m of prev) {
+          const found = m.pendingActions?.find((p) => p.hash === hash);
+          if (found) {
+            target = found;
+            targetMessageId = m.id;
+            break;
+          }
+        }
+        return prev;
+      });
+
+      if (!target || !targetMessageId) return;
+
+      // Mark as approved in UI
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (!m.pendingActions) return m;
+          const updated = m.pendingActions.map((p) =>
+            p.hash === hash ? { ...p, status: "approved" as const } : p
+          );
+          return { ...m, pendingActions: updated };
+        })
+      );
+
+      // Deterministically execute via dedicated endpoint
+      try {
+        const res = await fetch(`${API_URL}/assistant/execute-tool`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: target.name, args: target.args }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          setError(errData?.error || `Action failed (${res.status})`);
+          return;
+        }
+
+        const data = await res.json();
+
+        // Inject the tool_call + result into the message
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== targetMessageId) return m;
+            return {
+              ...m,
+              toolCalls: [
+                ...(m.toolCalls ?? []),
+                { name: data.name, args: data.args, hash, result: data.result },
+              ],
+              navigation:
+                data.result?.navigation && data.result.navigation.path
+                  ? [
+                      ...(m.navigation ?? []),
+                      {
+                        path: data.result.navigation.path,
+                        label:
+                          data.result.navigation.label || data.result.navigation.path,
+                      },
+                    ]
+                  : m.navigation,
+            };
+          })
+        );
+      } catch {
+        setError("Failed to execute approved action");
+      }
+    },
+    []
+  );
+
+  const rejectAction = useCallback((hash: string) => {
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (!m.pendingActions) return m;
+        const updated = m.pendingActions.map((p) =>
+          p.hash === hash ? { ...p, status: "rejected" as const } : p
+        );
+        return { ...m, pendingActions: updated };
+      })
+    );
+  }, []);
 
   const clearChat = useCallback(() => {
     if (abortRef.current) {
@@ -265,5 +456,7 @@ export function useChat() {
     clearChat,
     stopStreaming,
     error,
+    approveAction,
+    rejectAction,
   };
 }
