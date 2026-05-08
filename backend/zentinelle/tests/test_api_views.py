@@ -1,16 +1,22 @@
 """
 Tests for Zentinelle API views.
 """
+import hashlib
+from datetime import timedelta
+
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 from unittest.mock import patch
 
 from zentinelle.models import (
     AgentEndpoint,
+    AuditLog,
     Policy,
     Event,
 )
+from zentinelle.models.risk import Risk
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 
@@ -27,7 +33,7 @@ class ZentinelleAPITestMixin:
             tenant_id=STANDALONE_TENANT,
             agent_id='test-agent-001',
             name='Test Agent',
-            agent_type=AgentEndpoint.AgentType.JUPYTERHUB,
+            agent_type=AgentEndpoint.AgentType.CUSTOM,
             api_key_hash=key_hash,
             api_key_prefix=key_prefix,
             config={'version': '1.0'},
@@ -430,3 +436,284 @@ class RateLimitMiddlewareTest(ZentinelleAPITestMixin, TestCase):
 
         # Response should succeed (headers depend on middleware implementation)
         self.assertEqual(response.status_code, 200)
+
+
+class RiskTrendViewTest(ZentinelleAPITestMixin, TestCase):
+    """Tests for /api/zentinelle/v1/risks/trend."""
+
+    def test_trend_unauthenticated(self):
+        """Trend endpoint rejects requests without an API key."""
+        response = self.client.get(reverse('zentinelle:risks-trend'))
+        self.assertEqual(response.status_code, 401)
+
+    def test_trend_invalid_key(self):
+        """Trend endpoint rejects invalid API keys."""
+        self.client.credentials(HTTP_X_ZENTINELLE_KEY='sk_agent_invalid_key_value')
+        response = self.client.get(reverse('zentinelle:risks-trend'))
+        self.assertEqual(response.status_code, 401)
+
+    def test_trend_default_30_days_no_risks(self):
+        """With no risks, the response is 30 days of zeros."""
+        self.authenticate()
+        response = self.client.get(reverse('zentinelle:risks-trend'))
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('trend', data)
+        self.assertEqual(len(data['trend']), 30)
+
+        for point in data['trend']:
+            self.assertEqual(point['index'], 0)
+            self.assertEqual(point['open_count'], 0)
+            self.assertIn('day', point)
+
+    def test_trend_custom_days(self):
+        """`days` query param controls the trend length."""
+        self.authenticate()
+        response = self.client.get(reverse('zentinelle:risks-trend') + '?days=7')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()['trend']), 7)
+
+    def test_trend_days_clamped_to_min(self):
+        """`days=0` is clamped up to 1."""
+        self.authenticate()
+        response = self.client.get(reverse('zentinelle:risks-trend') + '?days=0')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()['trend']), 1)
+
+    def test_trend_days_clamped_to_max(self):
+        """`days=10000` is clamped down to 365."""
+        self.authenticate()
+        response = self.client.get(reverse('zentinelle:risks-trend') + '?days=10000')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()['trend']), 365)
+
+    def test_trend_invalid_days_falls_back_to_default(self):
+        """Non-integer `days` falls back to the default of 30."""
+        self.authenticate()
+        response = self.client.get(reverse('zentinelle:risks-trend') + '?days=banana')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()['trend']), 30)
+
+    def test_trend_includes_open_risks(self):
+        """An open risk contributes to the index across the window."""
+        Risk.objects.create(
+            tenant_id=STANDALONE_TENANT,
+            name='Prompt Injection',
+            description='LLM accepts adversarial prompts.',
+            severity=Risk.Severity.HIGH,        # 5
+            likelihood=Risk.Likelihood.LIKELY,  # 5
+            impact=Risk.Impact.MAJOR,            # 5
+            status=Risk.RiskStatus.ASSESSED,
+        )
+
+        self.authenticate()
+        response = self.client.get(reverse('zentinelle:risks-trend') + '?days=3')
+
+        self.assertEqual(response.status_code, 200)
+        trend = response.json()['trend']
+        self.assertEqual(len(trend), 3)
+
+        # Today's bucket must show the risk as open.
+        today_bucket = trend[-1]
+        self.assertEqual(today_bucket['open_count'], 1)
+        # 5*5*5 = 125 out of 512 -> round(24.41) = 24
+        self.assertEqual(today_bucket['index'], 24)
+
+    def test_trend_excludes_closed_risks(self):
+        """Closed risks do not contribute to today's index."""
+        risk = Risk.objects.create(
+            tenant_id=STANDALONE_TENANT,
+            name='Old Risk',
+            description='Already mitigated.',
+            severity=Risk.Severity.CRITICAL,
+            likelihood=Risk.Likelihood.ALMOST_CERTAIN,
+            impact=Risk.Impact.SEVERE,
+            status=Risk.RiskStatus.CLOSED,
+        )
+        # Force updated_at into the past so the closure is not "after today".
+        Risk.objects.filter(pk=risk.pk).update(
+            updated_at=timezone.now() - timedelta(days=2),
+        )
+
+        self.authenticate()
+        response = self.client.get(reverse('zentinelle:risks-trend') + '?days=1')
+
+        self.assertEqual(response.status_code, 200)
+        trend = response.json()['trend']
+        self.assertEqual(trend[0]['open_count'], 0)
+        self.assertEqual(trend[0]['index'], 0)
+
+    def test_trend_excludes_other_tenants(self):
+        """Risks belonging to a different tenant are not counted."""
+        Risk.objects.create(
+            tenant_id='some-other-tenant',
+            name='Foreign Risk',
+            description='Belongs to another tenant.',
+            severity=Risk.Severity.CRITICAL,
+            likelihood=Risk.Likelihood.ALMOST_CERTAIN,
+            impact=Risk.Impact.SEVERE,
+            status=Risk.RiskStatus.IDENTIFIED,
+        )
+
+        self.authenticate()
+        response = self.client.get(reverse('zentinelle:risks-trend') + '?days=1')
+
+        self.assertEqual(response.status_code, 200)
+        trend = response.json()['trend']
+        self.assertEqual(trend[0]['open_count'], 0)
+        self.assertEqual(trend[0]['index'], 0)
+
+    def test_trend_excludes_risks_created_after_day(self):
+        """A risk created today does not appear in yesterday's bucket."""
+        Risk.objects.create(
+            tenant_id=STANDALONE_TENANT,
+            name='Today Risk',
+            description='Just identified.',
+            severity=Risk.Severity.MODERATE,
+            likelihood=Risk.Likelihood.POSSIBLE,
+            impact=Risk.Impact.MODERATE,
+            status=Risk.RiskStatus.IDENTIFIED,
+        )
+
+        self.authenticate()
+        response = self.client.get(reverse('zentinelle:risks-trend') + '?days=2')
+
+        self.assertEqual(response.status_code, 200)
+        trend = response.json()['trend']
+        self.assertEqual(len(trend), 2)
+        # Yesterday: not yet created.
+        self.assertEqual(trend[0]['open_count'], 0)
+        # Today: created.
+        self.assertEqual(trend[1]['open_count'], 1)
+
+
+def _build_audit_chain(tenant_id, count, action='create', resource_type='policy'):
+    """
+    Create ``count`` AuditLog records with hashes that match the
+    ``audit_chain`` verification algorithm. Each record's chain links
+    to the previous record's chain_hash (with 'genesis' for the first).
+    """
+    records = []
+    prev_chain = 'genesis'
+    base_ts = timezone.now()
+
+    for i in range(count):
+        sequence = i + 1
+        record = AuditLog.objects.create(
+            tenant_id=tenant_id,
+            ext_user_id=f'user-{sequence}',
+            action=action,
+            resource_type=resource_type,
+            resource_id=f'res-{sequence:04d}',
+        )
+        # Pin a stable timestamp so re-hash is deterministic.
+        ts = base_ts + timedelta(seconds=sequence)
+        AuditLog.objects.filter(pk=record.pk).update(
+            timestamp=ts, chain_sequence=sequence,
+        )
+        record.refresh_from_db()
+
+        content = '|'.join([
+            str(record.tenant_id or ''),
+            str(record.action or ''),
+            record.timestamp.isoformat(),
+            str(record.ext_user_id or ''),
+            str(record.action or ''),
+            str(record.resource_type or ''),
+            str(record.resource_id or ''),
+        ])
+        entry_hash = hashlib.sha256(content.encode()).hexdigest()
+        chain_hash = hashlib.sha256((prev_chain + entry_hash).encode()).hexdigest()
+
+        AuditLog.objects.filter(pk=record.pk).update(
+            entry_hash=entry_hash,
+            chain_hash=chain_hash,
+        )
+        record.refresh_from_db()
+        records.append(record)
+        prev_chain = chain_hash
+
+    return records
+
+
+class AuditChainVerifyViewTest(ZentinelleAPITestMixin, TestCase):
+    """Integration tests for /api/zentinelle/v1/audit/verify."""
+
+    def test_verify_unauthenticated(self):
+        """Verify endpoint rejects requests without an API key."""
+        response = self.client.get(reverse('zentinelle:audit-verify'))
+        self.assertEqual(response.status_code, 401)
+
+    def test_verify_empty_chain_is_valid(self):
+        """No audit records → valid response with zero records checked."""
+        self.authenticate()
+        response = self.client.get(reverse('zentinelle:audit-verify'))
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['valid'])
+        self.assertEqual(data['records_checked'], 0)
+        self.assertIsNone(data['broken_at_sequence'])
+        self.assertEqual(data['root_hash'], '')
+
+    def test_verify_valid_chain(self):
+        """A correctly-linked chain verifies as valid."""
+        records = _build_audit_chain(STANDALONE_TENANT, count=3)
+
+        self.authenticate()
+        response = self.client.get(reverse('zentinelle:audit-verify'))
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['valid'])
+        self.assertEqual(data['records_checked'], 3)
+        self.assertIsNone(data['broken_at_sequence'])
+        self.assertEqual(data['root_hash'], records[-1].chain_hash)
+
+    def test_verify_detects_tampered_entry_hash(self):
+        """Mutating a record's entry_hash is detected."""
+        records = _build_audit_chain(STANDALONE_TENANT, count=2)
+        AuditLog.objects.filter(pk=records[1].pk).update(
+            entry_hash='deadbeef' * 8,
+        )
+
+        self.authenticate()
+        response = self.client.get(reverse('zentinelle:audit-verify'))
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertFalse(data['valid'])
+        self.assertEqual(data['broken_at_sequence'], 2)
+
+    def test_verify_recent_covering_full_chain(self):
+        """`recent=N` with N >= chain length verifies the whole chain as valid."""
+        records = _build_audit_chain(STANDALONE_TENANT, count=3)
+
+        self.authenticate()
+        response = self.client.get(
+            reverse('zentinelle:audit-verify') + '?recent=10'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['valid'])
+        self.assertEqual(data['records_checked'], 3)
+        self.assertEqual(data['root_hash'], records[-1].chain_hash)
+
+    def test_verify_scopes_to_tenant(self):
+        """Records from a different tenant are not included in verification."""
+        # Foreign tenant's chain — should not affect our tenant's empty result.
+        _build_audit_chain('some-other-tenant', count=3)
+
+        self.authenticate()
+        response = self.client.get(reverse('zentinelle:audit-verify'))
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['valid'])
+        self.assertEqual(data['records_checked'], 0)

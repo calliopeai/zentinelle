@@ -31,6 +31,7 @@ from zentinelle.api.views.compliance import (
 from zentinelle.api.views.audit import AuditChainVerifyView
 from zentinelle.api.views.audit_export import AuditExportView
 from zentinelle.api.views.retention_status import RetentionStatusView
+from zentinelle.api.views.risks_trend import RiskTrendView
 from zentinelle.api.views.policy_history import (
     PolicyHistoryListView,
     PolicyDiffView,
@@ -74,6 +75,8 @@ __all__ = [
     'AuditExportView',
     # Retention
     'RetentionStatusView',
+    # Risk
+    'RiskTrendView',
     # Policy History
     'PolicyHistoryListView',
     'PolicyDiffView',

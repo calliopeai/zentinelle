@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 export interface Message {
   id: string;
@@ -35,6 +35,37 @@ let messageCounter = 0;
 function createId(): string {
   messageCounter += 1;
   return `msg_${Date.now()}_${messageCounter}`;
+}
+
+/**
+ * Fetch providers and their models from the backend, filtered by which
+ * have API keys configured.
+ */
+export function useAvailableModels() {
+  const [models, setModels] = useState<ChatModel[]>(MODELS);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`${API_URL}/assistant/providers`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.providers || !Array.isArray(data.providers)) return;
+        const flat: ChatModel[] = [];
+        for (const p of data.providers) {
+          for (const m of p.models ?? []) {
+            flat.push({ value: m.value, label: m.label, provider: p.name });
+          }
+        }
+        if (flat.length > 0) setModels(flat);
+      })
+      .catch(() => {
+        // Fall back to hardcoded MODELS list
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { models, loading };
 }
 
 export function useChat() {

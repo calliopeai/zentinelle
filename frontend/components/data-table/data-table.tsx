@@ -22,6 +22,7 @@ type DataTableProps<TData> = {
   pageSize?: number;
   filters?: FilterConfig[];
   searchPlaceholder?: string;
+  onRowClick?: (row: TData) => void;
 };
 
 export const DataTable = <TData,>({
@@ -31,6 +32,7 @@ export const DataTable = <TData,>({
   pageSize = 10,
   filters = [],
   searchPlaceholder,
+  onRowClick,
 }: DataTableProps<TData>) => {
   const t = useTranslations("dataTable");
   const { table } = useDataTable({ data, columns, getRowId, pageSize });
@@ -57,7 +59,24 @@ export const DataTable = <TData,>({
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                  onClick={
+                    onRowClick
+                      ? (event) => {
+                          // Don't trigger row click if click originated from
+                          // an interactive element (button, link, menu trigger).
+                          const target = event.target as HTMLElement;
+                          if (target.closest("button, a, [role='menuitem'], [role='menu']")) {
+                            return;
+                          }
+                          onRowClick(row.original);
+                        }
+                      : undefined
+                  }
+                  className={onRowClick ? "cursor-pointer" : undefined}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

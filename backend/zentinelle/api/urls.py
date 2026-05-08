@@ -38,6 +38,9 @@ SIEM & Retention endpoints:
 - GET /api/zentinelle/v1/audit/export/
 - GET /api/zentinelle/v1/retention/status/
 
+Risk register endpoints:
+- GET /api/zentinelle/v1/risks/trend
+
 Note: Deployment operations and provisioner callbacks have moved to:
 - /api/deployments/v1/...
 """
@@ -56,9 +59,11 @@ from zentinelle.api.views import (AcknowledgeAlertView, AlertsListView,
                                   RegisterView, ReportCreateView,
                                   ReportDownloadView, ReportStatusView,
                                   ResolveAlertView, RetentionStatusView,
-                                  ScanContentView, ScanResultView, SecretsView,
+                                  RiskTrendView, ScanContentView,
+                                  ScanResultView, SecretsView,
                                   SystemPromptsView, ViolationsListView)
 from zentinelle.api.views.assistant import AssistantChatView
+from zentinelle.api.views.assistant_providers import AssistantProvidersView
 from zentinelle.api.views.auth import LoginView, LogoutView, MeView
 from zentinelle.api.views.health import HealthView, ReadyView
 from zentinelle.auth.oidc import OIDCCallbackView, OIDCLoginView
@@ -79,6 +84,7 @@ urlpatterns = [
 
     # AI assistant (portal, session-authenticated)
     path('assistant/chat', AssistantChatView.as_view(), name='assistant-chat'),
+    path('assistant/providers', AssistantProvidersView.as_view(), name='assistant-providers'),
 
     # Agent-facing endpoints
     path('register', RegisterView.as_view(), name='register'),
@@ -119,6 +125,9 @@ urlpatterns = [
 
     # Retention status
     path('retention/status/', RetentionStatusView.as_view(), name='retention-status'),
+
+    # Risk register trend
+    path('risks/trend', RiskTrendView.as_view(), name='risks-trend'),
 
     # Policy version history & diff
     path('policies/<int:policy_id>/history/', PolicyHistoryListView.as_view(), name='policy-history'),

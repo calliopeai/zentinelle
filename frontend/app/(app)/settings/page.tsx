@@ -1,64 +1,173 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
-  KeyIcon,
-  CopyIcon,
-  TrashIcon,
-  PlusIcon,
   GlobeIcon,
   BellIcon,
   BuildingIcon,
   PaletteIcon,
+  ShieldIcon,
+  Loader2Icon,
+  TerminalIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
-interface BootstrapToken {
-  id: string;
-  prefix: string;
-  createdAt: string;
-}
+import {
+  useMyOrganization,
+  useUpdateOrganizationSettings,
+} from "@/graphql/settings/hooks";
+
+const POLICY_MODES = [
+  { value: "monitor", label: "Monitor (log only)" },
+  { value: "warn", label: "Warn (log + notify)" },
+  { value: "block", label: "Block (enforce)" },
+];
 
 export default function SettingsPage() {
+  const { organization, loading } = useMyOrganization();
+  const [updateSettings, { loading: orgSaving }] =
+    useUpdateOrganizationSettings();
+  const [enforcementSaving, setEnforcementSaving] = useState(false);
+  const [notificationsSaving, setNotificationsSaving] = useState(false);
+
+  // Organization
   const [orgName, setOrgName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [timezone, setTimezone] = useState("");
+
+  // Enforcement
+  const [defaultPolicyMode, setDefaultPolicyMode] = useState<string>("monitor");
+  const [auditLogging, setAuditLogging] = useState<boolean>(true);
+
+  // Notifications
+  const [emailNotifications, setEmailNotifications] = useState<boolean>(false);
+  const [slackNotifications, setSlackNotifications] = useState<boolean>(false);
   const [webhookUrl, setWebhookUrl] = useState("");
-  const [slackUrl, setSlackUrl] = useState("");
-  const [tokens, setTokens] = useState<BootstrapToken[]>([]);
-  const [newToken, setNewToken] = useState<string | null>(null);
 
-  const handleGenerateToken = () => {
-    const token = `ztk_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-    const newEntry: BootstrapToken = {
-      id: Math.random().toString(36).substring(2, 9),
-      prefix: token.substring(0, 12) + "...",
-      createdAt: new Date().toISOString(),
-    };
-    setTokens((prev) => [...prev, newEntry]);
-    setNewToken(token);
-    toast.success("Bootstrap token generated");
-  };
+  useEffect(() => {
+    if (!organization) return;
+    setOrgName(organization.name ?? "");
+    const settings = organization.settings ?? {};
+    setContactEmail((settings.contact_email as string) ?? "");
+    setTimezone((settings.timezone as string) ?? "");
+    setDefaultPolicyMode(
+      (settings.default_policy_mode as string) ?? "monitor",
+    );
+    setAuditLogging(Boolean(settings.audit_logging ?? true));
+    setEmailNotifications(Boolean(settings.email_notifications ?? false));
+    setSlackNotifications(Boolean(settings.slack_notifications ?? false));
+    setWebhookUrl((settings.webhook_url as string) ?? "");
+  }, [organization]);
 
-  const handleCopyToken = () => {
-    if (newToken) {
-      navigator.clipboard.writeText(newToken);
-      toast.success("Token copied to clipboard");
+  const handleSaveOrganization = async () => {
+    try {
+      const { data } = await updateSettings({
+        variables: {
+          settings: {
+            name: orgName.trim() || null,
+            contactEmail: contactEmail.trim() || null,
+            timezone: timezone.trim() || null,
+          },
+        },
+      });
+      if (data?.updateOrganizationSettings?.success) {
+        toast.success("Organization settings saved");
+      } else {
+        toast.error("Failed to save organization settings");
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to save organization",
+      );
     }
   };
 
-  const handleRevokeToken = (id: string) => {
-    setTokens((prev) => prev.filter((t) => t.id !== id));
-    toast.success("Token revoked");
+  const handleSaveEnforcement = async () => {
+    setEnforcementSaving(true);
+    try {
+      const { data } = await updateSettings({
+        variables: {
+          settings: {
+            defaultPolicyMode,
+            auditLogging,
+          },
+        },
+      });
+      if (data?.updateOrganizationSettings?.success) {
+        toast.success("Enforcement settings saved");
+      } else {
+        toast.error("Failed to save enforcement settings");
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to save enforcement",
+      );
+    } finally {
+      setEnforcementSaving(false);
+    }
   };
+
+  const handleSaveNotifications = async () => {
+    setNotificationsSaving(true);
+    try {
+      const { data } = await updateSettings({
+        variables: {
+          settings: {
+            emailNotifications,
+            slackNotifications,
+            webhookUrl: webhookUrl.trim() || null,
+          },
+        },
+      });
+      if (data?.updateOrganizationSettings?.success) {
+        toast.success("Notification settings saved");
+      } else {
+        toast.error("Failed to save notification settings");
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to save notifications",
+      );
+    } finally {
+      setNotificationsSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 flex-col gap-6 p-6">
+        <div>
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="mt-1 h-4 w-64" />
+        </div>
+        <Skeleton className="h-48 w-full rounded-md" />
+        <Skeleton className="h-48 w-full rounded-md" />
+        <Skeleton className="h-48 w-full rounded-md" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -79,7 +188,7 @@ export default function SettingsPage() {
             Basic organization settings and contact information
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="org-name">Organization Name</Label>
@@ -110,6 +219,76 @@ export default function SettingsPage() {
               />
             </div>
           </div>
+          <div className="flex justify-end">
+            <Button size="sm" onClick={handleSaveOrganization} disabled={orgSaving}>
+              {orgSaving && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <ShieldIcon className="text-muted-foreground h-4 w-4" />
+            <CardTitle className="text-base">Enforcement</CardTitle>
+          </div>
+          <CardDescription>
+            Default policy enforcement mode and audit logging behavior
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="default-policy-mode">Default Enforcement Mode</Label>
+              <Select
+                value={defaultPolicyMode}
+                onValueChange={setDefaultPolicyMode}
+              >
+                <SelectTrigger id="default-policy-mode">
+                  <SelectValue placeholder="Select mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  {POLICY_MODES.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-muted-foreground text-xs">
+                Applied to new policies that don&apos;t specify a mode
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label htmlFor="audit-logging" className="text-sm font-medium">
+                Audit Logging
+              </Label>
+              <p className="text-muted-foreground mt-0.5 text-xs">
+                Record every policy decision for compliance review
+              </p>
+            </div>
+            <Switch
+              id="audit-logging"
+              checked={auditLogging}
+              onCheckedChange={setAuditLogging}
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              onClick={handleSaveEnforcement}
+              disabled={enforcementSaving}
+            >
+              {enforcementSaving && (
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Save Changes
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -120,99 +299,102 @@ export default function SettingsPage() {
             <CardTitle className="text-base">Notifications</CardTitle>
           </div>
           <CardDescription>
-            Configure webhook and Slack integrations for alerts
+            Configure how you receive alerts and incidents
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="webhook-url">Webhook URL</Label>
-              <Input
-                id="webhook-url"
-                type="url"
-                placeholder="https://example.com/webhook"
-                value={webhookUrl}
-                onChange={(e) => setWebhookUrl(e.target.value)}
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <Label
+                  htmlFor="email-notifications"
+                  className="text-sm font-medium"
+                >
+                  Email Notifications
+                </Label>
+                <p className="text-muted-foreground mt-0.5 text-xs">
+                  Send incident and policy alerts to the contact email
+                </p>
+              </div>
+              <Switch
+                id="email-notifications"
+                checked={emailNotifications}
+                onCheckedChange={setEmailNotifications}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="slack-url">Slack Webhook URL</Label>
-              <Input
-                id="slack-url"
-                type="url"
-                placeholder="https://hooks.slack.com/..."
-                value={slackUrl}
-                onChange={(e) => setSlackUrl(e.target.value)}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <Label
+                  htmlFor="slack-notifications"
+                  className="text-sm font-medium"
+                >
+                  Slack Notifications
+                </Label>
+                <p className="text-muted-foreground mt-0.5 text-xs">
+                  Send alerts to a Slack channel via webhook
+                </p>
+              </div>
+              <Switch
+                id="slack-notifications"
+                checked={slackNotifications}
+                onCheckedChange={setSlackNotifications}
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="webhook-url">Webhook URL</Label>
+            <Input
+              id="webhook-url"
+              type="url"
+              placeholder="https://hooks.slack.com/services/..."
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              POST endpoint that receives JSON-formatted alert payloads
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              onClick={handleSaveNotifications}
+              disabled={notificationsSaving}
+            >
+              {notificationsSaving && (
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Save Changes
+            </Button>
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <KeyIcon className="text-muted-foreground h-4 w-4" />
-                <CardTitle className="text-base">Bootstrap Tokens</CardTitle>
-              </div>
-              <CardDescription className="mt-1">
-                Generate tokens for agent registration and API access
-              </CardDescription>
-            </div>
-            <Button size="sm" onClick={handleGenerateToken}>
-              <PlusIcon className="mr-1 h-4 w-4" />
-              Generate Token
-            </Button>
+          <div className="flex items-center gap-2">
+            <TerminalIcon className="text-muted-foreground h-4 w-4" />
+            <CardTitle className="text-base">Bootstrap Tokens</CardTitle>
           </div>
+          <CardDescription>
+            Tokens for agent registration and SDK authentication
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {newToken && (
-            <div className="bg-muted mb-4 flex items-center gap-2 rounded-lg border p-3">
-              <code className="flex-1 truncate text-xs">{newToken}</code>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 shrink-0"
-                onClick={handleCopyToken}
-              >
-                <CopyIcon className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
-          {tokens.length === 0 ? (
-            <p className="text-muted-foreground py-4 text-center text-sm">
-              No active bootstrap tokens
+          <div className="bg-muted/40 rounded-lg border border-dashed p-4">
+            <p className="text-sm font-medium">Manage tokens via the CLI</p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              Bootstrap tokens are managed from the Zentinelle backend host for
+              security. Run:
             </p>
-          ) : (
-            <div className="space-y-2">
-              {tokens.map((token) => (
-                <div
-                  key={token.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <KeyIcon className="text-muted-foreground h-4 w-4" />
-                    <div>
-                      <code className="text-xs font-medium">{token.prefix}</code>
-                      <p className="text-muted-foreground text-xs">
-                        Created {new Date(token.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-red-500 hover:text-red-600"
-                    onClick={() => handleRevokeToken(token.id)}
-                  >
-                    <TrashIcon className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
+            <code className="bg-background mt-3 block overflow-x-auto rounded-md border px-3 py-2 text-xs">
+              python manage.py bootstrap_token generate &lt;tenant_id&gt;
+              --label &quot;production agent&quot;
+            </code>
+            <p className="text-muted-foreground mt-3 text-xs">
+              Other commands: <code className="text-foreground">list</code>,{" "}
+              <code className="text-foreground">revoke &lt;prefix&gt;</code>
+            </p>
+          </div>
         </CardContent>
       </Card>
 

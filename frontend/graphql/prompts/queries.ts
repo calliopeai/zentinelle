@@ -15,6 +15,7 @@ const SYSTEM_PROMPT_FIELDS = `
   }
   compatibleProviders
   templateVariables
+  recommendedTemperature
   version
   status
   statusDisplay

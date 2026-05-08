@@ -2,128 +2,253 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { PlusIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useMutation } from "@apollo/client/react";
+import { type ColumnDef } from "@tanstack/react-table";
+import {
+  PlusIcon,
+  MoreHorizontalIcon,
+  EyeIcon,
+  PencilIcon,
+  Trash2Icon,
+  BadgeCheckIcon,
+  SparklesIcon,
+} from "lucide-react";
+import { toast } from "sonner";
+
 import { useSystemPrompts } from "@/graphql/prompts/hooks";
-import type { SystemPromptData } from "@/graphql/prompts/types";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { DELETE_SYSTEM_PROMPT } from "@/graphql/prompts/mutations";
+import { GET_SYSTEM_PROMPTS } from "@/graphql/prompts/queries";
+import type {
+  SystemPromptData,
+  DeleteSystemPromptData,
+  DeleteSystemPromptVariables,
+} from "@/graphql/prompts/types";
+
+import {
+  DataTable,
+  DataTableColumnHeader,
+  type FilterConfig,
+} from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
-  StarIcon,
-  SparklesIcon,
-  BadgeCheckIcon,
-  UsersIcon,
-  BookOpenIcon,
-} from "lucide-react";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { PromptDetailDialog } from "./prompt-detail-dialog";
 
-function PromptCard({ prompt }: { prompt: SystemPromptData }) {
-  return (
-    <Card className="transition-shadow hover:shadow-md">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="line-clamp-1 text-sm">
-            {prompt.name ?? "Untitled"}
-          </CardTitle>
-          <div className="flex shrink-0 gap-1">
-            {prompt.isFeatured && (
-              <SparklesIcon className="h-4 w-4 text-amber-500" />
-            )}
-            {prompt.isVerified && (
-              <BadgeCheckIcon className="h-4 w-4 text-blue-500" />
-            )}
-          </div>
-        </div>
-        {prompt.description && (
-          <CardDescription className="line-clamp-2 text-xs">
-            {prompt.description}
-          </CardDescription>
-        )}
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-1">
-            {prompt.promptTypeDisplay && (
-              <Badge variant="outline" className="text-[10px]">
-                {prompt.promptTypeDisplay}
-              </Badge>
-            )}
-            {prompt.category && (
-              <Badge variant="secondary" className="text-[10px]">
-                {prompt.category.name}
-              </Badge>
-            )}
-            {prompt.visibility && (
-              <Badge
-                variant={prompt.visibility === "public" ? "default" : "outline"}
-                className="text-[10px]"
-              >
-                {prompt.visibilityDisplay ?? prompt.visibility}
-              </Badge>
-            )}
-          </div>
+function visibilityVariant(visibility: string | null) {
+  switch (visibility) {
+    case "public":
+      return "default" as const;
+    case "private":
+      return "outline" as const;
+    case "shared":
+      return "secondary" as const;
+    default:
+      return "outline" as const;
+  }
+}
 
-          {(prompt.tags?.length ?? 0) > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {prompt.tags?.slice(0, 3).map((tag) => (
-                <Badge key={tag.id} variant="outline" className="text-[10px]">
-                  {tag.name}
-                </Badge>
-              ))}
-              {(prompt.tags?.length ?? 0) > 3 && (
-                <Badge variant="outline" className="text-[10px]">
-                  +{(prompt.tags?.length ?? 0) - 3}
-                </Badge>
-              )}
-            </div>
-          )}
-
-          <div className="text-muted-foreground flex items-center gap-3 pt-1 text-xs">
-            <span className="flex items-center gap-1">
-              <UsersIcon className="h-3 w-3" />
-              {prompt.usageCount ?? 0}
-            </span>
-            {prompt.avgRating != null && prompt.avgRating > 0 && (
-              <span className="flex items-center gap-1">
-                <StarIcon className="h-3 w-3 fill-amber-400 text-amber-400" />
-                {prompt.avgRating.toFixed(1)}
-              </span>
-            )}
-            {prompt.version != null && (
-              <span>v{prompt.version}</span>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+function formatTimestamp(ts: string | null) {
+  if (!ts) return "--";
+  return new Date(ts).toLocaleDateString();
 }
 
 export default function SystemPromptsPage() {
-  const [search, setSearch] = useState("");
-  const [categorySlug, setCategorySlug] = useState<string | undefined>();
-  const [featuredOnly, setFeaturedOnly] = useState<boolean | undefined>();
+  const router = useRouter();
+  const { prompts, loading } = useSystemPrompts();
+  const [selectedPrompt, setSelectedPrompt] = useState<SystemPromptData | null>(
+    null,
+  );
+  const [pendingDelete, setPendingDelete] = useState<SystemPromptData | null>(
+    null,
+  );
 
-  const { prompts, loading } = useSystemPrompts({
-    search: search || undefined,
-    categorySlug,
-    featuredOnly,
+  const [deletePrompt, { loading: deleting }] = useMutation<
+    DeleteSystemPromptData,
+    DeleteSystemPromptVariables
+  >(DELETE_SYSTEM_PROMPT, {
+    refetchQueries: [{ query: GET_SYSTEM_PROMPTS }],
   });
 
-  const categories = [
-    ...new Map(
-      prompts
-        .filter((p) => p.category)
-        .map((p) => [p.category!.slug, p.category!])
-    ).values(),
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    try {
+      const { data } = await deletePrompt({
+        variables: { id: pendingDelete.id },
+      });
+      if (data?.deleteSystemPrompt?.success) {
+        toast.success(`Deleted "${pendingDelete.name ?? "prompt"}"`);
+        setPendingDelete(null);
+      } else {
+        const err =
+          data?.deleteSystemPrompt?.errors?.[0] ?? "Failed to delete prompt";
+        toast.error(err);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
+    }
+  };
+
+  const columns: ColumnDef<SystemPromptData, unknown>[] = [
+    {
+      accessorKey: "name",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Name" />
+      ),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{row.original.name ?? "Untitled"}</span>
+          {row.original.isFeatured && (
+            <SparklesIcon className="h-3.5 w-3.5 text-amber-500" />
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "promptType",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Type" />
+      ),
+      cell: ({ row }) => (
+        <Badge variant="outline">
+          {row.original.promptTypeDisplay ?? row.original.promptType ?? "--"}
+        </Badge>
+      ),
+      filterFn: (row, _, filterValue) => {
+        if (!filterValue) return true;
+        return row.original.promptType === filterValue;
+      },
+    },
+    {
+      accessorKey: "visibility",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Visibility" />
+      ),
+      cell: ({ row }) => (
+        <Badge variant={visibilityVariant(row.original.visibility)}>
+          {row.original.visibilityDisplay ?? row.original.visibility ?? "--"}
+        </Badge>
+      ),
+      filterFn: (row, _, filterValue) => {
+        if (!filterValue) return true;
+        return row.original.visibility === filterValue;
+      },
+    },
+    {
+      accessorKey: "isVerified",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Verified" />
+      ),
+      cell: ({ row }) =>
+        row.original.isVerified ? (
+          <span className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400">
+            <BadgeCheckIcon className="h-4 w-4" />
+            Verified
+          </span>
+        ) : (
+          <span className="text-muted-foreground text-sm">--</span>
+        ),
+    },
+    {
+      accessorKey: "recommendedTemperature",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Temp" />
+      ),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground text-sm tabular-nums">
+          {row.original.recommendedTemperature != null
+            ? row.original.recommendedTemperature.toFixed(2)
+            : "--"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "createdAt",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Created" />
+      ),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground text-sm">
+          {formatTimestamp(row.original.createdAt)}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontalIcon className="h-4 w-4" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setSelectedPrompt(row.original)}>
+              <EyeIcon className="mr-2 h-4 w-4" />
+              View
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                router.push(`/system-prompts/builder?id=${row.original.id}`)
+              }
+            >
+              <PencilIcon className="mr-2 h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => setPendingDelete(row.original)}
+              className="text-red-600 dark:text-red-400"
+            >
+              <Trash2Icon className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+      enableSorting: false,
+    },
+  ];
+
+  const promptTypes = [
+    ...new Set(prompts.map((p) => p.promptType).filter((v): v is string => !!v)),
+  ].sort();
+  const visibilities = [
+    ...new Set(prompts.map((p) => p.visibility).filter((v): v is string => !!v)),
+  ].sort();
+
+  const filters: FilterConfig[] = [
+    {
+      id: "promptType",
+      label: "Type",
+      type: "select",
+      options: promptTypes.map((t) => ({ value: t, label: t })),
+    },
+    {
+      id: "visibility",
+      label: "Visibility",
+      type: "select",
+      options: visibilities.map((v) => ({ value: v, label: v })),
+    },
   ];
 
   if (loading) {
@@ -133,24 +258,7 @@ export default function SystemPromptsPage() {
           <Skeleton className="h-7 w-40" />
           <Skeleton className="mt-1 h-4 w-64" />
         </div>
-        <div className="flex gap-2">
-          <Skeleton className="h-8 w-56" />
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-8 w-32" />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-5 w-40" />
-                <Skeleton className="h-3 w-56" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-16 w-full rounded-md" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Skeleton className="h-[400px] w-full rounded-md" />
       </div>
     );
   }
@@ -172,57 +280,53 @@ export default function SystemPromptsPage() {
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          placeholder="Search prompts..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="h-8 w-56"
-        />
-        <Select
-          value={categorySlug ?? "all"}
-          onValueChange={(v) => setCategorySlug(v === "all" ? undefined : v)}
-        >
-          <SelectTrigger className="h-8 w-40">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map((cat) => (
-              <SelectItem key={cat.slug} value={cat.slug}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={featuredOnly === true ? "featured" : "all"}
-          onValueChange={(v) =>
-            setFeaturedOnly(v === "featured" ? true : undefined)
-          }
-        >
-          <SelectTrigger className="h-8 w-32">
-            <SelectValue placeholder="Filter" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Prompts</SelectItem>
-            <SelectItem value="featured">Featured Only</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <DataTable
+        data={prompts}
+        columns={columns}
+        getRowId={(row) => row.id}
+        filters={filters}
+        searchPlaceholder="Search prompts..."
+        onRowClick={(row) => setSelectedPrompt(row)}
+      />
 
-      {prompts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16">
-          <BookOpenIcon className="text-muted-foreground mb-3 h-10 w-10" />
-          <p className="text-muted-foreground text-sm">No prompts found</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {prompts.map((prompt) => (
-            <PromptCard key={prompt.id} prompt={prompt} />
-          ))}
-        </div>
-      )}
+      <PromptDetailDialog
+        prompt={selectedPrompt}
+        open={selectedPrompt !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPrompt(null);
+        }}
+      />
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this prompt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete{" "}
+              <span className="font-medium">
+                {pendingDelete?.name ?? "this prompt"}
+              </span>
+              . Agents currently referencing it may stop working. This cannot
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-500"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

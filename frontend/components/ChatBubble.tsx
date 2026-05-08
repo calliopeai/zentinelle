@@ -31,7 +31,7 @@ import {
   SquareIcon,
   LoaderIcon,
 } from "lucide-react";
-import { useChat, MODELS, type Message } from "@/hooks/use-chat";
+import { useChat, useAvailableModels, MODELS, type Message, type ChatModel } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
 
 /* ── Provider color mapping ──────────────────────────────────────── */
@@ -53,13 +53,12 @@ function providerColor(provider: string): string {
 }
 
 /* ── Group models by provider for the select ─────────────────────── */
-const modelsByProvider = MODELS.reduce<Record<string, typeof MODELS>>(
-  (acc, m) => {
+function groupByProvider(models: ChatModel[]): Record<string, ChatModel[]> {
+  return models.reduce<Record<string, ChatModel[]>>((acc, m) => {
     (acc[m.provider] ??= []).push(m);
     return acc;
-  },
-  {}
-);
+  }, {});
+}
 
 /* ── Model selector (reused in bubble + full page) ───────────────── */
 function ModelSelector({
@@ -71,7 +70,9 @@ function ModelSelector({
   onValueChange: (v: string) => void;
   className?: string;
 }) {
-  const selected = MODELS.find((m) => m.value === value);
+  const { models } = useAvailableModels();
+  const modelsByProvider = groupByProvider(models);
+  const selected = models.find((m) => m.value === value);
 
   return (
     <Select value={value} onValueChange={onValueChange}>

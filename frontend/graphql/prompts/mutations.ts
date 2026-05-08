@@ -16,3 +16,12 @@ export const CREATE_SYSTEM_PROMPT = gql`
     }
   }
 `;
+
+export const DELETE_SYSTEM_PROMPT = gql`
+  mutation DeleteSystemPrompt($id: ID!) {
+    deleteSystemPrompt(id: $id) {
+      success
+      errors
+    }
+  }
+`;

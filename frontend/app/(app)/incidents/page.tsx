@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReportIncidentDialog } from "./report-incident-dialog";
+import { IncidentDetailDialog } from "./incident-detail-dialog";
 
 function severityVariant(severity: string) {
   switch (severity) {
@@ -56,6 +57,19 @@ function slaVariant(sla: string | null) {
   }
 }
 
+function slaClassName(sla: string | null) {
+  switch (sla) {
+    case "met":
+      return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20";
+    case "at_risk":
+      return "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20";
+    case "breached":
+      return "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/20";
+    default:
+      return "";
+  }
+}
+
 function formatTimestamp(ts: string | null) {
   if (!ts) return "--";
   return new Date(ts).toLocaleString();
@@ -64,6 +78,9 @@ function formatTimestamp(ts: string | null) {
 export default function IncidentsPage() {
   const { incidents, loading, refetch } = useIncidents();
   const [reportOpen, setReportOpen] = useState(false);
+  const [selectedIncident, setSelectedIncident] = useState<IncidentData | null>(
+    null,
+  );
 
   const columns: ColumnDef<IncidentData, unknown>[] = [
     {
@@ -125,26 +142,17 @@ export default function IncidentsPage() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="SLA" />
       ),
-      cell: ({ row }) => (
+      cell: ({ row }) =>
         row.original.slaStatus ? (
-          <Badge variant={slaVariant(row.original.slaStatus)}>
-            {row.original.slaStatus}
+          <Badge
+            variant={slaVariant(row.original.slaStatus)}
+            className={slaClassName(row.original.slaStatus)}
+          >
+            {row.original.slaStatus.replace("_", " ")}
           </Badge>
         ) : (
           <span className="text-muted-foreground text-sm">--</span>
-        )
-      ),
-    },
-    {
-      accessorKey: "assignedToName",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Assigned To" />
-      ),
-      cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">
-          {row.original.assignedToName ?? "--"}
-        </span>
-      ),
+        ),
     },
     {
       accessorKey: "occurredAt",
@@ -156,6 +164,18 @@ export default function IncidentsPage() {
           {formatTimestamp(row.original.occurredAt)}
         </span>
       ),
+    },
+    {
+      accessorKey: "rootCause",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Root Cause" />
+      ),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground line-clamp-1 max-w-[240px] text-sm">
+          {row.original.rootCause || "--"}
+        </span>
+      ),
+      enableSorting: false,
     },
   ];
 
@@ -216,12 +236,21 @@ export default function IncidentsPage() {
         getRowId={(row) => row.id}
         filters={filters}
         searchPlaceholder="Search incidents..."
+        onRowClick={(row) => setSelectedIncident(row)}
       />
 
       <ReportIncidentDialog
         open={reportOpen}
         onOpenChange={setReportOpen}
         onReported={refetch}
+      />
+
+      <IncidentDetailDialog
+        incident={selectedIncident}
+        open={selectedIncident !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedIncident(null);
+        }}
       />
     </div>
   );

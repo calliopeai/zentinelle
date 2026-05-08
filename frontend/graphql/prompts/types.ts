@@ -23,6 +23,11 @@ export interface SystemPromptData {
   compatibleProviders: string[] | null;
   compatibleModels: string[] | null;
   templateVariables: string[] | null;
+  recommendedTemperature: number | null;
+  recommendedMaxTokens: number | null;
+  exampleInput: string | null;
+  exampleOutput: string | null;
+  useCases: string[] | null;
   version: number | null;
   status: string | null;
   statusDisplay: string | null;
@@ -80,4 +85,17 @@ export interface CreateSystemPromptInput {
 export interface CreateSystemPromptPayload {
   prompt: SystemPromptData | null;
   errors: string[];
+}
+
+export interface DeleteSystemPromptPayload {
+  success: boolean | null;
+  errors: string[];
+}
+
+export interface DeleteSystemPromptData {
+  deleteSystemPrompt: DeleteSystemPromptPayload;
+}
+
+export interface DeleteSystemPromptVariables {
+  id: string;
 }

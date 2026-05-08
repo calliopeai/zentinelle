@@ -125,11 +125,39 @@ export default function RiskOverviewPage() {
 
   const trendData = useMemo(() => {
     const days = 30;
-    return Array.from({ length: days }, (_, i) => ({
-      day: `Day ${i + 1}`,
-      index: Math.max(0, riskIndex + Math.floor(Math.random() * 10 - 5)),
-    }));
-  }, [riskIndex]);
+    const today = new Date();
+    return Array.from({ length: days }, (_, i) => {
+      const day = new Date(today);
+      day.setDate(today.getDate() - (days - i - 1));
+
+      const openRisksOnDay = risks.filter((r: any) => {
+        const createdRaw = r.createdAt ?? r.created_at;
+        if (!createdRaw) return false;
+        const created = new Date(createdRaw);
+        const closedRaw = r.closedAt ?? r.closed_at ?? null;
+        const closed = closedRaw ? new Date(closedRaw) : null;
+        const isClosedStatus = r.status === "closed";
+        // If risk is currently closed but we don't have a closedAt, treat
+        // as still open on historical days (best effort without snapshots).
+        if (isClosedStatus && closed && closed <= day) return false;
+        return created <= day;
+      });
+
+      if (!openRisksOnDay.length) {
+        return { day: day.toISOString().slice(5, 10), index: 0 };
+      }
+
+      const total = openRisksOnDay.reduce(
+        (s: number, r: any) => s + (r.riskScore ?? 0),
+        0,
+      );
+      const max = openRisksOnDay.length * 25;
+      return {
+        day: day.toISOString().slice(5, 10),
+        index: Math.round((total / max) * 100),
+      };
+    });
+  }, [risks]);
 
   const trendConfig: ChartConfig = {
     index: { label: "Risk Index", color: "#22d3ee" },
@@ -211,8 +239,13 @@ export default function RiskOverviewPage() {
             <ChartContainer config={trendConfig} className="h-[220px] w-full">
               <AreaChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="day" tick={false} />
-                <YAxis domain={[0, 100]} />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: 11 }}
+                  interval={4}
+                  tickMargin={6}
+                />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} width={32} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Area
                   type="monotone"
