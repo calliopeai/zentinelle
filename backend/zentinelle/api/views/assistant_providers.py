@@ -1,9 +1,13 @@
 """
 GET /api/zentinelle/v1/assistant/providers
 
-Returns the list of LLM providers that have API keys configured,
-along with their available models. Used by the chat assistant UI to
-populate the model selector dynamically.
+Returns LLM providers with API keys configured (tenant or env), filtered to
+chat-capable models from the AIModel registry. Sorted by release date,
+deprecated models excluded.
+
+Query params:
+  - require_tools=true — only return models with function_calling capability
+  - all=true — include deprecated models
 """
 import os
 from django.http import JsonResponse
@@ -12,77 +16,6 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
 from zentinelle.services.llm_provider import OPENAI_COMPAT_PROVIDERS
-
-PROVIDER_MODELS = {
-    'anthropic': [
-        {'value': 'claude-opus-4-20250514', 'label': 'Claude Opus 4'},
-        {'value': 'claude-sonnet-4-20250514', 'label': 'Claude Sonnet 4'},
-        {'value': 'claude-3-5-haiku-20241022', 'label': 'Claude 3.5 Haiku'},
-    ],
-    'openai': [
-        {'value': 'gpt-4o', 'label': 'GPT-4o'},
-        {'value': 'gpt-4o-mini', 'label': 'GPT-4o Mini'},
-        {'value': 'o1', 'label': 'o1'},
-        {'value': 'o3-mini', 'label': 'o3-mini'},
-    ],
-    'google': [
-        {'value': 'gemini-2.5-pro', 'label': 'Gemini 2.5 Pro'},
-        {'value': 'gemini-2.5-flash', 'label': 'Gemini 2.5 Flash'},
-    ],
-    'mistral': [
-        {'value': 'mistral-large-latest', 'label': 'Mistral Large'},
-        {'value': 'mistral-small-latest', 'label': 'Mistral Small'},
-    ],
-    'deepseek': [
-        {'value': 'deepseek-chat', 'label': 'DeepSeek Chat'},
-        {'value': 'deepseek-reasoner', 'label': 'DeepSeek Reasoner'},
-    ],
-    'fireworks': [
-        {'value': 'accounts/fireworks/models/llama-v3p3-70b-instruct', 'label': 'Llama 3.3 70B'},
-        {'value': 'accounts/fireworks/models/qwen2p5-72b-instruct', 'label': 'Qwen 2.5 72B'},
-    ],
-    'together': [
-        {'value': 'meta-llama/Llama-3.3-70B-Instruct-Turbo', 'label': 'Llama 3.3 70B'},
-        {'value': 'Qwen/Qwen2.5-72B-Instruct-Turbo', 'label': 'Qwen 2.5 72B'},
-    ],
-    'groq': [
-        {'value': 'llama-3.3-70b-versatile', 'label': 'Llama 3.3 70B (Groq)'},
-        {'value': 'mixtral-8x7b-32768', 'label': 'Mixtral 8x7B'},
-    ],
-    'cerebras': [
-        {'value': 'llama3.3-70b', 'label': 'Llama 3.3 70B (Cerebras)'},
-        {'value': 'llama3.1-8b', 'label': 'Llama 3.1 8B (Cerebras)'},
-    ],
-    'sambanova': [
-        {'value': 'Meta-Llama-3.3-70B-Instruct', 'label': 'Llama 3.3 70B (SambaNova)'},
-    ],
-    'xai': [
-        {'value': 'grok-2-latest', 'label': 'Grok 2'},
-    ],
-    'openrouter': [
-        {'value': 'openrouter/auto', 'label': 'Auto-route'},
-        {'value': 'anthropic/claude-sonnet-4', 'label': 'Claude Sonnet 4 (via OpenRouter)'},
-    ],
-    'ollama': [
-        {'value': 'llama3.3', 'label': 'Llama 3.3 (local)'},
-        {'value': 'qwen2.5', 'label': 'Qwen 2.5 (local)'},
-        {'value': 'deepseek-r1', 'label': 'DeepSeek R1 (local)'},
-    ],
-    'lmstudio': [
-        {'value': 'local-model', 'label': 'Local Model (LM Studio)'},
-    ],
-    'perplexity': [
-        {'value': 'sonar', 'label': 'Sonar'},
-        {'value': 'sonar-pro', 'label': 'Sonar Pro'},
-    ],
-    'cohere': [
-        {'value': 'command-r-plus', 'label': 'Command R+'},
-        {'value': 'command-r', 'label': 'Command R'},
-    ],
-    'nvidia': [
-        {'value': 'meta/llama-3.3-70b-instruct', 'label': 'Llama 3.3 70B (NVIDIA)'},
-    ],
-}
 
 PROVIDER_LABELS = {
     'anthropic': 'Anthropic',
@@ -97,19 +30,18 @@ PROVIDER_LABELS = {
     'sambanova': 'SambaNova',
     'xai': 'xAI',
     'openrouter': 'OpenRouter',
+    'litellm': 'LiteLLM',
     'ollama': 'Ollama',
     'lmstudio': 'LM Studio',
     'perplexity': 'Perplexity',
     'cohere': 'Cohere',
     'nvidia': 'NVIDIA',
-    'litellm': 'LiteLLM',
     'huggingface': 'Hugging Face',
 }
 
 
 def _has_credentials(provider: str, tenant_id: str = None) -> bool:
     """Check if a provider has API keys configured (tenant or env)."""
-    # Tier 1: tenant-stored key
     if tenant_id:
         try:
             from zentinelle.models import LLMProviderKey
@@ -122,12 +54,10 @@ def _has_credentials(provider: str, tenant_id: str = None) -> bool:
         except Exception:
             pass
 
-    # Tier 2: env var
     if provider == 'anthropic':
         return bool(os.environ.get('ANTHROPIC_API_KEY'))
     if provider == 'google':
         return bool(os.environ.get('GOOGLE_API_KEY'))
-    # Local providers don't need keys
     if provider in ('ollama', 'lmstudio'):
         return True
     config = OPENAI_COMPAT_PROVIDERS.get(provider, {})
@@ -139,18 +69,68 @@ def _has_credentials(provider: str, tenant_id: str = None) -> bool:
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AssistantProvidersView(View):
-    """List providers that have API keys configured."""
+    """List providers + their available chat models from the AIModel registry."""
 
     def get(self, request):
+        from zentinelle.models import AIModel
         from zentinelle.schema.auth_helpers import get_request_tenant_id
-        tenant_id = get_request_tenant_id(request.user) or 'default'
 
-        providers = []
-        for provider, models in PROVIDER_MODELS.items():
-            if _has_credentials(provider, tenant_id):
-                providers.append({
-                    'id': provider,
-                    'name': PROVIDER_LABELS.get(provider, provider),
-                    'models': models,
-                })
-        return JsonResponse({'providers': providers})
+        tenant_id = get_request_tenant_id(request.user) or 'default'
+        require_tools = request.GET.get('require_tools', '').lower() == 'true'
+        include_deprecated = request.GET.get('all', '').lower() == 'true'
+
+        # Query the AIModel registry — chat-capable models, available, sorted by recency
+        qs = AIModel.objects.filter(
+            is_available=True,
+            model_type__in=['llm', 'multimodal', 'reasoning'],
+        ).select_related('provider')
+
+        if not include_deprecated:
+            qs = qs.filter(deprecated=False)
+
+        # Order: most recent first, then by name
+        qs = qs.order_by('-release_date', 'provider__slug', 'name')
+
+        # Group by provider
+        by_provider = {}
+        for model in qs:
+            slug = model.provider.slug
+            caps = model.capabilities or []
+
+            if require_tools and 'function_calling' not in caps:
+                continue
+
+            if not _has_credentials(slug, tenant_id):
+                continue
+
+            if slug not in by_provider:
+                by_provider[slug] = {
+                    'id': slug,
+                    'name': PROVIDER_LABELS.get(slug, model.provider.name),
+                    'models': [],
+                }
+
+            by_provider[slug]['models'].append({
+                'value': model.model_id,
+                'label': model.name,
+                'capabilities': caps,
+                'contextWindow': model.context_window,
+                'releaseDate': model.release_date.isoformat() if model.release_date else None,
+                'supportsTools': 'function_calling' in caps,
+                'supportsVision': 'vision' in caps,
+                'riskLevel': model.risk_level,
+            })
+
+        # If we found nothing in the registry, fall back to env-only providers
+        # so the assistant doesn't return empty when models haven't been synced
+        if not by_provider:
+            from zentinelle.api.views.assistant_providers_fallback import FALLBACK_PROVIDERS
+            for slug, models in FALLBACK_PROVIDERS.items():
+                if _has_credentials(slug, tenant_id):
+                    by_provider[slug] = {
+                        'id': slug,
+                        'name': PROVIDER_LABELS.get(slug, slug),
+                        'models': models,
+                    }
+
+        return JsonResponse({'providers': list(by_provider.values())})

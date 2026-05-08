@@ -70,7 +70,7 @@ function ModelSelector({
   onValueChange: (v: string) => void;
   className?: string;
 }) {
-  const { models } = useAvailableModels();
+  const { models, loading } = useAvailableModels();
   const modelsByProvider = groupByProvider(models);
   const selected = models.find((m) => m.value === value);
 
@@ -78,24 +78,45 @@ function ModelSelector({
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger className={cn("h-7 text-xs", className)}>
         <SelectValue>
-          {selected ? selected.label : "Select model"}
+          {loading ? "Loading models…" : selected ? selected.label : "Select model"}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent>
-        {Object.entries(modelsByProvider).map(([provider, models]) => (
+      <SelectContent className="max-h-[400px]">
+        {models.length === 0 && !loading && (
+          <div className="px-3 py-2 text-xs text-muted-foreground">
+            No providers configured. Add API keys in Settings → LLM Providers.
+          </div>
+        )}
+        {Object.entries(modelsByProvider).map(([provider, providerModels]) => (
           <SelectGroup key={provider}>
-            <SelectLabel>{provider}</SelectLabel>
-            {models.map((m) => (
+            <SelectLabel className="flex items-center justify-between">
+              <span>{provider}</span>
+              <span className="text-[9px] text-muted-foreground">
+                {providerModels.length} model{providerModels.length !== 1 ? "s" : ""}
+              </span>
+            </SelectLabel>
+            {providerModels.map((m) => (
               <SelectItem key={m.value} value={m.value}>
-                <span className="flex items-center gap-2">
-                  {m.label}
-                  <Badge
-                    variant="secondary"
-                    className={cn("text-[10px] px-1.5 py-0 h-4", providerColor(m.provider))}
-                  >
-                    {m.provider}
-                  </Badge>
-                </span>
+                <div className="flex items-center justify-between gap-2 w-full">
+                  <span className="flex items-center gap-1.5">
+                    {m.label}
+                    {m.supportsTools && (
+                      <span title="Function calling" className="text-[9px] text-emerald-500 font-mono">
+                        🔧
+                      </span>
+                    )}
+                    {m.supportsVision && (
+                      <span title="Vision" className="text-[9px] text-blue-500 font-mono">
+                        👁
+                      </span>
+                    )}
+                  </span>
+                  {m.releaseDate && (
+                    <span className="text-[9px] text-muted-foreground tabular-nums">
+                      {m.releaseDate.slice(0, 7)}
+                    </span>
+                  )}
+                </div>
               </SelectItem>
             ))}
           </SelectGroup>

@@ -13,6 +13,11 @@ export interface ChatModel {
   value: string;
   label: string;
   provider: string;
+  releaseDate?: string;
+  supportsTools?: boolean;
+  supportsVision?: boolean;
+  contextWindow?: number;
+  capabilities?: string[];
 }
 
 export const MODELS: ChatModel[] = [
@@ -37,35 +42,69 @@ function createId(): string {
   return `msg_${Date.now()}_${messageCounter}`;
 }
 
+export interface UseModelsOptions {
+  /** Only show models that support function calling / tool use */
+  requireTools?: boolean;
+  /** Sort: 'recent' (default, newest first) or 'name' */
+  sortBy?: "recent" | "name";
+}
+
 /**
- * Fetch providers and their models from the backend, filtered by which
- * have API keys configured.
+ * Fetch providers and their models from the backend.
+ * Filtered to providers with API keys configured. Sorted by release date by default.
  */
-export function useAvailableModels() {
-  const [models, setModels] = useState<ChatModel[]>(MODELS);
-  const [loading, setLoading] = useState(false);
+export function useAvailableModels(opts: UseModelsOptions = {}) {
+  const { requireTools = false, sortBy = "recent" } = opts;
+  const [models, setModels] = useState<ChatModel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasResult, setHasResult] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${API_URL}/assistant/providers`, { credentials: "include" })
+    const params = new URLSearchParams();
+    if (requireTools) params.set("require_tools", "true");
+    const url = `${API_URL}/assistant/providers${params.toString() ? "?" + params.toString() : ""}`;
+
+    fetch(url, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data?.providers || !Array.isArray(data.providers)) return;
         const flat: ChatModel[] = [];
         for (const p of data.providers) {
           for (const m of p.models ?? []) {
-            flat.push({ value: m.value, label: m.label, provider: p.name });
+            flat.push({
+              value: m.value,
+              label: m.label,
+              provider: p.name,
+              releaseDate: m.releaseDate,
+              supportsTools: m.supportsTools,
+              supportsVision: m.supportsVision,
+              contextWindow: m.contextWindow,
+              capabilities: m.capabilities,
+            });
           }
         }
-        if (flat.length > 0) setModels(flat);
+        // Sort
+        if (sortBy === "recent") {
+          flat.sort((a, b) => {
+            const aDate = a.releaseDate ?? "";
+            const bDate = b.releaseDate ?? "";
+            return bDate.localeCompare(aDate);
+          });
+        } else {
+          flat.sort((a, b) => a.label.localeCompare(b.label));
+        }
+        setModels(flat);
+        setHasResult(true);
       })
-      .catch(() => {
-        // Fall back to hardcoded MODELS list
-      })
+      .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [requireTools, sortBy]);
 
-  return { models, loading };
+  // Fall back to hardcoded MODELS only if backend returned nothing AND finished loading
+  const result = hasResult && models.length === 0 ? MODELS : (models.length > 0 ? models : MODELS);
+
+  return { models: result, loading };
 }
 
 export function useChat() {
