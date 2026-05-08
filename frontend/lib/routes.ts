@@ -11,6 +11,8 @@ export const routeLabels: Record<string, string> = {
   compliance: "Compliance",
   "system-prompts": "System Prompts",
   settings: "Settings",
+  builder: "Prompt Builder",
+  generator: "Prompt Generator",
   new: "Create",
   create: "Create",
 };

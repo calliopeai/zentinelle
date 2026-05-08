@@ -38,6 +38,10 @@ import {
   ArchiveIcon,
   KeyIcon,
   UsersIcon,
+  PenToolIcon,
+  WandIcon,
+  ScanSearchIcon,
+  FileBarChartIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -69,6 +73,7 @@ const sections: NavSection[] = [
       { title: "Policy Simulator", url: "/policies/simulator", icon: <PlayIcon /> },
       { title: "Policy Analyzer", url: "/policies/analyzer", icon: <SearchCheckIcon /> },
       { title: "Content Rules", url: "/content-rules", icon: <ScanLineIcon /> },
+      { title: "Scanner Dashboard", url: "/content-rules/scanner", icon: <ScanSearchIcon /> },
       { title: "Models", url: "/models", icon: <CpuIcon /> },
     ],
   },
@@ -86,6 +91,7 @@ const sections: NavSection[] = [
       { title: "Risks", url: "/risks", icon: <AlertTriangleIcon /> },
       { title: "Incidents", url: "/incidents", icon: <FlameIcon /> },
       { title: "Compliance", url: "/compliance", icon: <CheckCircleIcon /> },
+      { title: "Reports", url: "/compliance/reports", icon: <FileBarChartIcon /> },
     ],
   },
   {
@@ -96,6 +102,8 @@ const sections: NavSection[] = [
         url: "/system-prompts",
         icon: <BookOpenIcon />,
       },
+      { title: "Prompt Builder", url: "/system-prompts/builder", icon: <PenToolIcon /> },
+      { title: "Prompt Generator", url: "/system-prompts/generator", icon: <WandIcon /> },
       { title: "Token Calculator", url: "/tools/token-calculator", icon: <CpuIcon /> },
       { title: "Retention", url: "/retention", icon: <ArchiveIcon /> },
       { title: "Network", url: "/network", icon: <NetworkIcon /> },
