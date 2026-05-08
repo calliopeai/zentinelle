@@ -206,10 +206,10 @@ export default function EventsPage() {
     return () => clearTimeout(timer);
   }, [events]);
 
-  // Reset paused state when live toggled off
-  useEffect(() => {
-    if (!liveOn) setPaused(false);
-  }, [liveOn]);
+  const handleLiveToggle = (next: boolean) => {
+    setLiveOn(next);
+    if (!next) setPaused(false);
+  };
 
   // Apply filters client-side (server doesn't filter on search/category in our hook call)
   const filtered = useMemo(() => {
@@ -310,7 +310,7 @@ export default function EventsPage() {
             <Switch
               id="live-toggle"
               checked={liveOn}
-              onCheckedChange={setLiveOn}
+              onCheckedChange={handleLiveToggle}
             />
           </div>
 

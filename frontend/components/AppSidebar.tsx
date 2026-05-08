@@ -49,6 +49,7 @@ import {
   FileBarChartIcon,
   SparklesIcon,
   LayersIcon,
+  UploadIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -81,6 +82,7 @@ const sections: NavSection[] = [
       { title: "Effective Policy", url: "/policies/effective", icon: <SearchIcon /> },
       { title: "Policy Simulator", url: "/policies/simulator", icon: <PlayIcon /> },
       { title: "Policy Analyzer", url: "/policies/analyzer", icon: <SearchCheckIcon /> },
+      { title: "Policy Import", url: "/policies/import", icon: <UploadIcon /> },
       { title: "Content Rules", url: "/content-rules", icon: <ScanLineIcon /> },
       { title: "Scanner Dashboard", url: "/content-rules/scanner", icon: <ScanSearchIcon /> },
       { title: "Models", url: "/models", icon: <CpuIcon /> },

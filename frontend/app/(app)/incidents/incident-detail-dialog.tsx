@@ -1,8 +1,12 @@
 "use client";
 
-import { MessageSquareIcon } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Loader2Icon, MessageSquareIcon, SendIcon } from "lucide-react";
+import { toast } from "sonner";
 import type { IncidentData } from "@/graphql/risks/types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +15,93 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
+
+/* ── Comment types ──────────────────────────────────────────────── */
+
+type CommentSeverity = "info" | "low" | "medium" | "high" | "critical";
+
+interface IncidentComment {
+  id: number;
+  author_id: string | null;
+  body: string;
+  created_at: string | null;
+}
+
+interface CommentsResponse {
+  count: number;
+  results: IncidentComment[];
+}
+
+const SEVERITY_PREFIX_RE = /^\[severity:(info|low|medium|high|critical)\]\s*/i;
+
+function parseSeverity(body: string): {
+  severity: CommentSeverity | null;
+  text: string;
+} {
+  const m = body.match(SEVERITY_PREFIX_RE);
+  if (!m) return { severity: null, text: body };
+  return {
+    severity: m[1].toLowerCase() as CommentSeverity,
+    text: body.slice(m[0].length),
+  };
+}
+
+function severityBadge(severity: CommentSeverity) {
+  switch (severity) {
+    case "critical":
+    case "high":
+      return {
+        variant: "destructive" as const,
+        className: "",
+      };
+    case "medium":
+      return {
+        variant: "secondary" as const,
+        className:
+          "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20",
+      };
+    case "low":
+      return {
+        variant: "outline" as const,
+        className:
+          "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
+      };
+    case "info":
+    default:
+      return {
+        variant: "outline" as const,
+        className: "",
+      };
+  }
+}
+
+function severityHighlight(severity: CommentSeverity) {
+  switch (severity) {
+    case "critical":
+    case "high":
+      return "border-l-red-500 bg-red-500/5";
+    case "medium":
+      return "border-l-amber-500 bg-amber-500/5";
+    case "low":
+      return "border-l-blue-500 bg-blue-500/5";
+    default:
+      return "border-l-border";
+  }
+}
+
+/* ── Existing helpers ───────────────────────────────────────────── */
 
 function severityVariant(severity: string) {
   switch (severity) {
@@ -83,6 +174,223 @@ function Field({
     </div>
   );
 }
+
+/* ── Comments thread component ──────────────────────────────────── */
+
+function CommentsThread({ incidentId }: { incidentId: string }) {
+  const [comments, setComments] = useState<IncidentComment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [content, setContent] = useState("");
+  const [severity, setSeverity] = useState<CommentSeverity>("info");
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadComments = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `${API_URL}/incidents/${incidentId}/comments/`,
+        {
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        },
+      );
+      if (!res.ok) {
+        throw new Error(`Failed to load comments (${res.status})`);
+      }
+      const data: CommentsResponse = await res.json();
+      // Backend returns ordered by created_at ascending, but enforce here
+      // for the chronological-display contract.
+      const sorted = [...(data.results ?? [])].sort((a, b) => {
+        const aT = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bT = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return aT - bT;
+      });
+      setComments(sorted);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load comments");
+      setComments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [incidentId]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadComments();
+  }, [loadComments]);
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      const trimmed = content.trim();
+      if (!trimmed) return;
+
+      setSubmitting(true);
+      try {
+        const body =
+          severity === "info"
+            ? trimmed
+            : `[severity:${severity}] ${trimmed}`;
+
+        const res = await fetch(
+          `${API_URL}/incidents/${incidentId}/comments/`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({ content: body, body }),
+          },
+        );
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(
+            `Failed to post comment (${res.status})${text ? `: ${text}` : ""}`,
+          );
+        }
+
+        const created: IncidentComment = await res.json();
+        setComments((prev) => [...prev, created]);
+        setContent("");
+        setSeverity("info");
+        toast.success("Comment posted");
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Failed to post comment",
+        );
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [content, severity, incidentId],
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <MessageSquareIcon className="text-muted-foreground h-4 w-4" />
+        <h3 className="text-sm font-medium">
+          Comments
+          {comments.length > 0 && (
+            <span className="text-muted-foreground ml-1.5 font-normal">
+              ({comments.length})
+            </span>
+          )}
+        </h3>
+      </div>
+
+      {/* Existing comments */}
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-md" />
+          ))}
+        </div>
+      ) : error ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
+          {error}
+        </div>
+      ) : comments.length === 0 ? (
+        <div className="bg-muted/40 flex items-center justify-center rounded-md border border-dashed py-6">
+          <p className="text-muted-foreground text-sm">No comments yet.</p>
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {comments.map((c) => {
+            const { severity: sev, text } = parseSeverity(c.body);
+            return (
+              <li
+                key={c.id}
+                className={cn(
+                  "rounded-md border border-l-4 px-3 py-2",
+                  sev ? severityHighlight(sev) : "border-l-border bg-muted/30",
+                )}
+              >
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium">
+                    {c.author_id || "system"}
+                  </span>
+                  {sev && (() => {
+                    const cfg = severityBadge(sev);
+                    return (
+                      <Badge
+                        variant={cfg.variant}
+                        className={cn("text-[10px] uppercase", cfg.className)}
+                      >
+                        {sev}
+                      </Badge>
+                    );
+                  })()}
+                  <span className="text-muted-foreground ml-auto text-xs">
+                    {formatTimestamp(c.created_at)}
+                  </span>
+                </div>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                  {text}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* New-comment form */}
+      <form onSubmit={handleSubmit} className="space-y-2">
+        <Textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Add a comment... (Cmd/Ctrl+Enter to post)"
+          rows={3}
+          className="resize-none"
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault();
+              handleSubmit(e as unknown as React.FormEvent);
+            }
+          }}
+          disabled={submitting}
+        />
+        <div className="flex items-center justify-between gap-2">
+          <Select
+            value={severity}
+            onValueChange={(v) => setSeverity(v as CommentSeverity)}
+            disabled={submitting}
+          >
+            <SelectTrigger className="h-8 w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="info">Info</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="critical">Critical</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={submitting || content.trim().length === 0}
+          >
+            {submitting ? (
+              <Loader2Icon className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <SendIcon className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            Post
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/* ── Main dialog ────────────────────────────────────────────────── */
 
 type IncidentDetailDialogProps = {
   incident: IncidentData | null;
@@ -259,17 +567,7 @@ export function IncidentDetailDialog({
 
           <Separator />
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <MessageSquareIcon className="text-muted-foreground h-4 w-4" />
-              <h3 className="text-sm font-medium">Comments</h3>
-            </div>
-            <div className="bg-muted/40 flex items-center justify-center rounded-md border border-dashed py-8">
-              <p className="text-muted-foreground text-sm">
-                Comments thread coming soon
-              </p>
-            </div>
-          </div>
+          <CommentsThread incidentId={incident.id} />
         </div>
       </DialogContent>
     </Dialog>

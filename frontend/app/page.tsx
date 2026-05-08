@@ -1,11 +1,19 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
-export default async function RootPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("backend_jwt");
+const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || "open";
 
-  if (token) {
+export default async function RootPage() {
+  // Open mode: skip auth entirely
+  if (AUTH_MODE === "open") {
+    redirect("/dashboard");
+  }
+
+  const cookieStore = await cookies();
+  const hasSession =
+    cookieStore.has("zentinelle_session") || cookieStore.has("sessionid");
+
+  if (hasSession) {
     redirect("/dashboard");
   } else {
     redirect("/auth/login");

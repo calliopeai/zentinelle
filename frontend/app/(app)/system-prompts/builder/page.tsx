@@ -3,6 +3,8 @@
 import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useMutation } from "@apollo/client/react";
+import { toast } from "sonner";
 import {
   ArrowLeftIcon,
   CopyIcon,
@@ -18,6 +20,7 @@ import {
   VariableIcon,
   EyeIcon,
   XIcon,
+  Loader2Icon,
 } from "lucide-react";
 
 import {
@@ -32,7 +35,17 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
+import { CREATE_SYSTEM_PROMPT } from "@/graphql/prompts/mutations";
+import type { CreateSystemPromptPayload } from "@/graphql/prompts/types";
 
 // ---------------------------------------------------------------------------
 // Template catalogue — covers the seven canonical prompt types
@@ -254,12 +267,20 @@ function estimateTokens(text: string): number {
 export default function PromptBuilderPage() {
   const router = useRouter();
   const [copied, copy] = useCopyToClipboard();
+  const [createPrompt, { loading: saving }] = useMutation<{
+    createSystemPrompt: CreateSystemPromptPayload;
+  }>(CREATE_SYSTEM_PROMPT);
 
   // State
   const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
   const [promptContent, setPromptContent] = useState("");
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [showPreview, setShowPreview] = useState(false);
+
+  // Save dialog state
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Derived
   const variables = useMemo(() => extractVariables(promptContent), [promptContent]);
@@ -303,15 +324,53 @@ export default function PromptBuilderPage() {
     []
   );
 
-  const handleSaveAsPrompt = useCallback(() => {
-    const params = new URLSearchParams();
-    params.set("promptText", previewContent);
-    if (selectedTemplate) {
-      params.set("promptType", selectedTemplate.type);
-      params.set("name", selectedTemplate.name);
+  const handleOpenSaveDialog = useCallback(() => {
+    setSaveError(null);
+    setSaveName(selectedTemplate?.name ?? "");
+    setSaveOpen(true);
+  }, [selectedTemplate]);
+
+  const handleConfirmSave = useCallback(async () => {
+    const trimmed = saveName.trim();
+    if (trimmed.length < 3) {
+      setSaveError("Name must be at least 3 characters");
+      return;
     }
-    router.push(`/system-prompts/create?${params.toString()}`);
-  }, [router, previewContent, selectedTemplate]);
+    if (!previewContent || previewContent.length < 10) {
+      setSaveError("Prompt text must be at least 10 characters");
+      return;
+    }
+
+    setSaveError(null);
+
+    try {
+      const { data } = await createPrompt({
+        variables: {
+          input: {
+            name: trimmed,
+            promptText: previewContent,
+            promptType: selectedTemplate?.type ?? "system",
+            visibility: "organization",
+          },
+        },
+      });
+
+      if (data?.createSystemPrompt?.prompt) {
+        toast.success(`Prompt "${trimmed}" saved`);
+        setSaveOpen(false);
+        router.push("/system-prompts");
+      } else {
+        const err =
+          data?.createSystemPrompt?.errors?.[0] ?? "Failed to save prompt";
+        setSaveError(err);
+        toast.error(err);
+      }
+    } catch {
+      const err = "Failed to save prompt";
+      setSaveError(err);
+      toast.error(err);
+    }
+  }, [createPrompt, previewContent, router, saveName, selectedTemplate]);
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -342,8 +401,16 @@ export default function PromptBuilderPage() {
             )}
             {copied ? "Copied" : "Copy"}
           </Button>
-          <Button size="sm" onClick={handleSaveAsPrompt} disabled={!promptContent}>
-            <SaveIcon className="mr-1.5 h-4 w-4" />
+          <Button
+            size="sm"
+            onClick={handleOpenSaveDialog}
+            disabled={!promptContent || saving}
+          >
+            {saving ? (
+              <Loader2Icon className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <SaveIcon className="mr-1.5 h-4 w-4" />
+            )}
             Save as System Prompt
           </Button>
         </div>
@@ -591,6 +658,68 @@ export default function PromptBuilderPage() {
           )}
         </div>
       </div>
+
+      {/* Save dialog */}
+      <Dialog
+        open={saveOpen}
+        onOpenChange={(open) => {
+          if (!saving) setSaveOpen(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save as System Prompt</DialogTitle>
+            <DialogDescription>
+              Give this prompt a name. It will be saved to your organization
+              library with type{" "}
+              <code className="bg-muted rounded px-1 py-0.5 text-xs">
+                {selectedTemplate?.type ?? "system"}
+              </code>
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="save-name">Prompt name</Label>
+            <Input
+              id="save-name"
+              autoFocus
+              value={saveName}
+              onChange={(e) => {
+                setSaveName(e.target.value);
+                if (saveError) setSaveError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !saving) {
+                  e.preventDefault();
+                  handleConfirmSave();
+                }
+              }}
+              placeholder="e.g. Code Review Assistant"
+              aria-invalid={!!saveError}
+            />
+            {saveError && (
+              <p className="text-destructive text-sm">{saveError}</p>
+            )}
+            <p className="text-muted-foreground text-xs">
+              ~{tokenCount.toLocaleString()} tokens · {previewContent.length}{" "}
+              characters
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSaveOpen(false)}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmSave} disabled={saving}>
+              {saving && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+              Save prompt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

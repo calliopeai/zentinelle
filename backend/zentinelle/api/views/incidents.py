@@ -190,21 +190,36 @@ class IncidentDetailView(APIView):
 
 class IncidentCommentView(APIView):
     """
+    GET  /api/zentinelle/v1/incidents/{id}/comments/ — list comments on an incident.
     POST /api/zentinelle/v1/incidents/{id}/comments/ — add a comment to an incident.
     """
 
     authentication_classes = [ZentinelleAPIKeyAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, incident_id):
+    def _get_incident(self, request, incident_id):
         tenant_id = get_tenant_id_from_request(request)
-
         try:
-            incident = Incident.objects.get(pk=incident_id, tenant_id=tenant_id)
+            return Incident.objects.get(pk=incident_id, tenant_id=tenant_id)
         except (Incident.DoesNotExist, ValueError):
+            return None
+
+    def get(self, request, incident_id):
+        incident = self._get_incident(request, incident_id)
+        if incident is None:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        body = request.data.get('body', '').strip()
+        comments = incident.comments.order_by('created_at').all()
+        results = [_serialize_comment(c) for c in comments]
+        return Response({'count': len(results), 'results': results}, status=status.HTTP_200_OK)
+
+    def post(self, request, incident_id):
+        incident = self._get_incident(request, incident_id)
+        if incident is None:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Accept either "body" (canonical) or "content" (frontend-friendly alias).
+        body = (request.data.get('body') or request.data.get('content') or '').strip()
         if not body:
             return Response({'detail': '"body" is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
