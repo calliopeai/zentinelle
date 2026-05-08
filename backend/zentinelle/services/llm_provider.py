@@ -11,6 +11,7 @@ Usage:
     async for chunk in stream_chat(messages, model='claude-sonnet-4-20250514'):
         print(chunk, end='')
 """
+import asyncio
 import json
 import logging
 import os
@@ -122,14 +123,29 @@ def detect_provider(model_id: str) -> str:
     return os.environ.get('DEFAULT_LLM_PROVIDER', 'openai')
 
 
+def _env_api_key(provider: str) -> str:
+    """Fetch provider API key from environment variables only."""
+    if provider == 'anthropic':
+        return os.environ.get('ANTHROPIC_API_KEY', '')
+    if provider == 'google':
+        return os.environ.get('GOOGLE_API_KEY', '')
+    config = OPENAI_COMPAT_PROVIDERS.get(provider, {})
+    env_var = config.get('env')
+    if not env_var:
+        return ''
+    return os.environ.get(env_var, '')
+
+
 def get_api_key(provider: str, tenant_id: str = None) -> str:
     """Get API key for a provider.
 
     Resolution order:
       1. Tenant-specific encrypted key from LLMProviderKey (portal-managed)
       2. Environment variable (deployment-level)
+
+    NOTE: This function does ORM access. Don't call it from async code —
+    look up the key with this in sync context, then pass into async.
     """
-    # Tier 1: tenant-stored encrypted key
     if tenant_id:
         try:
             from zentinelle.models import LLMProviderKey
@@ -142,19 +158,13 @@ def get_api_key(provider: str, tenant_id: str = None) -> str:
                 key = obj.get_key()
                 if key:
                     return key
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Failed to load tenant key for %s: %s", provider, e
+            )
 
-    # Tier 2: env var
-    if provider == 'anthropic':
-        return os.environ.get('ANTHROPIC_API_KEY', '')
-    if provider == 'google':
-        return os.environ.get('GOOGLE_API_KEY', '')
-    config = OPENAI_COMPAT_PROVIDERS.get(provider, {})
-    env_var = config.get('env')
-    if not env_var:
-        return ''
-    return os.environ.get(env_var, '')
+    return _env_api_key(provider)
 
 
 async def stream_chat(
@@ -178,7 +188,12 @@ async def stream_chat(
     if not provider:
         provider = detect_provider(model)
 
-    api_key = get_api_key(provider, tenant_id)
+    # Resolve API key BEFORE async path — get_api_key uses Django ORM which
+    # can't run inside an async loop without explicit sync_to_async.
+    if tenant_id:
+        api_key = await asyncio.to_thread(get_api_key, provider, tenant_id)
+    else:
+        api_key = _env_api_key(provider)
 
     if provider == 'anthropic':
         async for chunk in _stream_anthropic(
