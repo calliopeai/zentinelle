@@ -12,7 +12,11 @@ import {
   CREATE_CONTENT_RULE,
   UPDATE_CONTENT_RULE,
 } from "@/graphql/content-rules/mutations";
-import type { ContentRuleData } from "@/graphql/content-rules/types";
+import type {
+  ContentRuleData,
+  CreateContentRulePayload,
+  UpdateContentRulePayload,
+} from "@/graphql/content-rules/types";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,8 +109,12 @@ export function CreateContentRuleDialog({
 }: CreateContentRuleDialogProps) {
   const isEdit = !!editRule;
 
-  const [createRule, { loading: creating }] = useMutation(CREATE_CONTENT_RULE);
-  const [updateRule, { loading: updating }] = useMutation(UPDATE_CONTENT_RULE);
+  const [createRule, { loading: creating }] = useMutation<{
+    createContentRule: CreateContentRulePayload;
+  }>(CREATE_CONTENT_RULE);
+  const [updateRule, { loading: updating }] = useMutation<{
+    updateContentRule: UpdateContentRulePayload;
+  }>(UPDATE_CONTENT_RULE);
   const submitting = creating || updating;
 
   const {

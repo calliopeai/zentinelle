@@ -73,8 +73,8 @@ const riskSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters"),
   category: z.string().min(1, "Category is required"),
   status: z.string(),
-  likelihood: z.coerce.number().int().min(1).max(5),
-  impact: z.coerce.number().int().min(1).max(5),
+  likelihood: z.number().int().min(1).max(5),
+  impact: z.number().int().min(1).max(5),
   mitigationPlan: z.string().optional(),
   tags: z.array(z.string()),
 });

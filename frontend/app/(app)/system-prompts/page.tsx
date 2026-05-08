@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { PlusIcon } from "lucide-react";
 import { useSystemPrompts } from "@/graphql/prompts/hooks";
 import type { SystemPromptData } from "@/graphql/prompts/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -154,11 +157,19 @@ export default function SystemPromptsPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold">System Prompts</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Browse and manage system prompt templates for your AI agents
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">System Prompts</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Browse and manage system prompt templates for your AI agents
+          </p>
+        </div>
+        <Button size="sm" asChild>
+          <Link href="/system-prompts/create">
+            <PlusIcon className="mr-1.5 h-4 w-4" />
+            Create Prompt
+          </Link>
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

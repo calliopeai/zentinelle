@@ -50,7 +50,7 @@ const editPolicySchema = z.object({
     { message: "Config must be valid JSON" }
   ),
   enabled: z.boolean(),
-  priority: z.coerce.number().int().min(0).max(1000),
+  priority: z.number().int().min(0).max(1000),
 });
 
 type EditPolicyValues = z.infer<typeof editPolicySchema>;
@@ -193,7 +193,7 @@ export function EditPolicyDialog({
                 type="number"
                 min={0}
                 max={1000}
-                {...register("priority")}
+                {...register("priority", { valueAsNumber: true })}
                 aria-invalid={!!errors.priority}
               />
               {errors.priority && (

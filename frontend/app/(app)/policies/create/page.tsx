@@ -46,7 +46,7 @@ const policySchema = z.object({
     { message: "Config must be valid JSON" }
   ),
   enabled: z.boolean(),
-  priority: z.coerce.number().int().min(0).max(1000),
+  priority: z.number().int().min(0).max(1000),
 });
 
 type PolicyFormValues = z.infer<typeof policySchema>;
@@ -237,7 +237,7 @@ export default function CreatePolicyPage() {
               type="number"
               min={0}
               max={1000}
-              {...register("priority")}
+              {...register("priority", { valueAsNumber: true })}
               aria-invalid={!!errors.priority}
             />
             {errors.priority && (

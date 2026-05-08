@@ -12,4 +12,5 @@ export const routeLabels: Record<string, string> = {
   "system-prompts": "System Prompts",
   settings: "Settings",
   new: "Create",
+  create: "Create",
 };

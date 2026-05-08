@@ -160,6 +160,14 @@ function ActionsCell({
 
 export default function ContentRulesPage() {
   const { contentRules, loading, refetch } = useContentRules();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editRule, setEditRule] = useState<ContentRuleData | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const handleEdit = (rule: ContentRuleData) => {
+    setEditRule(rule);
+    setEditOpen(true);
+  };
 
   const columns: ColumnDef<ContentRuleData, unknown>[] = [
     {
@@ -234,7 +242,7 @@ export default function ContentRulesPage() {
       id: "actions",
       header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => (
-        <ActionsCell rule={row.original} onRefresh={refetch} />
+        <ActionsCell rule={row.original} onRefresh={refetch} onEdit={handleEdit} />
       ),
       enableSorting: false,
     },
@@ -265,11 +273,17 @@ export default function ContentRulesPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold">Content Rules</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Configure content scanning and filtering rules for AI inputs and outputs
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Content Rules</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Configure content scanning and filtering rules for AI inputs and outputs
+          </p>
+        </div>
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          Create Rule
+        </Button>
       </div>
       <DataTable
         data={contentRules}
@@ -277,6 +291,19 @@ export default function ContentRulesPage() {
         getRowId={(row) => row.id}
         filters={filters}
         searchPlaceholder="Search content rules..."
+      />
+
+      <CreateContentRuleDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSaved={refetch}
+      />
+
+      <CreateContentRuleDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={refetch}
+        editRule={editRule}
       />
     </div>
   );
