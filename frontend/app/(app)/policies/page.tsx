@@ -15,6 +15,7 @@ import type {
 import {
   TOGGLE_POLICY_ENABLED,
   DELETE_POLICY,
+  DUPLICATE_POLICY,
 } from "@/graphql/policies/mutations";
 import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -255,6 +256,21 @@ function ActionsCell({
   const confirm = useConfirm();
   const [toggleEnabled] = useMutation<{ togglePolicyEnabled: TogglePolicyEnabledPayload }>(TOGGLE_POLICY_ENABLED);
   const [deletePolicy] = useMutation<{ deletePolicy: DeletePolicyPayload }>(DELETE_POLICY);
+  const [duplicatePolicy] = useMutation<{ duplicatePolicy: { success: boolean; error: string; policy: PolicyData } }>(DUPLICATE_POLICY);
+
+  const handleDuplicate = async () => {
+    try {
+      const { data } = await duplicatePolicy({ variables: { id: policy.id } });
+      if (data?.duplicatePolicy?.success) {
+        toast.success(`Duplicated "${policy.name}"`);
+        onRefresh();
+      } else {
+        toast.error(data?.duplicatePolicy?.error ?? "Failed to duplicate");
+      }
+    } catch {
+      toast.error("Failed to duplicate policy");
+    }
+  };
 
   const handleToggle = async () => {
     try {
@@ -305,6 +321,9 @@ function ActionsCell({
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handleToggle}>
           {policy.enabled ? "Disable" : "Enable"}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleDuplicate}>
+          Duplicate
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onHistory(policy)}>
           History

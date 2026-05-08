@@ -58,3 +58,22 @@ export const TOGGLE_POLICY_ENABLED = gql`
     }
   }
 `;
+
+export const DUPLICATE_POLICY = gql`
+  mutation DuplicatePolicy($id: ID!) {
+    duplicatePolicy(id: $id) {
+      policy {
+        id
+        name
+        policyType
+        scopeType
+        enforcement
+        enabled
+        priority
+        config
+      }
+      success
+      error
+    }
+  }
+`;

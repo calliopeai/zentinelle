@@ -5,10 +5,12 @@ import { useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { toast } from "sonner";
 import { useComplianceOverview } from "@/graphql/compliance/hooks";
+import { RUN_COMPLIANCE_CHECK } from "@/graphql/compliance/mutations";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircleIcon, XCircleIcon, ShieldCheckIcon, ToggleLeftIcon, ToggleRightIcon } from "lucide-react";
+import { CheckCircleIcon, XCircleIcon, ShieldCheckIcon, ToggleLeftIcon, ToggleRightIcon, RefreshCwIcon } from "lucide-react";
 
 const TOGGLE_FRAMEWORK = gql`
   mutation ToggleFramework($frameworkId: String!) {
@@ -96,6 +98,24 @@ export default function CompliancePage() {
     new Set(frameworks.map((fw) => fw.id)),
   );
   const [toggleFramework] = useMutation(TOGGLE_FRAMEWORK);
+  const [runCheck, { loading: running }] = useMutation(RUN_COMPLIANCE_CHECK);
+
+  const handleRunCheck = async () => {
+    try {
+      const result: any = await runCheck();
+      if (result?.data?.runComplianceCheck?.success) {
+        toast.success(
+          `Created ${result.data.runComplianceCheck.assessmentsCreated} assessments`,
+        );
+      } else {
+        toast.error(
+          result?.data?.runComplianceCheck?.errors?.[0] ?? "Check failed",
+        );
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to run compliance check");
+    }
+  };
 
   const handleToggleFramework = async (frameworkId: string) => {
     const newEnabled = new Set(enabledFrameworks);
@@ -131,6 +151,16 @@ export default function CompliancePage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRunCheck}
+            disabled={running}
+            className="text-xs uppercase"
+          >
+            <RefreshCwIcon className={`mr-1 h-3 w-3 ${running ? "animate-spin" : ""}`} />
+            {running ? "Running" : "Run Check"}
+          </Button>
           <a
             href={`${process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1"}/export/summary.json`}
             target="_blank"

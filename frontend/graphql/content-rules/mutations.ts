@@ -1,5 +1,17 @@
 import { gql } from "@apollo/client";
 
+export const TEST_CONTENT_RULE = gql`
+  mutation TestContentRule($id: ID!, $content: String!) {
+    testContentRule(id: $id, content: $content) {
+      success
+      matched
+      matchedText
+      severity
+      errors
+    }
+  }
+`;
+
 export const CREATE_CONTENT_RULE = gql`
   mutation CreateContentRule($input: CreateContentRuleInput!) {
     createContentRule(input: $input) {
