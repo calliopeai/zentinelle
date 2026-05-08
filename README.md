@@ -133,7 +133,7 @@ Production settings enforce:
 - CORS allowlist (no wildcard)
 - All required secrets present at startup (raises if missing)
 
-See [docs/wiki/deployment.md](docs/wiki/deployment.md) for full details.
+See [docs/wiki/Deployment-Guide.md](docs/wiki/Deployment-Guide.md) for full details.
 
 ## Connect Your Agents
 
@@ -256,13 +256,13 @@ Opt-in only. Never auto-runs.
 
 ## Documentation
 
-- [Architecture](docs/wiki/architecture.md) — DB routing, auth flows, policy engine
-- [API Reference](docs/wiki/api.md) — REST endpoints
-- [Policy Reference](docs/wiki/policies.md) — all 24 policy types
-- [SDK Guide](docs/wiki/sdk.md) — Python/TS/Go/Java/C#
-- [Compliance Frameworks](docs/wiki/compliance.md) — SOC2/GDPR/HIPAA/AI Act/NIST mapping
-- [Deployment Guide](docs/wiki/deployment.md) — Docker, Terraform, secrets
-- [Development Guide](docs/wiki/development.md) — local setup, testing
+- [Architecture](docs/wiki/Architecture.md) — DB routing, auth flows, policy engine
+- [API Reference](docs/wiki/API-Reference.md) — REST endpoints
+- [Policy Reference](docs/wiki/Policy-Reference.md) — all 24 policy types
+- [SDK Guide](docs/wiki/SDK-Guide.md) — Python/TS/Go/Java/C#
+- [Compliance Frameworks](docs/wiki/Compliance-Frameworks.md) — SOC2/GDPR/HIPAA/AI Act/NIST mapping
+- [Deployment Guide](docs/wiki/Deployment-Guide.md) — Docker, Terraform, secrets
+- [Development Guide](docs/wiki/Development-Guide.md) — local setup, testing
 
 ## License
 

@@ -1,0 +1,1631 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Runtime governance for AI coding agents">
+      
+      
+      
+        <link rel="canonical" href="https://zentinelle.dev/wiki/Compliance-Frameworks/">
+      
+      
+        <link rel="prev" href="../SDK-Guide/">
+      
+      
+        <link rel="next" href="../Deployment-Guide/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Compliance Frameworks - Zentinelle</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#compliance-frameworks" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Zentinelle" class="md-header__button md-logo" aria-label="Zentinelle" data-md-component="logo">
+      
+  <img src="../../assets/images/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Zentinelle
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Compliance Frameworks
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/calliopeai/zentinelle" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    calliopeai/zentinelle
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Zentinelle" class="md-nav__button md-logo" aria-label="Zentinelle" data-md-component="logo">
+      
+  <img src="../../assets/images/logo.svg" alt="logo">
+
+    </a>
+    Zentinelle
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/calliopeai/zentinelle" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    calliopeai/zentinelle
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tech-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tech Stack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Home/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../API-Reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Policy-Reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SDK-Guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SDK Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance Frameworks
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance Frameworks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#supported-frameworks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Frameworks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#soc-2-type-ii" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SOC 2 Type II
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gdpr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GDPR
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hipaa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HIPAA
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eu-ai-act" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EU AI Act
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nist-ai-rmf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NIST AI RMF
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#iso-42001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ISO 42001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compliance-frameworks-toggle-complianceframeworks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance Frameworks Toggle — /compliance/frameworks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compliance-overview-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance Overview — /compliance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gap-analysis-compliancegaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gap Analysis — /compliance/gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compliance-reports-compliancereports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance Reports — /compliance/reports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compliance-packs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance Packs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Deployment-Guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Development-Guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../knowledge-graph/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../primer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methodology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#supported-frameworks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Frameworks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#soc-2-type-ii" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SOC 2 Type II
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gdpr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GDPR
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hipaa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HIPAA
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eu-ai-act" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EU AI Act
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nist-ai-rmf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NIST AI RMF
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#iso-42001" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ISO 42001
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compliance-frameworks-toggle-complianceframeworks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance Frameworks Toggle — /compliance/frameworks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compliance-overview-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance Overview — /compliance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gap-analysis-compliancegaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gap Analysis — /compliance/gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compliance-reports-compliancereports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance Reports — /compliance/reports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compliance-packs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compliance Packs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="compliance-frameworks">Compliance Frameworks<a class="headerlink" href="#compliance-frameworks" title="Permanent link">&para;</a></h1>
+<p>Zentinelle maps agent behaviour to regulatory controls across <strong>six frameworks</strong>. Dashboards are generated from event data and policy configurations — no manual attestation required.</p>
+<p>The control catalogue lives in <code>backend/zentinelle/models/compliance.py</code> (<code>COMPLIANCE_CAPABILITIES</code>, <code>FRAMEWORK_REQUIREMENTS</code>). The portal UI mappings live in <code>frontend/app/(app)/compliance/[framework]/page.tsx</code>. Compliance packs (curated baseline policies per framework) live in <code>backend/zentinelle/services/compliance_packs.py</code> and are activated via <code>python manage.py activate_compliance_pack</code>.</p>
+<h2 id="supported-frameworks">Supported Frameworks<a class="headerlink" href="#supported-frameworks" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Framework</th>
+<th>Slug</th>
+<th>Region</th>
+<th>Controls Mapped</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SOC 2 Type II</td>
+<td><code>soc2</code></td>
+<td>Global</td>
+<td>12</td>
+</tr>
+<tr>
+<td>GDPR</td>
+<td><code>gdpr</code></td>
+<td>EU/EEA</td>
+<td>8</td>
+</tr>
+<tr>
+<td>HIPAA</td>
+<td><code>hipaa</code></td>
+<td>US</td>
+<td>8</td>
+</tr>
+<tr>
+<td>EU AI Act</td>
+<td><code>eu-ai-act</code></td>
+<td>EU</td>
+<td>8</td>
+</tr>
+<tr>
+<td>NIST AI RMF</td>
+<td><code>nist</code></td>
+<td>Global</td>
+<td>8</td>
+</tr>
+<tr>
+<td>ISO 42001</td>
+<td><code>iso_42001</code></td>
+<td>Global</td>
+<td>AI Management System</td>
+</tr>
+</tbody>
+</table>
+<p>Each framework page (<code>/compliance/&lt;slug&gt;</code>) shows a coverage score, control breakdown by category, and the Zentinelle feature that maps to each control.</p>
+<hr />
+<h2 id="soc-2-type-ii">SOC 2 Type II<a class="headerlink" href="#soc-2-type-ii" title="Permanent link">&para;</a></h2>
+<p>Trust Services Criteria for service organizations.</p>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Name</th>
+<th>Category</th>
+<th>Zentinelle Feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CC6.1</td>
+<td>Logical Access Controls</td>
+<td>Security</td>
+<td>RBAC roles + API key auth</td>
+</tr>
+<tr>
+<td>CC6.2</td>
+<td>Access Authentication</td>
+<td>Security</td>
+<td>Session auth + OIDC/SSO</td>
+</tr>
+<tr>
+<td>CC6.3</td>
+<td>Access Authorization</td>
+<td>Security</td>
+<td>Policy engine + RBAC</td>
+</tr>
+<tr>
+<td>CC7.1</td>
+<td>Monitoring Activities</td>
+<td>Security</td>
+<td>Event monitoring + audit logs</td>
+</tr>
+<tr>
+<td>CC7.2</td>
+<td>Incident Response</td>
+<td>Security</td>
+<td>Incident management + webhooks</td>
+</tr>
+<tr>
+<td>CC8.1</td>
+<td>Change Management</td>
+<td>Security</td>
+<td>Policy versioning</td>
+</tr>
+<tr>
+<td>CC3.1</td>
+<td>Risk Assessment</td>
+<td>Risk</td>
+<td>Risk register + FMEA matrix</td>
+</tr>
+<tr>
+<td>CC3.2</td>
+<td>Risk Mitigation</td>
+<td>Risk</td>
+<td>Policy enforcement + content scanning</td>
+</tr>
+<tr>
+<td>CC5.1</td>
+<td>Activity Logging</td>
+<td>Availability</td>
+<td>Audit log chain + event pipeline</td>
+</tr>
+<tr>
+<td>PI1.1</td>
+<td>Data Processing Integrity</td>
+<td>Processing Integrity</td>
+<td>Content scanning + output filters</td>
+</tr>
+<tr>
+<td>C1.1</td>
+<td>Data Classification</td>
+<td>Confidentiality</td>
+<td>PII/PHI detection + secret scanning</td>
+</tr>
+<tr>
+<td>P1.1</td>
+<td>Privacy Notice</td>
+<td>Privacy</td>
+<td>Out of scope — organisational policy</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Compliance pack:</strong> <code>python manage.py activate_compliance_pack soc2</code> provisions baseline <code>audit_policy</code>, <code>network_policy</code>, <code>session_policy</code>, and <code>ai_guardrail</code> policies.</p>
+<hr />
+<h2 id="gdpr">GDPR<a class="headerlink" href="#gdpr" title="Permanent link">&para;</a></h2>
+<p>EU regulation on data protection and privacy.</p>
+<table>
+<thead>
+<tr>
+<th>Article</th>
+<th>Name</th>
+<th>Category</th>
+<th>Zentinelle Feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Art. 5</td>
+<td>Data Processing Principles</td>
+<td>Principles</td>
+<td>Content scanning + data retention policies</td>
+</tr>
+<tr>
+<td>Art. 6</td>
+<td>Lawful Basis</td>
+<td>Principles</td>
+<td>Out of scope — organisational policy</td>
+</tr>
+<tr>
+<td>Art. 17</td>
+<td>Right to Erasure</td>
+<td>Data Subject Rights</td>
+<td>Data retention TTL + legal holds</td>
+</tr>
+<tr>
+<td>Art. 25</td>
+<td>Data Protection by Design</td>
+<td>Design</td>
+<td>PII detection + content redaction</td>
+</tr>
+<tr>
+<td>Art. 30</td>
+<td>Records of Processing</td>
+<td>Accountability</td>
+<td>Audit logs + interaction logs</td>
+</tr>
+<tr>
+<td>Art. 32</td>
+<td>Security of Processing</td>
+<td>Security</td>
+<td>Encryption + access control + policy enforcement</td>
+</tr>
+<tr>
+<td>Art. 33</td>
+<td>Breach Notification</td>
+<td>Security</td>
+<td>Incident management + webhook alerts</td>
+</tr>
+<tr>
+<td>Art. 35</td>
+<td>DPIA</td>
+<td>Accountability</td>
+<td>Risk register + compliance reports</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="hipaa">HIPAA<a class="headerlink" href="#hipaa" title="Permanent link">&para;</a></h2>
+<p>US Health Insurance Portability and Accountability Act — Security Rule.</p>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Name</th>
+<th>Category</th>
+<th>Zentinelle Feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>§164.312(a)</td>
+<td>Access Control</td>
+<td>Technical Safeguards</td>
+<td>Policy engine + RBAC + API key auth</td>
+</tr>
+<tr>
+<td>§164.312(b)</td>
+<td>Audit Controls</td>
+<td>Technical Safeguards</td>
+<td>Tamper-evident audit log chain</td>
+</tr>
+<tr>
+<td>§164.312(c)</td>
+<td>Integrity Controls</td>
+<td>Technical Safeguards</td>
+<td>Content scanning + output filters</td>
+</tr>
+<tr>
+<td>§164.312(d)</td>
+<td>Person Authentication</td>
+<td>Technical Safeguards</td>
+<td>Session auth + OIDC/SSO + MFA via OIDC</td>
+</tr>
+<tr>
+<td>§164.312(e)</td>
+<td>Transmission Security</td>
+<td>Technical Safeguards</td>
+<td>HTTPS enforced + proxy TLS</td>
+</tr>
+<tr>
+<td>§164.308(a)(1)</td>
+<td>Risk Analysis</td>
+<td>Administrative Safeguards</td>
+<td>Risk register + FMEA matrix + gap analysis</td>
+</tr>
+<tr>
+<td>§164.308(a)(6)</td>
+<td>Incident Procedures</td>
+<td>Administrative Safeguards</td>
+<td>Incident management + SLA tracking</td>
+</tr>
+<tr>
+<td>§164.530(j)</td>
+<td>Retention Requirements</td>
+<td>Administrative Safeguards</td>
+<td>Data retention policies + legal holds</td>
+</tr>
+</tbody>
+</table>
+<p><strong>PHI handling:</strong> the <code>phi_detection</code> content rule, combined with an <code>output_filter</code> policy in <code>redact</code> or <code>block</code> mode, prevents PHI patterns (SSN, MRN, NPI, diagnoses) from leaving the system. The <code>hipaa</code> compliance pack ships these defaults plus a 7-year retention window (2,555 days).</p>
+<hr />
+<h2 id="eu-ai-act">EU AI Act<a class="headerlink" href="#eu-ai-act" title="Permanent link">&para;</a></h2>
+<p>Risk-based AI governance regulation. Effective Aug 2026.</p>
+<table>
+<thead>
+<tr>
+<th>Article</th>
+<th>Name</th>
+<th>Category</th>
+<th>Zentinelle Feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Art. 9</td>
+<td>Risk Management System</td>
+<td>High-Risk AI</td>
+<td>Risk register + policy engine + evaluators</td>
+</tr>
+<tr>
+<td>Art. 10</td>
+<td>Data Governance</td>
+<td>High-Risk AI</td>
+<td>Content scanning + data retention</td>
+</tr>
+<tr>
+<td>Art. 11</td>
+<td>Technical Documentation</td>
+<td>High-Risk AI</td>
+<td>System prompts + policy documentation</td>
+</tr>
+<tr>
+<td>Art. 12</td>
+<td>Record-Keeping</td>
+<td>High-Risk AI</td>
+<td>Audit logs + interaction logs + event pipeline</td>
+</tr>
+<tr>
+<td>Art. 13</td>
+<td>Transparency</td>
+<td>High-Risk AI</td>
+<td>Policy evaluation results + monitoring dashboard</td>
+</tr>
+<tr>
+<td>Art. 14</td>
+<td>Human Oversight</td>
+<td>High-Risk AI</td>
+<td><code>human_oversight</code> policy + approval workflows</td>
+</tr>
+<tr>
+<td>Art. 15</td>
+<td>Accuracy &amp; Robustness</td>
+<td>High-Risk AI</td>
+<td>Model restrictions + output filters + safety settings</td>
+</tr>
+<tr>
+<td>Art. 52</td>
+<td>Transparency Obligations</td>
+<td>General</td>
+<td>Application-level — out of scope</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Risk classification.</strong> The Model Registry (<code>backend/zentinelle/models/model_registry.py</code>) tags each AI model with an EU AI Act risk level (<code>unacceptable</code>, <code>high</code>, <code>limited</code>, <code>minimal</code>). The <code>human_oversight</code> policy enforces Art. 14 for high-risk models.</p>
+<hr />
+<h2 id="nist-ai-rmf">NIST AI RMF<a class="headerlink" href="#nist-ai-rmf" title="Permanent link">&para;</a></h2>
+<p>NIST AI Risk Management Framework (AI RMF 1.0). Voluntary framework organised around four functions.</p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Practice</th>
+<th>Zentinelle Feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GOVERN</td>
+<td>Cultivate AI risk-management culture</td>
+<td>RBAC + policy engine + audit trails</td>
+</tr>
+<tr>
+<td>MAP</td>
+<td>Identify context and map AI risks</td>
+<td>Risk register + model registry + agent inventory</td>
+</tr>
+<tr>
+<td>MEASURE</td>
+<td>Assess and track AI risks</td>
+<td>Usage analytics + monitoring + compliance scoring</td>
+</tr>
+<tr>
+<td>MANAGE</td>
+<td>Prioritise and act on AI risks</td>
+<td>Policy enforcement + incident response + remediation</td>
+</tr>
+<tr>
+<td>GOV-1</td>
+<td>Legal &amp; Regulatory</td>
+<td>Compliance frameworks + gap analysis + reports</td>
+</tr>
+<tr>
+<td>GOV-3</td>
+<td>Workforce Diversity</td>
+<td>Out of scope — organisational concern</td>
+</tr>
+<tr>
+<td>MAP-1</td>
+<td>AI System Inventory</td>
+<td>Agent registry + model registry</td>
+</tr>
+<tr>
+<td>MEASURE-2</td>
+<td>Performance Metrics</td>
+<td>Usage metrics + latency tracking + cost monitoring</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="iso-42001">ISO 42001<a class="headerlink" href="#iso-42001" title="Permanent link">&para;</a></h2>
+<p>AI Management System (AIMS) — the first ISO standard purpose-built for AI governance.</p>
+<p>ISO 42001 is treated as a thin overlay on top of NIST AI RMF and the EU AI Act in <code>FRAMEWORK_REQUIREMENTS</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Required</th>
+<th>Zentinelle Feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Model identification</td>
+<td>Required</td>
+<td>Model registry</td>
+</tr>
+<tr>
+<td>Model restriction</td>
+<td>Required</td>
+<td><code>model_restriction</code> policy</td>
+</tr>
+<tr>
+<td>Audit logging</td>
+<td>Recommended</td>
+<td>Audit log chain</td>
+</tr>
+<tr>
+<td>Human oversight</td>
+<td>Recommended</td>
+<td><code>human_oversight</code> policy</td>
+</tr>
+<tr>
+<td>Agent capability control</td>
+<td>Recommended</td>
+<td><code>agent_capability</code> policy</td>
+</tr>
+</tbody>
+</table>
+<p>Reports for ISO 42001 can be exported via <code>/compliance/reports</code> (slug <code>iso_42001</code>).</p>
+<hr />
+<h2 id="compliance-frameworks-toggle-complianceframeworks">Compliance Frameworks Toggle — <code>/compliance/frameworks</code><a class="headerlink" href="#compliance-frameworks-toggle-complianceframeworks" title="Permanent link">&para;</a></h2>
+<p>Each framework can be enabled or disabled per tenant via <code>ComplianceFrameworkConfig</code> (<code>backend/zentinelle/models/compliance.py</code>). Disabling a framework removes it from the dashboard and excludes it from coverage scoring — useful for tenants in jurisdictions where a given framework does not apply (e.g. a US-only deployment turning off GDPR).</p>
+<p>Toggle is exposed through the GraphQL <code>toggleFramework</code> mutation and stored as <code>(tenant_id, framework_id, is_enabled)</code>.</p>
+<hr />
+<h2 id="compliance-overview-compliance">Compliance Overview — <code>/compliance</code><a class="headerlink" href="#compliance-overview-compliance" title="Permanent link">&para;</a></h2>
+<p>The overview page renders a <strong>radar chart</strong> of required-capability coverage across all enabled frameworks (recharts <code>RadarChart</code>, see <code>frontend/app/(app)/compliance/page.tsx</code>). Each axis is one framework; the polygon shows coverage percentage. A balanced polygon means consistent posture; a skewed one highlights a framework you should focus on.</p>
+<p>Below the radar, each framework gets its own card with a coverage badge linking to the detail page.</p>
+<p>Coverage data comes from <code>get_framework_coverage(tenant_id)</code> in <code>backend/zentinelle/models/compliance.py</code>, which compares enabled capabilities (policies + content rules) against the framework's <code>required_capabilities</code> and <code>recommended_capabilities</code>.</p>
+<hr />
+<h2 id="gap-analysis-compliancegaps">Gap Analysis — <code>/compliance/gaps</code><a class="headerlink" href="#gap-analysis-compliancegaps" title="Permanent link">&para;</a></h2>
+<p>Surfaces unmet <strong>required</strong> capabilities across enabled frameworks, with effort estimates and remediation hints (<code>frontend/app/(app)/compliance/gaps/page.tsx</code>).</p>
+<p>For each gap, the page shows:</p>
+<ul>
+<li>The capability that's missing (e.g. <code>pii_detection</code>)</li>
+<li>Which framework requires it</li>
+<li>Severity (<code>required</code> vs <code>recommended</code>)</li>
+<li>Effort estimate (<code>easy</code> / <code>medium</code> / <code>hard</code> with hour ranges)</li>
+<li>Direct link to the policy creation flow with the right policy type pre-selected</li>
+</ul>
+<p>Example: GDPR Art. 5 is partially covered. The gap analysis page suggests:</p>
+<blockquote>
+<p><strong>PII Detection</strong> — required for GDPR. Effort: easy (&lt; 1h). Create a <code>pii_filter</code> content rule or an <code>output_filter</code> policy with <code>block_pii: true</code>.</p>
+</blockquote>
+<p>Each remediation links straight to <code>/policies/create?type=output_filter</code> so admins can close the gap in one click.</p>
+<hr />
+<h2 id="compliance-reports-compliancereports">Compliance Reports — <code>/compliance/reports</code><a class="headerlink" href="#compliance-reports-compliancereports" title="Permanent link">&para;</a></h2>
+<p>All framework dashboards support exporting an evidence pack as JSON or CSV. Reports include:</p>
+<ul>
+<li>Control / capability coverage (met / partial / not met)</li>
+<li>Evidence summary — policy configurations, event counts, incident log</li>
+<li>Period covered</li>
+<li>Tenant and agent scope</li>
+<li>Generated <code>ComplianceAssessment</code> snapshot for trend analysis</li>
+</ul>
+<p>Reports are generated on demand. For scheduled reports, use the <code>compliance_monitoring</code> Celery beat task (<code>backend/zentinelle/tasks/compliance_monitoring.py</code>).</p>
+<hr />
+<h2 id="compliance-packs">Compliance Packs<a class="headerlink" href="#compliance-packs" title="Permanent link">&para;</a></h2>
+<p>Compliance packs are curated bundles of baseline policies. Activate one with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>activate_compliance_pack<span class="w"> </span>&lt;pack_name&gt;<span class="w"> </span>--tenant<span class="w"> </span>&lt;tenant_id&gt;
+</code></pre></div>
+<p>Available packs (see <code>backend/zentinelle/services/compliance_packs.py</code>): <code>hipaa</code>, <code>soc2</code>. Each pack provisions ~5 policies across <code>output_filter</code>, <code>audit_policy</code>, <code>session_policy</code>, <code>data_retention</code>, <code>data_access</code>, <code>network_policy</code>, and <code>ai_guardrail</code>.</p>
+<p>Packs are idempotent — running <code>activate_compliance_pack</code> twice for the same tenant is safe.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; 2026 Calliope Labs Inc. MIT Licensed.
+    </div>
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/calliopeai/zentinelle" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://zentinelle.ai" target="_blank" rel="noopener" title="zentinelle.ai" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M351.9 280H161c2.9 64.5 17.2 123.9 37.5 167.4 11.4 24.5 23.7 41.8 35.1 52.4 11.2 10.5 18.9 12.2 22.9 12.2s11.7-1.7 22.9-12.2c11.4-10.6 23.7-28 35.1-52.4 20.3-43.5 34.6-102.9 37.5-167.4zm-191-48h190.9c-2.8-64.5-17.1-123.9-37.4-167.4-11.4-24.4-23.7-41.8-35.1-52.4C268.1 1.7 260.4 0 256.4 0s-11.7 1.7-22.9 12.2c-11.4 10.6-23.7 28-35.1 52.4-20.3 43.5-34.6 102.9-37.5 167.4m-48 0c3.5-85.6 25.6-165.1 57.9-217.3C78.7 47.3 10.9 131.2 1.5 232zM1.5 280c9.4 100.8 77.2 184.7 169.3 217.3-32.3-52.2-54.4-131.7-57.9-217.3zm398.4 0c-3.5 85.6-25.6 165.1-57.9 217.3 92.1-32.7 159.9-116.5 169.3-217.3zm111.4-48C501.9 131.2 434.1 47.3 342 14.7c32.3 52.2 54.4 131.7 57.9 217.3z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://calliope.ai" target="_blank" rel="noopener" title="calliope.ai" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M64 0C28.7 0 0 28.7 0 64v384c0 35.3 28.7 64 64 64h256c35.3 0 64-28.7 64-64V64c0-35.3-28.7-64-64-64zm112 352h32c17.7 0 32 14.3 32 32v80h-96v-80c0-17.7 14.3-32 32-32M96 112c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16zm144-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16M96 240c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16zm144-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

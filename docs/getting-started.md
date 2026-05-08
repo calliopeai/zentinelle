@@ -173,7 +173,7 @@ Opt-in only — never auto-runs.
 
 ## 8. Production deployment
 
-When you're ready for production, see [Deployment Guide](wiki/deployment.md).
+When you're ready for production, see [Deployment Guide](wiki/Deployment-Guide.md).
 The short version:
 
 ```bash

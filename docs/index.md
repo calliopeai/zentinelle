@@ -45,12 +45,12 @@ Three integration modes:
 
 **Reference**
 
-- [Architecture](wiki/architecture.md)
-- [API Reference](wiki/api.md) — REST + GraphQL endpoints
-- [Policy Reference](wiki/policies.md) — all 24 policy types
-- [SDK Guide](wiki/sdk.md) — Python, TypeScript, Go, Java, C#
-- [Compliance Frameworks](wiki/compliance.md)
-- [Deployment Guide](wiki/deployment.md) — Docker, Terraform, secrets
+- [Architecture](wiki/Architecture.md)
+- [API Reference](wiki/API-Reference.md) — REST + GraphQL endpoints
+- [Policy Reference](wiki/Policy-Reference.md) — all 24 policy types
+- [SDK Guide](wiki/SDK-Guide.md) — Python, TypeScript, Go, Java, C#
+- [Compliance Frameworks](wiki/Compliance-Frameworks.md)
+- [Deployment Guide](wiki/Deployment-Guide.md) — Docker, Terraform, secrets
 
 **Project**
 

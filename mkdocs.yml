@@ -35,6 +35,9 @@ theme:
   icon:
     repo: fontawesome/brands/github
 
+exclude_docs: |
+  wiki/_Sidebar.md
+
 extra_css:
   - stylesheets/extra.css
 
@@ -43,14 +46,14 @@ nav:
   - Getting Started: getting-started.md
   - Tech Stack: tech-stack.md
   - Reference:
-    - Overview: wiki/README.md
-    - Architecture: wiki/architecture.md
-    - API Reference: wiki/api.md
-    - Policy Reference: wiki/policies.md
-    - SDK Guide: wiki/sdk.md
-    - Compliance Frameworks: wiki/compliance.md
-    - Deployment Guide: wiki/deployment.md
-    - Development Guide: wiki/development.md
+    - Overview: wiki/Home.md
+    - Architecture: wiki/Architecture.md
+    - API Reference: wiki/API-Reference.md
+    - Policy Reference: wiki/Policy-Reference.md
+    - SDK Guide: wiki/SDK-Guide.md
+    - Compliance Frameworks: wiki/Compliance-Frameworks.md
+    - Deployment Guide: wiki/Deployment-Guide.md
+    - Development Guide: wiki/Development-Guide.md
   - Knowledge Graph: knowledge-graph.md
   - Methodology: primer.md
   - Contributing: contributing.md
