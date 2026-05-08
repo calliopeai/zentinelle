@@ -5,7 +5,7 @@
 Zentinelle sits between your AI agents and their LLM providers, enforcing policies, scanning content, logging activity, and giving you a real-time GRC portal — without modifying agent code.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.1-green.svg)]()
+[![Version](https://img.shields.io/badge/version-1.2.2-green.svg)]()
 
 ---
 
