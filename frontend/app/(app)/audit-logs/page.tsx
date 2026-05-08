@@ -156,11 +156,26 @@ export default function AuditLogsPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold">Audit Logs</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Track all changes and actions performed in your organization
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Audit Logs</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Track all changes and actions performed in your organization
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {["csv", "json"].map((fmt) => (
+            <a
+              key={fmt}
+              href={`${process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1"}/audit/export/?format=${fmt}&from=2020-01-01&to=2030-01-01`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border-input bg-background hover:bg-accent inline-flex h-9 items-center rounded-md border px-3 text-xs font-medium uppercase"
+            >
+              Export {fmt}
+            </a>
+          ))}
+        </div>
       </div>
       <DataTable
         data={auditLogs}
