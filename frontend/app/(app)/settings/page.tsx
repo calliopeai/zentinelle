@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -38,6 +38,7 @@ import {
   useMyOrganization,
   useUpdateOrganizationSettings,
 } from "@/graphql/settings/hooks";
+import type { OrganizationData } from "@/graphql/settings/types";
 
 const POLICY_MODES = [
   { value: "monitor", label: "Monitor (log only)" },
@@ -45,43 +46,41 @@ const POLICY_MODES = [
   { value: "block", label: "Block (enforce)" },
 ];
 
-export default function SettingsPage() {
-  const { organization, loading } = useMyOrganization();
-  const [updateSettings, { loading: orgSaving }] =
-    useUpdateOrganizationSettings();
+function SettingsForm({ organization }: { organization: OrganizationData }) {
+  const settings = organization.settings ?? {};
+
+  const [updateSettings] = useUpdateOrganizationSettings();
+
+  const [orgName, setOrgName] = useState(organization.name ?? "");
+  const [contactEmail, setContactEmail] = useState<string>(
+    (settings.contact_email as string) ?? "",
+  );
+  const [timezone, setTimezone] = useState<string>(
+    (settings.timezone as string) ?? "",
+  );
+  const [orgSaving, setOrgSaving] = useState(false);
+
+  const [defaultPolicyMode, setDefaultPolicyMode] = useState<string>(
+    (settings.default_policy_mode as string) ?? "monitor",
+  );
+  const [auditLogging, setAuditLogging] = useState<boolean>(
+    Boolean(settings.audit_logging ?? true),
+  );
   const [enforcementSaving, setEnforcementSaving] = useState(false);
+
+  const [emailNotifications, setEmailNotifications] = useState<boolean>(
+    Boolean(settings.email_notifications ?? false),
+  );
+  const [slackNotifications, setSlackNotifications] = useState<boolean>(
+    Boolean(settings.slack_notifications ?? false),
+  );
+  const [webhookUrl, setWebhookUrl] = useState<string>(
+    (settings.webhook_url as string) ?? "",
+  );
   const [notificationsSaving, setNotificationsSaving] = useState(false);
 
-  // Organization
-  const [orgName, setOrgName] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [timezone, setTimezone] = useState("");
-
-  // Enforcement
-  const [defaultPolicyMode, setDefaultPolicyMode] = useState<string>("monitor");
-  const [auditLogging, setAuditLogging] = useState<boolean>(true);
-
-  // Notifications
-  const [emailNotifications, setEmailNotifications] = useState<boolean>(false);
-  const [slackNotifications, setSlackNotifications] = useState<boolean>(false);
-  const [webhookUrl, setWebhookUrl] = useState("");
-
-  useEffect(() => {
-    if (!organization) return;
-    setOrgName(organization.name ?? "");
-    const settings = organization.settings ?? {};
-    setContactEmail((settings.contact_email as string) ?? "");
-    setTimezone((settings.timezone as string) ?? "");
-    setDefaultPolicyMode(
-      (settings.default_policy_mode as string) ?? "monitor",
-    );
-    setAuditLogging(Boolean(settings.audit_logging ?? true));
-    setEmailNotifications(Boolean(settings.email_notifications ?? false));
-    setSlackNotifications(Boolean(settings.slack_notifications ?? false));
-    setWebhookUrl((settings.webhook_url as string) ?? "");
-  }, [organization]);
-
   const handleSaveOrganization = async () => {
+    setOrgSaving(true);
     try {
       const { data } = await updateSettings({
         variables: {
@@ -101,6 +100,8 @@ export default function SettingsPage() {
       toast.error(
         err instanceof Error ? err.message : "Failed to save organization",
       );
+    } finally {
+      setOrgSaving(false);
     }
   };
 
@@ -155,29 +156,8 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 flex-col gap-6 p-6">
-        <div>
-          <Skeleton className="h-7 w-32" />
-          <Skeleton className="mt-1 h-4 w-64" />
-        </div>
-        <Skeleton className="h-48 w-full rounded-md" />
-        <Skeleton className="h-48 w-full rounded-md" />
-        <Skeleton className="h-48 w-full rounded-md" />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold">Settings</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Configure your organization and portal preferences
-        </p>
-      </div>
-
+    <>
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -220,8 +200,14 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="flex justify-end">
-            <Button size="sm" onClick={handleSaveOrganization} disabled={orgSaving}>
-              {orgSaving && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+            <Button
+              size="sm"
+              onClick={handleSaveOrganization}
+              disabled={orgSaving}
+            >
+              {orgSaving && (
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Save Changes
             </Button>
           </div>
@@ -368,6 +354,42 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+    </>
+  );
+}
+
+export default function SettingsPage() {
+  const { organization, loading } = useMyOrganization();
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 flex-col gap-6 p-6">
+        <div>
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="mt-1 h-4 w-64" />
+        </div>
+        <Skeleton className="h-48 w-full rounded-md" />
+        <Skeleton className="h-48 w-full rounded-md" />
+        <Skeleton className="h-48 w-full rounded-md" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-1 flex-col gap-6 p-6">
+      <div>
+        <h1 className="text-xl font-semibold">Settings</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Configure your organization and portal preferences
+        </p>
+      </div>
+
+      {organization && (
+        <SettingsForm
+          key={organization.id ?? "default"}
+          organization={organization}
+        />
+      )}
 
       <Card>
         <CardHeader>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import { useContentScans, useContentViolations } from "@/graphql/content-scanner/hooks";
 import type { ContentViolationData } from "@/graphql/content-scanner/types";
 import {
@@ -11,6 +12,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -29,9 +31,11 @@ import {
 } from "@/components/ui/table";
 import {
   ScanSearchIcon,
+  ScanLineIcon,
   ShieldAlertIcon,
   ShieldBanIcon,
   EraserIcon,
+  SettingsIcon,
 } from "lucide-react";
 import {
   Area,
@@ -122,51 +126,6 @@ const RULE_TYPE_LABELS: Record<string, string> = {
   custom: "Custom",
 };
 
-/* ── Mock data for when queries return empty ───────────────────── */
-
-function generateMockViolations(): ContentViolationData[] {
-  const now = Date.now();
-  const types = ["secret_detection", "pii_detection", "prompt_injection", "jailbreak_detection", "keyword_filter"];
-  const severities = ["critical", "high", "medium", "low"];
-  const names = ["AWS Key Pattern", "Email PII", "System Prompt Override", "Role Bypass", "Blocked Term"];
-  const patterns = ["AKIA***", "***@***.com", "ignore previous", "you are now", "confidential"];
-
-  return Array.from({ length: 10 }, (_, i) => ({
-    id: `mock-v-${i}`,
-    ruleType: types[i % types.length],
-    ruleTypeDisplay: RULE_TYPE_LABELS[types[i % types.length]] ?? types[i % types.length],
-    severity: severities[i % severities.length],
-    severityDisplay: severities[i % severities.length],
-    enforcement: i % 3 === 0 ? "block" : i % 3 === 1 ? "redact" : "warn",
-    matchedPattern: patterns[i % patterns.length],
-    matchedText: `...${patterns[i % patterns.length]}...`,
-    matchStart: 42,
-    matchEnd: 58,
-    confidence: 0.85 + Math.random() * 0.15,
-    category: "content",
-    wasBlocked: i % 3 === 0,
-    wasRedacted: i % 3 === 1,
-    userNotified: true,
-    adminNotified: i % 2 === 0,
-    createdAt: new Date(now - i * 3600000 * (1 + Math.random())).toISOString(),
-    ruleName: names[i % names.length],
-  }));
-}
-
-function generateMockTimeline() {
-  const now = Date.now();
-  return Array.from({ length: 24 }, (_, i) => {
-    const hour = new Date(now - (23 - i) * 3600000);
-    return {
-      time: hour.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
-      critical: Math.floor(Math.random() * 3),
-      high: Math.floor(Math.random() * 5),
-      medium: Math.floor(Math.random() * 8),
-      low: Math.floor(Math.random() * 4),
-    };
-  });
-}
-
 /* ── Main page ─────────────────────────────────────────────────── */
 
 export default function ScannerDashboardPage() {
@@ -184,36 +143,35 @@ export default function ScannerDashboardPage() {
   });
 
   const loading = scansLoading || violationsLoading;
+  const hasData = violations.length > 0 || scans.length > 0;
 
-  // Use real data if available, otherwise mock
-  const hasRealData = violations.length > 0 || scans.length > 0;
-  const displayViolations = hasRealData ? violations : generateMockViolations();
-  const timelineData = hasRealData
-    ? buildTimelineFromViolations(violations)
-    : generateMockTimeline();
+  // Summary stats from real data only
+  const totalScans = scans.length;
+  const violationCount = violations.length;
+  const blockedCount = violations.filter((v) => v.wasBlocked).length;
+  const redactedCount = violations.filter((v) => v.wasRedacted).length;
 
-  // Summary stats
-  const totalScans = hasRealData ? scans.length : 1247;
-  const violationCount = displayViolations.length;
-  const blockedCount = displayViolations.filter((v) => v.wasBlocked).length;
-  const redactedCount = displayViolations.filter((v) => v.wasRedacted).length;
+  const timelineData = useMemo(
+    () => buildTimelineFromViolations(violations),
+    [violations],
+  );
 
   // Violations by type
   const byType = useMemo(() => {
     const counts: Record<string, number> = {};
-    displayViolations.forEach((v) => {
+    violations.forEach((v) => {
       const label = RULE_TYPE_LABELS[v.ruleType] ?? v.ruleTypeDisplay ?? v.ruleType;
       counts[label] = (counts[label] ?? 0) + 1;
     });
     return Object.entries(counts)
       .map(([type, count]) => ({ type, count }))
       .sort((a, b) => b.count - a.count);
-  }, [displayViolations]);
+  }, [violations]);
 
   // Violations by severity
   const bySeverity = useMemo(() => {
     const counts: Record<string, number> = {};
-    displayViolations.forEach((v) => {
+    violations.forEach((v) => {
       const sev = v.severity ?? "low";
       counts[sev] = (counts[sev] ?? 0) + 1;
     });
@@ -223,7 +181,7 @@ export default function ScannerDashboardPage() {
         name: severity,
         value: counts[severity],
       }));
-  }, [displayViolations]);
+  }, [violations]);
 
   // Chart configs
   const timelineConfig: ChartConfig = {
@@ -312,7 +270,7 @@ export default function ScannerDashboardPage() {
     },
   ];
 
-  const recentViolations = [...displayViolations]
+  const recentViolations = [...violations]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 10);
 
@@ -339,271 +297,289 @@ export default function ScannerDashboardPage() {
         </Select>
       </div>
 
-      {!hasRealData && (
-        <div className="bg-muted/50 rounded-lg border border-dashed px-4 py-2 text-center text-sm">
-          <span className="text-muted-foreground">
-            Showing sample data. Real analytics will appear once content scanning is active.
-          </span>
-        </div>
-      )}
+      {!hasData ? (
+        /* Empty state */
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="bg-muted/50 mb-4 rounded-full p-4">
+              <ScanLineIcon className="text-muted-foreground h-10 w-10" />
+            </div>
+            <h2 className="text-lg font-semibold">No content scans yet</h2>
+            <p className="text-muted-foreground mt-2 max-w-md text-sm">
+              Configure content rules to start scanning agent traffic for
+              secrets, PII, prompt injection, and other policy violations.
+              Results from the {periodLabel(period).toLowerCase()} will appear
+              here once scanning is active.
+            </p>
+            <Button asChild className="mt-6">
+              <Link href="/content-rules">
+                <SettingsIcon className="mr-2 h-4 w-4" />
+                Configure Content Rules
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Summary cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {statCards.map(({ label, value, icon: Icon, color, bg }) => (
+              <Card key={label}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-muted-foreground text-sm font-medium">
+                    {label}
+                  </CardTitle>
+                  <div className={`${bg} rounded-md p-1.5`}>
+                    <Icon className={`h-4 w-4 ${color}`} />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{value.toLocaleString()}</p>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    {periodLabel(period)}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-      {/* Summary cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map(({ label, value, icon: Icon, color, bg }) => (
-          <Card key={label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-muted-foreground text-sm font-medium">
-                {label}
-              </CardTitle>
-              <div className={`${bg} rounded-md p-1.5`}>
-                <Icon className={`h-4 w-4 ${color}`} />
-              </div>
+          {/* Violation timeline - full width */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Violation Timeline</CardTitle>
+              <CardDescription>
+                Violations over time by severity
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{value.toLocaleString()}</p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                {periodLabel(period)}
-              </p>
+              {timelineData.length === 0 ? (
+                <p className="text-muted-foreground py-8 text-center text-sm">
+                  No violations in this period
+                </p>
+              ) : (
+                <ChartContainer config={timelineConfig} className="h-[280px] w-full">
+                  <AreaChart
+                    data={timelineData}
+                    margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="time"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 11 }}
+                      className="[&_.recharts-text]:fill-muted-foreground"
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 11 }}
+                      width={32}
+                      className="[&_.recharts-text]:fill-muted-foreground"
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Area
+                      type="monotone"
+                      dataKey="critical"
+                      stackId="1"
+                      stroke={SEVERITY_COLORS.critical}
+                      fill={SEVERITY_COLORS.critical}
+                      fillOpacity={0.4}
+                      strokeWidth={1.5}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="high"
+                      stackId="1"
+                      stroke={SEVERITY_COLORS.high}
+                      fill={SEVERITY_COLORS.high}
+                      fillOpacity={0.3}
+                      strokeWidth={1.5}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="medium"
+                      stackId="1"
+                      stroke={SEVERITY_COLORS.medium}
+                      fill={SEVERITY_COLORS.medium}
+                      fillOpacity={0.3}
+                      strokeWidth={1.5}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="low"
+                      stackId="1"
+                      stroke={SEVERITY_COLORS.low}
+                      fill={SEVERITY_COLORS.low}
+                      fillOpacity={0.2}
+                      strokeWidth={1.5}
+                    />
+                  </AreaChart>
+                </ChartContainer>
+              )}
             </CardContent>
           </Card>
-        ))}
-      </div>
 
-      {/* Violation timeline - full width */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Violation Timeline</CardTitle>
-          <CardDescription>
-            Violations over time by severity
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {timelineData.length === 0 ? (
-            <p className="text-muted-foreground py-8 text-center text-sm">
-              No violations in this period
-            </p>
-          ) : (
-            <ChartContainer config={timelineConfig} className="h-[280px] w-full">
-              <AreaChart
-                data={timelineData}
-                margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="time"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 11 }}
-                  className="[&_.recharts-text]:fill-muted-foreground"
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 11 }}
-                  width={32}
-                  className="[&_.recharts-text]:fill-muted-foreground"
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <ChartLegend content={<ChartLegendContent />} />
-                <Area
-                  type="monotone"
-                  dataKey="critical"
-                  stackId="1"
-                  stroke={SEVERITY_COLORS.critical}
-                  fill={SEVERITY_COLORS.critical}
-                  fillOpacity={0.4}
-                  strokeWidth={1.5}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="high"
-                  stackId="1"
-                  stroke={SEVERITY_COLORS.high}
-                  fill={SEVERITY_COLORS.high}
-                  fillOpacity={0.3}
-                  strokeWidth={1.5}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="medium"
-                  stackId="1"
-                  stroke={SEVERITY_COLORS.medium}
-                  fill={SEVERITY_COLORS.medium}
-                  fillOpacity={0.3}
-                  strokeWidth={1.5}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="low"
-                  stackId="1"
-                  stroke={SEVERITY_COLORS.low}
-                  fill={SEVERITY_COLORS.low}
-                  fillOpacity={0.2}
-                  strokeWidth={1.5}
-                />
-              </AreaChart>
-            </ChartContainer>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Charts row */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Violations by type - horizontal bar */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Violations by Type</CardTitle>
-            <CardDescription>
-              Distribution across content rule categories
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {byType.length === 0 ? (
-              <p className="text-muted-foreground py-8 text-center text-sm">
-                No violations recorded
-              </p>
-            ) : (
-              <ChartContainer config={byTypeConfig} className="h-[240px] w-full">
-                <BarChart
-                  data={byType}
-                  layout="vertical"
-                  margin={{ left: 0, right: 0 }}
-                >
-                  <CartesianGrid horizontal={false} strokeDasharray="3 3" />
-                  <XAxis
-                    type="number"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 12 }}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="type"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 11 }}
-                    width={120}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar
-                    dataKey="count"
-                    fill="#37efed"
-                    radius={[0, 4, 4, 0]}
-                    maxBarSize={24}
-                  />
-                </BarChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Violations by severity - donut */}
-        <Card>
-          <CardHeader>
-            <CardTitle>By Severity</CardTitle>
-            <CardDescription>Severity breakdown</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {bySeverity.length === 0 ? (
-              <p className="text-muted-foreground py-8 text-center text-sm">
-                No violations recorded
-              </p>
-            ) : (
-              <ChartContainer config={donutConfig} className="h-[240px] w-full">
-                <PieChart>
-                  <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                  <Pie
-                    data={bySeverity}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={3}
-                  >
-                    {bySeverity.map((entry) => (
-                      <Cell
-                        key={entry.name}
-                        fill={SEVERITY_COLORS[entry.name] ?? "#a1a1aa"}
+          {/* Charts row */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            {/* Violations by type - horizontal bar */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Violations by Type</CardTitle>
+                <CardDescription>
+                  Distribution across content rule categories
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {byType.length === 0 ? (
+                  <p className="text-muted-foreground py-8 text-center text-sm">
+                    No violations recorded
+                  </p>
+                ) : (
+                  <ChartContainer config={byTypeConfig} className="h-[240px] w-full">
+                    <BarChart
+                      data={byType}
+                      layout="vertical"
+                      margin={{ left: 0, right: 0 }}
+                    >
+                      <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                      <XAxis
+                        type="number"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 12 }}
                       />
-                    ))}
-                  </Pie>
-                  <ChartLegend content={<ChartLegendContent nameKey="name" />} />
-                </PieChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                      <YAxis
+                        type="category"
+                        dataKey="type"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 11 }}
+                        width={120}
+                      />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar
+                        dataKey="count"
+                        fill="#37efed"
+                        radius={[0, 4, 4, 0]}
+                        maxBarSize={24}
+                      />
+                    </BarChart>
+                  </ChartContainer>
+                )}
+              </CardContent>
+            </Card>
 
-      {/* Recent violations table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Violations</CardTitle>
-          <CardDescription>
-            Most recent content violations detected
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {recentViolations.length === 0 ? (
-            <p className="text-muted-foreground py-8 text-center text-sm">
-              No violations in this period
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Rule</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Matched Text</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Time</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentViolations.map((v) => (
-                  <TableRow key={v.id}>
-                    <TableCell className="font-medium">
-                      {v.ruleName ?? "--"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {RULE_TYPE_LABELS[v.ruleType] ?? v.ruleTypeDisplay ?? v.ruleType}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={severityVariant(v.severity)}>
-                        {v.severityDisplay ?? v.severity}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-[200px]">
-                      <span className="text-muted-foreground block truncate font-mono text-xs">
-                        {v.matchedText
-                          ? v.matchedText.length > 40
-                            ? `${v.matchedText.slice(0, 40)}...`
-                            : v.matchedText
-                          : "--"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {v.wasBlocked ? (
-                        <Badge variant="destructive">Blocked</Badge>
-                      ) : v.wasRedacted ? (
-                        <Badge variant="secondary">Redacted</Badge>
-                      ) : (
-                        <Badge variant="outline">Logged</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
-                      {formatTimestamp(v.createdAt)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+            {/* Violations by severity - donut */}
+            <Card>
+              <CardHeader>
+                <CardTitle>By Severity</CardTitle>
+                <CardDescription>Severity breakdown</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {bySeverity.length === 0 ? (
+                  <p className="text-muted-foreground py-8 text-center text-sm">
+                    No violations recorded
+                  </p>
+                ) : (
+                  <ChartContainer config={donutConfig} className="h-[240px] w-full">
+                    <PieChart>
+                      <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                      <Pie
+                        data={bySeverity}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={3}
+                      >
+                        {bySeverity.map((entry) => (
+                          <Cell
+                            key={entry.name}
+                            fill={SEVERITY_COLORS[entry.name] ?? "#a1a1aa"}
+                          />
+                        ))}
+                      </Pie>
+                      <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+                    </PieChart>
+                  </ChartContainer>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recent violations table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Violations</CardTitle>
+              <CardDescription>
+                Most recent content violations detected
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {recentViolations.length === 0 ? (
+                <p className="text-muted-foreground py-8 text-center text-sm">
+                  No violations in this period
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Rule</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Severity</TableHead>
+                      <TableHead>Matched Text</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Time</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentViolations.map((v) => (
+                      <TableRow key={v.id}>
+                        <TableCell className="font-medium">
+                          {v.ruleName ?? "--"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {RULE_TYPE_LABELS[v.ruleType] ?? v.ruleTypeDisplay ?? v.ruleType}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={severityVariant(v.severity)}>
+                            {v.severityDisplay ?? v.severity}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-[200px]">
+                          <span className="text-muted-foreground block truncate font-mono text-xs">
+                            {v.matchedText
+                              ? v.matchedText.length > 40
+                                ? `${v.matchedText.slice(0, 40)}...`
+                                : v.matchedText
+                              : "--"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {v.wasBlocked ? (
+                            <Badge variant="destructive">Blocked</Badge>
+                          ) : v.wasRedacted ? (
+                            <Badge variant="secondary">Redacted</Badge>
+                          ) : (
+                            <Badge variant="outline">Logged</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                          {formatTimestamp(v.createdAt)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

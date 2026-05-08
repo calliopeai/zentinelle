@@ -77,6 +77,7 @@ const sections: NavSection[] = [
     items: [
       { title: "Agents", url: "/agents", icon: <ShieldIcon /> },
       { title: "Policies", url: "/policies", icon: <FileTextIcon /> },
+      { title: "Policy Hierarchy", url: "/policies/hierarchy", icon: <LayersIcon /> },
       { title: "Policy Simulator", url: "/policies/simulator", icon: <PlayIcon /> },
       { title: "Policy Analyzer", url: "/policies/analyzer", icon: <SearchCheckIcon /> },
       { title: "Content Rules", url: "/content-rules", icon: <ScanLineIcon /> },
@@ -126,6 +127,7 @@ const sections: NavSection[] = [
     items: [
       { title: "General", url: "/settings", icon: <SettingsIcon /> },
       { title: "API Keys", url: "/settings/api-keys", icon: <KeyIcon /> },
+      { title: "LLM Providers", url: "/settings/llm-providers", icon: <SparklesIcon /> },
       { title: "Network Policies", url: "/network", icon: <NetworkIcon /> },
       { title: "Data Retention", url: "/retention", icon: <ArchiveIcon /> },
     ],

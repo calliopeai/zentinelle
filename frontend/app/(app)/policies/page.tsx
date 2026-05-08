@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/hooks/use-confirm";
 import { EditPolicyDialog } from "./edit-policy-dialog";
+import { PolicyHistoryDialog } from "./history-dialog";
 
 /* ── Policy Coverage Heatmap ─────────────────────────────────────── */
 
@@ -193,10 +194,12 @@ function ActionsCell({
   policy,
   onRefresh,
   onEdit,
+  onHistory,
 }: {
   policy: PolicyData;
   onRefresh: () => void;
   onEdit: (policy: PolicyData) => void;
+  onHistory: (policy: PolicyData) => void;
 }) {
   const confirm = useConfirm();
   const [toggleEnabled] = useMutation<{ togglePolicyEnabled: TogglePolicyEnabledPayload }>(TOGGLE_POLICY_ENABLED);
@@ -252,6 +255,9 @@ function ActionsCell({
         <DropdownMenuItem onClick={handleToggle}>
           {policy.enabled ? "Disable" : "Enable"}
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onHistory(policy)}>
+          History
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={handleDelete}>
           Delete
@@ -265,10 +271,17 @@ export default function PoliciesPage() {
   const { policies, loading, refetch } = usePolicies();
   const [editPolicy, setEditPolicy] = useState<PolicyData | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [historyPolicy, setHistoryPolicy] = useState<PolicyData | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const handleEdit = (policy: PolicyData) => {
     setEditPolicy(policy);
     setEditOpen(true);
+  };
+
+  const handleHistory = (policy: PolicyData) => {
+    setHistoryPolicy(policy);
+    setHistoryOpen(true);
   };
 
   const columns: ColumnDef<PolicyData, unknown>[] = [
@@ -346,7 +359,12 @@ export default function PoliciesPage() {
       id: "actions",
       header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => (
-        <ActionsCell policy={row.original} onRefresh={refetch} onEdit={handleEdit} />
+        <ActionsCell
+          policy={row.original}
+          onRefresh={refetch}
+          onEdit={handleEdit}
+          onHistory={handleHistory}
+        />
       ),
       enableSorting: false,
     },
