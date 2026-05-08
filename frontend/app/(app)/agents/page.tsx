@@ -272,7 +272,7 @@ function AgentTypeDonut({ endpoints }: { endpoints: EndpointData[] }) {
     mcp: "#8b5cf6",
     chat: "#3b82f6",
     custom: "#64748b",
-    junohub: "#f97316",
+    calliope: "#f97316",
   };
   const donutColors = typeCounts.map(
     (t) => AGENT_TYPE_COLORS[t.type] ?? "#64748b",
@@ -397,7 +397,7 @@ export default function AgentsPage() {
         const TYPE_COLORS: Record<string, string> = {
           claude_code: "#37efed", codex: "#6366f1", gemini: "#f59e0b",
           langchain: "#10b981", langgraph: "#14b8a6", crewai: "#ec4899",
-          mcp: "#8b5cf6", chat: "#3b82f6", custom: "#64748b", junohub: "#f97316",
+          mcp: "#8b5cf6", chat: "#3b82f6", custom: "#64748b", calliope: "#f97316",
         };
         const color = TYPE_COLORS[row.original.agentType] ?? "#64748b";
         return (

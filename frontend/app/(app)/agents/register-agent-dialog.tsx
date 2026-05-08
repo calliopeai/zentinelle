@@ -36,7 +36,7 @@ const AGENT_TYPES = [
   { value: "claude_code", label: "Claude Code" },
   { value: "codex", label: "Codex" },
   { value: "gemini", label: "Gemini" },
-  { value: "junohub", label: "JunoHub" },
+  { value: "calliope", label: "Calliope AI" },
   { value: "langchain", label: "LangChain" },
   { value: "langgraph", label: "LangGraph" },
   { value: "mcp", label: "MCP" },

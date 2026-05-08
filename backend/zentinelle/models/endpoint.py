@@ -19,7 +19,7 @@ class AgentEndpoint(Tracking):
         CLAUDE_CODE = 'claude_code', 'Claude Code'
         GEMINI = 'gemini', 'Gemini'
         CODEX = 'codex', 'Codex'
-        JUNOHUB = 'junohub', 'JunoHub'
+        CALLIOPE = 'calliope', 'Calliope AI'
         LANGCHAIN = 'langchain', 'LangChain'
         LANGGRAPH = 'langgraph', 'LangGraph'
         MCP = 'mcp', 'MCP Server'
