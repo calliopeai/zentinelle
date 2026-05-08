@@ -20,6 +20,15 @@ export const UPDATE_RISK = gql`
   }
 `;
 
+export const DELETE_RISK = gql`
+  mutation DeleteRisk($id: ID!) {
+    deleteRisk(id: $id) {
+      success
+      errors
+    }
+  }
+`;
+
 export const CREATE_INCIDENT = gql`
   mutation CreateIncident($input: CreateIncidentInput!) {
     createIncident(input: $input) {

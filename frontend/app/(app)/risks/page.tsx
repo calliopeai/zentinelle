@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { useMutation } from "@apollo/client/react";
 import { type ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { MoreHorizontalIcon } from "lucide-react";
+import { toast } from "sonner";
 import { useRisks, useRiskStats } from "@/graphql/risks/hooks";
+import { GET_RISKS } from "@/graphql/risks/queries";
+import { DELETE_RISK } from "@/graphql/risks/mutations";
+import { useConfirm } from "@/hooks/use-confirm";
 import type { RiskData } from "@/graphql/risks/types";
 import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -260,6 +265,27 @@ export default function RisksPage() {
     setEditOpen(true);
   };
 
+  const confirmDialog = useConfirm();
+  const [deleteRisk] = useMutation(DELETE_RISK, {
+    refetchQueries: [GET_RISKS],
+  });
+
+  const handleDelete = async (risk: RiskData) => {
+    const ok = await confirmDialog({
+      title: `Delete risk "${risk.name}"?`,
+      description:
+        "Permanently removes this risk from the register. This cannot be undone.",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+    try {
+      await deleteRisk({ variables: { id: risk.id } });
+      toast.success("Risk deleted");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to delete risk");
+    }
+  };
+
   const handleCellClick = useCallback(
     (likelihood: number, impact: number) => {
       if (likelihood === 0 && impact === 0) {
@@ -391,6 +417,12 @@ export default function RisksPage() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleEdit(row.original)}>
               Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => handleDelete(row.original)}
+            >
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
