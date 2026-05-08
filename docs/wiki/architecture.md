@@ -2,7 +2,7 @@
 
 ## System Overview
 
-Zentinelle is a Django 5.0 backend with a Next.js 14 management portal. Agents connect via a REST API. Admins manage policies and view dashboards via GraphQL.
+Zentinelle is a Django 5 backend with a Next.js 16 management portal. Agents connect via REST. Admins manage policies via Strawberry GraphQL. An optional Go gateway sidecar handles LLM traffic at scale.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -30,18 +30,24 @@ Zentinelle is a Django 5.0 backend with a Next.js 14 management portal. Agents c
 │  └──────────────────────────────────────────────────────────────┘   │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  GRC Portal (Next.js 14, port 3002)                          │   │
+│  │  GRC Portal (Next.js 16, served via nginx on :8080)          │   │
+│  │  G-R-C sidebar: Governance · Risk · Compliance · Tools       │   │
+│  │  AI Assistant chat bubble on every page                      │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │  Go LLM Gateway (sidecar :8742)                              │   │
+│  │  Tenant-scoped key injection · SSE streaming · N+1 stateless │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
          │                                          │
-         │ callout                                  │ DB
+         │ TenantResolver (pluggable)               │ DB
          ▼                                          ▼
-┌──────────────────┐                    ┌──────────────────────┐
-│  Client Cove     │                    │  PostgreSQL           │
-│  /internal/      │                    │  schema: zentinelle   │
-│  zentinelle/     │                    └──────────────────────┘
-│  (auth/tenant)   │
-└──────────────────┘
+┌──────────────────────────┐         ┌──────────────────────────────┐
+│  Auth modes              │         │  PostgreSQL 16                │
+│  open · local · sso      │         │  zentinelle + zentinelle_     │
+│  (OIDC/SAML for sso)     │         │  analytics schemas            │
+└──────────────────────────┘         └──────────────────────────────┘
 ```
 
 ## Backend (Django 5.0)
