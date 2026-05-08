@@ -361,7 +361,12 @@ export default function PoliciesPage() {
         <DataTableColumnHeader column={column} title="Name" />
       ),
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.name}</span>
+        <Link
+          href={`/policies/${row.original.id}`}
+          className="font-medium hover:underline underline-offset-2"
+        >
+          {row.original.name}
+        </Link>
       ),
     },
     {
