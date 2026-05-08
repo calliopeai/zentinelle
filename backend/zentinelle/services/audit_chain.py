@@ -85,8 +85,22 @@ def verify_chain(
         }
 
     records_checked = 0
-    prev_chain = 'genesis'
     root_hash = ''
+
+    # Seed prev_chain: 'genesis' if starting from sequence 1, otherwise
+    # use the previous record's chain_hash so tail-only verification works.
+    if from_sequence > 1:
+        prev_record = AuditLog.objects.filter(
+            tenant_id=tenant_id,
+            chain_sequence=from_sequence - 1,
+        ).first()
+        if prev_record and prev_record.chain_hash:
+            prev_chain = prev_record.chain_hash
+        else:
+            # No predecessor available — can't verify tail-only, fall back to genesis
+            prev_chain = 'genesis'
+    else:
+        prev_chain = 'genesis'
 
     for record in records:
         # Skip pre-migration records that have no hash yet
