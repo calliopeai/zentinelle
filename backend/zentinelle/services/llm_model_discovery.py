@@ -24,30 +24,61 @@ _CACHE: dict = {}
 _CACHE_TTL_SECONDS = 3600  # 1 hour
 
 
-def _is_chat_model(model_id: str) -> bool:
-    """Filter out non-chat models (embeddings, audio, image gen, moderation, voice/realtime)."""
+def _classify_model_type(model_id: str) -> str:
+    """Best-effort classification into AIModel.ModelType values.
+
+    Used so the registry knows what KIND of model this is. The chat picker
+    filters by enabled_for_chat (which defaults False for non-chat types),
+    while pages like Model Compare can still see the full set.
+    """
     m = model_id.lower()
-    if any(x in m for x in [
-        'embedding', 'whisper', 'tts', 'dall-e', 'davinci',
-        'babbage', 'ada', 'curie', 'moderation', 'instructpix',
-        'stable-diffusion', 'sdxl', 'flux', 'midjourney',
-        # OpenAI variants that aren't text chat
-        'realtime', 'audio', '-image', 'image-',
-        # Speech / transcription
-        'transcribe', 'voice',
-        # Reranker / classifier / specialized non-chat
-        'rerank', 'reranker',
-        # Video generation
-        'sora',
-        # Specialized variants that don't use standard /chat/completions
-        'search-api', 'search-preview',
-        'deep-research',
-        'computer-use',
-    ]):
+    if any(x in m for x in ['embedding']) or m.startswith('text-embedding'):
+        return 'embedding'
+    if any(x in m for x in ['whisper', 'transcribe']):
+        return 'speech_to_text'
+    if any(x in m for x in ['tts', 'text-to-speech']):
+        return 'text_to_speech'
+    if any(x in m for x in ['dall-e', 'gpt-image', 'chatgpt-image',
+                              'stable-diffusion', 'sdxl', 'flux', 'midjourney']):
+        return 'image_gen'
+    if any(x in m for x in ['sora', '-video', 'video-']):
+        return 'image_gen'  # closest existing bucket; no 'video' enum yet
+    if any(x in m for x in ['realtime', 'audio', 'voice']):
+        return 'multimodal'  # voice/realtime are conversational but not standard chat
+    if any(x in m for x in ['o1', 'o3', 'o4', 'reasoning', 'thinking']):
+        return 'reasoning'
+    if any(x in m for x in ['vision', 'gpt-4o', 'gpt-5', 'claude', 'gemini']):
+        return 'multimodal'
+    if any(x in m for x in ['codex', 'code-']):
+        return 'code'
+    return 'llm'
+
+
+# Types that should default to enabled_for_chat=True (text chat / reasoning).
+# Voice/realtime/image/audio are deliberately excluded because they don't use
+# standard /chat/completions or aren't text-chat.
+CHAT_CAPABLE_TYPES = frozenset({'llm', 'reasoning', 'code'})
+
+# Specific model_id patterns that DO appear in /v1/models but don't actually
+# work via /chat/completions (specialized API surfaces). Default-disable
+# these for chat too.
+NON_CHAT_PATTERNS = (
+    'realtime', 'audio', 'voice',
+    '-image', 'image-', 'gpt-image', 'chatgpt-image', 'sora',
+    'search-api', 'search-preview',
+    'deep-research', 'computer-use',
+    'transcribe', 'whisper', 'tts',
+    'embedding', 'rerank', 'moderation',
+)
+
+
+def _default_enabled_for_chat(model_id: str, model_type: str) -> bool:
+    m = model_id.lower()
+    if any(p in m for p in NON_CHAT_PATTERNS):
         return False
-    if m.startswith(('text-embedding', 'gpt-image', 'chatgpt-image', 'sora-')):
+    if m.startswith(('text-embedding', 'sora-')):
         return False
-    return True
+    return model_type in CHAT_CAPABLE_TYPES or model_type == 'multimodal'
 
 
 def _dedupe_by_label(models: list) -> list:
@@ -130,8 +161,9 @@ def _fetch_anthropic_models(api_key: str) -> Optional[list]:
         models = []
         for m in data.get('data', []):
             mid = m.get('id', '')
-            if not _is_chat_model(mid):
+            if not mid:
                 continue
+            mtype = _classify_model_type(mid)
             models.append({
                 'value': mid,
                 'label': m.get('display_name') or _clean_label(mid, 'anthropic'),
@@ -141,6 +173,8 @@ def _fetch_anthropic_models(api_key: str) -> Optional[list]:
                 'supportsTools': True,
                 'supportsVision': True,
                 'riskLevel': 'limited',
+                'modelType': mtype,
+                'defaultEnabledForChat': _default_enabled_for_chat(mid, mtype),
             })
         return _dedupe_by_label(models)
     except Exception as e:
@@ -174,7 +208,7 @@ def _fetch_openai_compat_models(provider: str, api_key: str) -> Optional[list]:
             else:
                 mid = m.get('id') or m.get('name') or ''
                 created = m.get('created')
-            if not mid or not _is_chat_model(mid):
+            if not mid:
                 continue
             release_date = None
             if created:
@@ -182,6 +216,7 @@ def _fetch_openai_compat_models(provider: str, api_key: str) -> Optional[list]:
                     release_date = time.strftime('%Y-%m-%d', time.gmtime(int(created)))
                 except (ValueError, TypeError):
                     pass
+            mtype = _classify_model_type(mid)
             models.append({
                 'value': mid,
                 'label': _clean_label(mid, provider),
@@ -191,6 +226,8 @@ def _fetch_openai_compat_models(provider: str, api_key: str) -> Optional[list]:
                 'supportsTools': True,
                 'supportsVision': False,
                 'riskLevel': 'limited',
+                'modelType': mtype,
+                'defaultEnabledForChat': _default_enabled_for_chat(mid, mtype),
             })
         return _dedupe_by_label(models)
     except Exception as e:
@@ -212,11 +249,15 @@ def _fetch_google_models(api_key: str) -> Optional[list]:
         models = []
         for m in data.get('models', []):
             mid = m.get('name', '').replace('models/', '')
-            if not mid or not _is_chat_model(mid):
+            if not mid:
                 continue
             methods = m.get('supportedGenerationMethods', [])
-            if 'generateContent' not in methods:
-                continue
+            mtype = _classify_model_type(mid)
+            # Google: only generateContent-capable models go in chat by default
+            default_enabled = (
+                _default_enabled_for_chat(mid, mtype)
+                and 'generateContent' in methods
+            )
             models.append({
                 'value': mid,
                 'label': m.get('displayName') or _clean_label(mid, 'google'),
@@ -226,6 +267,8 @@ def _fetch_google_models(api_key: str) -> Optional[list]:
                 'supportsTools': True,
                 'supportsVision': True,
                 'riskLevel': 'limited',
+                'modelType': mtype,
+                'defaultEnabledForChat': default_enabled,
             })
         return _dedupe_by_label(models)
         return models
@@ -246,6 +289,7 @@ def _fetch_ollama_models() -> Optional[list]:
             mid = m.get('name', '')
             if not mid:
                 continue
+            mtype = _classify_model_type(mid)
             models.append({
                 'value': mid,
                 'label': mid,
@@ -255,6 +299,8 @@ def _fetch_ollama_models() -> Optional[list]:
                 'supportsTools': False,
                 'supportsVision': False,
                 'riskLevel': 'unknown',
+                'modelType': mtype,
+                'defaultEnabledForChat': _default_enabled_for_chat(mid, mtype),
             })
         return _dedupe_by_label(models)
     except Exception:
@@ -316,19 +362,26 @@ def _persist_to_registry(provider_slug: str, models: list) -> None:
             except (ValueError, TypeError):
                 pass
 
-        AIModel.objects.update_or_create(
+        # Common fields always synced from the provider
+        defaults = {
+            'name': m.get('label', m['value']),
+            'capabilities': m.get('capabilities', []),
+            'context_window': m.get('contextWindow') or 0,
+            'release_date': release_date,
+            'is_available': True,
+            'deprecated': False,
+            'risk_level': m.get('riskLevel', 'unknown'),
+            'model_type': m.get('modelType') or 'llm',
+        }
+        obj, created = AIModel.objects.update_or_create(
             provider=provider,
             model_id=m['value'],
-            defaults={
-                'name': m.get('label', m['value']),
-                'capabilities': m.get('capabilities', []),
-                'context_window': m.get('contextWindow') or 0,
-                'release_date': release_date,
-                'is_available': True,
-                'deprecated': False,
-                'risk_level': m.get('riskLevel', 'unknown'),
-            },
+            defaults=defaults,
         )
+        # Only set enabled_for_chat on creation — preserve user toggles on update
+        if created:
+            obj.enabled_for_chat = bool(m.get('defaultEnabledForChat', True))
+            obj.save(update_fields=['enabled_for_chat'])
 
 
 def clear_cache(provider: str = None, tenant_id: str = None) -> None:
