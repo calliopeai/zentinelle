@@ -84,6 +84,7 @@ const sections: NavSection[] = [
     items: [
       { title: "Overview", url: "/risks/overview", icon: <BarChart3Icon /> },
       { title: "Register", url: "/risks", icon: <AlertTriangleIcon /> },
+      { title: "FMEA Analysis", url: "/risks/fmea", icon: <SearchCheckIcon /> },
       { title: "Incidents", url: "/incidents", icon: <FlameIcon /> },
       { title: "Reports", url: "/risks/reports", icon: <FileBarChartIcon /> },
     ],

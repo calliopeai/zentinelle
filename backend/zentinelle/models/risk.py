@@ -32,19 +32,29 @@ class Risk(models.Model):
         TRANSFERRED = 'transferred', 'Transferred'
         CLOSED = 'closed', 'Closed'
 
+    class Severity(models.IntegerChoices):
+        """How bad is the effect? (Fibonacci scale)"""
+        MINIMAL = 1, 'Minimal (1)'
+        LOW = 2, 'Low (2)'
+        MODERATE = 3, 'Moderate (3)'
+        HIGH = 5, 'High (5)'
+        CRITICAL = 8, 'Critical (8)'
+
     class Likelihood(models.IntegerChoices):
-        RARE = 1, 'Rare'
-        UNLIKELY = 2, 'Unlikely'
-        POSSIBLE = 3, 'Possible'
-        LIKELY = 4, 'Likely'
-        ALMOST_CERTAIN = 5, 'Almost Certain'
+        """How often does it occur? (Fibonacci scale)"""
+        RARE = 1, 'Rare (1)'
+        UNLIKELY = 2, 'Unlikely (2)'
+        POSSIBLE = 3, 'Possible (3)'
+        LIKELY = 5, 'Likely (5)'
+        ALMOST_CERTAIN = 8, 'Almost Certain (8)'
 
     class Impact(models.IntegerChoices):
-        NEGLIGIBLE = 1, 'Negligible'
-        MINOR = 2, 'Minor'
-        MODERATE = 3, 'Moderate'
-        MAJOR = 4, 'Major'
-        SEVERE = 5, 'Severe'
+        """How wide is the blast radius? (Fibonacci scale)"""
+        NEGLIGIBLE = 1, 'Negligible (1)'
+        MINOR = 2, 'Minor (2)'
+        MODERATE = 3, 'Moderate (3)'
+        MAJOR = 5, 'Major (5)'
+        SEVERE = 8, 'Severe (8)'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # TODO: decouple - organization FK removed (use tenant_id instead)
@@ -64,7 +74,11 @@ class Risk(models.Model):
         default=RiskStatus.IDENTIFIED,
     )
 
-    # Risk assessment (5x5 matrix)
+    # FMEA risk assessment (Severity × Likelihood × Impact, Fibonacci scale)
+    severity = models.IntegerField(
+        choices=Severity.choices,
+        default=Severity.MODERATE,
+    )
     likelihood = models.IntegerField(
         choices=Likelihood.choices,
         default=Likelihood.POSSIBLE,
@@ -74,19 +88,19 @@ class Risk(models.Model):
         default=Impact.MODERATE,
     )
 
-    # Computed risk score (likelihood * impact)
+    # RPN = Severity × Likelihood × Impact (range: 1–512)
     @property
     def risk_score(self) -> int:
-        return self.likelihood * self.impact
+        return self.severity * self.likelihood * self.impact
 
     @property
     def risk_level(self) -> str:
         score = self.risk_score
-        if score >= 15:
+        if score >= 200:
             return 'critical'
-        elif score >= 10:
+        elif score >= 75:
             return 'high'
-        elif score >= 5:
+        elif score >= 18:
             return 'medium'
         return 'low'
 
