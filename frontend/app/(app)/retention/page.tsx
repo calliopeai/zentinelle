@@ -1,8 +1,51 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { toast } from "sonner";
+import {
+  ArchiveIcon,
+  ShieldAlertIcon,
+  AlertTriangleIcon,
+  PlusIcon,
+  MoreHorizontalIcon,
+} from "lucide-react";
+
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/hooks/use-confirm";
+import {
+  RetentionPolicyDialog,
+  type RetentionPolicyEditData,
+} from "./retention-policy-dialog";
+import {
+  DELETE_RETENTION_POLICY,
+} from "@/graphql/retention/mutations";
 
 interface RetentionPolicyData {
   id: string;
@@ -43,19 +86,13 @@ interface ToggleRetentionResult {
     policyId: string | null;
   };
 }
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { ArchiveIcon, ShieldAlertIcon, AlertTriangleIcon } from "lucide-react";
+
+interface DeleteRetentionResult {
+  deleteRetentionPolicy: {
+    success: boolean | null;
+    errors: string[];
+  };
+}
 
 const GET_RETENTION_DATA = gql`
   query RetentionData {
@@ -106,7 +143,9 @@ function formatDate(iso: string | null): string {
   });
 }
 
-function holdStatusVariant(status: string | null): "default" | "secondary" | "destructive" | "outline" {
+function holdStatusVariant(
+  status: string | null,
+): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case "active":
       return "default";
@@ -118,6 +157,21 @@ function holdStatusVariant(status: string | null): "default" | "secondary" | "de
     default:
       return "outline";
   }
+}
+
+function toEditData(p: RetentionPolicyData): RetentionPolicyEditData {
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    entityType: p.entityType,
+    retentionDays: p.retentionDays,
+    minimumRetentionDays: p.minimumRetentionDays,
+    expirationAction: p.expirationAction,
+    complianceRequirement: p.complianceRequirement,
+    enabled: p.enabled,
+    priority: p.priority,
+  };
 }
 
 function LoadingSkeleton() {
@@ -152,26 +206,41 @@ function LoadingSkeleton() {
 }
 
 export default function RetentionPage() {
-  const { data, loading, error, refetch } = useQuery<RetentionQueryData>(GET_RETENTION_DATA);
-  const [toggleEnabled] = useMutation<ToggleRetentionResult>(TOGGLE_RETENTION_POLICY_ENABLED);
+  const { data, loading, error, refetch } =
+    useQuery<RetentionQueryData>(GET_RETENTION_DATA);
+  const [toggleEnabled] = useMutation<ToggleRetentionResult>(
+    TOGGLE_RETENTION_POLICY_ENABLED,
+  );
+  const [deletePolicy] = useMutation<DeleteRetentionResult>(
+    DELETE_RETENTION_POLICY,
+  );
+  const confirm = useConfirm();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editPolicy, setEditPolicy] =
+    useState<RetentionPolicyEditData | null>(null);
 
   const retentionPolicies = data?.retentionPolicies ?? [];
   const legalHolds = data?.legalHolds ?? [];
-  const activeLegalHolds = legalHolds.filter(
-    (h) => h.isActive === true,
-  );
+  const activeLegalHolds = legalHolds.filter((h) => h.isActive === true);
 
   // Derive summary stats from real data
   const eventRetention = retentionPolicies.find(
-    (p) => p.entityType === "event",
+    (p) => p.entityType === "event" || p.entityType === "events",
   );
   const auditRetention = retentionPolicies.find(
-    (p) => p.entityType === "audit_log" || p.entityType === "interaction_log",
+    (p) =>
+      p.entityType === "audit_log" ||
+      p.entityType === "audit_logs" ||
+      p.entityType === "interaction_log" ||
+      p.entityType === "interactions",
   );
 
   const handleToggle = async (policyId: string) => {
     try {
-      const { data: result } = await toggleEnabled({ variables: { id: policyId } });
+      const { data: result } = await toggleEnabled({
+        variables: { id: policyId },
+      });
       if (result?.toggleRetentionPolicyEnabled?.success) {
         toast.success("Retention policy updated");
         refetch();
@@ -185,6 +254,40 @@ export default function RetentionPage() {
     }
   };
 
+  const handleCreate = () => {
+    setEditPolicy(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (policy: RetentionPolicyData) => {
+    setEditPolicy(toEditData(policy));
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (policy: RetentionPolicyData) => {
+    const ok = await confirm({
+      title: "Delete Retention Policy",
+      description: `Permanently delete "${policy.name}"? Data subject to this policy will fall back to other policies or default retention. This cannot be undone.`,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+    try {
+      const { data: result } = await deletePolicy({
+        variables: { id: policy.id },
+      });
+      if (result?.deleteRetentionPolicy?.success) {
+        toast.success(`Policy "${policy.name}" deleted`);
+        refetch();
+      } else {
+        toast.error(
+          result?.deleteRetentionPolicy?.errors?.[0] ?? "Failed to delete policy",
+        );
+      }
+    } catch {
+      toast.error("Failed to delete policy");
+    }
+  };
+
   if (loading) return <LoadingSkeleton />;
 
   if (error) {
@@ -192,7 +295,9 @@ export default function RetentionPage() {
       <div className="flex flex-col gap-6 p-6">
         <div>
           <h1 className="text-2xl font-semibold">Data Retention</h1>
-          <p className="text-muted-foreground">Manage data lifecycle policies and legal holds</p>
+          <p className="text-muted-foreground">
+            Manage data lifecycle policies and legal holds
+          </p>
         </div>
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
           Failed to load retention data. Please try again later.
@@ -203,9 +308,17 @@ export default function RetentionPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Data Retention</h1>
-        <p className="text-muted-foreground">Manage data lifecycle policies and legal holds</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Data Retention</h1>
+          <p className="text-muted-foreground">
+            Manage data lifecycle policies and legal holds
+          </p>
+        </div>
+        <Button size="sm" onClick={handleCreate}>
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          Create Policy
+        </Button>
       </div>
 
       {/* Summary cards */}
@@ -225,14 +338,26 @@ export default function RetentionPage() {
             <div className="mt-2 text-2xl font-bold">
               {auditRetention ? `${auditRetention.retentionDays} days` : "--"}
             </div>
-            <div className="text-muted-foreground text-sm">Audit log retention</div>
+            <div className="text-muted-foreground text-sm">
+              Audit log retention
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
-            <ShieldAlertIcon className={`mx-auto h-8 w-8 ${activeLegalHolds.length > 0 ? "text-yellow-500" : "text-muted-foreground"}`} />
-            <div className="mt-2 text-2xl font-bold">{activeLegalHolds.length}</div>
-            <div className="text-muted-foreground text-sm">Active legal holds</div>
+            <ShieldAlertIcon
+              className={`mx-auto h-8 w-8 ${
+                activeLegalHolds.length > 0
+                  ? "text-yellow-500"
+                  : "text-muted-foreground"
+              }`}
+            />
+            <div className="mt-2 text-2xl font-bold">
+              {activeLegalHolds.length}
+            </div>
+            <div className="text-muted-foreground text-sm">
+              Active legal holds
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -241,13 +366,22 @@ export default function RetentionPage() {
       <Card>
         <CardHeader>
           <CardTitle>Retention Policies</CardTitle>
-          <CardDescription>Configure how long different data types are retained</CardDescription>
+          <CardDescription>
+            Configure how long different data types are retained
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {retentionPolicies.length === 0 ? (
-            <p className="text-muted-foreground py-6 text-center text-sm">
-              No retention policies configured. Create policies to manage data lifecycle.
-            </p>
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <p className="text-muted-foreground text-sm">
+                No retention policies configured. Create policies to manage
+                data lifecycle.
+              </p>
+              <Button size="sm" onClick={handleCreate}>
+                <PlusIcon className="mr-1.5 h-4 w-4" />
+                Create Policy
+              </Button>
+            </div>
           ) : (
             <Table>
               <TableHeader>
@@ -258,11 +392,18 @@ export default function RetentionPage() {
                   <TableHead>Expiration Action</TableHead>
                   <TableHead>Compliance</TableHead>
                   <TableHead>Enabled</TableHead>
+                  <TableHead className="w-12">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {retentionPolicies.map((p) => (
-                  <TableRow key={p.id}>
+                  <TableRow
+                    key={p.id}
+                    className="hover:bg-muted/40 cursor-pointer"
+                    onClick={() => handleEdit(p)}
+                  >
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell>
                       <Badge variant="outline">
@@ -270,7 +411,9 @@ export default function RetentionPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <span className="font-mono text-sm">{p.retentionDays} days</span>
+                      <span className="font-mono text-sm">
+                        {p.retentionDays} days
+                      </span>
                       {p.minimumRetentionDays && p.minimumRetentionDays > 0 && (
                         <span className="text-muted-foreground ml-1 text-xs">
                           (min: {p.minimumRetentionDays})
@@ -281,20 +424,54 @@ export default function RetentionPage() {
                       {p.expirationActionDisplay || p.expirationAction}
                     </TableCell>
                     <TableCell>
-                      {p.complianceRequirementDisplay || p.complianceRequirement ? (
+                      {p.complianceRequirementDisplay ||
+                      (p.complianceRequirement &&
+                        p.complianceRequirement !== "none") ? (
                         <Badge variant="secondary" className="text-xs">
-                          {p.complianceRequirementDisplay || p.complianceRequirement}
+                          {p.complianceRequirementDisplay ||
+                            p.complianceRequirement}
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground text-xs">--</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <Switch
                         checked={p.enabled}
                         onCheckedChange={() => handleToggle(p.id)}
                         aria-label={`Toggle ${p.name}`}
                       />
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            aria-label={`Open actions for ${p.name}`}
+                          >
+                            <MoreHorizontalIcon className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(p)}>
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleToggle(p.id)}
+                          >
+                            {p.enabled ? "Disable" : "Enable"}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => handleDelete(p)}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -350,6 +527,13 @@ export default function RetentionPage() {
           </CardContent>
         </Card>
       )}
+
+      <RetentionPolicyDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSaved={() => refetch()}
+        editPolicy={editPolicy}
+      />
     </div>
   );
 }

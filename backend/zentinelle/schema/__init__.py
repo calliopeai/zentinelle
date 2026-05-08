@@ -179,8 +179,8 @@ class Mutation:
         return m.create_retention_policy(info, input)
 
     @strawberry.mutation
-    def update_retention_policy(self, info: strawberry.types.Info, id: strawberry.ID, input: m.UpdateRetentionPolicyInput) -> m.UpdateRetentionPolicyPayload:
-        return m.update_retention_policy(info, id, input)
+    def update_retention_policy(self, info: strawberry.types.Info, input: m.UpdateRetentionPolicyInput) -> m.UpdateRetentionPolicyPayload:
+        return m.update_retention_policy(info, input)
 
     @strawberry.mutation
     def delete_retention_policy(self, info: strawberry.types.Info, id: strawberry.ID) -> m.DeleteRetentionPolicyPayload:
