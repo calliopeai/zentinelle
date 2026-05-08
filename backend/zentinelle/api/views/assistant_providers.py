@@ -74,6 +74,7 @@ class AssistantProvidersView(View):
     def get(self, request):
         from zentinelle.models import AIModel
         from zentinelle.schema.auth_helpers import get_request_tenant_id
+        from zentinelle.services.llm_model_discovery import fetch_live_models
 
         # In open auth mode, default to the standalone tenant
         tenant_id = get_request_tenant_id(request.user)
@@ -81,6 +82,8 @@ class AssistantProvidersView(View):
             tenant_id = '00000000-0000-0000-0000-000000000001'
         if not tenant_id:
             tenant_id = 'default'
+
+        skip_live = request.GET.get('live', 'true').lower() == 'false'
         require_tools = request.GET.get('require_tools', '').lower() == 'true'
         include_deprecated = request.GET.get('all', '').lower() == 'true'
 
@@ -134,10 +137,35 @@ class AssistantProvidersView(View):
             if not _has_credentials(slug, tenant_id):
                 continue
 
-            # Prefer registry data, fall back to curated list
+            # Resolution priority:
+            # 1. Live models from provider's /models API (cached 1h)
+            # 2. AIModel registry (synced via management command)
+            # 3. Curated FALLBACK_PROVIDERS list (always-current snapshot)
+            live_models = None
+            if not skip_live:
+                live_models = fetch_live_models(slug, tenant_id)
+
+            if live_models:
+                models = live_models
+                if require_tools:
+                    models = [m for m in models if m.get('supportsTools')]
+                if models:
+                    by_provider[slug] = {
+                        'id': slug,
+                        'name': PROVIDER_LABELS.get(slug, slug),
+                        'models': models,
+                        'source': 'live',
+                    }
+                    continue
+
             if slug in registry_by_provider and registry_by_provider[slug]['models']:
-                by_provider[slug] = registry_by_provider[slug]
-            elif slug in FALLBACK_PROVIDERS:
+                by_provider[slug] = {
+                    **registry_by_provider[slug],
+                    'source': 'registry',
+                }
+                continue
+
+            if slug in FALLBACK_PROVIDERS:
                 models = FALLBACK_PROVIDERS[slug]
                 if require_tools:
                     models = [m for m in models if m.get('supportsTools')]
@@ -146,6 +174,7 @@ class AssistantProvidersView(View):
                         'id': slug,
                         'name': PROVIDER_LABELS.get(slug, slug),
                         'models': models,
+                        'source': 'fallback',
                     }
 
         return JsonResponse({'providers': list(by_provider.values())})
