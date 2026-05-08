@@ -240,6 +240,18 @@ class ProxyView(View):
         for h in ('x-vertex-region', 'x-vertex-project'):
             forward_headers.pop(h, None)
             forward_headers.pop(h.title(), None)
+        # Managed gateway mode: if tenant has a stored provider key, inject it
+        managed_key = self._get_managed_provider_key(tenant_id, provider)
+        if managed_key:
+            if provider == 'anthropic':
+                forward_headers['x-api-key'] = managed_key
+                forward_headers.pop('Authorization', None)
+            elif provider == 'google':
+                forward_headers['x-goog-api-key'] = managed_key
+                forward_headers.pop('Authorization', None)
+            else:
+                forward_headers['Authorization'] = f'Bearer {managed_key}'
+
         # Set correct Host (just the hostname, not the path)
         from urllib.parse import urlparse
         if provider in PROVIDERS:
@@ -396,6 +408,24 @@ class ProxyView(View):
                 {'error': 'proxy_error', 'detail': 'An internal proxy error occurred'},
                 status=502,
             )
+
+    @staticmethod
+    def _get_managed_provider_key(tenant_id, provider):
+        """Look up a stored provider API key for this tenant.
+        Falls back to env vars for single-tenant deployments.
+        """
+        import os
+        env_map = {
+            'openai': 'OPENAI_API_KEY',
+            'anthropic': 'ANTHROPIC_API_KEY',
+            'google': 'GOOGLE_API_KEY',
+            'vertex': 'GOOGLE_API_KEY',
+        }
+        env_var = env_map.get(provider)
+        if not env_var:
+            return None
+        key = os.environ.get(f'MANAGED_{env_var}', '') or os.environ.get(env_var, '')
+        return key if key else None
 
     @staticmethod
     def _build_vertex_url(request, path):
