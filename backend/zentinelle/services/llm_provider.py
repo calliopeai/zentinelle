@@ -519,6 +519,21 @@ async def _anthropic_tool_loop(messages, model, api_key, temperature,
     yield {'type': 'done'}
 
 
+def _openai_token_param(model: str) -> str:
+    """Newer OpenAI models (GPT-5+, o-series) reject 'max_tokens' and require
+    'max_completion_tokens'. Legacy models (gpt-4o, gpt-4-turbo, etc.) still
+    use 'max_tokens'. Pick correctly per model.
+    """
+    m = model.lower()
+    # Reasoning models
+    if m.startswith(('o1', 'o3', 'o4')):
+        return 'max_completion_tokens'
+    # GPT-5 family and newer
+    if m.startswith(('gpt-5', 'gpt-6', 'gpt-7')) or m.startswith('chat-latest'):
+        return 'max_completion_tokens'
+    return 'max_tokens'
+
+
 async def _openai_tool_loop(messages, model, provider, api_key, temperature,
                             max_tokens, system_prompt, tenant_id, max_iter,
                             approved, actor):
@@ -531,6 +546,9 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
         provider, OPENAI_COMPAT_PROVIDERS['openai']
     )
     base_url = config['base_url']
+    token_param = (
+        _openai_token_param(model) if provider == 'openai' else 'max_tokens'
+    )
 
     # OpenAI tool schema: {type: function, function: {name, description, parameters}}
     openai_tools = [
@@ -559,11 +577,14 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
             'model': model,
             'messages': convo,
             'temperature': temperature,
-            'max_tokens': max_tokens,
+            token_param: max_tokens,
             'stream': True,
             'tools': openai_tools,
             'tool_choice': 'auto',
         }
+        # Reasoning models reject custom temperature
+        if token_param == 'max_completion_tokens':
+            body.pop('temperature', None)
 
         # Accumulators
         text_buf = ''
@@ -575,20 +596,27 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
                 'POST', f'{base_url}/chat/completions',
                 headers=headers, json=body,
             ) as resp:
-                if resp.status_code == 404:
+                if resp.status_code >= 400:
                     body_txt = ''
                     try:
                         body_bytes = await resp.aread()
-                        body_txt = body_bytes.decode('utf-8', errors='ignore')[:200]
+                        body_txt = body_bytes.decode('utf-8', errors='ignore')[:500]
                     except Exception:
                         pass
-                    raise RuntimeError(
-                        f"Model '{model}' is not available on {provider} for "
-                        f"chat completions. It may be a non-chat model (audio, "
-                        f"image, realtime) or have been deprecated."
-                        + (f" {body_txt}" if body_txt else "")
+                    if resp.status_code == 404:
+                        raise RuntimeError(
+                            f"Model '{model}' is not available on {provider} for "
+                            f"chat completions. It may be a non-chat model "
+                            f"(audio, image, realtime) or have been deprecated."
+                            + (f" {body_txt}" if body_txt else "")
+                        )
+                    logger.warning(
+                        "%s /chat/completions %d for %s: %s",
+                        provider, resp.status_code, model, body_txt,
                     )
-                resp.raise_for_status()
+                    raise RuntimeError(
+                        f"{provider} rejected request ({resp.status_code}): {body_txt}"
+                    )
                 async for line in resp.aiter_lines():
                     if not line.startswith('data: '):
                         continue
@@ -772,13 +800,17 @@ async def _stream_openai_compat(
     if api_key:
         headers['Authorization'] = f'Bearer {api_key}'
 
+    token_param = (
+        _openai_token_param(model) if provider == 'openai' else 'max_tokens'
+    )
     body = {
         'model': model,
         'messages': all_messages,
-        'temperature': temperature,
-        'max_tokens': max_tokens,
         'stream': True,
+        token_param: max_tokens,
     }
+    if token_param == 'max_tokens':
+        body['temperature'] = temperature
 
     async with httpx.AsyncClient(timeout=120.0) as client:
         async with client.stream(
