@@ -54,95 +54,98 @@ const ALL_SCOPES = [
   "user",
 ];
 
-type HeatmapCellStatus = "enforced" | "audit" | "none";
+interface CellData {
+  policies: PolicyData[];
+  enforced: number;
+  audit: number;
+  disabled: number;
+}
 
-function heatmapCellClass(status: HeatmapCellStatus): string {
-  switch (status) {
-    case "enforced":
-      return "bg-emerald-500/30 dark:bg-emerald-500/25";
-    case "audit":
-      return "bg-amber-500/30 dark:bg-amber-500/25";
-    case "none":
-      return "bg-muted";
+function cellAccentClass(cell: CellData): string {
+  if (cell.policies.length === 0) {
+    return "border-dashed border-muted-foreground/15 hover:border-muted-foreground/30";
   }
+  if (cell.enforced > 0) {
+    return "border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10";
+  }
+  if (cell.audit > 0) {
+    return "border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10";
+  }
+  return "border-muted-foreground/20 bg-muted/30";
 }
 
 function PolicyCoverageHeatmap({ policies }: { policies: PolicyData[] }) {
-  const heatmap = useMemo(() => {
-    const grid: Record<string, Record<string, HeatmapCellStatus>> = {};
+  const grid = useMemo(() => {
+    const g: Record<string, Record<string, CellData>> = {};
     ALL_POLICY_TYPES.forEach((pt) => {
-      grid[pt] = {};
+      g[pt] = {};
       ALL_SCOPES.forEach((scope) => {
-        grid[pt][scope] = "none";
+        g[pt][scope] = { policies: [], enforced: 0, audit: 0, disabled: 0 };
       });
     });
     policies.forEach((p) => {
-      const pt = p.policyType;
-      const scope = p.scopeType;
-      if (grid[pt] && grid[pt][scope] !== undefined) {
-        if (p.enabled && p.enforcement === "block") {
-          grid[pt][scope] = "enforced";
-        } else if (p.enabled && grid[pt][scope] === "none") {
-          grid[pt][scope] = "audit";
-        }
-      }
+      const cell = g[p.policyType]?.[p.scopeType];
+      if (!cell) return;
+      cell.policies.push(p);
+      if (!p.enabled) cell.disabled++;
+      else if (p.enforcement === "block") cell.enforced++;
+      else cell.audit++;
     });
-    return grid;
+    return g;
   }, [policies]);
 
-  const gapCount = useMemo(() => {
-    let gaps = 0;
+  const totals = useMemo(() => {
+    let enforced = 0,
+      audit = 0,
+      empty = 0;
     ALL_POLICY_TYPES.forEach((pt) => {
       ALL_SCOPES.forEach((scope) => {
-        if (heatmap[pt][scope] === "none") gaps++;
+        const c = grid[pt][scope];
+        if (c.policies.length === 0) empty++;
+        else if (c.enforced > 0) enforced++;
+        else if (c.audit > 0) audit++;
       });
     });
-    return gaps;
-  }, [heatmap]);
+    const totalCells = ALL_POLICY_TYPES.length * ALL_SCOPES.length;
+    return { enforced, audit, empty, totalCells };
+  }, [grid]);
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <CardTitle>Policy Coverage</CardTitle>
+            <CardTitle>Policy Coverage Matrix</CardTitle>
             <CardDescription>
-              Governance coverage by policy type and scope
+              {policies.length} policies across {ALL_POLICY_TYPES.length} types ×{" "}
+              {ALL_SCOPES.length} scopes — {totals.empty} cells uncovered
             </CardDescription>
           </div>
-          <div className="flex items-center gap-3 text-xs">
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500/40" />
-              Enforced
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-amber-500/40" />
-              Audit
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="bg-muted inline-block h-2.5 w-2.5 rounded-sm border" />
-              No policy
-            </span>
-            {gapCount > 0 && (
-              <Badge variant="secondary" className="ml-1 text-[10px]">
-                {gapCount} gap{gapCount !== 1 ? "s" : ""}
-              </Badge>
-            )}
+          <div className="flex items-center gap-2 text-xs">
+            <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30">
+              {totals.enforced} enforced
+            </Badge>
+            <Badge className="bg-amber-500/15 text-amber-500 border-amber-500/30">
+              {totals.audit} audit
+            </Badge>
+            <Badge variant="outline" className="text-muted-foreground">
+              {totals.empty} gaps
+            </Badge>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
-          <table className="w-full border-separate border-spacing-1">
+          <table className="w-full text-xs">
             <thead>
               <tr>
-                <th className="text-muted-foreground px-2 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider">
-                  Policy Type
+                <th className="text-muted-foreground sticky left-0 bg-card px-2 py-2 text-left font-medium uppercase tracking-wider text-[10px] w-32">
+                  Type
                 </th>
                 {ALL_SCOPES.map((scope) => (
                   <th
                     key={scope}
-                    className="text-muted-foreground px-2 py-1.5 text-center text-[11px] font-medium capitalize"
+                    className="text-muted-foreground px-2 py-2 text-center font-medium uppercase tracking-wider text-[10px] capitalize"
                   >
                     {scope}
                   </th>
@@ -152,19 +155,67 @@ function PolicyCoverageHeatmap({ policies }: { policies: PolicyData[] }) {
             <tbody>
               {ALL_POLICY_TYPES.map((pt) => (
                 <tr key={pt}>
-                  <td className="whitespace-nowrap px-2 py-1 text-xs font-medium">
+                  <td className="sticky left-0 bg-card px-2 py-1.5 font-medium text-xs whitespace-nowrap border-r">
                     {pt.replace(/_/g, " ")}
                   </td>
-                  {ALL_SCOPES.map((scope) => (
-                    <td key={scope} className="px-1 py-1">
-                      <div
-                        className={`h-7 rounded-md ${heatmapCellClass(
-                          heatmap[pt][scope]
-                        )}`}
-                        title={`${pt} @ ${scope}: ${heatmap[pt][scope]}`}
-                      />
-                    </td>
-                  ))}
+                  {ALL_SCOPES.map((scope) => {
+                    const cell = grid[pt][scope];
+                    const isEmpty = cell.policies.length === 0;
+                    return (
+                      <td key={scope} className="p-1 align-top">
+                        <div
+                          className={`min-h-[60px] border rounded p-1.5 transition-colors cursor-default ${cellAccentClass(cell)}`}
+                          title={
+                            isEmpty
+                              ? `No ${pt} policy at ${scope} scope`
+                              : cell.policies
+                                  .map((p) => `${p.name} (${p.enforcement})`)
+                                  .join(", ")
+                          }
+                        >
+                          {isEmpty ? (
+                            <div className="h-full flex items-center justify-center">
+                              <span className="text-muted-foreground/40 text-[10px]">—</span>
+                            </div>
+                          ) : (
+                            <div className="space-y-0.5">
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="font-bold tabular-nums">
+                                  {cell.policies.length}
+                                </span>
+                                <span className="flex items-center gap-0.5">
+                                  {cell.enforced > 0 && (
+                                    <span className="size-1.5 rounded-full bg-emerald-500" />
+                                  )}
+                                  {cell.audit > 0 && (
+                                    <span className="size-1.5 rounded-full bg-amber-500" />
+                                  )}
+                                  {cell.disabled > 0 && (
+                                    <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                                  )}
+                                </span>
+                              </div>
+                              <div className="space-y-0.5">
+                                {cell.policies.slice(0, 2).map((p) => (
+                                  <div
+                                    key={p.id}
+                                    className="text-[10px] truncate text-foreground/80 leading-tight"
+                                  >
+                                    {p.name}
+                                  </div>
+                                ))}
+                                {cell.policies.length > 2 && (
+                                  <div className="text-[10px] text-muted-foreground">
+                                    +{cell.policies.length - 2} more
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
