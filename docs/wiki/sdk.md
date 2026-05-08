@@ -30,17 +30,20 @@ All maintained SDKs target these endpoints:
 | Method | Path | Used For |
 |--------|------|----------|
 | `POST` | `/register` | Bootstrap registration |
+| `POST` | `/deregister` | Clean unregister on shutdown |
 | `GET` | `/config/{agent_id}` | Runtime config and effective policies |
 | `GET` | `/secrets/{agent_id}` | Scoped secrets |
 | `POST` | `/evaluate` | Guardrail and policy checks |
 | `POST` | `/events` | Buffered telemetry, audit, and alert events |
 | `POST` | `/heartbeat` | Health and liveness reporting |
+| `POST` | `/interaction` | Direct interaction logging (when bypassing proxy) |
 
 Notes:
 
 - Registration uses `X-Zentinelle-Bootstrap`; runtime requests use `X-Zentinelle-Key`.
 - In this standalone repo, `/secrets` and `/secrets/{agent_id}` currently return an empty bundle unless secret provisioning is implemented externally.
 - Heartbeat currently returns `202 Accepted` with `{"acknowledged": true}`. SDKs are tolerant of future drift/sync fields.
+- `/deregister` and `/interaction` were added in v1.2.0 (Python, TypeScript, Go).
 
 ## Python
 
@@ -74,7 +77,20 @@ client.emit(
     category="audit",
     user_id="user_123",
 )
+
+# Log a direct LLM interaction (when bypassing the proxy)
+client.log_interaction(
+    prompt="What's the weather in Paris?",
+    response="It's currently 18°C and partly cloudy.",
+    model="gpt-4o",
+    provider="openai",
+    input_tokens=20,
+    output_tokens=15,
+    cost_usd=0.0024,
+)
+
 client.flush_events()
+client.deregister()  # cleanly unregister on shutdown
 client.shutdown()
 ```
 
