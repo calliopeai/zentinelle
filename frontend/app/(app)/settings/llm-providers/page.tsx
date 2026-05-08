@@ -29,6 +29,7 @@ import {
   PlusIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/hooks/use-confirm";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/zentinelle/v1";
@@ -80,6 +81,7 @@ interface StoredKey {
 }
 
 export default function LLMProvidersPage() {
+  const confirmDialog = useConfirm();
   const [available, setAvailable] = useState<Set<string>>(new Set());
   const [stored, setStored] = useState<Map<string, StoredKey>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -160,7 +162,13 @@ export default function LLMProvidersPage() {
   };
 
   const handleDelete = async (provider: string) => {
-    if (!confirm(`Remove ${PROVIDER_LABELS[provider] ?? provider} API key?`)) return;
+    const ok = await confirmDialog({
+      title: `Remove ${PROVIDER_LABELS[provider] ?? provider} API key?`,
+      description:
+        "The encrypted key will be deleted from Zentinelle. The AI assistant will fall back to env-var keys if available.",
+      confirmLabel: "Remove",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(
         `${API_URL}/settings/llm-providers/${provider}`,

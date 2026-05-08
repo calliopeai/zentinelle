@@ -27,6 +27,7 @@ import {
   ShieldAlertIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/hooks/use-confirm";
 import {
   useApiKeys,
   useCreatePlatformApiKey,
@@ -86,8 +87,16 @@ export default function ApiKeysPage() {
     }
   };
 
+  const confirmDialog = useConfirm();
+
   const handleRevoke = async (id: string, name: string) => {
-    if (!confirm(`Revoke API key "${name}"? This cannot be undone.`)) return;
+    const ok = await confirmDialog({
+      title: `Revoke "${name}"?`,
+      description:
+        "This API key will stop working immediately. Existing tokens cannot be reissued.",
+      confirmLabel: "Revoke",
+    });
+    if (!ok) return;
     try {
       await revokeKey({ variables: { id } });
       toast.success("Key revoked");
@@ -97,7 +106,13 @@ export default function ApiKeysPage() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Permanently delete API key "${name}"?`)) return;
+    const ok = await confirmDialog({
+      title: `Delete "${name}"?`,
+      description:
+        "This permanently removes the API key record. This cannot be undone.",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
     try {
       await deleteKey({ variables: { id } });
       toast.success("Key deleted");
