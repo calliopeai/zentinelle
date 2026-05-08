@@ -14,6 +14,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { HelpCircleIcon } from "lucide-react";
 import { routeLabels } from "@/lib/routes";
+import { NotificationBell } from "@/components/NotificationBell";
 
 const toLabel = (segment: string) =>
   routeLabels[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
@@ -77,6 +78,7 @@ export const PageHeader = () => {
         </Breadcrumb>
       </div>
       <div className="flex items-center gap-1 px-4">
+        <NotificationBell />
         <Button
           asChild
           variant="ghost"

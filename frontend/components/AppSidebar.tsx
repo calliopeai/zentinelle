@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/collapsible";
 import { ChevronRightIcon } from "lucide-react";
 import { useComplianceAlerts } from "@/graphql/alerts/hooks";
+import { useUnreadNotifications } from "@/graphql/notifications/hooks";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NavUser } from "@/components/NavUser";
 import type { SessionUser } from "@/lib/auth/session";
@@ -106,6 +107,7 @@ const sections: NavSection[] = [
       { title: "Register", url: "/risks", icon: <AlertTriangleIcon /> },
       { title: "FMEA Analysis", url: "/risks/fmea", icon: <SearchCheckIcon /> },
       { title: "Alerts", url: "/alerts", icon: <BellIcon /> },
+      { title: "Notifications", url: "/notifications", icon: <BellIcon /> },
       { title: "Incidents", url: "/incidents", icon: <FlameIcon /> },
       { title: "Reports", url: "/risks/reports", icon: <FileBarChartIcon /> },
     ],
@@ -161,6 +163,9 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
   const { state: sidebarState } = useSidebar();
   const { alerts: openAlerts } = useComplianceAlerts({ status: "open" });
   const openAlertCount = openAlerts.length;
+  const { unreadCount: unreadNotificationCount } = useUnreadNotifications({
+    pollIntervalMs: 30_000,
+  });
 
   const [openSections, setOpenSections] = React.useState<Record<string, boolean>>(
     {},
@@ -224,6 +229,8 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
                   pathname.startsWith(item.url + "/");
                 const showAlertBadge =
                   item.url === "/alerts" && openAlertCount > 0;
+                const showNotificationBadge =
+                  item.url === "/notifications" && unreadNotificationCount > 0;
                 return (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
@@ -239,6 +246,13 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
                     {showAlertBadge && (
                       <SidebarMenuBadge className="bg-red-500/15 text-red-600 dark:text-red-400">
                         {openAlertCount > 99 ? "99+" : openAlertCount}
+                      </SidebarMenuBadge>
+                    )}
+                    {showNotificationBadge && (
+                      <SidebarMenuBadge className="bg-blue-500/15 text-blue-600 dark:text-blue-400">
+                        {unreadNotificationCount > 99
+                          ? "99+"
+                          : unreadNotificationCount}
                       </SidebarMenuBadge>
                     )}
                   </SidebarMenuItem>
