@@ -31,6 +31,13 @@ import {
   CheckCircleIcon,
   BookOpenIcon,
   SettingsIcon,
+  PlayIcon,
+  SearchCheckIcon,
+  CpuIcon,
+  NetworkIcon,
+  ArchiveIcon,
+  KeyIcon,
+  UsersIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -59,7 +66,10 @@ const sections: NavSection[] = [
     items: [
       { title: "Agents", url: "/agents", icon: <ShieldIcon /> },
       { title: "Policies", url: "/policies", icon: <FileTextIcon /> },
+      { title: "Policy Simulator", url: "/policies/simulator", icon: <PlayIcon /> },
+      { title: "Policy Analyzer", url: "/policies/analyzer", icon: <SearchCheckIcon /> },
       { title: "Content Rules", url: "/content-rules", icon: <ScanLineIcon /> },
+      { title: "Models", url: "/models", icon: <CpuIcon /> },
     ],
   },
   {
@@ -86,6 +96,7 @@ const sections: NavSection[] = [
         url: "/system-prompts",
         icon: <BookOpenIcon />,
       },
+      { title: "Retention", url: "/retention", icon: <ArchiveIcon /> },
       { title: "Settings", url: "/settings", icon: <SettingsIcon /> },
     ],
   },
