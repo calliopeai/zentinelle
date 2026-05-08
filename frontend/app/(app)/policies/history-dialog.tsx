@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -101,6 +101,33 @@ export function PolicyHistoryDialog({
   open,
   onOpenChange,
 }: HistoryDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[88vh] w-[95vw] max-w-5xl flex-col overflow-hidden p-0">
+        <DialogHeader className="border-b px-6 py-4">
+          <DialogTitle className="flex items-center gap-2 pr-8">
+            <span>Version History</span>
+            {policy && (
+              <Badge variant="outline" className="font-normal">
+                {policy.name}
+              </Badge>
+            )}
+          </DialogTitle>
+          <DialogDescription>
+            Inspect prior revisions and compare any two versions to see exactly
+            what changed.
+          </DialogDescription>
+        </DialogHeader>
+        {/* Re-key on policy id so internal state resets between policies */}
+        {policy && open ? (
+          <HistoryDialogBody key={policy.id} policy={policy} />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function HistoryDialogBody({ policy }: { policy: PolicyData }) {
   const [versions, setVersions] = useState<PolicyVersion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,10 +137,9 @@ export function PolicyHistoryDialog({
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffError, setDiffError] = useState<string | null>(null);
 
-  const policyId = policy?.id ?? null;
+  const policyId = policy.id;
 
   const loadHistory = useCallback(async () => {
-    if (!policyId) return;
     setLoading(true);
     setError(null);
     try {
@@ -137,16 +163,12 @@ export function PolicyHistoryDialog({
     }
   }, [policyId]);
 
-  // Reset state and load fresh data each time the dialog opens
+  // Initial fetch — component is re-mounted per (policy, open) so this only
+  // runs when the dialog actually opens for a given policy.
   useEffect(() => {
-    if (open && policyId) {
-      setExpanded(null);
-      setSelected(new Set());
-      setDiff(null);
-      setDiffError(null);
-      loadHistory();
-    }
-  }, [open, policyId, loadHistory]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadHistory();
+  }, [loadHistory]);
 
   const toggleSelected = useCallback((version: number) => {
     setSelected((prev) => {
@@ -206,24 +228,7 @@ export function PolicyHistoryDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[88vh] w-[95vw] max-w-5xl flex-col overflow-hidden p-0">
-        <DialogHeader className="border-b px-6 py-4">
-          <DialogTitle className="flex items-center gap-2 pr-8">
-            <span>Version History</span>
-            {policy && (
-              <Badge variant="outline" className="font-normal">
-                {policy.name}
-              </Badge>
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            Inspect prior revisions and compare any two versions to see exactly
-            what changed.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-1 flex-col gap-4 overflow-hidden p-6">
+    <div className="flex flex-1 flex-col gap-4 overflow-hidden p-6">
           {/* Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="text-muted-foreground text-xs">
@@ -312,9 +317,8 @@ export function PolicyHistoryDialog({
                     const isExpanded = expanded === v.version;
                     const isSelected = selected.has(v.version);
                     return (
-                      <>
+                      <Fragment key={v.version}>
                         <TableRow
-                          key={`row-${v.version}`}
                           data-state={isSelected ? "selected" : undefined}
                           className={cn(
                             "cursor-pointer",
@@ -376,10 +380,7 @@ export function PolicyHistoryDialog({
                           </TableCell>
                         </TableRow>
                         {isExpanded && (
-                          <TableRow
-                            key={`expand-${v.version}`}
-                            className="bg-muted/30 hover:bg-muted/30"
-                          >
+                          <TableRow className="bg-muted/30 hover:bg-muted/30">
                             <TableCell colSpan={6} className="p-0">
                               <div className="px-4 py-3">
                                 <div className="text-muted-foreground mb-2 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider">
@@ -401,16 +402,14 @@ export function PolicyHistoryDialog({
                             </TableCell>
                           </TableRow>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </TableBody>
               </Table>
             )}
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }
 

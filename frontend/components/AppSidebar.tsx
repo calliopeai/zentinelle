@@ -37,6 +37,7 @@ import {
   SettingsIcon,
   PlayIcon,
   SearchCheckIcon,
+  SearchIcon,
   CpuIcon,
   NetworkIcon,
   ArchiveIcon,
@@ -48,7 +49,6 @@ import {
   FileBarChartIcon,
   SparklesIcon,
   LayersIcon,
-  HistoryIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -78,11 +78,13 @@ const sections: NavSection[] = [
       { title: "Agents", url: "/agents", icon: <ShieldIcon /> },
       { title: "Policies", url: "/policies", icon: <FileTextIcon /> },
       { title: "Policy Hierarchy", url: "/policies/hierarchy", icon: <LayersIcon /> },
+      { title: "Effective Policy", url: "/policies/effective", icon: <SearchIcon /> },
       { title: "Policy Simulator", url: "/policies/simulator", icon: <PlayIcon /> },
       { title: "Policy Analyzer", url: "/policies/analyzer", icon: <SearchCheckIcon /> },
       { title: "Content Rules", url: "/content-rules", icon: <ScanLineIcon /> },
       { title: "Scanner Dashboard", url: "/content-rules/scanner", icon: <ScanSearchIcon /> },
       { title: "Models", url: "/models", icon: <CpuIcon /> },
+      { title: "Model Compare", url: "/models/compare", icon: <BarChart3Icon /> },
     ],
   },
   {
@@ -110,6 +112,7 @@ const sections: NavSection[] = [
       { title: "Events", url: "/events", icon: <ActivityIcon /> },
       { title: "Audit Logs", url: "/audit-logs", icon: <ScrollTextIcon /> },
       { title: "Monitoring", url: "/monitoring", icon: <BarChart3Icon /> },
+      { title: "Anomalies", url: "/observability/anomalies", icon: <AlertTriangleIcon /> },
     ],
   },
   {

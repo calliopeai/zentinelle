@@ -141,3 +141,32 @@
 .animate-pulse-subtle {
   animation: pulse-subtle 3s ease-in-out infinite;
 }
+
+/* ── Live event row fade-in (used on the events stream) ──────────── */
+@keyframes event-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px);
+    background-color: rgba(55, 239, 237, 0.12);
+  }
+  60% {
+    background-color: rgba(55, 239, 237, 0.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    background-color: transparent;
+  }
+}
+.animate-event-fade-in {
+  animation: event-fade-in 700ms ease-out;
+}
+
+/* ── Live indicator dot ──────────────────────────────────────────── */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+.animate-live-pulse {
+  animation: live-pulse 1.6s ease-in-out infinite;
+}

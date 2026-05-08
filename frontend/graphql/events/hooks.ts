@@ -11,12 +11,17 @@ import type {
   AuditAnalyticsVariables,
 } from "./types";
 
-export function useEvents(variables?: EventListVariables) {
-  const { data, loading, error, refetch } = useQuery<
+export function useEvents(
+  variables?: EventListVariables,
+  options?: { pollInterval?: number }
+) {
+  const { data, loading, error, refetch, startPolling, stopPolling } = useQuery<
     EventListData,
     EventListVariables
   >(GET_EVENTS, {
     variables,
+    pollInterval: options?.pollInterval,
+    notifyOnNetworkStatusChange: true,
   });
 
   return {
@@ -25,6 +30,8 @@ export function useEvents(variables?: EventListVariables) {
     loading,
     error,
     refetch,
+    startPolling,
+    stopPolling,
   };
 }
 

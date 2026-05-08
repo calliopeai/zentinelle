@@ -433,6 +433,12 @@ export default function PoliciesPage() {
         onOpenChange={setEditOpen}
         onSaved={refetch}
       />
+
+      <PolicyHistoryDialog
+        policy={historyPolicy}
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+      />
     </div>
   );
 }

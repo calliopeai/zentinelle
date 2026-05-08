@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useAuditAnalytics } from "@/graphql/events/hooks";
+import { useMemo, useState } from "react";
+import { useUsageMetrics } from "@/graphql/usage/hooks";
+import type { UsageTimeSeriesPoint, UsageByEndpoint } from "@/graphql/usage/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -42,93 +43,8 @@ const TIME_RANGES = [
 function formatBucket(bucket: string | null) {
   if (!bucket) return "";
   const d = new Date(bucket);
+  if (Number.isNaN(d.getTime())) return bucket;
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-/* ── Synthetic usage data derived from analytics ─────────────────── */
-/* The audit analytics hook returns timeline, byType, topAgents.     */
-/* We derive token/cost/latency breakdowns from event counts to      */
-/* populate the richer dashboard views.                              */
-
-function deriveTokenData(
-  timeline: Array<{ bucket: string | null; eventType: string | null; count: number | null }>,
-) {
-  const buckets = new Map<string, { bucket: string; inputTokens: number; outputTokens: number }>();
-  timeline.forEach((point) => {
-    const bucket = formatBucket(point.bucket);
-    if (!bucket) return;
-    if (!buckets.has(bucket)) {
-      buckets.set(bucket, { bucket, inputTokens: 0, outputTokens: 0 });
-    }
-    const entry = buckets.get(bucket)!;
-    const count = point.count ?? 0;
-    // Approximate: input tokens are ~60% of event-driven volume, output ~40%
-    entry.inputTokens += Math.round(count * 0.6 * 150);
-    entry.outputTokens += Math.round(count * 0.4 * 250);
-  });
-  return Array.from(buckets.values());
-}
-
-function deriveCostByProvider(
-  topAgents: Array<{ agentId: string | null; eventCount: number | null }>,
-) {
-  const providers = ["Anthropic", "OpenAI", "Google", "Other"];
-  const total = topAgents.reduce((s, a) => s + (a.eventCount ?? 0), 0);
-  if (total === 0) return [];
-  // Distribute costs proportionally across providers
-  const shares = [0.45, 0.30, 0.15, 0.10];
-  return providers.map((provider, i) => ({
-    provider,
-    cost: Number((total * shares[i] * 0.003).toFixed(2)),
-  }));
-}
-
-function deriveLatencyData(
-  timeline: Array<{ bucket: string | null; eventType: string | null; count: number | null }>,
-) {
-  const buckets = new Map<string, { bucket: string; p50: number; p95: number; p99: number }>();
-  timeline.forEach((point) => {
-    const bucket = formatBucket(point.bucket);
-    if (!bucket) return;
-    if (!buckets.has(bucket)) {
-      const base = 80 + Math.random() * 40;
-      buckets.set(bucket, {
-        bucket,
-        p50: Math.round(base),
-        p95: Math.round(base * 2.5 + Math.random() * 50),
-        p99: Math.round(base * 4 + Math.random() * 100),
-      });
-    }
-  });
-  return Array.from(buckets.values());
-}
-
-function deriveTopModels(
-  byType: Array<{ eventType: string | null; count: number | null }>,
-) {
-  const modelNames = [
-    "claude-sonnet-4",
-    "gpt-4o",
-    "claude-3.5-haiku",
-    "gemini-2.0-flash",
-    "gpt-4o-mini",
-  ];
-  const total = byType.reduce((s, t) => s + (t.count ?? 0), 0);
-  if (total === 0) return [];
-  const shares = [0.35, 0.25, 0.18, 0.12, 0.10];
-  return modelNames.map((model, i) => ({
-    model,
-    requests: Math.round(total * shares[i]),
-  }));
-}
-
-function deriveTopAgentsByCost(
-  topAgents: Array<{ agentId: string | null; eventCount: number | null }>,
-) {
-  return topAgents.slice(0, 5).map((a) => ({
-    agent: a.agentId ?? "Unknown",
-    cost: Number(((a.eventCount ?? 0) * 0.003).toFixed(2)),
-  }));
 }
 
 /* ── Stat card helpers ───────────────────────────────────────────── */
@@ -166,27 +82,32 @@ function StatCard({
   );
 }
 
+function NoDataPlaceholder({ message }: { message: string }) {
+  return (
+    <p className="text-muted-foreground py-12 text-center text-sm">
+      {message}
+    </p>
+  );
+}
+
 /* ── Chart configs ───────────────────────────────────────────────── */
 
 const TEAL = "#37efed";
 
 const tokenChartConfig: ChartConfig = {
-  inputTokens: { label: "Input Tokens", color: TEAL },
-  outputTokens: { label: "Output Tokens", color: "var(--color-chart-2)" },
+  tokens: { label: "Tokens", color: TEAL },
+};
+
+const callsChartConfig: ChartConfig = {
+  apiCalls: { label: "API Calls", color: "var(--color-chart-2)" },
 };
 
 const costChartConfig: ChartConfig = {
   cost: { label: "Cost ($)", color: TEAL },
 };
 
-const latencyChartConfig: ChartConfig = {
-  p50: { label: "p50", color: TEAL },
-  p95: { label: "p95", color: "var(--color-chart-3)" },
-  p99: { label: "p99", color: "var(--color-chart-1)" },
-};
-
-const modelChartConfig: ChartConfig = {
-  requests: { label: "Requests", color: TEAL },
+const endpointLatencyConfig: ChartConfig = {
+  avgLatencyMs: { label: "Avg latency (ms)", color: TEAL },
 };
 
 const agentCostConfig: ChartConfig = {
@@ -197,24 +118,110 @@ const agentCostConfig: ChartConfig = {
 
 export default function MonitoringPage() {
   const [selectedRange, setSelectedRange] = useState<number>(30);
-  const { analytics, loading } = useAuditAnalytics({ days: selectedRange });
 
-  const timeline = useMemo(() => analytics?.timeline ?? [], [analytics?.timeline]);
-  const byType = useMemo(() => analytics?.byType ?? [], [analytics?.byType]);
-  const topAgents = useMemo(() => analytics?.topAgents ?? [], [analytics?.topAgents]);
+  const { startDate, endDate } = useMemo(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - selectedRange);
+    return {
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+    };
+  }, [selectedRange]);
 
-  const tokenData = useMemo(() => deriveTokenData(timeline), [timeline]);
-  const costByProvider = useMemo(() => deriveCostByProvider(topAgents), [topAgents]);
-  const latencyData = useMemo(() => deriveLatencyData(timeline), [timeline]);
-  const topModels = useMemo(() => deriveTopModels(byType), [byType]);
-  const topAgentsByCost = useMemo(() => deriveTopAgentsByCost(topAgents), [topAgents]);
+  const { metrics, loading } = useUsageMetrics({ startDate, endDate });
 
-  const totalTokens = tokenData.reduce((s, d) => s + d.inputTokens + d.outputTokens, 0);
-  const totalCost = costByProvider.reduce((s, d) => s + d.cost, 0);
-  const avgLatency = latencyData.length > 0
-    ? Math.round(latencyData.reduce((s, d) => s + d.p50, 0) / latencyData.length)
-    : 0;
-  const totalRequests = byType.reduce((s, t) => s + (t.count ?? 0), 0);
+  const summary = metrics?.summary ?? null;
+  const timeSeries: UsageTimeSeriesPoint[] = useMemo(
+    () => metrics?.timeSeries ?? [],
+    [metrics?.timeSeries],
+  );
+  const byAgent = useMemo(() => metrics?.byAgent ?? [], [metrics?.byAgent]);
+  const byEndpoint: UsageByEndpoint[] = useMemo(
+    () => metrics?.byEndpoint ?? [],
+    [metrics?.byEndpoint],
+  );
+
+  // Token consumption — derived strictly from real time_series.tokens
+  const tokenData = useMemo(
+    () =>
+      timeSeries.map((p) => ({
+        bucket: formatBucket(p.date),
+        tokens: p.tokens ?? 0,
+      })),
+    [timeSeries],
+  );
+
+  // API calls over time — derived strictly from real data
+  const callsData = useMemo(
+    () =>
+      timeSeries.map((p) => ({
+        bucket: formatBucket(p.date),
+        apiCalls: p.apiCalls ?? 0,
+      })),
+    [timeSeries],
+  );
+
+  // Cost over time — real data only
+  const costData = useMemo(
+    () =>
+      timeSeries.map((p) => ({
+        bucket: formatBucket(p.date),
+        cost: Number((p.cost ?? 0).toFixed(2)),
+      })),
+    [timeSeries],
+  );
+
+  // Per-endpoint latency — uses real avg_latency_ms aggregated by backend
+  const endpointLatency = useMemo(
+    () =>
+      byEndpoint
+        .filter((e) => e.endpoint && (e.avgLatencyMs ?? 0) > 0)
+        .map((e) => ({
+          endpoint: e.endpoint as string,
+          avgLatencyMs: Math.round(e.avgLatencyMs ?? 0),
+        }))
+        .sort((a, b) => b.avgLatencyMs - a.avgLatencyMs)
+        .slice(0, 5),
+    [byEndpoint],
+  );
+
+  // Top agents by cost — real data
+  const topAgentsByCost = useMemo(
+    () =>
+      byAgent
+        .filter((a) => (a.cost ?? 0) > 0)
+        .map((a) => ({
+          agent: a.agentName ?? a.agentId ?? "Unknown",
+          cost: Number((a.cost ?? 0).toFixed(2)),
+        }))
+        .sort((a, b) => b.cost - a.cost)
+        .slice(0, 5),
+    [byAgent],
+  );
+
+  // Summary stat values — directly from backend summary, no fakes
+  const totalTokens = summary?.totalTokens ?? 0;
+  const totalCost = summary?.totalCost ?? 0;
+  const totalRequests = summary?.totalApiCalls ?? 0;
+
+  // Average latency: weighted average across endpoints, or null if not measured
+  const avgLatency = useMemo(() => {
+    if (byEndpoint.length === 0) return null;
+    const sample = byEndpoint.filter((e) => (e.avgLatencyMs ?? 0) > 0);
+    if (sample.length === 0) return null;
+    const totalCalls = sample.reduce((s, e) => s + (e.apiCalls ?? 0), 0);
+    if (totalCalls === 0) {
+      // Plain mean fallback
+      const sum = sample.reduce((s, e) => s + (e.avgLatencyMs ?? 0), 0);
+      return Math.round(sum / sample.length);
+    }
+    const weighted = sample.reduce(
+      (s, e) => s + (e.avgLatencyMs ?? 0) * (e.apiCalls ?? 0),
+      0,
+    );
+    return Math.round(weighted / totalCalls);
+  }, [byEndpoint]);
 
   if (loading) {
     return (
@@ -286,23 +293,29 @@ export default function MonitoringPage() {
         <StatCard
           label="Total Tokens"
           value={totalTokens.toLocaleString()}
-          sub={`${tokenData.length} data points`}
+          sub={`Last ${selectedRange}d`}
           icon={ActivityIcon}
           color="text-blue-600 dark:text-blue-400"
           bg="bg-blue-500/10"
         />
         <StatCard
-          label="Est. Cost"
+          label="Total Cost"
           value={`$${totalCost.toFixed(2)}`}
-          sub={`${costByProvider.length} providers`}
+          sub={`Last ${selectedRange}d`}
           icon={CoinsIcon}
           color="text-emerald-600 dark:text-emerald-400"
           bg="bg-emerald-500/10"
         />
         <StatCard
-          label="Avg Latency (p50)"
-          value={`${avgLatency}ms`}
-          sub={`${latencyData.length} measurements`}
+          label="Avg Latency"
+          value={avgLatency !== null ? `${avgLatency}ms` : "No data"}
+          sub={
+            avgLatency !== null
+              ? `Across ${endpointLatency.length || byEndpoint.length} endpoint${
+                  byEndpoint.length === 1 ? "" : "s"
+                }`
+              : "No latency measurements"
+          }
           icon={TimerIcon}
           color="text-amber-600 dark:text-amber-400"
           bg="bg-amber-500/10"
@@ -324,25 +337,19 @@ export default function MonitoringPage() {
           <CardHeader>
             <CardTitle>Token Consumption</CardTitle>
             <CardDescription>
-              Input vs output tokens over time (stacked)
+              Total tokens processed per day
             </CardDescription>
           </CardHeader>
           <CardContent>
             {tokenData.length === 0 ? (
-              <p className="text-muted-foreground py-12 text-center text-sm">
-                No token data available
-              </p>
+              <NoDataPlaceholder message="No token data available for this period" />
             ) : (
               <ChartContainer config={tokenChartConfig} className="h-[280px] w-full">
                 <AreaChart data={tokenData} margin={{ left: 0, right: 0 }}>
                   <defs>
-                    <linearGradient id="fillInput" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="fillTokens" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={TEAL} stopOpacity={0.25} />
                       <stop offset="95%" stopColor={TEAL} stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="fillOutput" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--color-chart-2)" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="var(--color-chart-2)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -363,21 +370,11 @@ export default function MonitoringPage() {
                   <ChartLegend content={<ChartLegendContent />} />
                   <Area
                     type="monotone"
-                    dataKey="inputTokens"
+                    dataKey="tokens"
                     stroke={TEAL}
                     strokeWidth={2}
-                    fill="url(#fillInput)"
+                    fill="url(#fillTokens)"
                     dot={false}
-                    stackId="tokens"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="outputTokens"
-                    stroke="var(--color-chart-2)"
-                    strokeWidth={2}
-                    fill="url(#fillOutput)"
-                    dot={false}
-                    stackId="tokens"
                   />
                 </AreaChart>
               </ChartContainer>
@@ -385,22 +382,53 @@ export default function MonitoringPage() {
           </CardContent>
         </Card>
 
-        {/* Cost by provider - stacked bar */}
+        {/* API calls over time - line chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Cost by Provider</CardTitle>
-            <CardDescription>Estimated spend per LLM provider</CardDescription>
+            <CardTitle>API Calls Over Time</CardTitle>
+            <CardDescription>Daily request volume</CardDescription>
           </CardHeader>
           <CardContent>
-            {costByProvider.length === 0 ? (
-              <p className="text-muted-foreground py-12 text-center text-sm">
-                No cost data available
-              </p>
+            {callsData.length === 0 ? (
+              <NoDataPlaceholder message="No API call data available" />
+            ) : (
+              <ChartContainer config={callsChartConfig} className="h-[240px] w-full">
+                <LineChart data={callsData} margin={{ left: 0, right: 0 }}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis dataKey="bucket" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 12 }}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Line
+                    type="monotone"
+                    dataKey="apiCalls"
+                    stroke="var(--color-chart-2)"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Cost over time - bar chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Cost Over Time</CardTitle>
+            <CardDescription>Daily spend across all providers</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {costData.length === 0 || costData.every((d) => d.cost === 0) ? (
+              <NoDataPlaceholder message="No cost data available" />
             ) : (
               <ChartContainer config={costChartConfig} className="h-[240px] w-full">
-                <BarChart data={costByProvider} margin={{ left: 0, right: 0 }}>
+                <BarChart data={costData} margin={{ left: 0, right: 0 }}>
                   <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis dataKey="provider" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="bucket" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
@@ -426,27 +454,42 @@ export default function MonitoringPage() {
           </CardContent>
         </Card>
 
-        {/* Latency percentiles - line chart */}
+        {/* Endpoint latency - horizontal bar (replaces fake percentile chart) */}
         <Card>
           <CardHeader>
-            <CardTitle>Latency Percentiles</CardTitle>
-            <CardDescription>Response latency p50 / p95 / p99 (ms)</CardDescription>
+            <CardTitle>Latency by Endpoint</CardTitle>
+            <CardDescription>
+              Average response latency per agent endpoint
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {latencyData.length === 0 ? (
-              <p className="text-muted-foreground py-12 text-center text-sm">
-                No latency data available
-              </p>
+            {endpointLatency.length === 0 ? (
+              <NoDataPlaceholder message="No latency measurements available" />
             ) : (
-              <ChartContainer config={latencyChartConfig} className="h-[240px] w-full">
-                <LineChart data={latencyData} margin={{ left: 0, right: 0 }}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis dataKey="bucket" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                  <YAxis
+              <ChartContainer
+                config={endpointLatencyConfig}
+                className="h-[240px] w-full"
+              >
+                <BarChart
+                  data={endpointLatency}
+                  layout="vertical"
+                  margin={{ left: 0, right: 0 }}
+                >
+                  <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                  <XAxis
+                    type="number"
                     tickLine={false}
                     axisLine={false}
                     tick={{ fontSize: 12 }}
                     tickFormatter={(v) => `${v}ms`}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="endpoint"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 11 }}
+                    width={130}
                   />
                   <ChartTooltip
                     content={
@@ -455,67 +498,8 @@ export default function MonitoringPage() {
                       />
                     }
                   />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Line
-                    type="monotone"
-                    dataKey="p50"
-                    stroke={TEAL}
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="p95"
-                    stroke="var(--color-chart-3)"
-                    strokeWidth={2}
-                    dot={false}
-                    strokeDasharray="5 3"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="p99"
-                    stroke="var(--color-chart-1)"
-                    strokeWidth={2}
-                    dot={false}
-                    strokeDasharray="2 2"
-                  />
-                </LineChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Top 5 models by usage - horizontal bar */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Models by Usage</CardTitle>
-            <CardDescription>Most used AI models by request count</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {topModels.length === 0 ? (
-              <p className="text-muted-foreground py-12 text-center text-sm">
-                No model data available
-              </p>
-            ) : (
-              <ChartContainer config={modelChartConfig} className="h-[240px] w-full">
-                <BarChart
-                  data={topModels}
-                  layout="vertical"
-                  margin={{ left: 0, right: 0 }}
-                >
-                  <CartesianGrid horizontal={false} strokeDasharray="3 3" />
-                  <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                  <YAxis
-                    type="category"
-                    dataKey="model"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 11 }}
-                    width={130}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
                   <Bar
-                    dataKey="requests"
+                    dataKey="avgLatencyMs"
                     fill={TEAL}
                     radius={[0, 4, 4, 0]}
                     maxBarSize={24}
@@ -526,7 +510,7 @@ export default function MonitoringPage() {
           </CardContent>
         </Card>
 
-        {/* Top 5 agents by cost - horizontal bar */}
+        {/* Top agents by cost - horizontal bar */}
         <Card>
           <CardHeader>
             <CardTitle>Top Agents by Cost</CardTitle>
@@ -534,9 +518,7 @@ export default function MonitoringPage() {
           </CardHeader>
           <CardContent>
             {topAgentsByCost.length === 0 ? (
-              <p className="text-muted-foreground py-12 text-center text-sm">
-                No agent cost data available
-              </p>
+              <NoDataPlaceholder message="No agent cost data available" />
             ) : (
               <ChartContainer config={agentCostConfig} className="h-[240px] w-full">
                 <BarChart

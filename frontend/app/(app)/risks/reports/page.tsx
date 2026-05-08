@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -278,8 +278,6 @@ export default function RiskReportsPage() {
   const [generating, setGenerating] = useState(false);
   const [history, setHistory] = useState<ReportRecord[]>([]);
 
-  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-
   const selectedTypeConfig = useMemo(
     () => REPORT_TYPES.find((t) => t.id === selectedType) ?? REPORT_TYPES[0],
     [selectedType],
@@ -294,7 +292,7 @@ export default function RiskReportsPage() {
       return;
     }
     const records = await Promise.all(
-      stored.map(async (entry) => {
+      stored.map(async (entry): Promise<ReportRecord | null> => {
         const fresh = await fetchReportStatus(entry.id);
         if (!fresh) return null;
         return { ...fresh, uiTypeId: entry.uiTypeId };
@@ -304,32 +302,22 @@ export default function RiskReportsPage() {
     setHistory(filtered);
   }, []);
 
-  // Initial load
+  // Initial load — refreshHistory awaits a network call before any setState,
+  // so the lint warning about synchronous setState in effects does not apply.
   useEffect(() => {
-    refreshHistory();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshHistory();
   }, [refreshHistory]);
 
-  // Poll while any record is still in progress
+  // Poll while any record is still in progress.
+  const hasPending = history.some(
+    (r) => r.status === "pending" || r.status === "generating",
+  );
   useEffect(() => {
-    const inProgress = history.some(
-      (r) => r.status === "pending" || r.status === "generating",
-    );
-    if (!inProgress) {
-      if (pollTimer.current) {
-        clearInterval(pollTimer.current);
-        pollTimer.current = null;
-      }
-      return;
-    }
-    if (pollTimer.current) return;
-    pollTimer.current = setInterval(refreshHistory, 3000);
-    return () => {
-      if (pollTimer.current) {
-        clearInterval(pollTimer.current);
-        pollTimer.current = null;
-      }
-    };
-  }, [history, refreshHistory]);
+    if (!hasPending) return;
+    const id = setInterval(refreshHistory, 3000);
+    return () => clearInterval(id);
+  }, [hasPending, refreshHistory]);
 
   const handleGenerate = async () => {
     if (selectedTypeConfig.requiresDateRange && (!startDate || !endDate)) {
