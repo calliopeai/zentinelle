@@ -1,6 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/zentinelle/v1";
 import {
   Card,
   CardContent,
@@ -123,41 +126,24 @@ export default function RiskOverviewPage() {
     return Math.round((withMitigation / risks.length) * 100);
   }, [risks]);
 
-  const trendData = useMemo(() => {
-    const days = 30;
-    const today = new Date();
-    return Array.from({ length: days }, (_, i) => {
-      const day = new Date(today);
-      day.setDate(today.getDate() - (days - i - 1));
+  // Fetch real risk index trend from backend (computed from risk register history)
+  const [trendData, setTrendData] = useState<Array<{ day: string; index: number }>>(
+    [],
+  );
 
-      const openRisksOnDay = risks.filter((r: any) => {
-        const createdRaw = r.createdAt ?? r.created_at;
-        if (!createdRaw) return false;
-        const created = new Date(createdRaw);
-        const closedRaw = r.closedAt ?? r.closed_at ?? null;
-        const closed = closedRaw ? new Date(closedRaw) : null;
-        const isClosedStatus = r.status === "closed";
-        // If risk is currently closed but we don't have a closedAt, treat
-        // as still open on historical days (best effort without snapshots).
-        if (isClosedStatus && closed && closed <= day) return false;
-        return created <= day;
-      });
-
-      if (!openRisksOnDay.length) {
-        return { day: day.toISOString().slice(5, 10), index: 0 };
-      }
-
-      const total = openRisksOnDay.reduce(
-        (s: number, r: any) => s + (r.riskScore ?? 0),
-        0,
-      );
-      const max = openRisksOnDay.length * 25;
-      return {
-        day: day.toISOString().slice(5, 10),
-        index: Math.round((total / max) * 100),
-      };
-    });
-  }, [risks]);
+  useEffect(() => {
+    fetch(`${API_URL}/risks/trend?days=30`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.trend) return;
+        const points = data.trend.map((p: { day: string; index: number }) => ({
+          day: p.day.slice(5, 10),
+          index: p.index,
+        }));
+        setTrendData(points);
+      })
+      .catch(() => {});
+  }, [risks.length]);
 
   const trendConfig: ChartConfig = {
     index: { label: "Risk Index", color: "#22d3ee" },

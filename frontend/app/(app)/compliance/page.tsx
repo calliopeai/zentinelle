@@ -123,11 +123,31 @@ export default function CompliancePage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold">Compliance</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Framework coverage and compliance posture across your AI operations
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Compliance</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Framework coverage and compliance posture across your AI operations
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <a
+            href={`${process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1"}/export/summary.json`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border-input bg-background hover:bg-accent inline-flex h-9 items-center rounded-md border px-3 text-xs font-medium uppercase"
+          >
+            Export JSON
+          </a>
+          <a
+            href={`${process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1"}/export/compliance-report.csv`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border-input bg-background hover:bg-accent inline-flex h-9 items-center rounded-md border px-3 text-xs font-medium uppercase"
+          >
+            Export CSV
+          </a>
+        </div>
       </div>
 
       {/* Radar chart for framework coverage */}
