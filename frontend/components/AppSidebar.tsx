@@ -8,6 +8,7 @@ import {
   SidebarFooter,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarGroup,
@@ -16,6 +17,7 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useComplianceAlerts } from "@/graphql/alerts/hooks";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NavUser } from "@/components/NavUser";
 import type { SessionUser } from "@/lib/auth/session";
@@ -28,6 +30,7 @@ import {
   ScrollTextIcon,
   BarChart3Icon,
   AlertTriangleIcon,
+  BellIcon,
   FlameIcon,
   CheckCircleIcon,
   BookOpenIcon,
@@ -85,6 +88,7 @@ const sections: NavSection[] = [
       { title: "Overview", url: "/risks/overview", icon: <BarChart3Icon /> },
       { title: "Register", url: "/risks", icon: <AlertTriangleIcon /> },
       { title: "FMEA Analysis", url: "/risks/fmea", icon: <SearchCheckIcon /> },
+      { title: "Alerts", url: "/alerts", icon: <BellIcon /> },
       { title: "Incidents", url: "/incidents", icon: <FlameIcon /> },
       { title: "Reports", url: "/risks/reports", icon: <FileBarChartIcon /> },
     ],
@@ -132,6 +136,8 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
 export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
   const pathname = usePathname();
   const { state: sidebarState } = useSidebar();
+  const { alerts: openAlerts } = useComplianceAlerts({ status: "open" });
+  const openAlertCount = openAlerts.length;
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -141,15 +147,9 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
             <SidebarMenuButton size="lg" asChild>
               <a href="/dashboard">
                 {sidebarState === "collapsed" ? (
-                  <>
-                    <img src="/logo-icon.svg" alt="Zentinelle" className="hidden dark:block size-8 shrink-0" />
-                    <img src="/logo-icon.svg" alt="Zentinelle" className="block dark:hidden size-8 shrink-0 brightness-[0.2]" />
-                  </>
+                  <img src="/logo-icon.svg" alt="Zentinelle" className="size-8 shrink-0" />
                 ) : (
-                  <>
-                    <img src="/logo.svg" alt="Zentinelle" className="hidden dark:block h-8 w-auto" />
-                    <img src="/logo2.svg" alt="Zentinelle" className="block dark:hidden h-8 w-auto" />
-                  </>
+                  <img src="/logo.svg" alt="Zentinelle" className="h-8 w-auto" />
                 )}
               </a>
             </SidebarMenuButton>
@@ -167,6 +167,8 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
                 const isActive =
                   pathname === item.url ||
                   pathname.startsWith(item.url + "/");
+                const showAlertBadge =
+                  item.url === "/alerts" && openAlertCount > 0;
                 return (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
@@ -179,6 +181,11 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
                         <span>{item.title}</span>
                       </a>
                     </SidebarMenuButton>
+                    {showAlertBadge && (
+                      <SidebarMenuBadge className="bg-red-500/15 text-red-600 dark:text-red-400">
+                        {openAlertCount > 99 ? "99+" : openAlertCount}
+                      </SidebarMenuBadge>
+                    )}
                   </SidebarMenuItem>
                 );
               })}
