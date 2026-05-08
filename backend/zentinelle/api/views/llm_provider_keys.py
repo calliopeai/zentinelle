@@ -67,6 +67,13 @@ class LLMProviderKeysView(View):
         obj.is_active = True
         obj.save()
 
+        # Invalidate model cache so the live fetch picks up the new key
+        try:
+            from zentinelle.services.llm_model_discovery import clear_cache
+            clear_cache(provider=provider, tenant_id=tenant_id)
+        except Exception:
+            pass
+
         return JsonResponse({
             'provider': obj.provider,
             'keyPrefix': obj.key_prefix,

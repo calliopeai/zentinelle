@@ -234,10 +234,11 @@ def fetch_live_models(provider: str, tenant_id: str) -> Optional[list]:
     else:
         models = None
 
-    if models is not None:
+    if models:
         # Sort by release date desc, then by value
         models.sort(key=lambda m: (m.get('releaseDate') or '', m.get('value', '')), reverse=True)
         _CACHE[cache_key] = (now, models)
+    # Don't cache failures (None or empty) — let the next request retry
 
     return models
 
