@@ -18,17 +18,26 @@ import os
 from django.http import JsonResponse, StreamingHttpResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.views import APIView
 
 logger = logging.getLogger(__name__)
+
+
+class IsAuthenticatedOrOpenMode(BasePermission):
+    """Allow if authenticated OR if AUTH_MODE=open."""
+    def has_permission(self, request, view):
+        if os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+            return True
+        return bool(request.user and request.user.is_authenticated)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AssistantChatView(APIView):
     """Stream a GRC-aware AI assistant response."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrOpenMode]
+    authentication_classes = []
 
     def post(self, request):
         try:
@@ -47,6 +56,13 @@ class AssistantChatView(APIView):
                 {'error': 'Message is required'}, status=400
             )
 
+        from zentinelle.schema.auth_helpers import get_request_tenant_id
+        tenant_id = get_request_tenant_id(request.user)
+        if not tenant_id and os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+            tenant_id = '00000000-0000-0000-0000-000000000001'
+        if not tenant_id:
+            tenant_id = 'default'
+
         system_prompt = self._build_system_prompt(request, page_context)
 
         messages = []
@@ -63,14 +79,14 @@ class AssistantChatView(APIView):
             )
 
         response = StreamingHttpResponse(
-            self._stream_response(messages, model, provider, system_prompt),
+            self._stream_response(messages, model, provider, system_prompt, tenant_id),
             content_type='text/event-stream',
         )
         response['Cache-Control'] = 'no-cache'
         response['X-Accel-Buffering'] = 'no'
         return response
 
-    def _stream_response(self, messages, model, provider, system_prompt):
+    def _stream_response(self, messages, model, provider, system_prompt, tenant_id):
         """Sync generator bridging async stream_chat into SSE."""
         from zentinelle.services.llm_provider import (detect_provider,
                                                       stream_chat)
@@ -85,6 +101,7 @@ class AssistantChatView(APIView):
             async for chunk in stream_chat(
                 messages, model, provider,
                 system_prompt=system_prompt,
+                tenant_id=tenant_id,
             ):
                 chunks.append(chunk)
             return chunks
@@ -105,7 +122,11 @@ class AssistantChatView(APIView):
         from zentinelle.models import AgentEndpoint, Event, Policy
         from zentinelle.schema.auth_helpers import get_request_tenant_id
 
-        tenant_id = get_request_tenant_id(request.user) or 'default'
+        tenant_id = get_request_tenant_id(request.user)
+        if not tenant_id and os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+            tenant_id = '00000000-0000-0000-0000-000000000001'
+        if not tenant_id:
+            tenant_id = 'default'
 
         agent_count = AgentEndpoint.objects.filter(
             tenant_id=tenant_id

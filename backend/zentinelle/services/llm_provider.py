@@ -164,19 +164,21 @@ async def stream_chat(
     temperature: float = 0.7,
     max_tokens: int = 4096,
     system_prompt: Optional[str] = None,
+    tenant_id: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
     """
     Stream a chat completion from any supported provider.
 
     Dispatches to the appropriate backend based on provider. If provider
-    is not specified, it is auto-detected from the model name.
+    is not specified, it is auto-detected from the model name. If tenant_id
+    is provided, looks up tenant-specific encrypted API key first.
 
     Yields text content chunks as they arrive.
     """
     if not provider:
         provider = detect_provider(model)
 
-    api_key = get_api_key(provider)
+    api_key = get_api_key(provider, tenant_id)
 
     if provider == 'anthropic':
         async for chunk in _stream_anthropic(
