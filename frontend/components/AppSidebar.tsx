@@ -14,6 +14,7 @@ import {
   SidebarGroupLabel,
   SidebarRail,
   SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NavUser } from "@/components/NavUser";
@@ -118,6 +119,7 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
 
 export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
   const pathname = usePathname();
+  const { state: sidebarState } = useSidebar();
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -126,15 +128,11 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <a href="/dashboard">
-                <img
-                  src="/logo.svg"
-                  alt="Zentinelle"
-                  className="h-8 w-auto"
-                />
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Zentinelle</span>
-                  <span className="truncate text-xs">GRC Portal</span>
-                </div>
+                {sidebarState === "collapsed" ? (
+                  <img src="/logo-icon.svg" alt="Zentinelle" className="size-8 shrink-0" />
+                ) : (
+                  <img src="/logo.svg" alt="Zentinelle" className="h-8 w-auto" />
+                )}
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
