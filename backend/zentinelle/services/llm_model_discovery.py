@@ -238,9 +238,50 @@ def fetch_live_models(provider: str, tenant_id: str) -> Optional[list]:
         # Sort by release date desc, then by value
         models.sort(key=lambda m: (m.get('releaseDate') or '', m.get('value', '')), reverse=True)
         _CACHE[cache_key] = (now, models)
+        # Also persist into AIModel registry so other features see them
+        try:
+            _persist_to_registry(provider, models)
+        except Exception as e:
+            logger.warning("Failed to persist %s models to registry: %s", provider, e)
     # Don't cache failures (None or empty) — let the next request retry
 
     return models
+
+
+def _persist_to_registry(provider_slug: str, models: list) -> None:
+    """Upsert discovered models into the AIModel registry."""
+    from zentinelle.models import AIModel, AIProvider
+    from datetime import datetime
+
+    provider, _ = AIProvider.objects.get_or_create(
+        slug=provider_slug,
+        defaults={
+            'name': provider_slug.title(),
+            'is_active': True,
+        },
+    )
+
+    for m in models:
+        release_date = None
+        if m.get('releaseDate'):
+            try:
+                release_date = datetime.strptime(m['releaseDate'], '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                pass
+
+        AIModel.objects.update_or_create(
+            provider=provider,
+            model_id=m['value'],
+            defaults={
+                'name': m.get('label', m['value']),
+                'capabilities': m.get('capabilities', []),
+                'context_window': m.get('contextWindow') or 0,
+                'release_date': release_date,
+                'is_available': True,
+                'deprecated': False,
+                'risk_level': m.get('riskLevel', 'unknown'),
+            },
+        )
 
 
 def clear_cache(provider: str = None, tenant_id: str = None) -> None:

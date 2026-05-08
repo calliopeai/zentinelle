@@ -36,11 +36,43 @@ class LLMProviderKeysView(View):
                     'provider': k.provider,
                     'keyPrefix': k.key_prefix,
                     'isActive': k.is_active,
+                    'enabledForAssistant': k.enabled_for_assistant,
                     'lastUsedAt': k.last_used_at.isoformat() if k.last_used_at else None,
                     'updatedAt': k.updated_at.isoformat(),
                 }
                 for k in keys
             ],
+        })
+
+    def patch(self, request):
+        """Toggle enabled_for_assistant without changing the key itself."""
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+        provider = data.get('provider', '').strip().lower()
+        if not provider:
+            return JsonResponse({'error': 'provider is required'}, status=400)
+
+        tenant_id = _resolve_tenant_id(request)
+        obj = LLMProviderKey.objects.filter(
+            tenant_id=tenant_id, provider=provider,
+        ).first()
+        if not obj:
+            return JsonResponse({'error': 'Provider not found'}, status=404)
+
+        if 'enabledForAssistant' in data:
+            obj.enabled_for_assistant = bool(data['enabledForAssistant'])
+        if 'isActive' in data:
+            obj.is_active = bool(data['isActive'])
+        obj.save()
+
+        return JsonResponse({
+            'provider': obj.provider,
+            'keyPrefix': obj.key_prefix,
+            'isActive': obj.is_active,
+            'enabledForAssistant': obj.enabled_for_assistant,
         })
 
     def post(self, request):

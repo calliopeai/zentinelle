@@ -75,6 +75,7 @@ interface StoredKey {
   provider: string;
   keyPrefix: string;
   isActive: boolean;
+  enabledForAssistant: boolean;
   updatedAt: string;
 }
 
@@ -135,6 +136,27 @@ export default function LLMProvidersPage() {
       toast.error(err?.message ?? "Failed to save key");
     }
     setSaving(false);
+  };
+
+  const handleToggleAssistant = async (provider: string, current: boolean) => {
+    try {
+      const res = await fetch(`${API_URL}/settings/llm-providers`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider,
+          enabledForAssistant: !current,
+        }),
+      });
+      if (!res.ok) throw new Error("Toggle failed");
+      toast.success(
+        `${PROVIDER_LABELS[provider] ?? provider} ${!current ? "enabled" : "disabled"} for assistant`,
+      );
+      await refresh();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to toggle");
+    }
   };
 
   const handleDelete = async (provider: string) => {
@@ -226,6 +248,33 @@ export default function LLMProvidersPage() {
                         <div className="text-xs text-muted-foreground">
                           Key: <code className="font-mono">{storedKey.keyPrefix}…</code>
                         </div>
+                        <label className="flex items-center justify-between text-xs cursor-pointer">
+                          <span className="text-muted-foreground">
+                            Available in AI Assistant
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleToggleAssistant(
+                                provider,
+                                storedKey.enabledForAssistant,
+                              )
+                            }
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                              storedKey.enabledForAssistant
+                                ? "bg-primary"
+                                : "bg-muted-foreground/30"
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+                                storedKey.enabledForAssistant
+                                  ? "translate-x-5"
+                                  : "translate-x-1"
+                              }`}
+                            />
+                          </button>
+                        </label>
                         <div className="flex gap-2">
                           <Button
                             size="sm"

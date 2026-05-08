@@ -40,16 +40,24 @@ PROVIDER_LABELS = {
 }
 
 
-def _has_credentials(provider: str, tenant_id: str = None) -> bool:
-    """Check if a provider has API keys configured (tenant or env)."""
+def _has_credentials(provider: str, tenant_id: str = None,
+                     for_assistant: bool = False) -> bool:
+    """Check if a provider has API keys configured (tenant or env).
+
+    If for_assistant=True, also requires enabled_for_assistant=True
+    on tenant-stored keys. Env-var keys are always assistant-enabled.
+    """
     if tenant_id:
         try:
             from zentinelle.models import LLMProviderKey
-            if LLMProviderKey.objects.filter(
+            qs = LLMProviderKey.objects.filter(
                 tenant_id=tenant_id,
                 provider=provider,
                 is_active=True,
-            ).exists():
+            )
+            if for_assistant:
+                qs = qs.filter(enabled_for_assistant=True)
+            if qs.exists():
                 return True
         except Exception:
             pass
@@ -134,7 +142,7 @@ class AssistantProvidersView(View):
         all_provider_slugs = set(FALLBACK_PROVIDERS.keys()) | set(registry_by_provider.keys())
 
         for slug in all_provider_slugs:
-            if not _has_credentials(slug, tenant_id):
+            if not _has_credentials(slug, tenant_id, for_assistant=True):
                 continue
 
             # Resolution priority:

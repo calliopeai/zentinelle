@@ -31,7 +31,17 @@ class LLMProviderKey(models.Model):
     provider = models.CharField(max_length=50, db_index=True)
     encrypted_key = models.BinaryField()
     key_prefix = models.CharField(max_length=20, default="")
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether the key is configured (set to False on revoke)",
+    )
+    enabled_for_assistant = models.BooleanField(
+        default=True,
+        help_text=(
+            "Whether to expose this provider's models in the AI assistant. "
+            "Models are still discovered for the registry regardless."
+        ),
+    )
     last_used_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
