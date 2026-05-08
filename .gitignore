@@ -42,3 +42,4 @@ celerybeat-schedule
 
 # Knowledge graph (rebuild with: python scripts/codemap.py build)
 codemap.sqlite
+site/
