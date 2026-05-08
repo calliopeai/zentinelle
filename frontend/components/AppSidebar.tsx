@@ -15,6 +15,7 @@ import {
   SidebarGroupLabel,
   SidebarRail,
   SidebarSeparator,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
@@ -192,15 +193,21 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <a href="/dashboard">
-                {sidebarState === "collapsed" ? (
-                  <img src="/logo-icon.svg" alt="Zentinelle" className="size-8 shrink-0" />
-                ) : (
-                  <img src="/logo.svg" alt="Zentinelle" className="h-8 w-auto" />
-                )}
-              </a>
-            </SidebarMenuButton>
+            <div className="flex items-center gap-1">
+              <SidebarMenuButton size="lg" asChild className="flex-1">
+                <a href="/dashboard">
+                  {sidebarState === "collapsed" ? (
+                    <img src="/logo-icon.svg" alt="Zentinelle" className="size-8 shrink-0" />
+                  ) : (
+                    <img src="/logo.svg" alt="Zentinelle" className="h-8 w-auto" />
+                  )}
+                </a>
+              </SidebarMenuButton>
+              <SidebarTrigger
+                className="size-7 shrink-0 group-data-[collapsible=icon]:hidden"
+                aria-label="Collapse sidebar"
+              />
+            </div>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

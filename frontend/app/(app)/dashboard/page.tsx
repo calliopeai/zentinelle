@@ -177,28 +177,19 @@ function AgentHealthDonut({
 export default function DashboardPage() {
   const { stats, loading } = useDashboardStats();
 
-  // Generate 7-day sparkline trends from stats
+  // Real 7-day API call series from backend; agents/policies/alerts are
+  // current-state counts so we just show the latest value as a flat line.
   const sparklines = useMemo(() => {
-    const base = stats?.apiUsage?.today ?? 0;
+    const apiSeries = stats?.apiUsage?.last7Days ?? [];
     const agentTotal = stats?.agents?.total ?? 0;
     const policyTotal = stats?.policies?.total ?? 0;
     const alertCount = stats?.alerts?.length ?? 0;
 
-    function makeSpark(current: number, variance: number) {
-      const points: number[] = [];
-      for (let i = 0; i < 7; i++) {
-        const factor = 0.7 + (i / 6) * 0.3;
-        const jitter = 1 + (Math.sin(i * 2.1) * variance);
-        points.push(Math.max(0, Math.round(current * factor * jitter)));
-      }
-      return points;
-    }
-
     return {
-      agents: makeSpark(agentTotal, 0.05),
-      policies: makeSpark(policyTotal, 0.03),
-      apiCalls: makeSpark(base, 0.15),
-      alerts: makeSpark(alertCount, 0.3),
+      agents: Array(7).fill(agentTotal),
+      policies: Array(7).fill(policyTotal),
+      apiCalls: apiSeries.length === 7 ? apiSeries : Array(7).fill(stats?.apiUsage?.today ?? 0),
+      alerts: Array(7).fill(alertCount),
     };
   }, [stats]);
 

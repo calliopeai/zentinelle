@@ -127,6 +127,7 @@ class ApiUsageType:
     this_week: int = 0
     this_month: int = 0
     trend: float = 0.0
+    last_7_days: list[int] = strawberry.field(default_factory=list)
 
 
 @strawberry.type
@@ -1608,11 +1609,24 @@ class Query:
         else:
             trend = 0.0  # No change (both are 0)
 
+        # Build real 7-day series for sparkline (oldest first)
+        from datetime import timedelta
+        seven_day_series: list[int] = []
+        for i in range(6, -1, -1):
+            day_start = today_start - timedelta(days=i)
+            day_end = day_start + timedelta(days=1)
+            count = events_base.filter(
+                occurred_at__gte=day_start,
+                occurred_at__lt=day_end,
+            ).count()
+            seven_day_series.append(count)
+
         api_usage = ApiUsageType(
             today=events_today,
             this_week=events_week,
             this_month=events_month,
             trend=round(trend, 1),
+            last_7_days=seven_day_series,
         )
 
         # Recent activity from audit logs - filtered by org

@@ -24,6 +24,7 @@ export const DASHBOARD_STATS = gql`
         thisWeek
         thisMonth
         trend
+        last7Days
       }
       recentActivity {
         id

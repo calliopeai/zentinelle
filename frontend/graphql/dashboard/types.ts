@@ -23,6 +23,7 @@ export interface ApiUsage {
   thisWeek: number;
   thisMonth: number;
   trend: number;
+  last7Days: number[];
 }
 
 export interface RecentActivity {
