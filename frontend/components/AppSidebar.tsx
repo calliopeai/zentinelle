@@ -126,9 +126,11 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <a href="/dashboard">
-                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <ShieldIcon className="size-4" />
-                </div>
+                <img
+                  src="/logo.svg"
+                  alt="Zentinelle"
+                  className="h-8 w-auto"
+                />
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">Zentinelle</span>
                   <span className="truncate text-xs">GRC Portal</span>

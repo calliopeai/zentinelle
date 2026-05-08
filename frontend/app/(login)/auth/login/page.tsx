@@ -36,9 +36,7 @@ export default function LoginPage() {
   return (
     <div className="w-full max-w-sm space-y-6">
       <div className="flex flex-col items-center gap-2 text-center">
-        <div className="bg-primary text-primary-foreground flex h-12 w-12 items-center justify-center rounded-xl">
-          <ShieldIcon className="h-6 w-6" />
-        </div>
+        <img src="/logo.svg" alt="Zentinelle" className="h-10 w-auto" />
         <h1 className="text-2xl font-semibold tracking-tight">Zentinelle</h1>
         <p className="text-muted-foreground text-sm">
           Sign in to the GRC portal
