@@ -26,6 +26,9 @@ Compliance & Content Scanning endpoints:
 - POST /api/zentinelle/v1/alerts/{alert_id}/resolve
 - POST /api/zentinelle/v1/interaction
 
+AI Assistant endpoints:
+- POST /api/zentinelle/v1/assistant/chat
+
 Compliance Export endpoints:
 - GET /api/zentinelle/v1/export/violations.csv
 - GET /api/zentinelle/v1/export/compliance-report.csv
@@ -39,42 +42,26 @@ Note: Deployment operations and provisioner callbacks have moved to:
 - /api/deployments/v1/...
 """
 from django.urls import path
+
+from zentinelle.api.views import (AcknowledgeAlertView, AlertsListView,
+                                  AsyncScanView, AuditChainVerifyView,
+                                  AuditExportView, ComplianceReportSummaryView,
+                                  ConfigView, DeregisterView,
+                                  EffectivePolicyView, EvaluateView,
+                                  EventsView, ExportComplianceReportCSVView,
+                                  ExportViolationsCSVView, HeartbeatView,
+                                  IncidentCommentView, IncidentDetailView,
+                                  IncidentListView, LogInteractionView,
+                                  PolicyDiffView, PolicyHistoryListView,
+                                  RegisterView, ReportCreateView,
+                                  ReportDownloadView, ReportStatusView,
+                                  ResolveAlertView, RetentionStatusView,
+                                  ScanContentView, ScanResultView, SecretsView,
+                                  SystemPromptsView, ViolationsListView)
+from zentinelle.api.views.assistant import AssistantChatView
 from zentinelle.api.views.auth import LoginView, LogoutView, MeView
 from zentinelle.api.views.health import HealthView, ReadyView
-from zentinelle.auth.oidc import OIDCLoginView, OIDCCallbackView
-from zentinelle.api.views import (
-    RegisterView,
-    ConfigView,
-    SecretsView,
-    EventsView,
-    HeartbeatView,
-    EvaluateView,
-    DeregisterView,
-    EffectivePolicyView,
-    SystemPromptsView,
-    ScanContentView,
-    AsyncScanView,
-    ScanResultView,
-    ViolationsListView,
-    AlertsListView,
-    AcknowledgeAlertView,
-    ResolveAlertView,
-    LogInteractionView,
-    ExportViolationsCSVView,
-    ExportComplianceReportCSVView,
-    ComplianceReportSummaryView,
-    AuditChainVerifyView,
-    AuditExportView,
-    RetentionStatusView,
-    PolicyHistoryListView,
-    PolicyDiffView,
-    IncidentListView,
-    IncidentDetailView,
-    IncidentCommentView,
-    ReportCreateView,
-    ReportStatusView,
-    ReportDownloadView,
-)
+from zentinelle.auth.oidc import OIDCCallbackView, OIDCLoginView
 
 app_name = 'zentinelle'
 
@@ -89,6 +76,9 @@ urlpatterns = [
     path('auth/me', MeView.as_view(), name='auth-me'),
     path('auth/oidc/login', OIDCLoginView.as_view(), name='auth-oidc-login'),
     path('auth/oidc/callback', OIDCCallbackView.as_view(), name='auth-oidc-callback'),
+
+    # AI assistant (portal, session-authenticated)
+    path('assistant/chat', AssistantChatView.as_view(), name='assistant-chat'),
 
     # Agent-facing endpoints
     path('register', RegisterView.as_view(), name='register'),

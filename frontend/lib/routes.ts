@@ -13,6 +13,7 @@ export const routeLabels: Record<string, string> = {
   settings: "Settings",
   builder: "Prompt Builder",
   generator: "Prompt Generator",
+  assistant: "AI Assistant",
   new: "Create",
   create: "Create",
 };

@@ -132,3 +132,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── Chat bubble pulse animation ─────────────────────────────────── */
+@keyframes pulse-subtle {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(55, 239, 237, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(55, 239, 237, 0); }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}

@@ -43,6 +43,7 @@ import {
   WandIcon,
   ScanSearchIcon,
   FileBarChartIcon,
+  SparklesIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -105,6 +106,7 @@ const sections: NavSection[] = [
       },
       { title: "Prompt Builder", url: "/system-prompts/builder", icon: <PenToolIcon /> },
       { title: "Prompt Generator", url: "/system-prompts/generator", icon: <WandIcon /> },
+      { title: "AI Assistant", url: "/assistant", icon: <SparklesIcon /> },
       { title: "Token Calculator", url: "/tools/token-calculator", icon: <CpuIcon /> },
       { title: "Retention", url: "/retention", icon: <ArchiveIcon /> },
       { title: "Network", url: "/network", icon: <NetworkIcon /> },
@@ -129,9 +131,15 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
             <SidebarMenuButton size="lg" asChild>
               <a href="/dashboard">
                 {sidebarState === "collapsed" ? (
-                  <img src="/logo-icon.svg" alt="Zentinelle" className="size-8 shrink-0" />
+                  <>
+                    <img src="/logo-icon.svg" alt="Zentinelle" className="hidden dark:block size-8 shrink-0" />
+                    <img src="/logo-icon.svg" alt="Zentinelle" className="block dark:hidden size-8 shrink-0 brightness-[0.2]" />
+                  </>
                 ) : (
-                  <img src="/logo.svg" alt="Zentinelle" className="h-8 w-auto" />
+                  <>
+                    <img src="/logo.svg" alt="Zentinelle" className="hidden dark:block h-8 w-auto" />
+                    <img src="/logo2.svg" alt="Zentinelle" className="block dark:hidden h-8 w-auto" />
+                  </>
                 )}
               </a>
             </SidebarMenuButton>
