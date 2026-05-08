@@ -14,7 +14,7 @@ export interface PendingAction {
   args: Record<string, unknown>;
   hash: string;
   preview: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "completed" | "failed" | "rejected";
 }
 
 export interface NavigationSuggestion {
@@ -384,17 +384,39 @@ export function useChat() {
         if (!res.ok) {
           const errData = await res.json().catch(() => null);
           setError(errData?.error || `Action failed (${res.status})`);
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (!m.pendingActions) return m;
+              return {
+                ...m,
+                pendingActions: m.pendingActions.map((p) =>
+                  p.hash === hash ? { ...p, status: "failed" as const } : p
+                ),
+              };
+            })
+          );
           return;
         }
 
         const data = await res.json();
+        const succeeded = !data.result?.error;
 
-        // Inject the tool_call + result into the message
+        // Inject the tool_call + result into the message and finalize pending status
         setMessages((prev) =>
           prev.map((m) => {
             if (m.id !== targetMessageId) return m;
             return {
               ...m,
+              pendingActions: m.pendingActions?.map((p) =>
+                p.hash === hash
+                  ? {
+                      ...p,
+                      status: (succeeded ? "completed" : "failed") as
+                        | "completed"
+                        | "failed",
+                    }
+                  : p
+              ),
               toolCalls: [
                 ...(m.toolCalls ?? []),
                 { name: data.name, args: data.args, hash, result: data.result },
@@ -415,6 +437,17 @@ export function useChat() {
         );
       } catch {
         setError("Failed to execute approved action");
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (!m.pendingActions) return m;
+            return {
+              ...m,
+              pendingActions: m.pendingActions.map((p) =>
+                p.hash === hash ? { ...p, status: "failed" as const } : p
+              ),
+            };
+          })
+        );
       }
     },
     []

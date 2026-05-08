@@ -299,6 +299,8 @@ function PendingActionList({
       {actions.map((a) => {
         const isPending = a.status === "pending";
         const isApproved = a.status === "approved";
+        const isCompleted = a.status === "completed";
+        const isFailed = a.status === "failed";
         const isRejected = a.status === "rejected";
         return (
           <div
@@ -307,6 +309,8 @@ function PendingActionList({
               "rounded-md border px-2.5 py-2 text-[11px]",
               isPending && "border-amber-500/40 bg-amber-500/5",
               isApproved && "border-emerald-500/40 bg-emerald-500/5",
+              isCompleted && "border-emerald-500/40 bg-emerald-500/5",
+              isFailed && "border-destructive/50 bg-destructive/5",
               isRejected && "border-muted-foreground/30 bg-muted/40 opacity-70"
             )}
           >
@@ -338,6 +342,12 @@ function PendingActionList({
             )}
             {isApproved && (
               <div className="mt-1.5 text-[10px] text-emerald-500">Approved — running…</div>
+            )}
+            {isCompleted && (
+              <div className="mt-1.5 text-[10px] text-emerald-500">Completed</div>
+            )}
+            {isFailed && (
+              <div className="mt-1.5 text-[10px] text-destructive">Failed</div>
             )}
             {isRejected && (
               <div className="mt-1.5 text-[10px] text-muted-foreground">Cancelled</div>
