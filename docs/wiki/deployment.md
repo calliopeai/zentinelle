@@ -2,21 +2,23 @@
 
 Zentinelle is designed to run as an **internal service** — not publicly exposed. Deploy it inside your network, VPN, or private subnet. Agents connect to it from within the same trust boundary.
 
-## Quick Start (Docker Compose)
+## Quick Start (Docker Compose, dev/internal)
+
+Default `AUTH_MODE=open` — no login required. Just start it:
 
 ```bash
 git clone https://github.com/calliopeai/zentinelle.git
 cd zentinelle
 cp .env.example .env
-# Edit .env: set ZENTINELLE_BOOTSTRAP_SECRET and SECRET_KEY
 docker compose up -d
 ```
 
-This starts: PostgreSQL 16, Redis 7, Django backend, Celery worker + beat, Nginx reverse proxy.
+Open http://localhost:8080 — you're in the portal as admin.
 
-**First-time setup:**
+This starts 8 services: PostgreSQL 16, Redis 7, Django backend, Celery worker + beat, Nginx reverse proxy, Next.js frontend, Go LLM gateway.
+
+**For agents to register, generate a bootstrap token:**
 ```bash
-docker compose exec backend python manage.py createsuperuser
 docker compose exec backend python manage.py bootstrap_token generate \
   00000000-0000-0000-0000-000000000001 --label "default tenant"
 ```
@@ -24,8 +26,66 @@ docker compose exec backend python manage.py bootstrap_token generate \
 **Access:**
 - Portal: http://localhost:8080
 - GraphQL: http://localhost:8080/gql/zentinelle/
+- REST API: http://localhost:8080/api/zentinelle/v1/
+- LLM Gateway: http://localhost:8742 (Go sidecar)
 - Admin: http://localhost:8080/admin/
-- API: http://localhost:8080/api/zentinelle/v1/
+
+## Production Deployment
+
+### 1. Generate required secrets
+
+```bash
+docker compose exec backend python manage.py generate_secrets
+```
+
+Outputs three secrets to copy into `.env`:
+- `SECRET_KEY` — Django session/CSRF signing
+- `ZENTINELLE_SECRET_KEY` — Fernet key for encrypting LLM provider API keys
+- `ZENTINELLE_BOOTSTRAP_SECRET` — HMAC key for agent bootstrap tokens
+
+**These are unrecoverable — losing `ZENTINELLE_SECRET_KEY` makes all stored LLM provider keys unreadable.** Back them up to your secret manager.
+
+### 2. Configure auth mode
+
+| Mode | Use case |
+|------|----------|
+| `open` | Internal/dev only — rejected in production settings |
+| `local` | Built-in username/password with session cookies |
+| `sso` | OIDC/SAML via Google, Okta, Cognito, Entra ID, Keycloak |
+
+```bash
+AUTH_MODE=sso
+OIDC_PROVIDER_URL=https://your-idp.example.com
+OIDC_CLIENT_ID=...
+OIDC_CLIENT_SECRET=...
+```
+
+### 3. Set required env vars
+
+```bash
+DJANGO_SETTINGS_MODULE=config.settings.prod
+SECRET_KEY=<generated>
+ZENTINELLE_SECRET_KEY=<generated>
+ZENTINELLE_BOOTSTRAP_SECRET=<generated>
+ALLOWED_HOSTS=zentinelle.example.com,api.example.com
+CORS_ALLOWED_ORIGINS=https://app.example.com
+DATABASE_URL=postgres://user:pw@host:5432/zentinelle
+REDIS_URL=redis://redis:6379/0
+AUTH_MODE=sso
+```
+
+Production settings reject startup if any required secret is missing or `AUTH_MODE=open`.
+
+### 4. Production hardening enabled automatically
+
+In `config.settings.prod`:
+- HSTS (1 year, includeSubDomains, preload)
+- `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, `HttpOnly`, `SameSite=Lax`
+- `X-Frame-Options: DENY`
+- `Cross-Origin-Opener-Policy: same-origin`
+- `X-Content-Type-Options: nosniff`
+- CORS allowlist (no wildcard)
+- All required secrets validated at startup
 
 ---
 

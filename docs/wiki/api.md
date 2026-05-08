@@ -285,6 +285,114 @@ Report agent health and liveness.
 
 ---
 
+## AI Assistant Endpoints
+
+### POST /assistant/chat
+
+Stream a GRC-aware AI assistant response. SSE format.
+
+**Auth:** session cookie (or open mode)
+
+**Request:**
+```json
+{
+  "message": "Why was my agent blocked from web_search?",
+  "history": [{"role": "user", "content": "previous"}, {"role": "assistant", "content": "..."}],
+  "page_context": "/agents/demo-agent",
+  "model": "claude-opus-4-7",
+  "provider": "anthropic"
+}
+```
+
+**Response (SSE stream):**
+```
+data: {"content": "Looking at your "}
+
+data: {"content": "tool_permission policy..."}
+
+data: [DONE]
+```
+
+The assistant has access to your tenant's agents, policies, and recent events as system prompt context.
+
+### GET /assistant/providers
+
+List LLM providers configured for this tenant with their available models.
+
+**Query params:**
+- `require_tools=true` — only return models supporting function calling
+- `live=false` — skip live API discovery, return registry/curated only
+
+**Response:**
+```json
+{
+  "providers": [
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "source": "live",
+      "models": [
+        {
+          "value": "claude-opus-4-7",
+          "label": "Claude Opus 4.7",
+          "capabilities": ["chat", "function_calling", "vision"],
+          "contextWindow": 200000,
+          "releaseDate": "2026-04-14",
+          "supportsTools": true,
+          "supportsVision": true,
+          "riskLevel": "limited"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Resolution priority: live API → AIModel registry → curated fallback. Cached 1h.
+
+## LLM Provider Key Management
+
+### GET /settings/llm-providers
+
+List configured providers (no plaintext keys ever returned).
+
+```json
+{
+  "providers": [
+    {
+      "provider": "anthropic",
+      "keyPrefix": "sk-ant-a",
+      "isActive": true,
+      "enabledForAssistant": true,
+      "lastUsedAt": null,
+      "updatedAt": "2026-05-08T03:35:27Z"
+    }
+  ]
+}
+```
+
+### POST /settings/llm-providers
+
+Set/rotate a provider API key. Encrypted at rest with Fernet.
+
+```json
+{ "provider": "anthropic", "apiKey": "sk-ant-..." }
+```
+
+### PATCH /settings/llm-providers
+
+Toggle enable/disable for the AI assistant without removing the key.
+
+```json
+{ "provider": "anthropic", "enabledForAssistant": false }
+```
+
+### DELETE /settings/llm-providers/{provider}
+
+Remove a stored key.
+
+---
+
 ## GraphQL API (Management Portal)
 
 **Endpoint:** `POST /gql/zentinelle/`
