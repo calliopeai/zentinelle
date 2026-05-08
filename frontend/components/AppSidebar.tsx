@@ -82,8 +82,10 @@ const sections: NavSection[] = [
   {
     label: "Risk",
     items: [
-      { title: "Risks", url: "/risks", icon: <AlertTriangleIcon /> },
+      { title: "Overview", url: "/risks/overview", icon: <BarChart3Icon /> },
+      { title: "Register", url: "/risks", icon: <AlertTriangleIcon /> },
       { title: "Incidents", url: "/incidents", icon: <FlameIcon /> },
+      { title: "Reports", url: "/risks/reports", icon: <FileBarChartIcon /> },
     ],
   },
   {
