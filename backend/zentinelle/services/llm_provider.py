@@ -575,6 +575,19 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
                 'POST', f'{base_url}/chat/completions',
                 headers=headers, json=body,
             ) as resp:
+                if resp.status_code == 404:
+                    body_txt = ''
+                    try:
+                        body_bytes = await resp.aread()
+                        body_txt = body_bytes.decode('utf-8', errors='ignore')[:200]
+                    except Exception:
+                        pass
+                    raise RuntimeError(
+                        f"Model '{model}' is not available on {provider} for "
+                        f"chat completions. It may be a non-chat model (audio, "
+                        f"image, realtime) or have been deprecated."
+                        + (f" {body_txt}" if body_txt else "")
+                    )
                 resp.raise_for_status()
                 async for line in resp.aiter_lines():
                     if not line.startswith('data: '):
@@ -774,6 +787,12 @@ async def _stream_openai_compat(
             headers=headers,
             json=body,
         ) as response:
+            if response.status_code == 404:
+                raise RuntimeError(
+                    f"Model '{model}' is not available on {provider} for "
+                    f"chat completions. It may be a non-chat model (audio, "
+                    f"image, realtime) or have been deprecated."
+                )
             response.raise_for_status()
             async for line in response.aiter_lines():
                 if not line.startswith('data: '):

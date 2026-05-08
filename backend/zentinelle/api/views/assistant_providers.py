@@ -110,6 +110,7 @@ class AssistantProvidersView(View):
         # Query the AIModel registry — chat-capable models, available, sorted by recency
         qs = AIModel.objects.filter(
             is_available=True,
+            enabled_for_chat=True,
             model_type__in=['llm', 'multimodal', 'reasoning'],
         ).select_related('provider')
 
@@ -165,8 +166,17 @@ class AssistantProvidersView(View):
             if not skip_live:
                 live_models = fetch_live_models(slug, tenant_id)
 
+            # Intersect live results with the user-controlled enable list:
+            # any model_id explicitly disabled in AIModel registry is filtered out.
+            disabled_ids = set(
+                AIModel.objects.filter(
+                    provider__slug=slug,
+                    enabled_for_chat=False,
+                ).values_list('model_id', flat=True)
+            )
+
             if live_models:
-                models = live_models
+                models = [m for m in live_models if m.get('value') not in disabled_ids]
                 if require_tools:
                     models = [m for m in models if m.get('supportsTools')]
                 if models:

@@ -64,6 +64,9 @@ from zentinelle.api.views import (AcknowledgeAlertView, AlertsListView,
                                   SystemPromptsView, ViolationsListView)
 from zentinelle.api.views.assistant import (AssistantChatView,
                                               AssistantExecuteToolView)
+from zentinelle.api.views.assistant_models import (AssistantModelsBulkView,
+                                                    AssistantModelsListView,
+                                                    AssistantModelsToggleView)
 from zentinelle.api.views.assistant_providers import AssistantProvidersView
 from zentinelle.api.views.llm_provider_keys import (LLMProviderKeyDeleteView,
                                                     LLMProviderKeysView)
@@ -89,6 +92,9 @@ urlpatterns = [
     path('assistant/chat', AssistantChatView.as_view(), name='assistant-chat'),
     path('assistant/execute-tool', AssistantExecuteToolView.as_view(), name='assistant-execute-tool'),
     path('assistant/providers', AssistantProvidersView.as_view(), name='assistant-providers'),
+    path('assistant/models', AssistantModelsListView.as_view(), name='assistant-models-list'),
+    path('assistant/models/toggle', AssistantModelsToggleView.as_view(), name='assistant-models-toggle'),
+    path('assistant/models/bulk', AssistantModelsBulkView.as_view(), name='assistant-models-bulk'),
 
     # LLM provider key management (encrypted at rest, per-tenant)
     path('settings/llm-providers', LLMProviderKeysView.as_view(), name='llm-provider-keys'),

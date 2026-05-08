@@ -25,17 +25,55 @@ _CACHE_TTL_SECONDS = 3600  # 1 hour
 
 
 def _is_chat_model(model_id: str) -> bool:
-    """Filter out non-chat models (embeddings, audio, image gen, moderation)."""
+    """Filter out non-chat models (embeddings, audio, image gen, moderation, voice/realtime)."""
     m = model_id.lower()
     if any(x in m for x in [
         'embedding', 'whisper', 'tts', 'dall-e', 'davinci',
         'babbage', 'ada', 'curie', 'moderation', 'instructpix',
         'stable-diffusion', 'sdxl', 'flux', 'midjourney',
+        # OpenAI variants that aren't text chat
+        'realtime', 'audio', '-image', 'image-',
+        # Speech / transcription
+        'transcribe', 'voice',
+        # Reranker / classifier / specialized non-chat
+        'rerank', 'reranker',
+        # Video generation
+        'sora',
+        # Specialized variants that don't use standard /chat/completions
+        'search-api', 'search-preview',
+        'deep-research',
+        'computer-use',
     ]):
         return False
-    if m.startswith('text-embedding'):
+    if m.startswith(('text-embedding', 'gpt-image', 'chatgpt-image', 'sora-')):
         return False
     return True
+
+
+def _dedupe_by_label(models: list) -> list:
+    """Collapse snapshot/dated aliases (gpt-5.5, gpt-5.5-2026-04-01, ...) to one entry.
+
+    Keeps the entry with the latest releaseDate per label, falling back to the
+    shortest (most canonical) model ID when dates tie or are missing.
+    """
+    if not models:
+        return models
+    by_label: dict = {}
+    for m in models:
+        label = m.get('label') or m.get('value', '')
+        existing = by_label.get(label)
+        if existing is None:
+            by_label[label] = m
+            continue
+        # Prefer entry with later releaseDate; tie-break on shorter (canonical) id
+        new_date = m.get('releaseDate') or ''
+        old_date = existing.get('releaseDate') or ''
+        if new_date > old_date:
+            by_label[label] = m
+        elif new_date == old_date:
+            if len(m.get('value', '')) < len(existing.get('value', '')):
+                by_label[label] = m
+    return list(by_label.values())
 
 
 def _clean_label(model_id: str, provider: str) -> str:
@@ -57,11 +95,19 @@ def _clean_label(model_id: str, provider: str) -> str:
             return f"Claude {family} {version}".strip()
     if provider == 'openai':
         # gpt-4o-2024-11-20 → GPT-4o
+        # gpt-4o-mini-2024-11-20 → GPT-4o mini
+        # gpt-5.5-mini → GPT-5.5 mini
         if model_id.startswith('gpt-'):
-            base = model_id[4:].split('-')[0]
-            return f"GPT-{base.upper() if len(base) <= 4 else base}"
-        if model_id.startswith('o1') or model_id.startswith('o3') or model_id.startswith('o4'):
-            return model_id
+            stem = model_id[4:]
+            # Strip trailing date snapshots: -YYYY-MM-DD or -YYYYMMDD
+            import re
+            stem = re.sub(r'-\d{4}-\d{2}-\d{2}$', '', stem)
+            stem = re.sub(r'-\d{8}$', '', stem)
+            stem = re.sub(r'-\d{4}-\d{2}$', '', stem)
+            return f"GPT-{stem}"
+        if model_id.startswith(('o1', 'o3', 'o4')):
+            import re
+            return re.sub(r'-\d{4}-\d{2}-\d{2}$', '', model_id)
     return model_id
 
 
@@ -96,7 +142,7 @@ def _fetch_anthropic_models(api_key: str) -> Optional[list]:
                 'supportsVision': True,
                 'riskLevel': 'limited',
             })
-        return models
+        return _dedupe_by_label(models)
     except Exception as e:
         logger.warning("Failed to fetch Anthropic models: %s", e)
         return None
@@ -146,7 +192,7 @@ def _fetch_openai_compat_models(provider: str, api_key: str) -> Optional[list]:
                 'supportsVision': False,
                 'riskLevel': 'limited',
             })
-        return models
+        return _dedupe_by_label(models)
     except Exception as e:
         logger.warning("Failed to fetch %s models: %s", provider, e)
         return None
@@ -181,6 +227,7 @@ def _fetch_google_models(api_key: str) -> Optional[list]:
                 'supportsVision': True,
                 'riskLevel': 'limited',
             })
+        return _dedupe_by_label(models)
         return models
     except Exception as e:
         logger.warning("Failed to fetch Google models: %s", e)
@@ -209,7 +256,7 @@ def _fetch_ollama_models() -> Optional[list]:
                 'supportsVision': False,
                 'riskLevel': 'unknown',
             })
-        return models
+        return _dedupe_by_label(models)
     except Exception:
         return None
 

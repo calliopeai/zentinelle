@@ -118,6 +118,10 @@ class AIModel(Tracking):
         default=True,
         help_text='Is model currently available from provider?'
     )
+    enabled_for_chat = models.BooleanField(
+        default=True,
+        help_text='User-controlled: include this model in the assistant chat picker.'
+    )
     deprecated = models.BooleanField(default=False)
     deprecation_date = models.DateField(null=True, blank=True)
     replacement_model = models.ForeignKey(

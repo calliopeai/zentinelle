@@ -27,9 +27,11 @@ import {
   KeyIcon,
   TrashIcon,
   PlusIcon,
+  SlidersHorizontalIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useConfirm } from "@/hooks/use-confirm";
+import { ManageModelsDialog } from "./manage-models-dialog";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/zentinelle/v1";
@@ -88,6 +90,7 @@ export default function LLMProvidersPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [keyValue, setKeyValue] = useState("");
   const [saving, setSaving] = useState(false);
+  const [managingModels, setManagingModels] = useState<string | null>(null);
 
   const refresh = async () => {
     setLoading(true);
@@ -283,7 +286,15 @@ export default function LLMProvidersPage() {
                             />
                           </button>
                         </label>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setManagingModels(provider)}
+                          >
+                            <SlidersHorizontalIcon className="h-3 w-3 mr-1" />
+                            Models
+                          </Button>
                           <Button
                             size="sm"
                             variant="outline"
@@ -382,6 +393,15 @@ export default function LLMProvidersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {managingModels && (
+        <ManageModelsDialog
+          provider={managingModels}
+          providerLabel={PROVIDER_LABELS[managingModels] ?? managingModels}
+          open={!!managingModels}
+          onOpenChange={(open) => !open && setManagingModels(null)}
+        />
+      )}
     </div>
   );
 }
