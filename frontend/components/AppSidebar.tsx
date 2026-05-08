@@ -41,6 +41,9 @@ import {
   FlameIcon,
   CheckCircleIcon,
   BookOpenIcon,
+  HelpCircleIcon,
+  GithubIcon,
+  ExternalLinkIcon,
   SettingsIcon,
   PlayIcon,
   SearchCheckIcon,
@@ -280,6 +283,47 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
         })}
       </SidebarContent>
       <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="Documentation">
+              <a
+                href="https://zentinelle.dev"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <BookOpenIcon />
+                <span>Documentation</span>
+                <ExternalLinkIcon className="ml-auto size-3 opacity-60" />
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="GitHub Wiki">
+              <a
+                href="https://github.com/calliopeai/zentinelle/wiki"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <HelpCircleIcon />
+                <span>Wiki</span>
+                <ExternalLinkIcon className="ml-auto size-3 opacity-60" />
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="GitHub Repo">
+              <a
+                href="https://github.com/calliopeai/zentinelle"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <GithubIcon />
+                <span>GitHub</span>
+                <ExternalLinkIcon className="ml-auto size-3 opacity-60" />
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <ThemeToggle />
         <SidebarSeparator />
         <NavUser ssrUser={ssrUser} />
