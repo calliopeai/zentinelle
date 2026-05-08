@@ -229,6 +229,15 @@ async def agentic_chat(
             yield ev
         return
 
+    if provider == 'google':
+        async for ev in _gemini_tool_loop(
+            messages, model, api_key, temperature, max_tokens,
+            system_prompt, tenant_id, max_tool_iterations,
+            approved, actor,
+        ):
+            yield ev
+        return
+
     # Fallback: plain text stream, no tools
     async for chunk in stream_chat(
         messages, model, provider, temperature, max_tokens,
@@ -731,6 +740,242 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
 
         if any_pending and not any_executed:
             # All calls pending — let model narrate once more then stop.
+            pass
+
+    yield {'type': 'done'}
+
+
+# JSON Schema keys Gemini's functionDeclarations accepts. Anything else
+# (default, additionalProperties, $schema, $ref, oneOf/anyOf/allOf,
+# patternProperties, const, examples, title) trips a 400 INVALID_ARGUMENT.
+_GEMINI_SCHEMA_KEYS = frozenset({
+    'type', 'description', 'enum', 'properties', 'required',
+    'items', 'nullable', 'format', 'minimum', 'maximum',
+    'minItems', 'maxItems', 'minLength', 'maxLength',
+})
+
+
+def _sanitize_schema_for_gemini(schema):
+    """Recursively strip JSON Schema fields Gemini doesn't accept.
+
+    Gemini's OpenAPI-subset schema is strict — passing unsupported keys
+    like 'default' or 'additionalProperties' returns 400. We walk the tree
+    and keep only the supported keys.
+    """
+    if isinstance(schema, dict):
+        out = {}
+        for k, v in schema.items():
+            if k not in _GEMINI_SCHEMA_KEYS:
+                continue
+            if k == 'properties' and isinstance(v, dict):
+                out[k] = {pk: _sanitize_schema_for_gemini(pv) for pk, pv in v.items()}
+            elif k == 'items':
+                out[k] = _sanitize_schema_for_gemini(v)
+            else:
+                out[k] = v
+        return out
+    if isinstance(schema, list):
+        return [_sanitize_schema_for_gemini(x) for x in schema]
+    return schema
+
+
+async def _gemini_tool_loop(messages, model, api_key, temperature,
+                            max_tokens, system_prompt, tenant_id,
+                            max_iter, approved, actor):
+    """Google Gemini function-calling loop.
+
+    Gemini's envelope differs from Anthropic/OpenAI in three load-bearing
+    ways:
+      1. Roles are 'user' | 'model' (not 'assistant'); system goes in
+         'systemInstruction', not the contents array.
+      2. Tools are declared as a single tools entry containing a
+         functionDeclarations array; each declaration uses 'parameters'
+         instead of 'input_schema' and rejects unknown JSON Schema keys.
+      3. Tool calls/results are 'parts' on a turn — a single model turn
+         may contain multiple functionCall parts, and they all get
+         answered in one user turn full of functionResponse parts.
+    """
+    from zentinelle.services.llm_tools import REQUIRES_CONFIRMATION, TOOL_SCHEMAS
+
+    function_declarations = [
+        {
+            'name': t['name'],
+            'description': t.get('description', ''),
+            'parameters': _sanitize_schema_for_gemini(
+                t.get('input_schema', {'type': 'object', 'properties': {}})
+            ),
+        }
+        for t in TOOL_SCHEMAS
+    ]
+    tools_payload = [{'functionDeclarations': function_declarations}]
+
+    # Translate the inbound chat history into Gemini's contents/parts shape.
+    # Inbound messages may carry plain 'content' strings (early turns) or
+    # already be in Gemini parts form (we never round-trip that here, so
+    # treat them as text).
+    contents: list = []
+    for msg in messages:
+        role = 'user' if msg.get('role') == 'user' else 'model'
+        text = msg.get('content', '')
+        if isinstance(text, list):
+            # Defensive — flatten to text if a structured payload slipped in
+            text = ''.join(
+                p.get('text', '') for p in text if isinstance(p, dict)
+            )
+        contents.append({'role': role, 'parts': [{'text': str(text)}]})
+
+    url = (
+        f'https://generativelanguage.googleapis.com/v1beta/models/'
+        f'{model}:streamGenerateContent?alt=sse&key={api_key}'
+    )
+
+    for _ in range(max_iter):
+        body = {
+            'contents': contents,
+            'tools': tools_payload,
+            'generationConfig': {
+                'temperature': temperature,
+                'maxOutputTokens': max_tokens,
+            },
+        }
+        if system_prompt:
+            body['systemInstruction'] = {'parts': [{'text': system_prompt}]}
+
+        # Accumulate parts in arrival order so we preserve the model's
+        # interleaving of text and functionCall parts when we echo the
+        # turn back into 'contents'.
+        assistant_parts: list = []
+        function_calls: list = []  # [{name, args}]
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            async with client.stream('POST', url, json=body) as resp:
+                if resp.status_code >= 400:
+                    body_txt = ''
+                    try:
+                        body_bytes = await resp.aread()
+                        body_txt = body_bytes.decode('utf-8', errors='ignore')[:500]
+                    except Exception:
+                        pass
+                    logger.warning(
+                        'google streamGenerateContent %d for %s: %s',
+                        resp.status_code, model, body_txt,
+                    )
+                    raise RuntimeError(
+                        f'google rejected request ({resp.status_code}): {body_txt}'
+                    )
+                async for line in resp.aiter_lines():
+                    if not line.startswith('data: '):
+                        continue
+                    raw = line[6:].strip()
+                    if not raw:
+                        continue
+                    try:
+                        chunk = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
+                    candidates = chunk.get('candidates') or []
+                    if not candidates:
+                        continue
+                    parts = (
+                        (candidates[0].get('content') or {}).get('parts') or []
+                    )
+                    for part in parts:
+                        if 'text' in part and part.get('text') is not None:
+                            text_piece = part['text']
+                            assistant_parts.append({'text': text_piece})
+                            if text_piece:
+                                yield {'type': 'text', 'content': text_piece}
+                        elif 'functionCall' in part:
+                            fc = part.get('functionCall') or {}
+                            name = fc.get('name', '')
+                            args = fc.get('args') or {}
+                            assistant_parts.append({
+                                'functionCall': {'name': name, 'args': args},
+                            })
+                            function_calls.append({'name': name, 'args': args})
+
+        if not function_calls:
+            break
+
+        # Echo the model's turn (text + functionCall parts) back so its
+        # next prompt has the same context the model just produced.
+        contents.append({'role': 'model', 'parts': assistant_parts})
+
+        # Build one user turn full of functionResponse parts — Gemini
+        # expects all tool answers for one model turn batched together.
+        response_parts: list = []
+        any_executed = False
+        any_pending = False
+        for call in function_calls:
+            name = call['name']
+            args = call['args'] or {}
+            action_hash = _hash_action(name, args)
+            needs_confirm = (
+                name in REQUIRES_CONFIRMATION and action_hash not in approved
+            )
+
+            if needs_confirm:
+                any_pending = True
+                yield {
+                    'type': 'pending_action',
+                    'name': name,
+                    'args': args,
+                    'hash': action_hash,
+                    'preview': _format_action_preview(name, args),
+                }
+                response_parts.append({
+                    'functionResponse': {
+                        'name': name,
+                        'response': {
+                            'result': (
+                                'pending_confirmation: true, '
+                                'awaiting user approval'
+                            ),
+                        },
+                    },
+                })
+                continue
+
+            yield {
+                'type': 'tool_call',
+                'name': name,
+                'args': args,
+                'hash': action_hash,
+            }
+            result_str = await _execute_tool_with_audit(
+                name, args, tenant_id, actor
+            )
+            any_executed = True
+            try:
+                result_obj = json.loads(result_str)
+            except json.JSONDecodeError:
+                result_obj = {'raw': result_str}
+            yield {'type': 'tool_result', 'name': name, 'result': result_obj}
+            nav = result_obj.get('navigation') if isinstance(result_obj, dict) else None
+            if nav and isinstance(nav, dict):
+                yield {
+                    'type': 'navigation',
+                    'path': nav.get('path', ''),
+                    'label': nav.get('label', ''),
+                }
+            response_parts.append({
+                'functionResponse': {
+                    'name': name,
+                    # Gemini requires a JSON object under 'response' — wrap
+                    # primitives/lists under a 'result' key for consistency.
+                    'response': (
+                        result_obj
+                        if isinstance(result_obj, dict)
+                        else {'result': result_obj}
+                    ),
+                },
+            })
+
+        contents.append({'role': 'user', 'parts': response_parts})
+
+        if any_pending and not any_executed:
+            # All calls pending — model can narrate, but won't be able to
+            # re-call the same tool until the user approves.
             pass
 
     yield {'type': 'done'}

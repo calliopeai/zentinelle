@@ -75,7 +75,7 @@ function ModelSelector({
   onValueChange: (v: string) => void;
   className?: string;
 }) {
-  const { models, loading } = useAvailableModels();
+  const { models, loading } = useAvailableModels({ requireTools: true });
   const modelsByProvider = groupByProvider(models);
   const selected = models.find((m) => m.value === value);
 

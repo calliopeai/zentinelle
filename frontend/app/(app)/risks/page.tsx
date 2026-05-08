@@ -332,7 +332,12 @@ export default function RisksPage() {
         <DataTableColumnHeader column={column} title="Name" />
       ),
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.name}</span>
+        <Link
+          href={`/risks/${row.original.id}`}
+          className="font-medium underline-offset-2 hover:underline"
+        >
+          {row.original.name}
+        </Link>
       ),
     },
     {
