@@ -45,7 +45,11 @@ class LLMProviderKeysView(View):
         })
 
     def patch(self, request):
-        """Toggle enabled_for_assistant without changing the key itself."""
+        """Toggle enabled_for_assistant without changing the key itself.
+
+        For local providers (ollama, lmstudio) without a stored key,
+        creates a placeholder row to track the toggle state.
+        """
         try:
             data = json.loads(request.body)
         except (json.JSONDecodeError, ValueError):
@@ -56,11 +60,15 @@ class LLMProviderKeysView(View):
             return JsonResponse({'error': 'provider is required'}, status=400)
 
         tenant_id = _resolve_tenant_id(request)
-        obj = LLMProviderKey.objects.filter(
+        obj, _ = LLMProviderKey.objects.get_or_create(
             tenant_id=tenant_id, provider=provider,
-        ).first()
-        if not obj:
-            return JsonResponse({'error': 'Provider not found'}, status=404)
+            defaults={
+                'encrypted_key': b'',
+                'key_prefix': '',
+                'is_active': True,
+                'enabled_for_assistant': True,
+            },
+        )
 
         if 'enabledForAssistant' in data:
             obj.enabled_for_assistant = bool(data['enabledForAssistant'])

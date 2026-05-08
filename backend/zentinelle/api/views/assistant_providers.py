@@ -42,26 +42,38 @@ PROVIDER_LABELS = {
 
 def _has_credentials(provider: str, tenant_id: str = None,
                      for_assistant: bool = False) -> bool:
-    """Check if a provider has API keys configured (tenant or env).
+    """Check if a provider has credentials AND is enabled for the assistant.
 
-    If for_assistant=True, also requires enabled_for_assistant=True
-    on tenant-stored keys. Env-var keys are always assistant-enabled.
+    Logic:
+      1. If a tenant row exists, it's the source of truth — check is_active
+         and (if for_assistant) enabled_for_assistant. This applies to
+         API-key providers AND local providers (Ollama, LM Studio).
+      2. If no tenant row exists, fall back to env vars (or assume true
+         for local providers since they don't need keys).
     """
     if tenant_id:
         try:
             from zentinelle.models import LLMProviderKey
-            qs = LLMProviderKey.objects.filter(
+            obj = LLMProviderKey.objects.filter(
                 tenant_id=tenant_id,
                 provider=provider,
-                is_active=True,
-            )
-            if for_assistant:
-                qs = qs.filter(enabled_for_assistant=True)
-            if qs.exists():
-                return True
+            ).first()
+            if obj is not None:
+                if not obj.is_active:
+                    return False
+                if for_assistant and not obj.enabled_for_assistant:
+                    return False
+                # Local providers: row exists and is enabled — that's the toggle
+                if provider in ('ollama', 'lmstudio'):
+                    return True
+                # API providers: need a key (encrypted_key) or env var fallback
+                if obj.encrypted_key:
+                    return True
+                # No stored key — fall through to env var check
         except Exception:
             pass
 
+    # Env var fallback (only used when no tenant row exists)
     if provider == 'anthropic':
         return bool(os.environ.get('ANTHROPIC_API_KEY'))
     if provider == 'google':

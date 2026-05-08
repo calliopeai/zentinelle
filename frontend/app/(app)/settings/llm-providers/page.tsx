@@ -301,6 +301,20 @@ export default function LLMProvidersPage() {
                         <p className="text-muted-foreground text-xs font-mono">
                           {isLocal ? `Set ${PROVIDER_ENV_VARS[provider]} env var` : `Env: ${PROVIDER_ENV_VARS[provider]}`}
                         </p>
+                        {isLocal && (
+                          <label className="flex items-center justify-between text-xs cursor-pointer">
+                            <span className="text-muted-foreground">
+                              Available in AI Assistant
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleAssistant(provider, true)}
+                              className="relative inline-flex h-5 w-9 items-center rounded-full bg-primary"
+                            >
+                              <span className="inline-block h-3.5 w-3.5 rounded-full bg-white translate-x-5" />
+                            </button>
+                          </label>
+                        )}
                         {!isLocal && (
                           <Button
                             size="sm"
