@@ -1,11 +1,24 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useMutation } from "@apollo/client/react";
+import { gql } from "@apollo/client";
+import { toast } from "sonner";
 import { useComplianceOverview } from "@/graphql/compliance/hooks";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircleIcon, XCircleIcon, ShieldCheckIcon } from "lucide-react";
+import { CheckCircleIcon, XCircleIcon, ShieldCheckIcon, ToggleLeftIcon, ToggleRightIcon } from "lucide-react";
+
+const TOGGLE_FRAMEWORK = gql`
+  mutation ToggleFramework($frameworkId: String!) {
+    toggleFramework(frameworkId: $frameworkId) {
+      success
+      enabled
+      frameworkId
+    }
+  }
+`;
 import {
   Radar,
   RadarChart,
@@ -79,6 +92,32 @@ export default function CompliancePage() {
     );
   }
 
+  const [enabledFrameworks, setEnabledFrameworks] = useState<Set<string>>(
+    new Set(frameworks.map((fw) => fw.id)),
+  );
+  const [toggleFramework] = useMutation(TOGGLE_FRAMEWORK);
+
+  const handleToggleFramework = async (frameworkId: string) => {
+    const newEnabled = new Set(enabledFrameworks);
+    if (newEnabled.has(frameworkId)) {
+      newEnabled.delete(frameworkId);
+    } else {
+      newEnabled.add(frameworkId);
+    }
+    setEnabledFrameworks(newEnabled);
+    try {
+      await toggleFramework({ variables: { frameworkId } });
+      toast.success(`Framework ${newEnabled.has(frameworkId) ? "enabled" : "disabled"}`);
+    } catch {
+      toast.error("Failed to update framework");
+    }
+  };
+
+  const activeFrameworks = frameworks.filter((fw) => enabledFrameworks.has(fw.id));
+  const activeRadarData = radarData.filter((d) =>
+    activeFrameworks.some((fw) => fw.name === d.framework),
+  );
+
   const totalCapabilities = overview?.capabilitiesTotal ?? 0;
   const enabledCapabilities = overview?.capabilitiesEnabled ?? 0;
 
@@ -92,7 +131,7 @@ export default function CompliancePage() {
       </div>
 
       {/* Radar chart for framework coverage */}
-      {radarData.length > 0 && (
+      {activeRadarData.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Framework Coverage Overview</CardTitle>
@@ -102,7 +141,7 @@ export default function CompliancePage() {
           </CardHeader>
           <CardContent className="flex items-center justify-center">
             <ChartContainer config={radarConfig} className="h-[320px] w-full max-w-[500px]">
-              <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="75%">
+              <RadarChart data={activeRadarData} cx="50%" cy="50%" outerRadius="75%">
                 <PolarGrid
                   stroke="var(--color-border)"
                   strokeDasharray="3 3"
@@ -224,18 +263,33 @@ export default function CompliancePage() {
       <div>
         <h2 className="mb-3 text-base font-semibold">Framework Coverage</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {frameworks.map((fw) => (
-            <Card key={fw.id}>
+          {frameworks.map((fw) => {
+            const isEnabled = enabledFrameworks.has(fw.id);
+            return (
+            <Card key={fw.id} className={isEnabled ? "" : "opacity-50"}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>{fw.name}</span>
-                  <span
-                    className={`text-sm font-bold ${coverageColor(
-                      fw.requiredPercentage
-                    )}`}
-                  >
-                    {Math.round(fw.requiredPercentage)}%
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-sm font-bold ${coverageColor(
+                        fw.requiredPercentage
+                      )}`}
+                    >
+                      {isEnabled ? `${Math.round(fw.requiredPercentage)}%` : "Off"}
+                    </span>
+                    <button
+                      onClick={() => handleToggleFramework(fw.id)}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      title={isEnabled ? "Disable framework" : "Enable framework"}
+                    >
+                      {isEnabled ? (
+                        <ToggleRightIcon className="h-5 w-5 text-primary" />
+                      ) : (
+                        <ToggleLeftIcon className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
                 </CardTitle>
                 {fw.description && (
                   <CardDescription className="line-clamp-2">
@@ -305,7 +359,8 @@ export default function CompliancePage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
