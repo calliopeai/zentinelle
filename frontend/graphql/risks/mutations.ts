@@ -20,9 +20,37 @@ export const UPDATE_RISK = gql`
   }
 `;
 
+export const REVIEW_RISK = gql`
+  mutation ReviewRisk($id: ID!) {
+    reviewRisk(id: $id) {
+      success
+      errors
+    }
+  }
+`;
+
 export const DELETE_RISK = gql`
   mutation DeleteRisk($id: ID!) {
     deleteRisk(id: $id) {
+      success
+      errors
+    }
+  }
+`;
+
+export const UPDATE_INCIDENT = gql`
+  mutation UpdateIncident($id: ID!, $input: UpdateIncidentInput!) {
+    updateIncident(id: $id, input: $input) {
+      success
+      incidentId
+      errors
+    }
+  }
+`;
+
+export const ASSIGN_INCIDENT = gql`
+  mutation AssignIncident($id: ID!, $assigneeId: String) {
+    assignIncident(id: $id, assigneeId: $assigneeId) {
       success
       errors
     }

@@ -8,7 +8,7 @@ import { MoreHorizontalIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useRisks, useRiskStats } from "@/graphql/risks/hooks";
 import { GET_RISKS } from "@/graphql/risks/queries";
-import { DELETE_RISK } from "@/graphql/risks/mutations";
+import { DELETE_RISK, REVIEW_RISK } from "@/graphql/risks/mutations";
 import { useConfirm } from "@/hooks/use-confirm";
 import type { RiskData } from "@/graphql/risks/types";
 import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
@@ -269,6 +269,18 @@ export default function RisksPage() {
   const [deleteRisk] = useMutation(DELETE_RISK, {
     refetchQueries: [GET_RISKS],
   });
+  const [reviewRisk] = useMutation(REVIEW_RISK, {
+    refetchQueries: [GET_RISKS],
+  });
+
+  const handleReview = async (risk: RiskData) => {
+    try {
+      await reviewRisk({ variables: { id: risk.id } });
+      toast.success(`Marked "${risk.name}" as reviewed`);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to mark as reviewed");
+    }
+  };
 
   const handleDelete = async (risk: RiskData) => {
     const ok = await confirmDialog({
@@ -418,6 +430,11 @@ export default function RisksPage() {
             <DropdownMenuItem onClick={() => handleEdit(row.original)}>
               Edit
             </DropdownMenuItem>
+            {row.original.status !== "closed" && (
+              <DropdownMenuItem onClick={() => handleReview(row.original)}>
+                Mark as Reviewed
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               variant="destructive"
               onClick={() => handleDelete(row.original)}
