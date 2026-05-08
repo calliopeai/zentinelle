@@ -122,8 +122,30 @@ def detect_provider(model_id: str) -> str:
     return os.environ.get('DEFAULT_LLM_PROVIDER', 'openai')
 
 
-def get_api_key(provider: str) -> str:
-    """Get API key for a provider from environment."""
+def get_api_key(provider: str, tenant_id: str = None) -> str:
+    """Get API key for a provider.
+
+    Resolution order:
+      1. Tenant-specific encrypted key from LLMProviderKey (portal-managed)
+      2. Environment variable (deployment-level)
+    """
+    # Tier 1: tenant-stored encrypted key
+    if tenant_id:
+        try:
+            from zentinelle.models import LLMProviderKey
+            obj = LLMProviderKey.objects.filter(
+                tenant_id=tenant_id,
+                provider=provider,
+                is_active=True,
+            ).first()
+            if obj:
+                key = obj.get_key()
+                if key:
+                    return key
+        except Exception:
+            pass
+
+    # Tier 2: env var
     if provider == 'anthropic':
         return os.environ.get('ANTHROPIC_API_KEY', '')
     if provider == 'google':

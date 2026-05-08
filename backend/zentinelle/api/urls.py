@@ -64,6 +64,8 @@ from zentinelle.api.views import (AcknowledgeAlertView, AlertsListView,
                                   SystemPromptsView, ViolationsListView)
 from zentinelle.api.views.assistant import AssistantChatView
 from zentinelle.api.views.assistant_providers import AssistantProvidersView
+from zentinelle.api.views.llm_provider_keys import (LLMProviderKeyDeleteView,
+                                                    LLMProviderKeysView)
 from zentinelle.api.views.auth import LoginView, LogoutView, MeView
 from zentinelle.api.views.health import HealthView, ReadyView
 from zentinelle.auth.oidc import OIDCCallbackView, OIDCLoginView
@@ -85,6 +87,10 @@ urlpatterns = [
     # AI assistant (portal, session-authenticated)
     path('assistant/chat', AssistantChatView.as_view(), name='assistant-chat'),
     path('assistant/providers', AssistantProvidersView.as_view(), name='assistant-providers'),
+
+    # LLM provider key management (encrypted at rest, per-tenant)
+    path('settings/llm-providers', LLMProviderKeysView.as_view(), name='llm-provider-keys'),
+    path('settings/llm-providers/<str:provider>', LLMProviderKeyDeleteView.as_view(), name='llm-provider-key-delete'),
 
     # Agent-facing endpoints
     path('register', RegisterView.as_view(), name='register'),

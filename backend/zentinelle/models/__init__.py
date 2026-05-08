@@ -85,6 +85,7 @@ from zentinelle.models.notification import Notification, create_notification
 
 # Tenant configuration (org settings persistence)
 from zentinelle.models.tenant_config import TenantConfig
+from zentinelle.models.llm_provider_key import LLMProviderKey  # noqa: F401
 
 # Agent Groups
 from zentinelle.models.agent_group import AgentGroup
@@ -159,6 +160,7 @@ __all__ = [
     'create_notification',
     # Tenant Config
     'TenantConfig',
+    'LLMProviderKey',
     # Agent Groups
     'AgentGroup',
     # Client Cove Integration

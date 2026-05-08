@@ -107,8 +107,22 @@ PROVIDER_LABELS = {
 }
 
 
-def _has_credentials(provider: str) -> bool:
-    """Check if a provider has API keys configured."""
+def _has_credentials(provider: str, tenant_id: str = None) -> bool:
+    """Check if a provider has API keys configured (tenant or env)."""
+    # Tier 1: tenant-stored key
+    if tenant_id:
+        try:
+            from zentinelle.models import LLMProviderKey
+            if LLMProviderKey.objects.filter(
+                tenant_id=tenant_id,
+                provider=provider,
+                is_active=True,
+            ).exists():
+                return True
+        except Exception:
+            pass
+
+    # Tier 2: env var
     if provider == 'anthropic':
         return bool(os.environ.get('ANTHROPIC_API_KEY'))
     if provider == 'google':
@@ -128,9 +142,12 @@ class AssistantProvidersView(View):
     """List providers that have API keys configured."""
 
     def get(self, request):
+        from zentinelle.schema.auth_helpers import get_request_tenant_id
+        tenant_id = get_request_tenant_id(request.user) or 'default'
+
         providers = []
         for provider, models in PROVIDER_MODELS.items():
-            if _has_credentials(provider):
+            if _has_credentials(provider, tenant_id):
                 providers.append({
                     'id': provider,
                     'name': PROVIDER_LABELS.get(provider, provider),
