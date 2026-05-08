@@ -406,7 +406,7 @@ export default function AuditLogsPage() {
             Track all changes and actions performed in your organization
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2" data-tour="audit-chain">
           <Button
             variant="outline"
             size="sm"

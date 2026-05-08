@@ -310,7 +310,7 @@ export default function CompliancePage() {
         </CardContent>
       </Card>
 
-      <div>
+      <div data-tour="compliance-frameworks">
         <h2 className="mb-3 text-base font-semibold">Framework Coverage</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {frameworks.map((fw) => {

@@ -492,8 +492,11 @@ export default function PoliciesPage() {
         </Button>
       </div>
 
-      <PolicyCoverageHeatmap policies={policies} />
+      <div data-tour="policies-heatmap">
+        <PolicyCoverageHeatmap policies={policies} />
+      </div>
 
+      <div data-tour="policies-table">
       <DataTable
         data={policies}
         columns={columns}
@@ -501,6 +504,7 @@ export default function PoliciesPage() {
         filters={filters}
         searchPlaceholder="Search policies..."
       />
+      </div>
 
       <EditPolicyDialog
         policy={editPolicy}

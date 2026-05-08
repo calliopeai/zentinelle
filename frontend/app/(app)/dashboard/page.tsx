@@ -313,7 +313,7 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       {/* Stat cards with sparklines */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div data-tour="dashboard-stats" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map(({ label, value, sub, icon: Icon, color, bg, sparkColor, sparkData }) => (
           <Card key={label}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">

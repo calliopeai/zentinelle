@@ -577,6 +577,7 @@ export default function AgentsPage() {
         </Card>
       </div>
 
+      <div data-tour="agents-table">
       <DataTable
         data={endpoints}
         columns={columns}
@@ -584,6 +585,7 @@ export default function AgentsPage() {
         filters={filters}
         searchPlaceholder="Search agents..."
       />
+      </div>
 
       <RegisterAgentDialog
         open={registerOpen}

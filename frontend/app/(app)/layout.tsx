@@ -4,6 +4,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { PageHeader } from "@/components/PageHeader";
 import { ChatBubble } from "@/components/ChatBubble";
+import { DemoTour } from "@/components/DemoTour";
 import type { SessionUser } from "@/lib/auth/session";
 
 const INTERNAL_API_URL =
@@ -34,6 +35,7 @@ export default async function AppLayout({
           {children}
         </SidebarInset>
         <ChatBubble />
+        <DemoTour />
       </SidebarProvider>
     );
   }

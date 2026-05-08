@@ -558,11 +558,13 @@ export default function RisksPage() {
         ))}
       </div>
 
+      <div data-tour="risk-overview">
       <RiskMatrix
         risks={risks}
         selectedCell={selectedCell}
         onCellClick={handleCellClick}
       />
+      </div>
 
       {selectedCell && (
         <p className="text-muted-foreground -mt-2 text-sm">

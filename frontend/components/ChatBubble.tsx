@@ -595,6 +595,7 @@ export function ChatBubble() {
       {/* Floating button */}
       <button
         onClick={() => setOpen(true)}
+        data-tour="ai-assistant-bubble"
         aria-label="Open AI assistant"
         className={cn(
           "fixed bottom-6 right-6 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-all hover:scale-105 active:scale-95",
