@@ -121,6 +121,8 @@ services:
     environment:
       - NEXT_PUBLIC_GQL_URL=http://localhost:8080/gql/zentinelle/
       - NEXT_PUBLIC_API_URL=http://localhost:8080/api/zentinelle/v1
+      - NEXT_PUBLIC_AUTH_MODE=${AUTH_MODE:-open}
+      - INTERNAL_API_URL=http://backend:8000/api/zentinelle/v1
     volumes:
       - ./frontend:/app
       - /app/node_modules

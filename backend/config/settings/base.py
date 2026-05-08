@@ -169,7 +169,12 @@ CACHES = {
 # Auth
 # =============================================================================
 
-AUTH_MODE = os.environ.get("AUTH_MODE", "standalone")
+# Auth modes:
+#   open       — no login required, everyone is admin (internal/dev deployments)
+#   local      — built-in username/password with session cookies
+#   sso        — OIDC/SAML via external provider (Google, Okta, Cognito, etc.)
+#   standalone — alias for "local" (backward compat)
+AUTH_MODE = os.environ.get("AUTH_MODE", "open")
 
 # Session-based auth (httpOnly cookies — immune to XSS)
 SESSION_COOKIE_HTTPONLY = True
