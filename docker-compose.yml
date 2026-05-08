@@ -98,6 +98,22 @@ services:
       - ./backend:/app
     command: celery -A config beat -l info
 
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    environment:
+      - ZENTINELLE_URL=http://backend:8000
+      - GATEWAY_PORT=8742
+      - FAIL_OPEN=true
+    env_file:
+      - .env
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8742:8742"
+
   frontend:
     build:
       context: ./frontend
