@@ -23,8 +23,16 @@ export default function DemoLandingPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("autostart") === "1") {
+      const isEmbed = params.get("embed") === "1";
+      if (isEmbed) {
+        sessionStorage.setItem("zentinelle:embed", "1");
+      }
       startDemoTour();
-      router.push("/dashboard");
+      // Hard navigate so the (app) layout remounts and EmbedModeStyles
+      // applies the body class on first render.
+      window.location.href = isEmbed
+        ? "/dashboard?embed=1"
+        : "/dashboard";
     }
   }, [router]);
 
@@ -32,7 +40,10 @@ export default function DemoLandingPage() {
     startDemoTour();
     // Hard navigate so the (app) layout fully remounts and the DemoTour
     // mounted there picks up the active flag from sessionStorage.
-    window.location.href = "/dashboard";
+    const isEmbed =
+      typeof window !== "undefined" &&
+      sessionStorage.getItem("zentinelle:embed") === "1";
+    window.location.href = isEmbed ? "/dashboard?embed=1" : "/dashboard";
   };
 
   return (

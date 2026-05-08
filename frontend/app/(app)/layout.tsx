@@ -5,6 +5,8 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { PageHeader } from "@/components/PageHeader";
 import { ChatBubble } from "@/components/ChatBubble";
 import { DemoTour } from "@/components/DemoTour";
+import { EmbedModeStyles } from "@/components/EmbedModeStyles";
+import { Suspense } from "react";
 import type { SessionUser } from "@/lib/auth/session";
 
 const INTERNAL_API_URL =
@@ -36,6 +38,9 @@ export default async function AppLayout({
         </SidebarInset>
         <ChatBubble />
         <DemoTour />
+        <Suspense fallback={null}>
+          <EmbedModeStyles />
+        </Suspense>
       </SidebarProvider>
     );
   }

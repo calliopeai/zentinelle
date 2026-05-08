@@ -91,8 +91,12 @@ export function DemoTour() {
 
       // Navigate first if needed, then render after route resolves
       if (step.route && step.route !== pathname) {
-        router.push(step.route);
-        // Step will render after pathname update kicks the effect
+        // Preserve embed mode across route changes
+        const isEmbed =
+          typeof window !== "undefined" &&
+          sessionStorage.getItem("zentinelle:embed") === "1";
+        const target = isEmbed ? `${step.route}?embed=1` : step.route;
+        router.push(target);
       } else {
         // Wait a tick for any element to appear (data fetches, etc.)
         setTimeout(renderHere, 250);

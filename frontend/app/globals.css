@@ -170,3 +170,29 @@
 .animate-live-pulse {
   animation: live-pulse 1.6s ease-in-out infinite;
 }
+
+/* ── Embed mode (iframe on marketing site) ──────────────────────── */
+/* Hide operator chrome so the portal renders cleanly inside an iframe.
+   Activated by EmbedModeStyles when the URL has ?embed=1 */
+body.zentinelle-embed [data-sidebar="sidebar"],
+body.zentinelle-embed [data-sidebar="trigger"],
+body.zentinelle-embed [data-sidebar="rail"] {
+  display: none !important;
+}
+body.zentinelle-embed header.flex.h-16 {
+  display: none !important;
+}
+body.zentinelle-embed [aria-label="Open AI assistant"] {
+  display: none !important;
+}
+body.zentinelle-embed main,
+body.zentinelle-embed [data-sidebar="inset"] {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+body.zentinelle-embed [data-tour='dashboard-stats'],
+body.zentinelle-embed .flex.flex-1 {
+  padding: 1rem !important;
+}
