@@ -31,6 +31,7 @@ import {
   SquareIcon,
   LoaderIcon,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { useChat, useAvailableModels, MODELS, type Message, type ChatModel } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
 
@@ -101,13 +102,19 @@ function ModelSelector({
                   <span className="flex items-center gap-1.5">
                     {m.label}
                     {m.supportsTools && (
-                      <span title="Function calling" className="text-[9px] text-emerald-500 font-mono">
-                        🔧
+                      <span
+                        title="Function calling"
+                        className="text-[9px] text-emerald-500 font-mono px-1 border border-emerald-500/30 rounded"
+                      >
+                        tools
                       </span>
                     )}
                     {m.supportsVision && (
-                      <span title="Vision" className="text-[9px] text-blue-500 font-mono">
-                        👁
+                      <span
+                        title="Vision"
+                        className="text-[9px] text-blue-500 font-mono px-1 border border-blue-500/30 rounded"
+                      >
+                        vis
                       </span>
                     )}
                   </span>
@@ -138,6 +145,62 @@ function StreamingDots() {
 }
 
 /* ── Single message row ──────────────────────────────────────────── */
+function MarkdownContent({ content }: { content: string }) {
+  // Strip emojis (Unicode emoji ranges) — defense in depth in case the LLM ignores instructions
+  const cleaned = content.replace(
+    /[\u{1F300}-\u{1F9FF}\u{1F000}-\u{1F2FF}\u{2600}-\u{27BF}\u{1FA00}-\u{1FAFF}\u{2300}-\u{23FF}]/gu,
+    "",
+  );
+  const Markdown = ReactMarkdown as React.ComponentType<{
+    children: string;
+    components?: Record<string, React.FC<any>>;
+  }>;
+
+  return (
+    <Markdown
+      components={{
+        p: ({ children }: any) => <p className="mb-1.5 last:mb-0">{children}</p>,
+        ul: ({ children }: any) => (
+          <ul className="my-1.5 space-y-0.5 list-disc pl-4">{children}</ul>
+        ),
+        ol: ({ children }: any) => (
+          <ol className="my-1.5 space-y-0.5 list-decimal pl-4">{children}</ol>
+        ),
+        li: ({ children }: any) => <li className="leading-snug">{children}</li>,
+        strong: ({ children }: any) => (
+          <strong className="font-semibold text-foreground">{children}</strong>
+        ),
+        em: ({ children }: any) => <em className="italic">{children}</em>,
+        code: ({ children }: any) => (
+          <code className="bg-background/60 rounded px-1 py-0.5 font-mono text-[12px]">
+            {children}
+          </code>
+        ),
+        pre: ({ children }: any) => (
+          <pre className="bg-background/80 rounded p-2 my-1.5 overflow-x-auto text-[12px]">
+            {children}
+          </pre>
+        ),
+        h1: ({ children }: any) => <h1 className="font-semibold mt-2 mb-1">{children}</h1>,
+        h2: ({ children }: any) => <h2 className="font-semibold mt-2 mb-1">{children}</h2>,
+        h3: ({ children }: any) => <h3 className="font-semibold mt-2 mb-1">{children}</h3>,
+        a: ({ children, href }: any) => (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline underline-offset-2"
+          >
+            {children}
+          </a>
+        ),
+      }}
+    >
+      {cleaned}
+    </Markdown>
+  );
+}
+
 function ChatMessage({ message, isStreaming }: { message: Message; isStreaming?: boolean }) {
   const isUser = message.role === "user";
   const isEmpty = !message.content && !isUser;
@@ -161,9 +224,9 @@ function ChatMessage({ message, isStreaming }: { message: Message; isStreaming?:
       </div>
       <div
         className={cn(
-          "rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap break-words",
+          "rounded-lg px-3 py-2 text-sm leading-relaxed break-words",
           isUser
-            ? "bg-primary/15 text-foreground"
+            ? "bg-primary/15 text-foreground whitespace-pre-wrap"
             : "bg-muted text-foreground"
         )}
       >
@@ -171,8 +234,10 @@ function ChatMessage({ message, isStreaming }: { message: Message; isStreaming?:
           <span className="text-muted-foreground">
             <StreamingDots />
           </span>
-        ) : (
+        ) : isUser ? (
           message.content
+        ) : (
+          <MarkdownContent content={message.content} />
         )}
         {!isEmpty && isStreaming && (
           <span className="inline-block ml-0.5 text-muted-foreground">
