@@ -17,6 +17,12 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ChevronRightIcon } from "lucide-react";
 import { useComplianceAlerts } from "@/graphql/alerts/hooks";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NavUser } from "@/components/NavUser";
@@ -144,11 +150,42 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   ssrUser: SessionUser | null;
 };
 
+const STORAGE_KEY = "zentinelle.sidebar.sections";
+
 export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
   const pathname = usePathname();
   const { state: sidebarState } = useSidebar();
   const { alerts: openAlerts } = useComplianceAlerts({ status: "open" });
   const openAlertCount = openAlerts.length;
+
+  const [openSections, setOpenSections] = React.useState<Record<string, boolean>>(
+    {},
+  );
+
+  // Hydrate from localStorage on mount
+  React.useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) setOpenSections(JSON.parse(raw));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleSection = React.useCallback(
+    (label: string, open: boolean) => {
+      setOpenSections((prev) => {
+        const next = { ...prev, [label]: open };
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          // ignore
+        }
+        return next;
+      });
+    },
+    [],
+  );
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -168,11 +205,8 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        {sections.map((section, sectionIdx) => (
-          <SidebarGroup key={section.label ?? sectionIdx}>
-            {section.label && (
-              <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
-            )}
+        {sections.map((section, sectionIdx) => {
+          const sectionItems = (
             <SidebarMenu>
               {section.items.map((item) => {
                 const isActive =
@@ -201,8 +235,42 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
                 );
               })}
             </SidebarMenu>
-          </SidebarGroup>
-        ))}
+          );
+
+          // Unlabeled sections (Dashboard) render flat — no collapse
+          if (!section.label) {
+            return (
+              <SidebarGroup key={sectionIdx}>{sectionItems}</SidebarGroup>
+            );
+          }
+
+          // Auto-open the section containing the active route
+          const containsActive = section.items.some(
+            (item) =>
+              pathname === item.url || pathname.startsWith(item.url + "/"),
+          );
+          const sectionOpen =
+            openSections[section.label] ?? (containsActive || true);
+
+          return (
+            <Collapsible
+              key={section.label}
+              open={sectionOpen}
+              onOpenChange={(open) => toggleSection(section.label!, open)}
+              className="group/collapsible"
+            >
+              <SidebarGroup>
+                <CollapsibleTrigger asChild>
+                  <SidebarGroupLabel className="group/label cursor-pointer flex items-center justify-between hover:text-sidebar-foreground transition-colors">
+                    <span>{section.label}</span>
+                    <ChevronRightIcon className="size-3 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                  </SidebarGroupLabel>
+                </CollapsibleTrigger>
+                <CollapsibleContent>{sectionItems}</CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+          );
+        })}
       </SidebarContent>
       <SidebarFooter>
         <ThemeToggle />
