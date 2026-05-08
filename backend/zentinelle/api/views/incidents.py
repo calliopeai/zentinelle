@@ -15,6 +15,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from zentinelle.api.permissions import OpenOrAgentAuth, PORTAL_OR_AGENT_AUTH
 
 from zentinelle.models import Incident, IncidentComment
 from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_tenant_id_from_request
@@ -66,8 +67,8 @@ class IncidentListView(APIView):
     POST /api/zentinelle/v1/incidents/ — create a manual incident.
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def get(self, request):
         tenant_id = get_tenant_id_from_request(request)
@@ -134,8 +135,8 @@ class IncidentDetailView(APIView):
     PATCH /api/zentinelle/v1/incidents/{id}/ — update status or assignee.
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def _get_incident(self, request, incident_id):
         tenant_id = get_tenant_id_from_request(request)
@@ -194,8 +195,8 @@ class IncidentCommentView(APIView):
     POST /api/zentinelle/v1/incidents/{id}/comments/ — add a comment to an incident.
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def _get_incident(self, request, incident_id):
         tenant_id = get_tenant_id_from_request(request)

@@ -8,6 +8,7 @@ import logging
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from zentinelle.api.permissions import OpenOrAgentAuth, PORTAL_OR_AGENT_AUTH
 
 from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_tenant_id_from_request
 from zentinelle.services.audit_chain import verify_chain, verify_recent
@@ -36,8 +37,8 @@ class AuditChainVerifyView(APIView):
         }
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def get(self, request):
         tenant_id = request.query_params.get('tenant_id')

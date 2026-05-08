@@ -13,6 +13,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from zentinelle.api.permissions import OpenOrAgentAuth, PORTAL_OR_AGENT_AUTH
 
 from zentinelle.models import Report
 from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_tenant_id_from_request
@@ -55,8 +56,8 @@ class ReportCreateView(APIView):
     Returns 201 {id, status: 'pending'}.
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def post(self, request):
         tenant_id = get_tenant_id_from_request(request)
@@ -116,8 +117,8 @@ class ReportStatusView(APIView):
     Returns report metadata including current status.
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def get(self, request, report_id):
         tenant_id = get_tenant_id_from_request(request)
@@ -136,8 +137,8 @@ class ReportDownloadView(APIView):
     Returns the generated report file. Returns 409 if not yet complete.
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def get(self, request, report_id):
         tenant_id = get_tenant_id_from_request(request)

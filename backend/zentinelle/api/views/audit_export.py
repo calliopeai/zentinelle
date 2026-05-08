@@ -24,6 +24,7 @@ from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from zentinelle.api.permissions import OpenOrAgentAuth, PORTAL_OR_AGENT_AUTH
 
 from zentinelle.models import AuditLog
 from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_tenant_id_from_request
@@ -127,8 +128,15 @@ class AuditExportView(APIView):
         format  ndjson | csv | cef  (default: ndjson)
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
+
+    # The view returns a StreamingHttpResponse with custom content-type;
+    # DRF's content negotiation would try to match a renderer for ?format=
+    # and 404 on unknown formats. Bypass it.
+    def perform_content_negotiation(self, request, force=False):
+        from rest_framework.renderers import JSONRenderer
+        return (JSONRenderer(), JSONRenderer.media_type)
 
     def get(self, request):
         tenant_id = get_tenant_id_from_request(request)

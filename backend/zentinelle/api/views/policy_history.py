@@ -10,6 +10,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from zentinelle.api.permissions import OpenOrAgentAuth, PORTAL_OR_AGENT_AUTH
 
 from zentinelle.models import Policy
 from zentinelle.models.policy import PolicyHistory
@@ -80,8 +81,8 @@ class PolicyHistoryListView(APIView):
     Returns paginated history records newest first.
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def get(self, request, policy_id: int):
         tenant_id = get_tenant_id_from_request(request)
@@ -128,8 +129,8 @@ class PolicyDiffView(APIView):
     Returns a field-level diff between the two snapshot versions.
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def get(self, request, policy_id: int):
         tenant_id = get_tenant_id_from_request(request)

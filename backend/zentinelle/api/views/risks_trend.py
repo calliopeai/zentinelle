@@ -22,6 +22,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
+from zentinelle.api.permissions import OpenOrAgentAuth, PORTAL_OR_AGENT_AUTH
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -62,8 +63,8 @@ class RiskTrendView(APIView):
         }
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def get(self, request):
         tenant_id = get_tenant_id_from_request(request)

@@ -29,6 +29,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from zentinelle.api.permissions import OpenOrAgentAuth, PORTAL_OR_AGENT_AUTH
 
 from zentinelle.models import (
     ContentRule,
@@ -54,8 +55,8 @@ class ScanContentView(APIView):
     Returns immediately with scan results and action to take.
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def post(self, request):
         """
@@ -172,8 +173,8 @@ class AsyncScanView(APIView):
     analyzed after the fact (e.g., for AI responses).
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def post(self, request):
         """
@@ -235,8 +236,8 @@ class ScanResultView(APIView):
     GET /api/zentinelle/v1/scan/{scan_id}
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def get(self, request, scan_id):
         endpoint = get_endpoint_from_request(request)
@@ -304,8 +305,8 @@ class ViolationsListView(APIView):
         - offset: Pagination offset
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def get(self, request):
         endpoint = get_endpoint_from_request(request)
@@ -380,8 +381,8 @@ class AlertsListView(APIView):
         - offset: Pagination offset
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def get(self, request):
         endpoint = get_endpoint_from_request(request)
@@ -440,8 +441,8 @@ class AcknowledgeAlertView(APIView):
     POST /api/zentinelle/v1/alerts/{alert_id}/acknowledge
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def post(self, request, alert_id):
         endpoint = get_endpoint_from_request(request)
@@ -489,8 +490,8 @@ class ResolveAlertView(APIView):
     }
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def post(self, request, alert_id):
         endpoint = get_endpoint_from_request(request)
@@ -537,8 +538,8 @@ class LogInteractionView(APIView):
     the full request/response for audit and analysis.
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def post(self, request):
         """
@@ -663,8 +664,12 @@ class ExportViolationsCSVView(APIView):
         - rule_type: filter by rule type (optional)
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
+
+    def perform_content_negotiation(self, request, force=False):
+        from rest_framework.renderers import JSONRenderer
+        return (JSONRenderer(), JSONRenderer.media_type)
 
     def get(self, request):
         tenant_id = get_tenant_id_from_request(request)
@@ -756,8 +761,12 @@ class ExportComplianceReportCSVView(APIView):
         - framework: filter by framework slug (optional)
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
+
+    def perform_content_negotiation(self, request, force=False):
+        from rest_framework.renderers import JSONRenderer
+        return (JSONRenderer(), JSONRenderer.media_type)
 
     def get(self, request):
         tenant_id = get_tenant_id_from_request(request)
@@ -842,8 +851,8 @@ class ComplianceReportSummaryView(APIView):
         - end:   ISO8601 datetime (default: now)
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
 
     def get(self, request):
         tenant_id = get_tenant_id_from_request(request)

@@ -93,11 +93,22 @@ def get_endpoint_from_request(request) -> AgentEndpoint:
 def get_tenant_id_from_request(request):
     """
     Helper to get tenant_id from request.
-    Works with API key auth (agent) and session auth (admin).
+    Works with API key auth (agent), session auth (admin), and open mode.
     """
+    import os
+
     # Agent API key auth
     if hasattr(request, 'user') and isinstance(request.user, ZentinelleAgentUser):
         return request.user.tenant_id
+
+    # Session/portal auth — single-tenant standalone deployment
+    user = getattr(request, 'user', None)
+    if user and getattr(user, 'is_authenticated', False):
+        return '00000000-0000-0000-0000-000000000001'
+
+    # Open mode — even anonymous users get the standalone tenant
+    if os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+        return '00000000-0000-0000-0000-000000000001'
 
     return None
 
