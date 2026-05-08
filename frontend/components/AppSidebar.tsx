@@ -103,6 +103,7 @@ const sections: NavSection[] = [
     items: [
       { title: "Overview", url: "/compliance", icon: <CheckCircleIcon /> },
       { title: "Frameworks", url: "/compliance/frameworks", icon: <ShieldIcon /> },
+      { title: "Gap Analysis", url: "/compliance/gaps", icon: <SearchCheckIcon /> },
       { title: "Reports", url: "/compliance/reports", icon: <FileBarChartIcon /> },
     ],
   },
