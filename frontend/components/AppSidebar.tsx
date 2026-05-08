@@ -47,6 +47,8 @@ import {
   ScanSearchIcon,
   FileBarChartIcon,
   SparklesIcon,
+  LayersIcon,
+  HistoryIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -123,6 +125,7 @@ const sections: NavSection[] = [
     label: "Settings",
     items: [
       { title: "General", url: "/settings", icon: <SettingsIcon /> },
+      { title: "API Keys", url: "/settings/api-keys", icon: <KeyIcon /> },
       { title: "Network Policies", url: "/network", icon: <NetworkIcon /> },
       { title: "Data Retention", url: "/retention", icon: <ArchiveIcon /> },
     ],

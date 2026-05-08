@@ -45,7 +45,7 @@ class AgentEndpointModelTest(TestCase):
             tenant_id=STANDALONE_TENANT,
             agent_id='test-agent-001',
             name='Test Agent',
-            agent_type=AgentEndpoint.AgentType.JUPYTERHUB,
+            agent_type=AgentEndpoint.AgentType.CALLIOPE,
             api_key_hash=key_hash,
             api_key_prefix=key_prefix,
         )
