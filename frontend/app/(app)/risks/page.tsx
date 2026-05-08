@@ -64,17 +64,17 @@ const IMPACT_LABELS = ["Negligible", "Minor", "Moderate", "Major", "Severe"];
 const LIKELIHOOD_LABELS = ["Rare", "Unlikely", "Possible", "Likely", "Almost Certain"];
 
 function matrixCellColor(score: number): string {
-  if (score <= 4)  return "bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30";
-  if (score <= 9)  return "bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/30";
-  if (score <= 15) return "bg-orange-500/20 hover:bg-orange-500/30 border-orange-500/30";
-  return "bg-red-500/20 hover:bg-red-500/30 border-red-500/30";
+  if (score <= 4)  return "bg-emerald-600/30 hover:bg-emerald-500/50 border-emerald-500/40";
+  if (score <= 9)  return "bg-yellow-500/30 hover:bg-yellow-400/50 border-yellow-500/40";
+  if (score <= 15) return "bg-orange-500/35 hover:bg-orange-400/55 border-orange-500/50";
+  return "bg-red-500/40 hover:bg-red-400/60 border-red-500/50";
 }
 
 function matrixCellColorSelected(score: number): string {
-  if (score <= 4)  return "bg-emerald-500/40 border-emerald-500/60 ring-2 ring-emerald-500/50";
-  if (score <= 9)  return "bg-amber-500/40 border-amber-500/60 ring-2 ring-amber-500/50";
-  if (score <= 15) return "bg-orange-500/40 border-orange-500/60 ring-2 ring-orange-500/50";
-  return "bg-red-500/40 border-red-500/60 ring-2 ring-red-500/50";
+  if (score <= 4)  return "bg-emerald-500/60 border-emerald-400 ring-2 ring-emerald-400/60";
+  if (score <= 9)  return "bg-yellow-500/60 border-yellow-400 ring-2 ring-yellow-400/60";
+  if (score <= 15) return "bg-orange-500/60 border-orange-400 ring-2 ring-orange-400/60";
+  return "bg-red-500/60 border-red-400 ring-2 ring-red-400/60";
 }
 
 interface MatrixCell {
@@ -173,7 +173,7 @@ function RiskMatrix({
                     </span>
                   </div>
                   {/* Cells */}
-                  <div className="grid flex-1 grid-cols-5 gap-1">
+                  <div className="grid flex-1 grid-cols-5 gap-0">
                     {row.map((cell) => {
                       const isSelected =
                         selectedCell?.likelihood === cell.likelihood &&
@@ -182,7 +182,7 @@ function RiskMatrix({
                         <button
                           key={`${cell.likelihood}-${cell.impact}`}
                           onClick={() => onCellClick(cell.likelihood, cell.impact)}
-                          className={`relative flex min-h-[52px] flex-col items-center justify-center rounded-md border transition-all ${
+                          className={`relative flex min-h-[52px] flex-col items-center justify-center border transition-all ${
                             isSelected
                               ? matrixCellColorSelected(cell.score)
                               : matrixCellColor(cell.score)
