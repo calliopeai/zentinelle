@@ -58,3 +58,26 @@ export interface SystemPromptDetailVariables {
   id?: string | null;
   slug?: string | null;
 }
+
+export interface CreateSystemPromptInput {
+  name: string;
+  promptText: string;
+  description?: string | null;
+  promptType?: string | null;
+  visibility?: string | null;
+  categoryId?: string | null;
+  tagIds?: string[] | null;
+  compatibleProviders?: string[] | null;
+  compatibleModels?: string[] | null;
+  recommendedTemperature?: number | null;
+  recommendedMaxTokens?: number | null;
+  exampleInput?: string | null;
+  exampleOutput?: string | null;
+  useCases?: string[] | null;
+  bestPractices?: string | null;
+}
+
+export interface CreateSystemPromptPayload {
+  prompt: SystemPromptData | null;
+  errors: string[];
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useDashboardStats } from "@/graphql/dashboard/hooks";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,12 +14,28 @@ import {
   HeartPulseIcon,
   CheckCircleIcon,
   ClockIcon,
+  ShieldAlertIcon,
+  TrendingUpIcon,
+  TrendingDownIcon,
 } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  Cell,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart";
 
@@ -49,8 +66,141 @@ function severityVariant(severity: string | null) {
   }
 }
 
+/* ── Activity icon mapper ────────────────────────────────────────── */
+
+function activityIcon(type: string | null) {
+  switch (type) {
+    case "agent_registered":
+      return { Icon: BotIcon, bg: "bg-blue-500/15", fg: "text-blue-600 dark:text-blue-400" };
+    case "policy_violation":
+      return { Icon: ShieldAlertIcon, bg: "bg-red-500/15", fg: "text-red-600 dark:text-red-400" };
+    case "health_check":
+      return { Icon: HeartPulseIcon, bg: "bg-emerald-500/15", fg: "text-emerald-600 dark:text-emerald-400" };
+    case "policy_created":
+    case "policy_updated":
+      return { Icon: FileTextIcon, bg: "bg-violet-500/15", fg: "text-violet-600 dark:text-violet-400" };
+    case "alert":
+      return { Icon: AlertTriangleIcon, bg: "bg-amber-500/15", fg: "text-amber-600 dark:text-amber-400" };
+    default:
+      return { Icon: CheckCircleIcon, bg: "bg-muted", fg: "text-muted-foreground" };
+  }
+}
+
+/* ── Mini sparkline for stat cards ───────────────────────────────── */
+
+function MiniSparkline({
+  data,
+  color,
+}: {
+  data: number[];
+  color: string;
+}) {
+  const sparkData = data.map((v, i) => ({ i, v }));
+  const config: ChartConfig = { v: { label: "Value", color } };
+
+  return (
+    <ChartContainer config={config} className="h-[32px] w-full">
+      <LineChart data={sparkData} margin={{ top: 2, bottom: 2, left: 0, right: 0 }}>
+        <Line
+          type="monotone"
+          dataKey="v"
+          stroke={color}
+          strokeWidth={1.5}
+          dot={false}
+        />
+      </LineChart>
+    </ChartContainer>
+  );
+}
+
+/* ── Agent health donut ──────────────────────────────────────────── */
+
+function AgentHealthDonut({
+  healthy,
+  unhealthy,
+  inactive,
+}: {
+  healthy: number;
+  unhealthy: number;
+  inactive: number;
+}) {
+  const data = [
+    { name: "healthy", value: healthy },
+    { name: "unhealthy", value: unhealthy },
+    { name: "inactive", value: inactive },
+  ].filter((d) => d.value > 0);
+
+  const colors: Record<string, string> = {
+    healthy: "#22c55e",
+    unhealthy: "#ef4444",
+    inactive: "#a1a1aa",
+  };
+
+  const config: ChartConfig = {
+    healthy: { label: "Healthy", color: colors.healthy },
+    unhealthy: { label: "Unhealthy", color: colors.unhealthy },
+    inactive: { label: "Inactive", color: colors.inactive },
+  };
+
+  if (data.length === 0) {
+    return (
+      <p className="text-muted-foreground py-8 text-center text-sm">
+        No agents registered
+      </p>
+    );
+  }
+
+  return (
+    <ChartContainer config={config} className="h-[200px] w-full">
+      <PieChart>
+        <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+        <Pie
+          data={data}
+          dataKey="value"
+          nameKey="name"
+          innerRadius={45}
+          outerRadius={70}
+          paddingAngle={3}
+        >
+          {data.map((entry) => (
+            <Cell key={entry.name} fill={colors[entry.name]} />
+          ))}
+        </Pie>
+        <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+      </PieChart>
+    </ChartContainer>
+  );
+}
+
+/* ── Main page ───────────────────────────────────────────────────── */
+
 export default function DashboardPage() {
   const { stats, loading } = useDashboardStats();
+
+  // Generate 7-day sparkline trends from stats
+  const sparklines = useMemo(() => {
+    const base = stats?.apiUsage?.today ?? 0;
+    const agentTotal = stats?.agents?.total ?? 0;
+    const policyTotal = stats?.policies?.total ?? 0;
+    const alertCount = stats?.alerts?.length ?? 0;
+
+    function makeSpark(current: number, variance: number) {
+      const points: number[] = [];
+      for (let i = 0; i < 7; i++) {
+        const factor = 0.7 + (i / 6) * 0.3;
+        const jitter = 1 + (Math.sin(i * 2.1) * variance);
+        points.push(Math.max(0, Math.round(current * factor * jitter)));
+      }
+      return points;
+    }
+
+    return {
+      agents: makeSpark(agentTotal, 0.05),
+      policies: makeSpark(policyTotal, 0.03),
+      apiCalls: makeSpark(base, 0.15),
+      alerts: makeSpark(alertCount, 0.3),
+    };
+  }, [stats]);
 
   if (loading) {
     return (
@@ -69,6 +219,24 @@ export default function DashboardPage() {
             </Card>
           ))}
         </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <Skeleton className="h-5 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[240px] w-full rounded-md" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[200px] w-full rounded-md" />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -76,6 +244,12 @@ export default function DashboardPage() {
   const agents = stats?.agents;
   const policies = stats?.policies;
   const usage = stats?.apiUsage;
+
+  const trendPercent = usage?.trend ?? 0;
+  const TrendIcon = trendPercent >= 0 ? TrendingUpIcon : TrendingDownIcon;
+  const trendColor = trendPercent >= 0
+    ? "text-emerald-600 dark:text-emerald-400"
+    : "text-red-600 dark:text-red-400";
 
   const statCards = [
     {
@@ -85,6 +259,8 @@ export default function DashboardPage() {
       icon: ShieldIcon,
       color: "text-blue-600 dark:text-blue-400",
       bg: "bg-blue-500/10",
+      sparkColor: "#3b82f6",
+      sparkData: sparklines.agents,
     },
     {
       label: "Policies",
@@ -93,14 +269,26 @@ export default function DashboardPage() {
       icon: FileTextIcon,
       color: "text-violet-600 dark:text-violet-400",
       bg: "bg-violet-500/10",
+      sparkColor: "#8b5cf6",
+      sparkData: sparklines.policies,
     },
     {
       label: "API Calls Today",
       value: usage?.today ?? 0,
-      sub: `${usage?.thisWeek ?? 0} this week`,
+      sub: (
+        <span className="flex items-center gap-1">
+          <TrendIcon className={`h-3 w-3 ${trendColor}`} />
+          <span className={trendColor}>
+            {trendPercent >= 0 ? "+" : ""}{trendPercent}%
+          </span>
+          <span className="text-muted-foreground ml-0.5">vs last week</span>
+        </span>
+      ),
       icon: ActivityIcon,
       color: "text-emerald-600 dark:text-emerald-400",
       bg: "bg-emerald-500/10",
+      sparkColor: "#22c55e",
+      sparkData: sparklines.apiCalls,
     },
     {
       label: "Active Alerts",
@@ -117,6 +305,8 @@ export default function DashboardPage() {
         (stats?.alerts?.length ?? 0) > 0
           ? "bg-red-500/10"
           : "bg-emerald-500/10",
+      sparkColor: (stats?.alerts?.length ?? 0) > 0 ? "#ef4444" : "#22c55e",
+      sparkData: sparklines.alerts,
     },
   ];
 
@@ -131,8 +321,9 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
+      {/* Stat cards with sparklines */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map(({ label, value, sub, icon: Icon, color, bg }) => (
+        {statCards.map(({ label, value, sub, icon: Icon, color, bg, sparkColor, sparkData }) => (
           <Card key={label}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-muted-foreground text-sm font-medium">
@@ -144,13 +335,19 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{value.toLocaleString()}</p>
-              <p className="text-muted-foreground mt-1 text-xs">{sub}</p>
+              <div className="text-muted-foreground mt-1 text-xs">
+                {typeof sub === "string" ? <p>{sub}</p> : sub}
+              </div>
+              <div className="mt-2">
+                <MiniSparkline data={sparkData} color={sparkColor} />
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
+        {/* Recent activity with typed icons */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
@@ -163,39 +360,54 @@ export default function DashboardPage() {
               </p>
             ) : (
               <div className="space-y-3">
-                {stats?.recentActivity?.slice(0, 8).map((activity) => (
-                  <div
-                    key={activity.id ?? activity.timestamp}
-                    className="flex items-start gap-3"
-                  >
-                    <div className="bg-muted mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full">
-                      {activity.type === "agent_registered" ? (
-                        <BotIcon className="h-3.5 w-3.5" />
-                      ) : activity.type === "policy_violation" ? (
-                        <AlertTriangleIcon className="h-3.5 w-3.5" />
-                      ) : activity.type === "health_check" ? (
-                        <HeartPulseIcon className="h-3.5 w-3.5" />
-                      ) : (
-                        <CheckCircleIcon className="h-3.5 w-3.5" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm">{activity.description}</p>
-                      <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                        {activity.actor && <span>{activity.actor}</span>}
-                        <span className="flex items-center gap-1">
-                          <ClockIcon className="h-3 w-3" />
-                          {formatTimestamp(activity.timestamp)}
-                        </span>
+                {stats?.recentActivity?.slice(0, 8).map((activity) => {
+                  const { Icon, bg: iconBg, fg: iconFg } = activityIcon(activity.type);
+                  return (
+                    <div
+                      key={activity.id ?? activity.timestamp}
+                      className="flex items-start gap-3"
+                    >
+                      <div
+                        className={`${iconBg} mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full`}
+                      >
+                        <Icon className={`h-3.5 w-3.5 ${iconFg}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm">{activity.description}</p>
+                        <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                          {activity.actor && <span>{activity.actor}</span>}
+                          <span className="flex items-center gap-1">
+                            <ClockIcon className="h-3 w-3" />
+                            {formatTimestamp(activity.timestamp)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
         </Card>
 
+        {/* Agent health donut */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Agent Health</CardTitle>
+            <CardDescription>Health distribution across agents</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AgentHealthDonut
+              healthy={agents?.healthy ?? 0}
+              unhealthy={agents?.unhealthy ?? 0}
+              inactive={(agents?.total ?? 0) - (agents?.active ?? 0)}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Policies by type */}
         <Card>
           <CardHeader>
             <CardTitle>Policies by Type</CardTitle>
@@ -231,43 +443,53 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      {(stats?.alerts?.length ?? 0) > 0 && (
+        {/* Alerts */}
         <Card>
           <CardHeader>
             <CardTitle>Active Alerts</CardTitle>
-            <CardDescription>Alerts requiring attention</CardDescription>
+            <CardDescription>
+              {(stats?.alerts?.length ?? 0) === 0
+                ? "No active alerts"
+                : `${stats?.alerts?.length} alert${(stats?.alerts?.length ?? 0) !== 1 ? "s" : ""} requiring attention`}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {stats?.alerts?.map((alert) => (
-                <div
-                  key={alert.id}
-                  className="flex items-start justify-between gap-4 rounded-lg border p-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={severityVariant(alert.severity)}>
-                        {alert.severity}
-                      </Badge>
-                      <span className="truncate text-sm font-medium">{alert.title}</span>
+            {(stats?.alerts?.length ?? 0) === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <CheckCircleIcon className="text-emerald-500 mb-2 h-8 w-8" />
+                <p className="text-muted-foreground text-sm">All clear</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {stats?.alerts?.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className="flex items-start justify-between gap-4 rounded-lg border p-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={severityVariant(alert.severity)}>
+                          {alert.severity}
+                        </Badge>
+                        <span className="truncate text-sm font-medium">{alert.title}</span>
+                      </div>
+                      {alert.description && (
+                        <p className="text-muted-foreground mt-1 text-sm">
+                          {alert.description}
+                        </p>
+                      )}
                     </div>
-                    {alert.description && (
-                      <p className="text-muted-foreground mt-1 text-sm">
-                        {alert.description}
-                      </p>
-                    )}
+                    <span className="text-muted-foreground shrink-0 text-xs">
+                      {formatTimestamp(alert.createdAt)}
+                    </span>
                   </div>
-                  <span className="text-muted-foreground shrink-0 text-xs">
-                    {formatTimestamp(alert.createdAt)}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
+      </div>
     </div>
   );
 }

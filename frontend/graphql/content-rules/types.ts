@@ -50,3 +50,54 @@ export interface DeleteContentRulePayload {
   success: boolean | null;
   errors: string[];
 }
+
+export interface CreateContentRuleInput {
+  name: string;
+  description?: string | null;
+  ruleType: string;
+  severity?: string | null;
+  enforcement?: string | null;
+  scanMode?: string | null;
+  scanInput?: boolean | null;
+  scanOutput?: boolean | null;
+  scanContext?: boolean | null;
+  scopeType?: string | null;
+  priority?: number | null;
+  enabled?: boolean | null;
+  notifyUser?: boolean | null;
+  notifyAdmins?: boolean | null;
+  webhookUrl?: string | null;
+  config?: Record<string, unknown> | null;
+}
+
+export interface CreateContentRulePayload {
+  success: boolean | null;
+  ruleId: string | null;
+  errors: string[];
+}
+
+export interface UpdateContentRuleInput {
+  id: string;
+  name?: string | null;
+  description?: string | null;
+  ruleType?: string | null;
+  severity?: string | null;
+  enforcement?: string | null;
+  scanMode?: string | null;
+  scanInput?: boolean | null;
+  scanOutput?: boolean | null;
+  scanContext?: boolean | null;
+  scopeType?: string | null;
+  priority?: number | null;
+  enabled?: boolean | null;
+  notifyUser?: boolean | null;
+  notifyAdmins?: boolean | null;
+  webhookUrl?: string | null;
+  config?: Record<string, unknown> | null;
+}
+
+export interface UpdateContentRulePayload {
+  success: boolean | null;
+  ruleId: string | null;
+  errors: string[];
+}

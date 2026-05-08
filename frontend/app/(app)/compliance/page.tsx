@@ -1,10 +1,24 @@
 "use client";
 
+import { useMemo } from "react";
 import { useComplianceOverview } from "@/graphql/compliance/hooks";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircleIcon, XCircleIcon, ShieldCheckIcon } from "lucide-react";
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+} from "recharts";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 
 function coverageColor(percentage: number) {
   if (percentage >= 80) return "text-emerald-600 dark:text-emerald-400";
@@ -21,6 +35,25 @@ function coverageBg(percentage: number) {
 export default function CompliancePage() {
   const { overview, loading } = useComplianceOverview();
 
+  const frameworks = useMemo(
+    () => overview?.frameworkCoverage ?? [],
+    [overview?.frameworkCoverage]
+  );
+
+  const radarData = useMemo(
+    () =>
+      frameworks.map((fw) => ({
+        framework: fw.name ?? "Unknown",
+        coverage: Math.round(fw.requiredPercentage),
+        fullMark: 100,
+      })),
+    [frameworks]
+  );
+
+  const radarConfig: ChartConfig = {
+    coverage: { label: "Coverage %", color: "#37efed" },
+  };
+
   if (loading) {
     return (
       <div className="flex flex-1 flex-col gap-6 p-6">
@@ -28,6 +61,7 @@ export default function CompliancePage() {
           <Skeleton className="h-7 w-40" />
           <Skeleton className="mt-1 h-4 w-64" />
         </div>
+        <Skeleton className="h-[320px] w-full rounded-md" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Card key={i}>
@@ -45,7 +79,6 @@ export default function CompliancePage() {
     );
   }
 
-  const frameworks = overview?.frameworkCoverage ?? [];
   const totalCapabilities = overview?.capabilitiesTotal ?? 0;
   const enabledCapabilities = overview?.capabilitiesEnabled ?? 0;
 
@@ -57,6 +90,55 @@ export default function CompliancePage() {
           Framework coverage and compliance posture across your AI operations
         </p>
       </div>
+
+      {/* Radar chart for framework coverage */}
+      {radarData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Framework Coverage Overview</CardTitle>
+            <CardDescription>
+              Required control coverage across compliance frameworks
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center">
+            <ChartContainer config={radarConfig} className="h-[320px] w-full max-w-[500px]">
+              <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="75%">
+                <PolarGrid
+                  stroke="var(--color-border)"
+                  strokeDasharray="3 3"
+                />
+                <PolarAngleAxis
+                  dataKey="framework"
+                  tick={{ fontSize: 12 }}
+                  className="[&_.recharts-text]:fill-foreground"
+                />
+                <PolarRadiusAxis
+                  angle={90}
+                  domain={[0, 100]}
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => `${v}%`}
+                  className="[&_.recharts-text]:fill-muted-foreground"
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value) => `${value}%`}
+                    />
+                  }
+                />
+                <Radar
+                  name="Coverage"
+                  dataKey="coverage"
+                  stroke="#37efed"
+                  strokeWidth={2}
+                  fill="#37efed"
+                  fillOpacity={0.2}
+                />
+              </RadarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

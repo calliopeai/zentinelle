@@ -1,11 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
+import { PlusIcon } from "lucide-react";
 import { useIncidents } from "@/graphql/risks/hooks";
 import type { IncidentData } from "@/graphql/risks/types";
 import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ReportIncidentDialog } from "./report-incident-dialog";
 
 function severityVariant(severity: string) {
   switch (severity) {
@@ -58,7 +62,8 @@ function formatTimestamp(ts: string | null) {
 }
 
 export default function IncidentsPage() {
-  const { incidents, loading } = useIncidents();
+  const { incidents, loading, refetch } = useIncidents();
+  const [reportOpen, setReportOpen] = useState(false);
 
   const columns: ColumnDef<IncidentData, unknown>[] = [
     {
@@ -193,11 +198,17 @@ export default function IncidentsPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold">Incidents</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Track and manage security incidents and policy violations
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Incidents</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Track and manage security incidents and policy violations
+          </p>
+        </div>
+        <Button size="sm" onClick={() => setReportOpen(true)}>
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          Report Incident
+        </Button>
       </div>
       <DataTable
         data={incidents}
@@ -205,6 +216,12 @@ export default function IncidentsPage() {
         getRowId={(row) => row.id}
         filters={filters}
         searchPlaceholder="Search incidents..."
+      />
+
+      <ReportIncidentDialog
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        onReported={refetch}
       />
     </div>
   );

@@ -1,5 +1,25 @@
 import { gql } from "@apollo/client";
 
+export const CREATE_CONTENT_RULE = gql`
+  mutation CreateContentRule($input: CreateContentRuleInput!) {
+    createContentRule(input: $input) {
+      success
+      ruleId
+      errors
+    }
+  }
+`;
+
+export const UPDATE_CONTENT_RULE = gql`
+  mutation UpdateContentRule($input: UpdateContentRuleInput!) {
+    updateContentRule(input: $input) {
+      success
+      ruleId
+      errors
+    }
+  }
+`;
+
 export const TOGGLE_CONTENT_RULE_ENABLED = gql`
   mutation ToggleContentRuleEnabled($id: ID!, $enabled: Boolean!) {
     toggleContentRuleEnabled(id: $id, enabled: $enabled) {

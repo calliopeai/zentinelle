@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation } from "@apollo/client/react";
 import { type ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontalIcon } from "lucide-react";
+import { MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useContentRules } from "@/graphql/content-rules/hooks";
 import type {
@@ -27,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/hooks/use-confirm";
+import { CreateContentRuleDialog } from "./create-content-rule-dialog";
 
 function severityVariant(severity: string) {
   switch (severity) {
@@ -63,9 +65,11 @@ function enforcementVariant(enforcement: string) {
 function ActionsCell({
   rule,
   onRefresh,
+  onEdit,
 }: {
   rule: ContentRuleData;
   onRefresh: () => void;
+  onEdit: (rule: ContentRuleData) => void;
 }) {
   const confirm = useConfirm();
   const [toggleEnabled] = useMutation<{ toggleContentRuleEnabled: ToggleContentRuleEnabledPayload }>(TOGGLE_CONTENT_RULE_ENABLED);
@@ -136,6 +140,9 @@ function ActionsCell({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => onEdit(rule)}>
+          Edit
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={handleToggle}>
           {rule.enabled ? "Disable" : "Enable"}
         </DropdownMenuItem>
