@@ -53,3 +53,13 @@ export const ACTIVATE_AGENT_ENDPOINT = gql`
     }
   }
 `;
+
+export const REGENERATE_ENDPOINT_API_KEY = gql`
+  mutation RegenerateEndpointApiKey($endpointId: ID!) {
+    regenerateEndpointApiKey(endpointId: $endpointId) {
+      apiKey
+      success
+      error
+    }
+  }
+`;

@@ -25,6 +25,7 @@ import {
   SUSPEND_AGENT_ENDPOINT,
   ACTIVATE_AGENT_ENDPOINT,
   DELETE_AGENT_ENDPOINT,
+  REGENERATE_ENDPOINT_API_KEY,
 } from "@/graphql/agents/mutations";
 import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -91,6 +92,9 @@ function ActionsCell({
   const [suspendAgent] = useMutation<{ suspendAgentEndpoint: SuspendAgentEndpointPayload }>(SUSPEND_AGENT_ENDPOINT);
   const [activateAgent] = useMutation<{ activateAgentEndpoint: ActivateAgentEndpointPayload }>(ACTIVATE_AGENT_ENDPOINT);
   const [deleteAgent] = useMutation<{ deleteAgentEndpoint: DeleteAgentEndpointPayload }>(DELETE_AGENT_ENDPOINT);
+  const [regenerateKey] = useMutation<{
+    regenerateEndpointApiKey: { apiKey: string; success: boolean; error: string };
+  }>(REGENERATE_ENDPOINT_API_KEY);
 
   const handleSuspend = async () => {
     const ok = await confirm({
@@ -123,6 +127,33 @@ function ActionsCell({
       }
     } catch {
       toast.error("Failed to activate agent");
+    }
+  };
+
+  const handleRegenerate = async () => {
+    const ok = await confirm({
+      title: "Regenerate API Key",
+      description: `Generate a new API key for "${agent.name}". The old key will stop working immediately.`,
+      confirmLabel: "Regenerate",
+    });
+    if (!ok) return;
+    try {
+      const { data } = await regenerateKey({
+        variables: { endpointId: agent.id },
+      });
+      if (data?.regenerateEndpointApiKey?.success && data.regenerateEndpointApiKey.apiKey) {
+        const newKey = data.regenerateEndpointApiKey.apiKey;
+        await navigator.clipboard.writeText(newKey).catch(() => {});
+        toast.success("New API key copied to clipboard", {
+          description: `${newKey.slice(0, 16)}... — store it now, it won't be shown again`,
+          duration: 15000,
+        });
+        onRefresh();
+      } else {
+        toast.error(data?.regenerateEndpointApiKey?.error ?? "Failed to regenerate");
+      }
+    } catch {
+      toast.error("Failed to regenerate key");
     }
   };
 
@@ -159,6 +190,9 @@ function ActionsCell({
         ) : (
           <DropdownMenuItem onClick={handleActivate}>Activate</DropdownMenuItem>
         )}
+        <DropdownMenuItem onClick={handleRegenerate}>
+          Regenerate API Key
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={handleDelete}>
           Delete
