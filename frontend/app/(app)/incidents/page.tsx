@@ -1,14 +1,28 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation } from "@apollo/client/react";
 import { type ColumnDef } from "@tanstack/react-table";
-import { PlusIcon } from "lucide-react";
+import { MoreHorizontalIcon, PlusIcon } from "lucide-react";
+import { toast } from "sonner";
 import { useIncidents } from "@/graphql/risks/hooks";
+import { GET_INCIDENTS } from "@/graphql/risks/queries";
+import {
+  ACKNOWLEDGE_INCIDENT,
+  RESOLVE_INCIDENT,
+  CLOSE_INCIDENT,
+} from "@/graphql/risks/mutations";
 import type { IncidentData } from "@/graphql/risks/types";
 import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ReportIncidentDialog } from "./report-incident-dialog";
 import { IncidentDetailDialog } from "./incident-detail-dialog";
 
@@ -81,6 +95,50 @@ export default function IncidentsPage() {
   const [selectedIncident, setSelectedIncident] = useState<IncidentData | null>(
     null,
   );
+
+  const [acknowledgeIncident] = useMutation(ACKNOWLEDGE_INCIDENT, {
+    refetchQueries: [GET_INCIDENTS],
+  });
+  const [resolveIncident] = useMutation(RESOLVE_INCIDENT, {
+    refetchQueries: [GET_INCIDENTS],
+  });
+  const [closeIncident] = useMutation(CLOSE_INCIDENT, {
+    refetchQueries: [GET_INCIDENTS],
+  });
+
+  const handleAcknowledge = async (id: string) => {
+    try {
+      await acknowledgeIncident({ variables: { id } });
+      toast.success("Incident acknowledged");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to acknowledge");
+    }
+  };
+
+  const handleResolve = async (id: string) => {
+    const resolution = window.prompt("Resolution summary:");
+    if (!resolution?.trim()) return;
+    try {
+      await resolveIncident({
+        variables: { id, resolution: resolution.trim() },
+      });
+      toast.success("Incident resolved");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to resolve");
+    }
+  };
+
+  const handleClose = async (id: string) => {
+    const lessons = window.prompt("Lessons learned (optional):") ?? "";
+    try {
+      await closeIncident({
+        variables: { id, lessonsLearned: lessons.trim() || null },
+      });
+      toast.success("Incident closed");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to close");
+    }
+  };
 
   const columns: ColumnDef<IncidentData, unknown>[] = [
     {
@@ -175,6 +233,49 @@ export default function IncidentsPage() {
           {row.original.rootCause || "--"}
         </span>
       ),
+      enableSorting: false,
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => {
+        const incident = row.original;
+        const isTerminal = ["closed", "resolved"].includes(incident.status);
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontalIcon className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {incident.status === "open" && (
+                <DropdownMenuItem
+                  onClick={() => handleAcknowledge(incident.id)}
+                >
+                  Acknowledge
+                </DropdownMenuItem>
+              )}
+              {!isTerminal && (
+                <DropdownMenuItem onClick={() => handleResolve(incident.id)}>
+                  Resolve
+                </DropdownMenuItem>
+              )}
+              {incident.status === "resolved" && (
+                <DropdownMenuItem onClick={() => handleClose(incident.id)}>
+                  Close
+                </DropdownMenuItem>
+              )}
+              {isTerminal && (
+                <DropdownMenuItem disabled>No actions available</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
       enableSorting: false,
     },
   ];

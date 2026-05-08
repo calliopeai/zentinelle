@@ -29,6 +29,33 @@ export const DELETE_RISK = gql`
   }
 `;
 
+export const ACKNOWLEDGE_INCIDENT = gql`
+  mutation AcknowledgeIncident($id: ID!) {
+    acknowledgeIncident(id: $id) {
+      success
+      errors
+    }
+  }
+`;
+
+export const RESOLVE_INCIDENT = gql`
+  mutation ResolveIncident($id: ID!, $resolution: String!, $rootCause: String) {
+    resolveIncident(id: $id, resolution: $resolution, rootCause: $rootCause) {
+      success
+      errors
+    }
+  }
+`;
+
+export const CLOSE_INCIDENT = gql`
+  mutation CloseIncident($id: ID!, $lessonsLearned: String) {
+    closeIncident(id: $id, lessonsLearned: $lessonsLearned) {
+      success
+      errors
+    }
+  }
+`;
+
 export const CREATE_INCIDENT = gql`
   mutation CreateIncident($input: CreateIncidentInput!) {
     createIncident(input: $input) {
