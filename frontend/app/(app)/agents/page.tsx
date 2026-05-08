@@ -262,17 +262,21 @@ function AgentTypeDonut({ endpoints }: { endpoints: EndpointData[] }) {
       .sort((a, b) => b.count - a.count);
   }, [endpoints]);
 
-  const donutColors = [
-    "#37efed",
-    "var(--color-chart-1)",
-    "var(--color-chart-2)",
-    "var(--color-chart-3)",
-    "var(--color-chart-4)",
-    "var(--color-chart-5)",
-    "#6366f1",
-    "#ec4899",
-    "#f59e0b",
-  ];
+  const AGENT_TYPE_COLORS: Record<string, string> = {
+    claude_code: "#37efed",
+    codex: "#6366f1",
+    gemini: "#f59e0b",
+    langchain: "#10b981",
+    langgraph: "#14b8a6",
+    crewai: "#ec4899",
+    mcp: "#8b5cf6",
+    chat: "#3b82f6",
+    custom: "#64748b",
+    junohub: "#f97316",
+  };
+  const donutColors = typeCounts.map(
+    (t) => AGENT_TYPE_COLORS[t.type] ?? "#64748b",
+  );
 
   const config: ChartConfig = {};
   typeCounts.forEach((item, i) => {
@@ -389,9 +393,19 @@ export default function AgentsPage() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Type" />
       ),
-      cell: ({ row }) => (
-        <Badge variant="outline">{row.original.agentType}</Badge>
-      ),
+      cell: ({ row }) => {
+        const TYPE_COLORS: Record<string, string> = {
+          claude_code: "#37efed", codex: "#6366f1", gemini: "#f59e0b",
+          langchain: "#10b981", langgraph: "#14b8a6", crewai: "#ec4899",
+          mcp: "#8b5cf6", chat: "#3b82f6", custom: "#64748b", junohub: "#f97316",
+        };
+        const color = TYPE_COLORS[row.original.agentType] ?? "#64748b";
+        return (
+          <Badge variant="outline" style={{ borderColor: color, color }}>
+            {row.original.agentType}
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: "status",
