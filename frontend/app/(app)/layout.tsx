@@ -3,8 +3,10 @@ import { cookies } from "next/headers";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { PageHeader } from "@/components/PageHeader";
-import { fetchSessionUser } from "@/lib/auth/session";
 import type { SessionUser } from "@/lib/auth/session";
+
+const INTERNAL_API_URL =
+  process.env.INTERNAL_API_URL || "http://backend:8000/api/zentinelle/v1";
 
 export default async function AppLayout({
   children,
@@ -26,10 +28,16 @@ export default async function AppLayout({
       .getAll()
       .map((c) => `${c.name}=${c.value}`)
       .join("; ");
-    ssrUser = await fetchSessionUser(cookieHeader);
+    const res = await fetch(`${INTERNAL_API_URL}/auth/me`, {
+      headers: { Cookie: cookieHeader },
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      ssrUser = data.user ?? null;
+    }
   } catch {
-    // Network error fetching user info -- let the page render
-    // and the client-side will handle re-authentication if needed
+    // Network error — let client-side handle
   }
 
   if (!ssrUser) {

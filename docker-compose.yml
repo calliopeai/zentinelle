@@ -42,7 +42,7 @@ services:
         gunicorn config.wsgi:application --bind 0.0.0.0:8000 --reload --timeout 60
       "
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/zentinelle/v1/heartbeat')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/zentinelle/v1/health')"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -97,6 +97,19 @@ services:
     volumes:
       - ./backend:/app
     command: celery -A config beat -l info
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      - NEXT_PUBLIC_GQL_URL=http://localhost:8080/gql/zentinelle/
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api/zentinelle/v1
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev -- --port 3000
 
   postgres:
     image: postgres:16-alpine

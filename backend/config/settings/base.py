@@ -146,7 +146,7 @@ DATABASES = {
     },
     "analytics": {
         **_db_config,
-        "OPTIONS": {"options": "-c search_path=zentinelle_analytics"},
+        "OPTIONS": {"options": "-c search_path=zentinelle_analytics,zentinelle"},
     },
 }
 
