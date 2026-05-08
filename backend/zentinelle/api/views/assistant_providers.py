@@ -75,7 +75,12 @@ class AssistantProvidersView(View):
         from zentinelle.models import AIModel
         from zentinelle.schema.auth_helpers import get_request_tenant_id
 
-        tenant_id = get_request_tenant_id(request.user) or 'default'
+        # In open auth mode, default to the standalone tenant
+        tenant_id = get_request_tenant_id(request.user)
+        if not tenant_id and os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+            tenant_id = '00000000-0000-0000-0000-000000000001'
+        if not tenant_id:
+            tenant_id = 'default'
         require_tools = request.GET.get('require_tools', '').lower() == 'true'
         include_deprecated = request.GET.get('all', '').lower() == 'true'
 
@@ -91,8 +96,8 @@ class AssistantProvidersView(View):
         # Order: most recent first, then by name
         qs = qs.order_by('-release_date', 'provider__slug', 'name')
 
-        # Group by provider
-        by_provider = {}
+        # Group registry models by provider
+        registry_by_provider = {}
         for model in qs:
             slug = model.provider.slug
             caps = model.capabilities or []
@@ -100,17 +105,14 @@ class AssistantProvidersView(View):
             if require_tools and 'function_calling' not in caps:
                 continue
 
-            if not _has_credentials(slug, tenant_id):
-                continue
-
-            if slug not in by_provider:
-                by_provider[slug] = {
+            if slug not in registry_by_provider:
+                registry_by_provider[slug] = {
                     'id': slug,
                     'name': PROVIDER_LABELS.get(slug, model.provider.name),
                     'models': [],
                 }
 
-            by_provider[slug]['models'].append({
+            registry_by_provider[slug]['models'].append({
                 'value': model.model_id,
                 'label': model.name,
                 'capabilities': caps,
@@ -121,12 +123,25 @@ class AssistantProvidersView(View):
                 'riskLevel': model.risk_level,
             })
 
-        # If we found nothing in the registry, fall back to env-only providers
-        # so the assistant doesn't return empty when models haven't been synced
-        if not by_provider:
-            from zentinelle.api.views.assistant_providers_fallback import FALLBACK_PROVIDERS
-            for slug, models in FALLBACK_PROVIDERS.items():
-                if _has_credentials(slug, tenant_id):
+        # For each provider with credentials, use registry models if any,
+        # else fall back to curated list. This way we always show models
+        # for every configured provider.
+        from zentinelle.api.views.assistant_providers_fallback import FALLBACK_PROVIDERS
+        by_provider = {}
+        all_provider_slugs = set(FALLBACK_PROVIDERS.keys()) | set(registry_by_provider.keys())
+
+        for slug in all_provider_slugs:
+            if not _has_credentials(slug, tenant_id):
+                continue
+
+            # Prefer registry data, fall back to curated list
+            if slug in registry_by_provider and registry_by_provider[slug]['models']:
+                by_provider[slug] = registry_by_provider[slug]
+            elif slug in FALLBACK_PROVIDERS:
+                models = FALLBACK_PROVIDERS[slug]
+                if require_tools:
+                    models = [m for m in models if m.get('supportsTools')]
+                if models:
                     by_provider[slug] = {
                         'id': slug,
                         'name': PROVIDER_LABELS.get(slug, slug),

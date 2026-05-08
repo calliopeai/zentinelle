@@ -6,6 +6,7 @@ DELETE /api/zentinelle/v1/settings/llm-providers/{provider} — remove a key
 Tenant-scoped, encrypted-at-rest provider API key storage.
 """
 import json
+import os
 from django.http import JsonResponse
 from django.views import View
 from django.utils.decorators import method_decorator
@@ -15,11 +16,19 @@ from zentinelle.models import LLMProviderKey
 from zentinelle.schema.auth_helpers import get_request_tenant_id
 
 
+def _resolve_tenant_id(request) -> str:
+    """Resolve tenant_id, with open-mode fallback to standalone tenant."""
+    tid = get_request_tenant_id(request.user)
+    if not tid and os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+        return '00000000-0000-0000-0000-000000000001'
+    return tid or 'default'
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class LLMProviderKeysView(View):
 
     def get(self, request):
-        tenant_id = get_request_tenant_id(request.user) or 'default'
+        tenant_id = _resolve_tenant_id(request)
         keys = LLMProviderKey.objects.filter(tenant_id=tenant_id)
         return JsonResponse({
             'providers': [
@@ -48,7 +57,7 @@ class LLMProviderKeysView(View):
         if not api_key:
             return JsonResponse({'error': 'apiKey is required'}, status=400)
 
-        tenant_id = get_request_tenant_id(request.user) or 'default'
+        tenant_id = _resolve_tenant_id(request)
 
         obj, created = LLMProviderKey.objects.get_or_create(
             tenant_id=tenant_id,
@@ -70,7 +79,7 @@ class LLMProviderKeysView(View):
 class LLMProviderKeyDeleteView(View):
 
     def delete(self, request, provider):
-        tenant_id = get_request_tenant_id(request.user) or 'default'
+        tenant_id = _resolve_tenant_id(request)
         deleted, _ = LLMProviderKey.objects.filter(
             tenant_id=tenant_id,
             provider=provider.lower(),
