@@ -69,6 +69,27 @@ export default function CompliancePage() {
     coverage: { label: "Coverage %", color: "#37efed" },
   };
 
+  // ALL hooks must be declared before any early return — moving these up
+  // fixes the previous rule-of-hooks violation that crashed the page.
+  const [enabledFrameworks, setEnabledFrameworks] = useState<Set<string>>(new Set());
+  const [toggleFramework] = useMutation(TOGGLE_FRAMEWORK);
+  const [runCheck, { loading: running }] = useMutation(RUN_COMPLIANCE_CHECK);
+
+  // Hydrate the enabled set once the data lands. useEffect-style derivation
+  // via comparing string keys keeps it stable.
+  const frameworkIdsKey = frameworks.map((fw) => fw.id ?? "").join("|");
+  useMemo(() => {
+    if (frameworks.length === 0) return;
+    setEnabledFrameworks(
+      new Set(
+        frameworks
+          .map((fw) => fw.id)
+          .filter((id): id is string => typeof id === "string"),
+      ),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameworkIdsKey]);
+
   if (loading) {
     return (
       <div className="flex flex-1 flex-col gap-6 p-6">
@@ -93,12 +114,6 @@ export default function CompliancePage() {
       </div>
     );
   }
-
-  const [enabledFrameworks, setEnabledFrameworks] = useState<Set<string>>(
-    new Set(frameworks.map((fw) => fw.id)),
-  );
-  const [toggleFramework] = useMutation(TOGGLE_FRAMEWORK);
-  const [runCheck, { loading: running }] = useMutation(RUN_COMPLIANCE_CHECK);
 
   const handleRunCheck = async () => {
     try {
@@ -133,7 +148,9 @@ export default function CompliancePage() {
     }
   };
 
-  const activeFrameworks = frameworks.filter((fw) => enabledFrameworks.has(fw.id));
+  const activeFrameworks = frameworks.filter(
+    (fw) => fw.id != null && enabledFrameworks.has(fw.id),
+  );
   const activeRadarData = radarData.filter((d) =>
     activeFrameworks.some((fw) => fw.name === d.framework),
   );
@@ -314,7 +331,7 @@ export default function CompliancePage() {
         <h2 className="mb-3 text-base font-semibold">Framework Coverage</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {frameworks.map((fw) => {
-            const isEnabled = enabledFrameworks.has(fw.id);
+            const isEnabled = fw.id != null && enabledFrameworks.has(fw.id);
             return (
             <Card
               key={fw.id}
@@ -338,7 +355,7 @@ export default function CompliancePage() {
                       {isEnabled ? `${Math.round(fw.requiredPercentage)}%` : "Off"}
                     </span>
                     <button
-                      onClick={() => handleToggleFramework(fw.id)}
+                      onClick={() => fw.id && handleToggleFramework(fw.id)}
                       className="text-muted-foreground hover:text-foreground transition-colors"
                       title={isEnabled ? "Disable framework" : "Enable framework"}
                     >
