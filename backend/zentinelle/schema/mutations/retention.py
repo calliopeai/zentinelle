@@ -26,7 +26,27 @@ except ImportError:
             return fn
         return decorator
 from zentinelle.models import RetentionPolicy, LegalHold
-from zentinelle.schema.auth_helpers import user_has_org_access
+from zentinelle.schema.auth_helpers import (
+    get_request_tenant_id,
+    user_has_org_access,
+)
+
+
+def _decode_id(global_or_raw_id: str) -> str:
+    """Decode a relay global ID to a raw UUID, or return the raw value."""
+    try:
+        _type, raw = from_global_id(global_or_raw_id)
+        if raw:
+            return raw
+    except Exception:
+        pass
+    return global_or_raw_id
+
+
+def _user_id_str(user) -> str:
+    """Best-effort string user identifier for the audit columns."""
+    pk = getattr(user, 'pk', None)
+    return str(pk) if pk is not None else ''
 
 
 @strawberry.input
@@ -157,20 +177,21 @@ def create_retention_policy(info: strawberry.types.Info, input: CreateRetentionP
     if not user.is_authenticated:
         raise GraphQLError("Authentication required")
 
-    try:
-        from deployments.models import Deployment
+    tenant_id = get_request_tenant_id(user)
+    if not tenant_id:
+        return CreateRetentionPolicyPayload(success=False, errors=["Could not determine tenant_id"])
 
-        deployment = None
+    try:
+        deployment_id_ext = ''
         if input.deployment_id:
-            _, dep_pk = from_global_id(input.deployment_id)
-            deployment = Deployment.objects.get(pk=dep_pk)
+            deployment_id_ext = _decode_id(input.deployment_id)
 
         policy = RetentionPolicy.objects.create(
-            organization=user.organization,
+            tenant_id=tenant_id,
             name=input.name,
             description=input.description or '',
             entity_type=input.entity_type or RetentionPolicy.EntityType.ALL,
-            deployment=deployment,
+            deployment_id_ext=deployment_id_ext,
             retention_days=input.retention_days or 90,
             minimum_retention_days=input.minimum_retention_days,
             expiration_action=input.expiration_action or RetentionPolicy.ExpirationAction.DELETE,
@@ -179,7 +200,7 @@ def create_retention_policy(info: strawberry.types.Info, input: CreateRetentionP
             compliance_notes=input.compliance_notes or '',
             enabled=input.enabled if input.enabled is not None else True,
             priority=input.priority or 0,
-            created_by=user,
+            user_id=_user_id_str(user),
         )
         return CreateRetentionPolicyPayload(success=True, policy_id=str(policy.id))
     except Exception as e:
@@ -191,13 +212,13 @@ def update_retention_policy(info: strawberry.types.Info, input: UpdateRetentionP
     if not user.is_authenticated:
         raise GraphQLError("Authentication required")
 
+    tenant_id = get_request_tenant_id(user)
     try:
-        _, pk = from_global_id(input.id)
-        policy = RetentionPolicy.objects.get(pk=pk)
+        policy = RetentionPolicy.objects.get(pk=_decode_id(input.id), tenant_id=tenant_id)
     except (ValueError, RetentionPolicy.DoesNotExist):
         return UpdateRetentionPolicyPayload(success=False, errors=["Policy not found"])
 
-    if not user_has_org_access(user, policy.organization_id):
+    if not user_has_org_access(user, policy.tenant_id):
         raise GraphQLError("Access denied")
 
     update_fields = ['updated_at']
@@ -245,13 +266,13 @@ def delete_retention_policy(info: strawberry.types.Info, id: strawberry.ID) -> D
     if not user.is_authenticated:
         raise GraphQLError("Authentication required")
 
+    tenant_id = get_request_tenant_id(user)
     try:
-        _, pk = from_global_id(id)
-        policy = RetentionPolicy.objects.get(pk=pk)
+        policy = RetentionPolicy.objects.get(pk=_decode_id(id), tenant_id=tenant_id)
     except (ValueError, RetentionPolicy.DoesNotExist):
         return DeleteRetentionPolicyPayload(success=False, errors=["Policy not found"])
 
-    if not user_has_org_access(user, policy.organization_id):
+    if not user_has_org_access(user, policy.tenant_id):
         raise GraphQLError("Access denied")
 
     policy.delete()
@@ -263,13 +284,13 @@ def toggle_retention_policy_enabled(info: strawberry.types.Info, id: strawberry.
     if not user.is_authenticated:
         raise GraphQLError("Authentication required")
 
+    tenant_id = get_request_tenant_id(user)
     try:
-        _, pk = from_global_id(id)
-        policy = RetentionPolicy.objects.get(pk=pk)
+        policy = RetentionPolicy.objects.get(pk=_decode_id(id), tenant_id=tenant_id)
     except (ValueError, RetentionPolicy.DoesNotExist):
         raise GraphQLError("Policy not found")
 
-    if not user_has_org_access(user, policy.organization_id):
+    if not user_has_org_access(user, policy.tenant_id):
         raise GraphQLError("Access denied")
 
     policy.enabled = enabled
@@ -283,9 +304,13 @@ def create_legal_hold(info: strawberry.types.Info, input: CreateLegalHoldInput) 
     if not user.is_authenticated:
         raise GraphQLError("Authentication required")
 
+    tenant_id = get_request_tenant_id(user)
+    if not tenant_id:
+        return CreateLegalHoldPayload(success=False, errors=["Could not determine tenant_id"])
+
     try:
         hold = LegalHold.objects.create(
-            organization=user.organization,
+            tenant_id=tenant_id,
             name=input.name,
             description=input.description or '',
             reference_number=input.reference_number or '',
@@ -298,12 +323,11 @@ def create_legal_hold(info: strawberry.types.Info, input: CreateLegalHoldInput) 
             data_to=input.data_to,
             effective_date=input.effective_date or timezone.now(),
             expiration_date=input.expiration_date,
-            custodian=user,
             custodian_email=input.custodian_email or '',
             notify_on_access=input.notify_on_access or False,
             notification_emails=input.notification_emails or [],
             metadata=input.metadata or {},
-            created_by=user,
+            user_id=_user_id_str(user),
         )
         return CreateLegalHoldPayload(success=True, hold_id=str(hold.id))
     except Exception as e:
@@ -315,13 +339,13 @@ def update_legal_hold(info: strawberry.types.Info, input: UpdateLegalHoldInput) 
     if not user.is_authenticated:
         raise GraphQLError("Authentication required")
 
+    tenant_id = get_request_tenant_id(user)
     try:
-        _, pk = from_global_id(input.id)
-        hold = LegalHold.objects.get(pk=pk)
+        hold = LegalHold.objects.get(pk=_decode_id(input.id), tenant_id=tenant_id)
     except (ValueError, LegalHold.DoesNotExist):
         return UpdateLegalHoldPayload(success=False, errors=["Legal hold not found"])
 
-    if not user_has_org_access(user, hold.organization_id):
+    if not user_has_org_access(user, hold.tenant_id):
         raise GraphQLError("Access denied")
 
     update_fields = ['updated_at']
@@ -378,13 +402,13 @@ def release_legal_hold(info: strawberry.types.Info, id: strawberry.ID, reason: O
     if not user.is_authenticated:
         raise GraphQLError("Authentication required")
 
+    tenant_id = get_request_tenant_id(user)
     try:
-        _, pk = from_global_id(id)
-        hold = LegalHold.objects.get(pk=pk)
+        hold = LegalHold.objects.get(pk=_decode_id(id), tenant_id=tenant_id)
     except (ValueError, LegalHold.DoesNotExist):
         raise GraphQLError("Legal hold not found")
 
-    if not user_has_org_access(user, hold.organization_id):
+    if not user_has_org_access(user, hold.tenant_id):
         raise GraphQLError("Access denied")
 
     hold.release(user)
@@ -397,13 +421,13 @@ def delete_legal_hold(info: strawberry.types.Info, id: strawberry.ID) -> DeleteL
     if not user.is_authenticated:
         raise GraphQLError("Authentication required")
 
+    tenant_id = get_request_tenant_id(user)
     try:
-        _, pk = from_global_id(id)
-        hold = LegalHold.objects.get(pk=pk)
+        hold = LegalHold.objects.get(pk=_decode_id(id), tenant_id=tenant_id)
     except (ValueError, LegalHold.DoesNotExist):
         return DeleteLegalHoldPayload(success=False, errors=["Legal hold not found"])
 
-    if not user_has_org_access(user, hold.organization_id):
+    if not user_has_org_access(user, hold.tenant_id):
         raise GraphQLError("Access denied")
 
     if hold.is_active:

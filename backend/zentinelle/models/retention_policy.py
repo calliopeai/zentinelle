@@ -283,11 +283,22 @@ class LegalHold(Tracking):
         return True
 
     def release(self, user=None):
-        """Release the hold."""
+        """Release the hold.
+
+        ``released_by`` was removed when this model was decoupled from the
+        AUTH_USER_MODEL. The releasing user (if any) is recorded in the
+        ``metadata`` blob so the audit trail survives without a FK.
+        """
         self.status = self.HoldStatus.RELEASED
         self.released_at = timezone.now()
-        self.released_by = user
-        self.save(update_fields=['status', 'released_at', 'released_by', 'updated_at'])
+        if user is not None:
+            metadata = dict(self.metadata or {})
+            metadata['released_by_user_id'] = str(getattr(user, 'pk', '') or '')
+            metadata['released_by_username'] = str(getattr(user, 'username', '') or '')
+            self.metadata = metadata
+            self.save(update_fields=['status', 'released_at', 'metadata', 'updated_at'])
+        else:
+            self.save(update_fields=['status', 'released_at', 'updated_at'])
 
 
 class DataArchive(Tracking):

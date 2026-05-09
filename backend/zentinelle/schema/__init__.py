@@ -3,6 +3,8 @@ GraphQL schema for Zentinelle standalone.
 
 Composes the full Strawberry schema from queries, mutations, and the prompt library.
 """
+from typing import Optional
+
 import strawberry
 
 from .queries import Query as ZentinelleQuery
@@ -284,7 +286,7 @@ class Mutation:
         return sp_test(info, system_prompt, user_message)
 
     @strawberry.mutation
-    def analyze_system_prompt(self, info: strawberry.types.Info, prompt_text: str, prompt_type: str = "system", target_providers: list[str] = None) -> AnalyzeSystemPromptPayload:
+    def analyze_system_prompt(self, info: strawberry.types.Info, prompt_text: str, prompt_type: str = "system", target_providers: Optional[list[str]] = None) -> AnalyzeSystemPromptPayload:
         return sp_analyze(info, prompt_text, prompt_type, target_providers)
 
     # Organization Settings
