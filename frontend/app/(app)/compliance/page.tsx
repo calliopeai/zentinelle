@@ -1,16 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { toast } from "sonner";
 import { useComplianceOverview } from "@/graphql/compliance/hooks";
-import { RUN_COMPLIANCE_CHECK } from "@/graphql/compliance/mutations";
+import { RUN_COMPLIANCE_CHECK, ACTIVATE_COMPLIANCE_PACK } from "@/graphql/compliance/mutations";
+import { LIST_COMPLIANCE_PACKS } from "@/graphql/compliance/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircleIcon, XCircleIcon, ShieldCheckIcon, ToggleLeftIcon, ToggleRightIcon, RefreshCwIcon } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/hooks/use-confirm";
+import { CheckCircleIcon, XCircleIcon, ShieldCheckIcon, ToggleLeftIcon, ToggleRightIcon, RefreshCwIcon, PackageIcon, ChevronDownIcon } from "lucide-react";
 
 const TOGGLE_FRAMEWORK = gql`
   mutation ToggleFramework($frameworkId: String!) {
@@ -21,6 +31,32 @@ const TOGGLE_FRAMEWORK = gql`
     }
   }
 `;
+
+type CompliancePackMeta = {
+  name: string | null;
+  displayName: string | null;
+  version: string | null;
+  description: string | null;
+  policyCount: number | null;
+};
+
+type ListCompliancePacksData = {
+  listCompliancePacks: {
+    success: boolean | null;
+    packs: CompliancePackMeta[] | null;
+  } | null;
+};
+
+type ActivateCompliancePackData = {
+  activateCompliancePack: {
+    success: boolean | null;
+    error: string | null;
+    packName: string | null;
+    packVersion: string | null;
+    policiesCreated: number | null;
+    policiesUpdated: number | null;
+  } | null;
+};
 import {
   Radar,
   RadarChart,
@@ -48,7 +84,8 @@ function coverageBg(percentage: number) {
 }
 
 export default function CompliancePage() {
-  const { overview, loading } = useComplianceOverview();
+  const { overview, loading, refetch } = useComplianceOverview();
+  const confirm = useConfirm();
 
   const frameworks = useMemo(
     () => overview?.frameworkCoverage ?? [],
@@ -74,6 +111,31 @@ export default function CompliancePage() {
   const [enabledFrameworks, setEnabledFrameworks] = useState<Set<string>>(new Set());
   const [toggleFramework] = useMutation(TOGGLE_FRAMEWORK);
   const [runCheck, { loading: running }] = useMutation(RUN_COMPLIANCE_CHECK);
+  const [packs, setPacks] = useState<CompliancePackMeta[]>([]);
+  const [packsLoaded, setPacksLoaded] = useState(false);
+  const [activatingPack, setActivatingPack] = useState<string | null>(null);
+  const [packsMenuOpen, setPacksMenuOpen] = useState(false);
+  const [fetchPacks, { loading: packsLoading }] = useMutation<ListCompliancePacksData>(LIST_COMPLIANCE_PACKS);
+  const [activatePack] = useMutation<ActivateCompliancePackData>(ACTIVATE_COMPLIANCE_PACK);
+
+  useEffect(() => {
+    if (!packsMenuOpen || packsLoaded) return;
+    void (async () => {
+      try {
+        const result = await fetchPacks();
+        const data = result.data?.listCompliancePacks;
+        if (data?.success) {
+          setPacks(data.packs ?? []);
+          setPacksLoaded(true);
+        } else {
+          toast.error("Failed to load compliance packs");
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to load compliance packs";
+        toast.error(msg);
+      }
+    })();
+  }, [packsMenuOpen, packsLoaded, fetchPacks]);
 
   // Hydrate the enabled set once the data lands. useEffect-style derivation
   // via comparing string keys keeps it stable.
@@ -132,6 +194,40 @@ export default function CompliancePage() {
     }
   };
 
+  const handleActivatePack = async (pack: CompliancePackMeta) => {
+    if (!pack.name) return;
+    const policyCount = pack.policyCount ?? 0;
+    const policyLabel = policyCount === 1 ? "policy" : "policies";
+    const confirmed = await confirm({
+      title: `Activate ${pack.displayName ?? pack.name}?`,
+      description: `This will activate the ${pack.displayName ?? pack.name} pack${pack.version ? ` (v${pack.version})` : ""}: ${policyCount} ${policyLabel}. New policies will be created and existing ones updated. Continue?`,
+      confirmLabel: "Activate",
+      cancelLabel: "Cancel",
+    });
+    if (!confirmed) return;
+
+    setActivatingPack(pack.name);
+    try {
+      const result = await activatePack({ variables: { packId: pack.name } });
+      const payload = result.data?.activateCompliancePack;
+      if (payload?.success) {
+        const created = payload.policiesCreated ?? 0;
+        const updated = payload.policiesUpdated ?? 0;
+        toast.success(
+          `Activated ${pack.displayName ?? pack.name}: ${created} created, ${updated} updated`,
+        );
+        await refetch();
+      } else {
+        toast.error(payload?.error ?? "Failed to activate pack");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to activate pack";
+      toast.error(msg);
+    } finally {
+      setActivatingPack(null);
+    }
+  };
+
   const handleToggleFramework = async (frameworkId: string) => {
     const newEnabled = new Set(enabledFrameworks);
     if (newEnabled.has(frameworkId)) {
@@ -168,6 +264,60 @@ export default function CompliancePage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <DropdownMenu open={packsMenuOpen} onOpenChange={setPacksMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={activatingPack !== null}
+                className="text-xs uppercase"
+              >
+                <PackageIcon className="mr-1 h-3 w-3" />
+                {activatingPack ? "Activating" : "Apply Pack"}
+                <ChevronDownIcon className="ml-1 h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel>Compliance Packs</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {packsLoading && !packsLoaded ? (
+                <div className="text-muted-foreground px-2 py-2 text-xs">Loading packs...</div>
+              ) : packs.length === 0 && packsLoaded ? (
+                <div className="text-muted-foreground px-2 py-2 text-xs">No packs available</div>
+              ) : (
+                packs.map((pack) => (
+                  <DropdownMenuItem
+                    key={pack.name ?? ""}
+                    disabled={activatingPack !== null}
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      void handleActivatePack(pack);
+                    }}
+                    className="flex flex-col items-start gap-0.5 py-2"
+                  >
+                    <div className="flex w-full items-center justify-between">
+                      <span className="text-sm font-medium">
+                        {pack.displayName ?? pack.name}
+                      </span>
+                      {pack.version && (
+                        <Badge variant="secondary" className="text-[10px]">
+                          v{pack.version}
+                        </Badge>
+                      )}
+                    </div>
+                    {pack.description && (
+                      <span className="text-muted-foreground line-clamp-2 text-xs">
+                        {pack.description}
+                      </span>
+                    )}
+                    <span className="text-muted-foreground text-[10px]">
+                      {pack.policyCount ?? 0} {(pack.policyCount ?? 0) === 1 ? "policy" : "policies"}
+                    </span>
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="outline"
             size="sm"

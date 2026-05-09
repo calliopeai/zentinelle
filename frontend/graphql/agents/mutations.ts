@@ -63,3 +63,35 @@ export const REGENERATE_ENDPOINT_API_KEY = gql`
     }
   }
 `;
+
+export const UPDATE_AGENT_ENDPOINT = gql`
+  mutation UpdateAgentEndpoint($input: UpdateAgentEndpointInput!) {
+    updateAgentEndpoint(input: $input) {
+      endpoint {
+        id
+        agentId
+        agentType
+        name
+        status
+        capabilities
+        metadata
+        updatedAt
+      }
+      success
+      error
+    }
+  }
+`;
+
+export const UPDATE_ENDPOINT_STATUS = gql`
+  mutation UpdateEndpointStatus($id: ID!, $status: String!) {
+    updateEndpointStatus(id: $id, status: $status) {
+      endpoint {
+        id
+        status
+      }
+      success
+      error
+    }
+  }
+`;

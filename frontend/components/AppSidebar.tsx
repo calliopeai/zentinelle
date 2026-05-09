@@ -52,6 +52,7 @@ import {
   CpuIcon,
   NetworkIcon,
   ArchiveIcon,
+  ShieldAlertIcon,
   KeyIcon,
   UsersIcon,
   PenToolIcon,
@@ -88,6 +89,7 @@ const sections: NavSection[] = [
     label: "Governance",
     items: [
       { title: "Agents", url: "/agents", icon: <ShieldIcon /> },
+      { title: "Agent Groups", url: "/agents/groups", icon: <UsersIcon /> },
       { title: "Policies", url: "/policies", icon: <FileTextIcon /> },
       { title: "Policy Hierarchy", url: "/policies/hierarchy", icon: <LayersIcon /> },
       { title: "Effective Policy", url: "/policies/effective", icon: <SearchIcon /> },
@@ -148,6 +150,7 @@ const sections: NavSection[] = [
       { title: "LLM Providers", url: "/settings/llm-providers", icon: <SparklesIcon /> },
       { title: "Network Policies", url: "/network", icon: <NetworkIcon /> },
       { title: "Data Retention", url: "/retention", icon: <ArchiveIcon /> },
+      { title: "Legal Holds", url: "/retention/legal-holds", icon: <ShieldAlertIcon /> },
     ],
   },
 ];

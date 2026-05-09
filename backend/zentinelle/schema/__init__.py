@@ -196,8 +196,8 @@ class Mutation:
         return m.create_legal_hold(info, input)
 
     @strawberry.mutation
-    def update_legal_hold(self, info: strawberry.types.Info, id: strawberry.ID, input: m.UpdateLegalHoldInput) -> m.UpdateLegalHoldPayload:
-        return m.update_legal_hold(info, id, input)
+    def update_legal_hold(self, info: strawberry.types.Info, input: m.UpdateLegalHoldInput) -> m.UpdateLegalHoldPayload:
+        return m.update_legal_hold(info, input)
 
     @strawberry.mutation
     def release_legal_hold(self, info: strawberry.types.Info, id: strawberry.ID) -> m.ReleaseLegalHoldPayload:

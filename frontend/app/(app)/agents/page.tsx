@@ -17,15 +17,13 @@ import { Pie, PieChart, Cell } from "recharts";
 import { useEndpoints } from "@/graphql/agents/hooks";
 import type {
   EndpointData,
-  SuspendAgentEndpointPayload,
-  ActivateAgentEndpointPayload,
   DeleteAgentEndpointPayload,
+  UpdateEndpointStatusPayload,
 } from "@/graphql/agents/types";
 import {
-  SUSPEND_AGENT_ENDPOINT,
-  ACTIVATE_AGENT_ENDPOINT,
   DELETE_AGENT_ENDPOINT,
   REGENERATE_ENDPOINT_API_KEY,
+  UPDATE_ENDPOINT_STATUS,
 } from "@/graphql/agents/mutations";
 import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +47,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/hooks/use-confirm";
 import { RegisterAgentDialog } from "./register-agent-dialog";
+import { EditAgentDialog } from "./edit-agent-dialog";
+import { AssignGroupDialog } from "./assign-group-dialog";
 
 function statusVariant(status: string) {
   switch (status) {
@@ -84,49 +84,51 @@ function formatTimestamp(ts: string | null) {
 function ActionsCell({
   agent,
   onRefresh,
+  onEdit,
+  onAssignGroup,
 }: {
   agent: EndpointData;
   onRefresh: () => void;
+  onEdit: (agent: EndpointData) => void;
+  onAssignGroup: (agent: EndpointData) => void;
 }) {
   const confirm = useConfirm();
-  const [suspendAgent] = useMutation<{ suspendAgentEndpoint: SuspendAgentEndpointPayload }>(SUSPEND_AGENT_ENDPOINT);
-  const [activateAgent] = useMutation<{ activateAgentEndpoint: ActivateAgentEndpointPayload }>(ACTIVATE_AGENT_ENDPOINT);
+  const [updateStatus] = useMutation<{ updateEndpointStatus: UpdateEndpointStatusPayload }>(UPDATE_ENDPOINT_STATUS);
   const [deleteAgent] = useMutation<{ deleteAgentEndpoint: DeleteAgentEndpointPayload }>(DELETE_AGENT_ENDPOINT);
   const [regenerateKey] = useMutation<{
     regenerateEndpointApiKey: { apiKey: string; success: boolean; error: string };
   }>(REGENERATE_ENDPOINT_API_KEY);
 
-  const handleSuspend = async () => {
-    const ok = await confirm({
-      title: "Suspend Agent",
-      description: `Suspend "${agent.name}"? It will stop processing requests.`,
-      confirmLabel: "Suspend",
-    });
-    if (!ok) return;
-    try {
-      const { data } = await suspendAgent({ variables: { id: agent.id } });
-      if (data?.suspendAgentEndpoint?.success) {
-        toast.success(`"${agent.name}" suspended`);
-        onRefresh();
-      } else {
-        toast.error(data?.suspendAgentEndpoint?.error ?? "Failed to suspend");
-      }
-    } catch {
-      toast.error("Failed to suspend agent");
-    }
-  };
+  const isActive = agent.status === "active";
 
-  const handleActivate = async () => {
+  const handleToggleStatus = async () => {
+    const nextStatus = isActive ? "suspended" : "active";
+    if (isActive) {
+      const ok = await confirm({
+        title: "Suspend Agent",
+        description: `Suspend "${agent.name}"? It will stop processing requests.`,
+        confirmLabel: "Suspend",
+      });
+      if (!ok) return;
+    }
+
     try {
-      const { data } = await activateAgent({ variables: { id: agent.id } });
-      if (data?.activateAgentEndpoint?.success) {
-        toast.success(`"${agent.name}" activated`);
+      const { data } = await updateStatus({
+        variables: { id: agent.id, status: nextStatus },
+      });
+      if (data?.updateEndpointStatus?.success) {
+        toast.success(
+          isActive ? `"${agent.name}" suspended` : `"${agent.name}" activated`
+        );
         onRefresh();
       } else {
-        toast.error(data?.activateAgentEndpoint?.error ?? "Failed to activate");
+        toast.error(
+          data?.updateEndpointStatus?.error ??
+            (isActive ? "Failed to suspend" : "Failed to activate")
+        );
       }
     } catch {
-      toast.error("Failed to activate agent");
+      toast.error(isActive ? "Failed to suspend agent" : "Failed to activate agent");
     }
   };
 
@@ -185,11 +187,13 @@ function ActionsCell({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {agent.status === "active" ? (
-          <DropdownMenuItem onClick={handleSuspend}>Suspend</DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem onClick={handleActivate}>Activate</DropdownMenuItem>
-        )}
+        <DropdownMenuItem onClick={() => onEdit(agent)}>Edit</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onAssignGroup(agent)}>
+          Assign to Group
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleToggleStatus}>
+          {isActive ? "Suspend" : "Activate"}
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={handleRegenerate}>
           Regenerate API Key
         </DropdownMenuItem>
@@ -402,6 +406,8 @@ function HealthStatusGrid({ endpoints }: { endpoints: EndpointData[] }) {
 export default function AgentsPage() {
   const { endpoints, loading, refetch } = useEndpoints();
   const [registerOpen, setRegisterOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<EndpointData | null>(null);
+  const [assignTarget, setAssignTarget] = useState<EndpointData | null>(null);
 
   const columns: ColumnDef<EndpointData, unknown>[] = [
     {
@@ -482,7 +488,12 @@ export default function AgentsPage() {
       id: "actions",
       header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => (
-        <ActionsCell agent={row.original} onRefresh={refetch} />
+        <ActionsCell
+          agent={row.original}
+          onRefresh={refetch}
+          onEdit={setEditTarget}
+          onAssignGroup={setAssignTarget}
+        />
       ),
       enableSorting: false,
     },
@@ -591,6 +602,24 @@ export default function AgentsPage() {
         open={registerOpen}
         onOpenChange={setRegisterOpen}
         onRegistered={refetch}
+      />
+
+      <EditAgentDialog
+        agent={editTarget}
+        open={editTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null);
+        }}
+        onUpdated={refetch}
+      />
+
+      <AssignGroupDialog
+        agent={assignTarget}
+        open={assignTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setAssignTarget(null);
+        }}
+        onAssigned={refetch}
       />
     </div>
   );

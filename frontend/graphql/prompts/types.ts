@@ -99,3 +99,48 @@ export interface DeleteSystemPromptData {
 export interface DeleteSystemPromptVariables {
   id: string;
 }
+
+export interface ForkSystemPromptResult {
+  success: boolean;
+  errors: string[];
+  prompt: {
+    id: string;
+    name: string | null;
+    slug: string | null;
+  } | null;
+}
+
+export interface ForkSystemPromptData {
+  forkSystemPrompt: ForkSystemPromptResult;
+}
+
+export interface ForkSystemPromptVariables {
+  id: string;
+}
+
+export interface PromptImprovementSuggestion {
+  category: string | null;
+  originalText: string | null;
+  suggestedText: string | null;
+  explanation: string | null;
+  severity: string | null;
+}
+
+export interface AnalyzeSystemPromptResult {
+  success: boolean;
+  overallScore: number;
+  strengths: string[];
+  improvements: PromptImprovementSuggestion[];
+  tokenEfficiency: string;
+  error: string | null;
+}
+
+export interface AnalyzeSystemPromptData {
+  analyzeSystemPrompt: AnalyzeSystemPromptResult;
+}
+
+export interface AnalyzeSystemPromptVariables {
+  promptText: string;
+  promptType?: string | null;
+  targetProviders?: string[] | null;
+}

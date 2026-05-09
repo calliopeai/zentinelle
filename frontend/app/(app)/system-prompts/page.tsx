@@ -13,16 +13,23 @@ import {
   Trash2Icon,
   BadgeCheckIcon,
   SparklesIcon,
+  GitForkIcon,
+  WandSparklesIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useSystemPrompts } from "@/graphql/prompts/hooks";
-import { DELETE_SYSTEM_PROMPT } from "@/graphql/prompts/mutations";
+import {
+  DELETE_SYSTEM_PROMPT,
+  FORK_SYSTEM_PROMPT,
+} from "@/graphql/prompts/mutations";
 import { GET_SYSTEM_PROMPTS } from "@/graphql/prompts/queries";
 import type {
   SystemPromptData,
   DeleteSystemPromptData,
   DeleteSystemPromptVariables,
+  ForkSystemPromptData,
+  ForkSystemPromptVariables,
 } from "@/graphql/prompts/types";
 
 import {
@@ -51,6 +58,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PromptDetailDialog } from "./prompt-detail-dialog";
+import { PromptAnalysisSheet } from "./prompt-analysis-sheet";
 
 function visibilityVariant(visibility: string | null) {
   switch (visibility) {
@@ -79,6 +87,10 @@ export default function SystemPromptsPage() {
   const [pendingDelete, setPendingDelete] = useState<SystemPromptData | null>(
     null,
   );
+  const [analyzingPrompt, setAnalyzingPrompt] = useState<SystemPromptData | null>(
+    null,
+  );
+  const [forkingId, setForkingId] = useState<string | null>(null);
 
   const [deletePrompt, { loading: deleting }] = useMutation<
     DeleteSystemPromptData,
@@ -86,6 +98,32 @@ export default function SystemPromptsPage() {
   >(DELETE_SYSTEM_PROMPT, {
     refetchQueries: [{ query: GET_SYSTEM_PROMPTS }],
   });
+
+  const [forkPrompt] = useMutation<
+    ForkSystemPromptData,
+    ForkSystemPromptVariables
+  >(FORK_SYSTEM_PROMPT, {
+    refetchQueries: [{ query: GET_SYSTEM_PROMPTS }],
+    awaitRefetchQueries: true,
+  });
+
+  const handleFork = async (prompt: SystemPromptData) => {
+    setForkingId(prompt.id);
+    try {
+      const { data } = await forkPrompt({ variables: { id: prompt.id } });
+      const result = data?.forkSystemPrompt;
+      if (result?.success && result.prompt) {
+        toast.success(`Forked "${prompt.name ?? "prompt"}"`);
+        router.push(`/system-prompts/builder?id=${result.prompt.id}`);
+      } else {
+        toast.error(result?.errors?.[0] ?? "Failed to fork prompt");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to fork");
+    } finally {
+      setForkingId(null);
+    }
+  };
 
   const handleConfirmDelete = async () => {
     if (!pendingDelete) return;
@@ -214,6 +252,19 @@ export default function SystemPromptsPage() {
               <PencilIcon className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setAnalyzingPrompt(row.original)}
+            >
+              <WandSparklesIcon className="mr-2 h-4 w-4" />
+              Analyze
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleFork(row.original)}
+              disabled={forkingId === row.original.id}
+            >
+              <GitForkIcon className="mr-2 h-4 w-4" />
+              {forkingId === row.original.id ? "Forking..." : "Fork"}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => setPendingDelete(row.original)}
@@ -294,6 +345,20 @@ export default function SystemPromptsPage() {
         open={selectedPrompt !== null}
         onOpenChange={(open) => {
           if (!open) setSelectedPrompt(null);
+        }}
+        onAnalyze={(prompt) => {
+          setSelectedPrompt(null);
+          setAnalyzingPrompt(prompt);
+        }}
+      />
+
+      <PromptAnalysisSheet
+        promptId={analyzingPrompt?.id ?? null}
+        promptName={analyzingPrompt?.name ?? null}
+        promptType={analyzingPrompt?.promptType ?? null}
+        open={analyzingPrompt !== null}
+        onOpenChange={(open) => {
+          if (!open) setAnalyzingPrompt(null);
         }}
       />
 

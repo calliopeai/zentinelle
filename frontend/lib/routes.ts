@@ -1,6 +1,7 @@
 export const routeLabels: Record<string, string> = {
   dashboard: "Dashboard",
   agents: "Agents",
+  groups: "Agent Groups",
   policies: "Policies",
   "content-rules": "Content Rules",
   events: "Events",
@@ -12,6 +13,8 @@ export const routeLabels: Record<string, string> = {
   "system-prompts": "System Prompts",
   settings: "Settings",
   notifications: "Notifications",
+  retention: "Data Retention",
+  "legal-holds": "Legal Holds",
   builder: "Prompt Builder",
   generator: "Prompt Generator",
   assistant: "AI Assistant",

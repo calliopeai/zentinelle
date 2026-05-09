@@ -64,3 +64,44 @@ export const TOGGLE_PROMPT_FAVORITE = gql`
     }
   }
 `;
+
+export const FORK_SYSTEM_PROMPT = gql`
+  mutation ForkSystemPrompt($id: ID!) {
+    forkSystemPrompt(id: $id) {
+      success
+      errors
+      prompt {
+        id
+        name
+        slug
+      }
+    }
+  }
+`;
+
+export const ANALYZE_SYSTEM_PROMPT = gql`
+  mutation AnalyzeSystemPrompt(
+    $promptText: String!
+    $promptType: String
+    $targetProviders: [String!]
+  ) {
+    analyzeSystemPrompt(
+      promptText: $promptText
+      promptType: $promptType
+      targetProviders: $targetProviders
+    ) {
+      success
+      overallScore
+      strengths
+      tokenEfficiency
+      error
+      improvements {
+        category
+        originalText
+        suggestedText
+        explanation
+        severity
+      }
+    }
+  }
+`;

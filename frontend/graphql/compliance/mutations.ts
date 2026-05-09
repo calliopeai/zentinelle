@@ -19,3 +19,16 @@ export const TOGGLE_FRAMEWORK = gql`
     }
   }
 `;
+
+export const ACTIVATE_COMPLIANCE_PACK = gql`
+  mutation ActivateCompliancePack($packId: String!) {
+    activateCompliancePack(packId: $packId) {
+      success
+      error
+      packName
+      packVersion
+      policiesCreated
+      policiesUpdated
+    }
+  }
+`;

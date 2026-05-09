@@ -6,6 +6,7 @@ import {
   CheckIcon,
   SparklesIcon,
   BadgeCheckIcon,
+  WandSparklesIcon,
 } from "lucide-react";
 
 import { useSystemPrompt } from "@/graphql/prompts/hooks";
@@ -44,12 +45,14 @@ type PromptDetailDialogProps = {
   prompt: SystemPromptData | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAnalyze?: (prompt: SystemPromptData) => void;
 };
 
 export function PromptDetailDialog({
   prompt,
   open,
   onOpenChange,
+  onAnalyze,
 }: PromptDetailDialogProps) {
   const [copied, setCopied] = useState(false);
 
@@ -176,20 +179,34 @@ export function PromptDetailDialog({
               <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
                 Prompt Text
               </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCopy}
-                disabled={!data.promptText || loading}
-                className="h-7"
-              >
-                {copied ? (
-                  <CheckIcon className="mr-1 h-3.5 w-3.5" />
-                ) : (
-                  <CopyIcon className="mr-1 h-3.5 w-3.5" />
+              <div className="flex items-center gap-1">
+                {onAnalyze && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onAnalyze(data)}
+                    disabled={!data.promptText || loading}
+                    className="h-7"
+                  >
+                    <WandSparklesIcon className="mr-1 h-3.5 w-3.5" />
+                    Analyze
+                  </Button>
                 )}
-                {copied ? "Copied" : "Copy"}
-              </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCopy}
+                  disabled={!data.promptText || loading}
+                  className="h-7"
+                >
+                  {copied ? (
+                    <CheckIcon className="mr-1 h-3.5 w-3.5" />
+                  ) : (
+                    <CopyIcon className="mr-1 h-3.5 w-3.5" />
+                  )}
+                  {copied ? "Copied" : "Copy"}
+                </Button>
+              </div>
             </div>
             {loading && !data.promptText ? (
               <Skeleton className="h-40 w-full" />

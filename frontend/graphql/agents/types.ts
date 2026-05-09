@@ -77,3 +77,24 @@ export interface ActivateAgentEndpointPayload {
   success: boolean | null;
   error: string | null;
 }
+
+export interface UpdateAgentEndpointInput {
+  id: string;
+  name?: string | null;
+  agentType?: string | null;
+  capabilities?: string[] | null;
+  metadata?: Record<string, unknown> | null;
+  config?: Record<string, unknown> | null;
+}
+
+export interface UpdateAgentEndpointPayload {
+  endpoint: EndpointData | null;
+  success: boolean | null;
+  error: string | null;
+}
+
+export interface UpdateEndpointStatusPayload {
+  endpoint: Pick<EndpointData, "id" | "status"> | null;
+  success: boolean | null;
+  error: string | null;
+}
