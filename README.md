@@ -5,7 +5,7 @@
 Zentinelle sits between your AI agents and their LLM providers, enforcing policies, scanning content, logging activity, and giving you a real-time GRC portal — without modifying agent code.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.2-green.svg)]()
+[![Version](https://img.shields.io/badge/version-1.3.0-green.svg)]()
 
 ---
 
@@ -38,6 +38,8 @@ Three integration modes:
 - **Policy simulator** — dry-run policies against historical events before enforcing
 - **Policy analyzer** — detect conflicts, coverage gaps, ranking
 - **Policy versioning** — full revision history with diff viewer
+- **Agent groups** — bundle agents into tiers (standard / restricted / unrestricted) for shared policy scope
+- **Compliance packs** — one-click activation of curated policy bundles (SOC 2 starter, GDPR starter, etc.)
 
 ### Risk
 - **Risk register** — FMEA-style with Severity × Likelihood × Impact (Fibonacci scale)
@@ -51,6 +53,7 @@ Three integration modes:
 - **Detailed control mapping** — each framework's controls mapped to Zentinelle features
 - **Gap analysis** — missing capabilities with remediation guidance
 - **Compliance reports** — exportable PDF/CSV/JSON
+- **Legal holds** — freeze data retention for litigation/audit; release returns data to normal retention but the hold record persists in audit trail
 
 ### Observability
 - **Real-time event stream** — live polling with filters
@@ -62,9 +65,18 @@ Three integration modes:
 ### AI Assistant
 - **Chat bubble** on every page + dedicated `/assistant` page
 - **24+ LLM providers** with live model discovery
+- **Tool use** — 22 tools wired into your real GRC data, agentic loop with confirmation flow for mutations. Anthropic, OpenAI, and Google Gemini all supported.
 - **Tenant-scoped encrypted API keys** — Fernet (AES-128 + HMAC-SHA256) at rest
 - **Per-provider toggle** — enable/disable in chat without removing keys
+- **Per-model enable/disable** — curate the model picker via Settings → LLM Providers → Models
 - **Markdown rendering** — formatted responses with code blocks, lists, links
+
+### System Prompts
+- **Library** — versioned system prompts with categories, ratings, favorites
+- **Builder** — guided UI for crafting prompts with token estimates
+- **Generator** — AI-assisted prompt drafting from a brief
+- **Fork** — clone any prompt as a starting point for a new one
+- **Analyze** — get AI feedback (clarity, safety risks, ambiguity, token efficiency, per-section improvements)
 
 ### Multi-tenancy & Auth
 - **AUTH_MODE=open** — no login (default for internal/dev behind VPN)
