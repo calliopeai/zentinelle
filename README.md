@@ -280,6 +280,10 @@ Opt-in only. Never auto-runs.
 
 MIT — see [LICENSE](LICENSE).
 
+Copyright (c) 2026 Calliope Labs Inc. All Rights Reserved. Calliope AI is a trademark of Calliope Labs Inc.
+
+Portions of the framework underlying this repo are derived from **[boilerworks-django-nextjs](https://github.com/ConflictHQ/boilerworks-django-nextjs)** (Copyright (c) Conflict LLC, MIT-licensed). Tip of the hat 🎩
+
 ---
 
 Built by [Calliope AI](https://calliope.ai) · [zentinelle.ai](https://zentinelle.ai) · [Docs](https://zentinelle.dev)
