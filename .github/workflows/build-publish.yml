@@ -1,0 +1,276 @@
+name: Build and Publish
+
+# Builds + publishes Zentinelle's three container images: backend
+# (Django), frontend (Next.js), and gateway (Go). Mirrors the
+# calliope-kasm pattern: multi-arch via the GHCR-intermediate trick
+# so docker manifest can stitch amd64 + arm64 into one tag.
+#
+# Triggers:
+#   - Tag push    backend-v* / frontend-v* / gateway-v*  -> :{version}, :latest
+#   - Push to main (path-filtered)                       -> :latest, :main-{sha}
+#   - workflow_dispatch (product + version)              -> manual builds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'gateway/**'
+      - '.github/workflows/build-publish.yml'
+    tags:
+      - 'backend-v*'
+      - 'frontend-v*'
+      - 'gateway-v*'
+  workflow_dispatch:
+    inputs:
+      product:
+        description: 'Product to build'
+        required: true
+        type: choice
+        options: [backend, frontend, gateway, all]
+        default: all
+      version:
+        description: 'Version (e.g., 1.2.3) — leave blank to publish only :latest'
+        required: false
+        default: ''
+      push:
+        description: 'Push to registries'
+        type: boolean
+        default: true
+
+env:
+  REGISTRY_DOCKERHUB: docker.io
+  REGISTRY_GHCR: ghcr.io
+  IMAGE_NAMESPACE: calliopeai
+
+jobs:
+  matrix:
+    name: Plan build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      products: ${{ steps.plan.outputs.products }}
+      version: ${{ steps.plan.outputs.version }}
+      is_release: ${{ steps.plan.outputs.is_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Plan
+        id: plan
+        run: |
+          set -euo pipefail
+          PRODUCTS="[]"
+          VERSION=""
+          IS_RELEASE="false"
+
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+            PRODUCT="${TAG%%-v*}"
+            VERSION="${TAG#*-v}"
+            PRODUCTS="[\"${PRODUCT}\"]"
+            IS_RELEASE="true"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+            case "${{ inputs.product }}" in
+              backend)  PRODUCTS='["backend"]' ;;
+              frontend) PRODUCTS='["frontend"]' ;;
+              gateway)  PRODUCTS='["gateway"]' ;;
+              all)      PRODUCTS='["backend","frontend","gateway"]' ;;
+            esac
+            [ -n "$VERSION" ] && IS_RELEASE="true"
+          else
+            CHANGED_BACKEND=$(git diff --name-only HEAD^ HEAD -- backend/  | head -n1 || true)
+            CHANGED_FRONTEND=$(git diff --name-only HEAD^ HEAD -- frontend/ | head -n1 || true)
+            CHANGED_GATEWAY=$(git diff --name-only HEAD^ HEAD -- gateway/  | head -n1 || true)
+            CHANGED_WORKFLOW=$(git diff --name-only HEAD^ HEAD -- .github/workflows/build-publish.yml | head -n1 || true)
+            ITEMS=()
+            if [ -n "$CHANGED_BACKEND" ]  || [ -n "$CHANGED_WORKFLOW" ]; then ITEMS+=("backend");  fi
+            if [ -n "$CHANGED_FRONTEND" ] || [ -n "$CHANGED_WORKFLOW" ]; then ITEMS+=("frontend"); fi
+            if [ -n "$CHANGED_GATEWAY" ]  || [ -n "$CHANGED_WORKFLOW" ]; then ITEMS+=("gateway");  fi
+            if [ ${#ITEMS[@]} -gt 0 ]; then
+              PRODUCTS=$(printf '%s\n' "${ITEMS[@]}" | jq -R . | jq -sc .)
+            fi
+          fi
+
+          echo "products=${PRODUCTS}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}"   >> "$GITHUB_OUTPUT"
+          echo "is_release=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
+          echo "Plan: products=${PRODUCTS} version=${VERSION} is_release=${IS_RELEASE}"
+
+  build:
+    name: Build ${{ matrix.product }} (${{ matrix.suffix }})
+    needs: matrix
+    if: ${{ needs.matrix.outputs.products != '[]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        product: ${{ fromJSON(needs.matrix.outputs.products) }}
+        platform: [linux/amd64, linux/arm64]
+        include:
+          - platform: linux/amd64
+            suffix: amd64
+          - platform: linux/arm64
+            suffix: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image + context
+        id: cfg
+        run: |
+          set -euo pipefail
+          case "${{ matrix.product }}" in
+            backend)
+              echo "image=zentinelle-backend"  >> "$GITHUB_OUTPUT"
+              echo "context=./backend"         >> "$GITHUB_OUTPUT"
+              echo "dockerfile=./backend/Dockerfile" >> "$GITHUB_OUTPUT"
+              ;;
+            frontend)
+              echo "image=zentinelle-frontend" >> "$GITHUB_OUTPUT"
+              echo "context=./frontend"        >> "$GITHUB_OUTPUT"
+              echo "dockerfile=./frontend/Dockerfile" >> "$GITHUB_OUTPUT"
+              ;;
+            gateway)
+              echo "image=zentinelle-gateway"  >> "$GITHUB_OUTPUT"
+              echo "context=./gateway"         >> "$GITHUB_OUTPUT"
+              echo "dockerfile=./gateway/Dockerfile" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_DOCKERHUB }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_GHCR }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute per-arch tag
+        id: tag
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.matrix.outputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION="main-${GITHUB_SHA::7}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push to GHCR (${{ matrix.suffix }})
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ steps.cfg.outputs.context }}
+          file: ${{ steps.cfg.outputs.dockerfile }}
+          platforms: ${{ matrix.platform }}
+          push: ${{ github.event_name != 'workflow_dispatch' || inputs.push }}
+          tags: ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAMESPACE }}/${{ steps.cfg.outputs.image }}:${{ steps.tag.outputs.version }}-${{ matrix.suffix }}
+          cache-from: type=gha,scope=${{ matrix.product }}-${{ matrix.suffix }}
+          cache-to:   type=gha,mode=max,scope=${{ matrix.product }}-${{ matrix.suffix }}
+          provenance: false
+          sbom: false
+
+      - name: Mirror to Docker Hub (${{ matrix.suffix }})
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.push }}
+        run: |
+          set -euo pipefail
+          GHCR_TAG="${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAMESPACE }}/${{ steps.cfg.outputs.image }}:${{ steps.tag.outputs.version }}-${{ matrix.suffix }}"
+          HUB_TAG="${{ env.REGISTRY_DOCKERHUB }}/${{ env.IMAGE_NAMESPACE }}/${{ steps.cfg.outputs.image }}:${{ steps.tag.outputs.version }}-${{ matrix.suffix }}"
+          docker pull --platform ${{ matrix.platform }} "$GHCR_TAG"
+          docker tag "$GHCR_TAG" "$HUB_TAG"
+          docker push "$HUB_TAG"
+
+  manifest:
+    name: Multi-arch manifest (${{ matrix.product }})
+    needs: [matrix, build]
+    if: ${{ needs.matrix.outputs.products != '[]' && (github.event_name != 'workflow_dispatch' || inputs.push) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        product: ${{ fromJSON(needs.matrix.outputs.products) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image + tag set
+        id: cfg
+        run: |
+          set -euo pipefail
+          case "${{ matrix.product }}" in
+            backend)  echo "image=zentinelle-backend"  >> "$GITHUB_OUTPUT" ;;
+            frontend) echo "image=zentinelle-frontend" >> "$GITHUB_OUTPUT" ;;
+            gateway)  echo "image=zentinelle-gateway"  >> "$GITHUB_OUTPUT" ;;
+          esac
+
+          VERSION="${{ needs.matrix.outputs.version }}"
+          BASE_TAG="$VERSION"
+          EXTRA_TAGS="latest"
+
+          if [ -z "$VERSION" ]; then
+            BASE_TAG="main-${GITHUB_SHA::7}"
+            EXTRA_TAGS="latest main"
+          fi
+
+          echo "base_tag=${BASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "extra_tags=${EXTRA_TAGS}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_DOCKERHUB }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_GHCR }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push manifests
+        run: |
+          set -euo pipefail
+          for REGISTRY in "${{ env.REGISTRY_DOCKERHUB }}" "${{ env.REGISTRY_GHCR }}"; do
+            BASE="${REGISTRY}/${{ env.IMAGE_NAMESPACE }}/${{ steps.cfg.outputs.image }}"
+            VBASE="${BASE}:${{ steps.cfg.outputs.base_tag }}"
+
+            docker manifest create --amend "$VBASE" \
+              "${BASE}:${{ steps.cfg.outputs.base_tag }}-amd64" \
+              "${BASE}:${{ steps.cfg.outputs.base_tag }}-arm64"
+            docker manifest push "$VBASE"
+
+            for ALIAS in ${{ steps.cfg.outputs.extra_tags }}; do
+              docker manifest create --amend "${BASE}:${ALIAS}" \
+                "${BASE}:${{ steps.cfg.outputs.base_tag }}-amd64" \
+                "${BASE}:${{ steps.cfg.outputs.base_tag }}-arm64"
+              docker manifest push "${BASE}:${ALIAS}"
+            done
+          done
+
+      - name: Update Docker Hub description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.IMAGE_NAMESPACE }}/${{ steps.cfg.outputs.image }}
+          readme-filepath: ./DOCKERHUB-${{ matrix.product }}.md

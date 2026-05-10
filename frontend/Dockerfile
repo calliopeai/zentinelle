@@ -34,18 +34,15 @@ RUN apk add --no-cache wget && \
     adduser --system --uid 1001 nextjs
 
 # Copy built assets
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-
-# Copy startup script
-COPY start.sh ./start.sh
-RUN chmod +x start.sh
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 
 EXPOSE 3002
 
 ENV PORT=3002
+ENV HOSTNAME=0.0.0.0
 
-CMD ["./start.sh"]
+CMD ["node", "server.js"]
