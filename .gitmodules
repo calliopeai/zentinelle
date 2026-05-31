@@ -1,3 +1,6 @@
 [submodule "docs/wiki"]
 	path = docs/wiki
 	url = https://github.com/calliopeai/zentinelle.wiki.git
+[submodule "sdk"]
+	path = sdk
+	url = git@github.com:calliopeai/zentinelle-sdk.git
