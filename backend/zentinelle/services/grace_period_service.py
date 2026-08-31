@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from typing import Optional, TYPE_CHECKING
 
 from django.utils import timezone
+from zentinelle.services.notification_service import get_notification_service
 
 if TYPE_CHECKING:
     from zentinelle.models import License
@@ -317,21 +318,20 @@ class GracePeriodService:
 
     def _send_grace_period_started_notification(self, license_obj: 'License') -> bool:
         """Send notification that grace period has started."""
-        from zentinelle.services.notification_service import get_notification_service
 
         try:
             notification_service = get_notification_service()
-            org = license_obj.organization
+            tenant_id = license_obj.tenant_id
 
             # Get reason display
             reason_display = self._get_reason_display(license_obj.grace_period_reason)
             days_remaining = license_obj.days_remaining_in_grace_period
 
             # Create in-app notification
-            admin_emails = notification_service._get_admin_emails(org)
+            admin_emails = notification_service._get_admin_emails(tenant_id)
 
             notification_service._create_in_app_notification(
-                org=org,
+                org=tenant_id,
                 subject=f"License Grace Period Started - {days_remaining} days remaining",
                 message=(
                     f"Your license has entered a grace period due to: {reason_display}.\n\n"
@@ -362,16 +362,15 @@ class GracePeriodService:
 
     def _send_grace_period_warning_notification(self, license_obj: 'License') -> bool:
         """Send a daily warning during grace period."""
-        from zentinelle.services.notification_service import get_notification_service
 
         try:
             notification_service = get_notification_service()
-            org = license_obj.organization
+            tenant_id = license_obj.tenant_id
 
             reason_display = self._get_reason_display(license_obj.grace_period_reason)
             days_remaining = license_obj.days_remaining_in_grace_period
 
-            admin_emails = notification_service._get_admin_emails(org)
+            admin_emails = notification_service._get_admin_emails(tenant_id)
 
             # Determine urgency
             if days_remaining <= 1:
@@ -385,7 +384,7 @@ class GracePeriodService:
                 urgency = "reminder"
 
             notification_service._create_in_app_notification(
-                org=org,
+                org=tenant_id,
                 subject=subject,
                 message=(
                     f"Your license grace period has {days_remaining} day(s) remaining.\n\n"
@@ -416,17 +415,16 @@ class GracePeriodService:
         previous_reason: str,
     ) -> bool:
         """Send notification that grace period has been resolved."""
-        from zentinelle.services.notification_service import get_notification_service
 
         try:
             notification_service = get_notification_service()
-            org = license_obj.organization
+            tenant_id = license_obj.tenant_id
 
             reason_display = self._get_reason_display(previous_reason)
-            admin_emails = notification_service._get_admin_emails(org)
+            admin_emails = notification_service._get_admin_emails(tenant_id)
 
             notification_service._create_in_app_notification(
-                org=org,
+                org=tenant_id,
                 subject="License Issue Resolved - Full Access Restored",
                 message=(
                     f"The license issue ({reason_display}) has been resolved.\n\n"
@@ -471,7 +469,7 @@ class GracePeriodService:
     def _get_grace_period_started_html(self, license_obj: 'License', reason_display: str) -> str:
         """Generate HTML email for grace period started."""
         days_remaining = license_obj.days_remaining_in_grace_period
-        org = license_obj.organization
+        tenant_id = license_obj.tenant_id
 
         return f"""
         <html>
@@ -494,7 +492,7 @@ class GracePeriodService:
 
                 <div class="content">
                     <p>Hello,</p>
-                    <p>Your license for <strong>{org.name}</strong> has entered a grace period due to:</p>
+                    <p>Your license for <strong>{tenant_id}</strong> has entered a grace period due to:</p>
                     <p style="background: #f5f5f5; padding: 15px; border-radius: 6px; font-weight: bold;">{reason_display}</p>
 
                     <div class="days-box">
@@ -533,7 +531,7 @@ class GracePeriodService:
     def _get_grace_period_started_text(self, license_obj: 'License', reason_display: str) -> str:
         """Generate text email for grace period started."""
         days_remaining = license_obj.days_remaining_in_grace_period
-        org = license_obj.organization
+        tenant_id = license_obj.tenant_id
 
         return f"""
 LICENSE GRACE PERIOD STARTED
@@ -541,7 +539,7 @@ LICENSE GRACE PERIOD STARTED
 
 Hello,
 
-Your license for {org.name} has entered a grace period due to:
+Your license for {tenant_id} has entered a grace period due to:
 {reason_display}
 
 DAYS REMAINING: {days_remaining}
@@ -571,7 +569,7 @@ The Calliope AI Team
     ) -> str:
         """Generate HTML email for grace period warning."""
         days_remaining = license_obj.days_remaining_in_grace_period
-        org = license_obj.organization
+        tenant_id = license_obj.tenant_id
 
         # Color based on urgency
         colors = {
@@ -602,7 +600,7 @@ The Calliope AI Team
                         <div class="number">{days_remaining}</div>
                         <div class="label">day{'s' if days_remaining != 1 else ''} remaining</div>
                     </div>
-                    <p>Your license for <strong>{org.name}</strong> will expire soon.</p>
+                    <p>Your license for <strong>{tenant_id}</strong> will expire soon.</p>
                     <p><strong>Reason:</strong> {reason_display}</p>
                     <p style="text-align: center; margin-top: 20px;">
                         <a href="https://app.calliope.ai/admin/billing" class="action-btn">Resolve Now</a>
@@ -616,13 +614,13 @@ The Calliope AI Team
     def _get_grace_period_warning_text(self, license_obj: 'License', reason_display: str) -> str:
         """Generate text email for grace period warning."""
         days_remaining = license_obj.days_remaining_in_grace_period
-        org = license_obj.organization
+        tenant_id = license_obj.tenant_id
 
         return f"""
 LICENSE GRACE PERIOD REMINDER
 =============================
 
-Your license for {org.name} will expire in {days_remaining} day(s).
+Your license for {tenant_id} will expire in {days_remaining} day(s).
 
 Reason: {reason_display}
 
@@ -636,7 +634,7 @@ The Calliope AI Team
 
     def _get_grace_period_resolved_html(self, license_obj: 'License', reason_display: str) -> str:
         """Generate HTML email for grace period resolved."""
-        org = license_obj.organization
+        tenant_id = license_obj.tenant_id
 
         return f"""
         <html>
@@ -653,7 +651,7 @@ The Calliope AI Team
                 </div>
                 <div class="content">
                     <p>Great news!</p>
-                    <p>The license issue for <strong>{org.name}</strong> has been resolved.</p>
+                    <p>The license issue for <strong>{tenant_id}</strong> has been resolved.</p>
                     <p style="background: #e8f5e9; padding: 15px; border-radius: 6px;">
                         <strong>Previous issue:</strong> {reason_display}<br>
                         <strong>Status:</strong> Resolved
@@ -672,7 +670,7 @@ The Calliope AI Team
 
     def _get_grace_period_resolved_text(self, license_obj: 'License', reason_display: str) -> str:
         """Generate text email for grace period resolved."""
-        org = license_obj.organization
+        tenant_id = license_obj.tenant_id
 
         return f"""
 LICENSE ISSUE RESOLVED
@@ -680,7 +678,7 @@ LICENSE ISSUE RESOLVED
 
 Great news!
 
-The license issue for {org.name} has been resolved.
+The license issue for {tenant_id} has been resolved.
 
 Previous issue: {reason_display}
 Status: Resolved

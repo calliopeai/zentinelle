@@ -21,6 +21,7 @@ Architecture:
                                                                         |
                                                     UsageAggregate (rolled up) -> Stripe
 """
+import math
 import uuid
 from decimal import Decimal
 from django.db import models
@@ -976,11 +977,23 @@ class License(models.Model):
 
     @property
     def days_remaining_in_grace_period(self) -> int:
-        """Get the number of days remaining in the grace period."""
+        """Days left in the grace period, counting a part day as a day.
+
+        `timedelta.days` truncates, so a seven-day grace period is six days and
+        23:59:59 the moment after it starts and reported "6". The number is not
+        internal: it is the countdown an operator sees and the figure in the
+        subject line of the warning email ("License Grace Period Started - 6
+        days remaining"), so a licence bought for seven days announced itself as
+        six, and the final day — the one that matters — was shown as zero while
+        the licence was still valid.
+
+        Rounded up instead. Seven immediately after it starts, one throughout
+        the last day, and zero only once `is_in_grace_period` is already false.
+        """
         if not self.is_in_grace_period:
             return 0
         delta = self.grace_period_ends - timezone.now()
-        return max(0, delta.days)
+        return max(0, math.ceil(delta.total_seconds() / 86400))
 
     def clear_grace_period(self):
         """Clear the grace period (license issue resolved)."""
