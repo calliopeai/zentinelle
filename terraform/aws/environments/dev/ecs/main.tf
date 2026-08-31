@@ -610,6 +610,10 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "ENVIRONMENT", value = var.env },
       { name = "AWS_REGION", value = var.region },
       { name = "DJANGO_SETTINGS_MODULE", value = "config.settings.prod" },
+      # Django refuses to start under prod settings with AUTH_MODE=open,
+      # which is the default when the variable is absent. Not a warning:
+      # the worker raises on import and the container exits.
+      { name = "AUTH_MODE", value = var.auth_mode },
       { name = "POSTGRES_HOST", value = var.db_host },
       { name = "POSTGRES_PORT", value = tostring(var.db_port) },
       { name = "POSTGRES_DB", value = var.db_name },
@@ -698,6 +702,10 @@ resource "aws_ecs_task_definition" "celery" {
       { name = "ENVIRONMENT", value = var.env },
       { name = "AWS_REGION", value = var.region },
       { name = "DJANGO_SETTINGS_MODULE", value = "config.settings.prod" },
+      # Django refuses to start under prod settings with AUTH_MODE=open,
+      # which is the default when the variable is absent. Not a warning:
+      # the worker raises on import and the container exits.
+      { name = "AUTH_MODE", value = var.auth_mode },
       { name = "POSTGRES_HOST", value = var.db_host },
       { name = "POSTGRES_PORT", value = tostring(var.db_port) },
       { name = "POSTGRES_DB", value = var.db_name },
@@ -771,6 +779,10 @@ resource "aws_ecs_task_definition" "celery_beat" {
       { name = "ENVIRONMENT", value = var.env },
       { name = "AWS_REGION", value = var.region },
       { name = "DJANGO_SETTINGS_MODULE", value = "config.settings.prod" },
+      # Django refuses to start under prod settings with AUTH_MODE=open,
+      # which is the default when the variable is absent. Not a warning:
+      # the worker raises on import and the container exits.
+      { name = "AUTH_MODE", value = var.auth_mode },
       { name = "POSTGRES_HOST", value = var.db_host },
       { name = "POSTGRES_PORT", value = tostring(var.db_port) },
       { name = "POSTGRES_DB", value = var.db_name },

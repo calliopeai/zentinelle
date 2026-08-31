@@ -25,6 +25,7 @@ module "ecs" {
   certificate_arn    = local.certificate_arn
   route53_zone_id    = local.route53_zone_id
   manage_dns_records = var.manage_dns_records
+  auth_mode          = var.auth_mode
   domain             = local.domain
   sns_topic_arn      = aws_sns_topic.alerts.arn
   db_credentials_arn = aws_secretsmanager_secret.db_credentials.arn
