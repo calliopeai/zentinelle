@@ -12,6 +12,7 @@ from strawberry.scalars import JSON
 from graphql_relay import from_global_id
 
 from zentinelle.models import AgentEndpoint
+from zentinelle.schema.auth_helpers import get_request_tenant_id
 from zentinelle.schema.types import AgentEndpointType
 
 logger = logging.getLogger(__name__)
@@ -137,12 +138,35 @@ def create_agent_endpoint(info: strawberry.types.Info, organization_id: uuid.UUI
         return CreateAgentEndpointPayload(success=False, error="Failed to create agent endpoint")
 
 
+def _endpoint_for_caller(info, global_or_raw_id: str) -> AgentEndpoint:
+    """The endpoint this caller is allowed to act on, or DoesNotExist.
+
+    Every mutation here used `AgentEndpoint.objects.get(id=...)` with the id
+    straight off the wire and no tenant constraint, behind a check that the
+    caller was authenticated at all. Given another tenant's endpoint UUID, one
+    could rename it, delete it, change its status — and, through
+    `regenerate_endpoint_api_key`, be handed a working `sk_agent_` credential
+    for it, which authenticates against every agent REST route and the LLM
+    proxy. That is a tenant takeover reachable from a single unguessable-but-
+    not-secret identifier.
+
+    Raising DoesNotExist rather than a distinct "forbidden" is deliberate: a
+    caller who may not see an endpoint should not learn that it exists.
+    """
+    tenant_id = get_request_tenant_id(info.context.request.user)
+    if not tenant_id:
+        raise AgentEndpoint.DoesNotExist()
+    return AgentEndpoint.objects.get(
+        id=resolve_endpoint_id(global_or_raw_id), tenant_id=str(tenant_id)
+    )
+
+
 def update_agent_endpoint(info: strawberry.types.Info, input: UpdateAgentEndpointInput) -> UpdateAgentEndpointPayload:
     if not info.context.request.user.is_authenticated:
         return UpdateAgentEndpointPayload(success=False, error="Authentication required")
 
     try:
-        endpoint = AgentEndpoint.objects.get(id=resolve_endpoint_id(input.id))
+        endpoint = _endpoint_for_caller(info, input.id)
     except AgentEndpoint.DoesNotExist:
         return UpdateAgentEndpointPayload(success=False, error="Endpoint not found")
 
@@ -173,7 +197,7 @@ def delete_agent_endpoint(info: strawberry.types.Info, id: strawberry.ID) -> Del
         return DeleteAgentEndpointPayload(success=False, error="Authentication required")
 
     try:
-        endpoint = AgentEndpoint.objects.get(id=resolve_endpoint_id(id))
+        endpoint = _endpoint_for_caller(info, id)
         endpoint.delete()
         return DeleteAgentEndpointPayload(success=True)
     except AgentEndpoint.DoesNotExist:
@@ -185,7 +209,7 @@ def suspend_agent_endpoint(info: strawberry.types.Info, id: strawberry.ID, reaso
         return SuspendAgentEndpointPayload(success=False, error="Authentication required")
 
     try:
-        endpoint = AgentEndpoint.objects.get(id=resolve_endpoint_id(id))
+        endpoint = _endpoint_for_caller(info, id)
     except AgentEndpoint.DoesNotExist:
         return SuspendAgentEndpointPayload(success=False, error="Endpoint not found")
 
@@ -205,7 +229,7 @@ def activate_agent_endpoint(info: strawberry.types.Info, id: strawberry.ID) -> A
         return ActivateAgentEndpointPayload(success=False, error="Authentication required")
 
     try:
-        endpoint = AgentEndpoint.objects.get(id=resolve_endpoint_id(id))
+        endpoint = _endpoint_for_caller(info, id)
     except AgentEndpoint.DoesNotExist:
         return ActivateAgentEndpointPayload(success=False, error="Endpoint not found")
 
@@ -228,7 +252,7 @@ def regenerate_endpoint_api_key(info: strawberry.types.Info, endpoint_id: strawb
         return RegenerateEndpointApiKeyPayload(success=False, error="Authentication required")
 
     try:
-        endpoint = AgentEndpoint.objects.get(id=resolve_endpoint_id(endpoint_id))
+        endpoint = _endpoint_for_caller(info, endpoint_id)
 
         raw_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
         endpoint.api_key_hash = key_hash
@@ -246,7 +270,7 @@ def update_endpoint_status(info: strawberry.types.Info, endpoint_id: strawberry.
         return UpdateEndpointStatusPayload(success=False, error="Authentication required")
 
     try:
-        endpoint = AgentEndpoint.objects.get(id=resolve_endpoint_id(endpoint_id))
+        endpoint = _endpoint_for_caller(info, endpoint_id)
 
         if status not in [s.value for s in AgentEndpoint.Status]:
             return UpdateEndpointStatusPayload(success=False, error=f"Invalid status: {status}")
