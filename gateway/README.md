@@ -75,6 +75,7 @@ docker run -p 8742:8742 \
 | `GOOGLE_API_KEY` | - | Real Google API key to inject (as above) |
 | `ZENTINELLE_TENANT_ID` | - | Tenant this gateway speaks for; sent as `X-Zentinelle-Tenant`. Omit for a single-tenant deployment |
 | `ZENTINELLE_CLUSTER_ID` | - | Cluster this gateway speaks for; sent as `X-Zentinelle-Cluster`. Omit for a single-cluster deployment |
+| `LOG_INTERACTIONS` | `true` | Send the prompt and completion to Zentinelle after each request, so they appear as reasoning traces. Set `false` where prompt text must not leave the cluster. An unparseable value is treated as `false` |
 | `FAIL_OPEN` | `true` | Allow requests if Zentinelle is unreachable |
 | `POLICY_TIMEOUT_MS` | `2000` | Max time (ms) to wait for policy check |
 | `MAX_RESPONSE_BYTES` | `52428800` | Max response size (50MB) |
