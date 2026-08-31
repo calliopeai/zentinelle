@@ -22,7 +22,7 @@ import json
 import logging
 import time
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.db.models import F
 from django.http import JsonResponse
 from django.utils import timezone
@@ -215,20 +215,51 @@ def astrolift_audit_webhook(request):
     tenant_id = integration.tenant_id
     actor = envelope.get("actor_user_id")
 
+    # The delivery marker and the evidence row live on different database
+    # aliases (the router sends AuditLog to `analytics`), so no single atomic
+    # block covers both. The marker is claimed first to keep concurrent
+    # deliveries from both writing evidence, and released again if the evidence
+    # write fails -- otherwise a failed write leaves a marker that suppresses
+    # every retry of that event, and the evidence is lost permanently.
     try:
-        with transaction.atomic():
-            delivery = AstroliftAuditDelivery.objects.create(
-                idempotency_key=idempotency_key,
-                tenant_id=tenant_id,
-                astrolift_event_id=str(envelope["event_id"]),
-                event_type=event_type,
-            )
+        delivery = AstroliftAuditDelivery.objects.create(
+            idempotency_key=idempotency_key,
+            tenant_id=tenant_id,
+            astrolift_event_id=str(envelope["event_id"]),
+            event_type=event_type,
+        )
     except IntegrityError:
         # Already accepted. Retries must be a no-op, not a second evidence row.
         return JsonResponse({"status": "duplicate", "idempotency_key": idempotency_key}, status=200)
 
     payload = envelope["payload"]
-    entry = AuditLog.log(
+    try:
+        entry = _write_evidence(request, tenant_id, envelope, event_type, org_id, actor)
+    except Exception:
+        delivery.delete()
+        logger.exception(
+            "Evidence write failed for %s; released the delivery marker so the "
+            "webhook retry can be accepted", idempotency_key,
+        )
+        raise
+
+    delivery.audit_log_id = entry.id
+    delivery.save(update_fields=["audit_log_id"])
+
+    # F() so concurrent deliveries do not clobber each other's count.
+    AstroliftIntegration.objects.filter(pk=integration.pk).update(
+        last_event_at=timezone.now(),
+        events_accepted=F("events_accepted") + 1,
+    )
+
+    return JsonResponse(
+        {"status": "accepted", "audit_log_id": str(entry.id)}, status=202
+    )
+
+
+def _write_evidence(request, tenant_id, envelope, event_type, org_id, actor):
+    payload = envelope["payload"]
+    return AuditLog.log(
         tenant_id=tenant_id,
         action=_ACTION_BY_EVENT.get(event_type, AuditLog.Action.UPDATE),
         resource_type=_resource_type_for(event_type),
@@ -248,15 +279,3 @@ def astrolift_audit_webhook(request):
         },
     )
 
-    delivery.audit_log_id = entry.id
-    delivery.save(update_fields=["audit_log_id"])
-
-    # F() so concurrent deliveries do not clobber each other's count.
-    AstroliftIntegration.objects.filter(pk=integration.pk).update(
-        last_event_at=timezone.now(),
-        events_accepted=F("events_accepted") + 1,
-    )
-
-    return JsonResponse(
-        {"status": "accepted", "audit_log_id": str(entry.id)}, status=202
-    )
