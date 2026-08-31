@@ -101,3 +101,11 @@ export interface UpdateContentRulePayload {
   ruleId: string | null;
   errors: string[];
 }
+
+export type TestContentRulePayload = {
+  success: boolean | null;
+  matched: boolean | null;
+  /** Each match as the evaluator reports it: pattern, matched text, position. */
+  matches: Record<string, unknown>[] | null;
+  errors: string[];
+};
