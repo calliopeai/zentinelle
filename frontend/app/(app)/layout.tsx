@@ -12,7 +12,14 @@ import type { SessionUser } from "@/lib/auth/session";
 const INTERNAL_API_URL =
   process.env.INTERNAL_API_URL || "http://backend:8000/api/zentinelle/v1";
 
-const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || "open";
+// Defaults to "local", not "open". NEXT_PUBLIC_* is inlined at build time, so
+// whatever this default is becomes the auth mode of every published image — no
+// task-definition value can override it. With "open" as the default, every
+// deployment rendered OPEN_MODE_USER below and skipped the session check, so
+// the console presented a synthetic superuser while the backend (correctly)
+// answered its unauthenticated queries with empty sets: a console that looks
+// signed in and shows nothing. Dev sets NEXT_PUBLIC_AUTH_MODE=open in .env.
+const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || "local";
 
 const OPEN_MODE_USER: SessionUser = {
   id: "0",
