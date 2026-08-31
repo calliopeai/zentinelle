@@ -196,8 +196,7 @@ func ReportUsage(cfg *Config, agentKey string, provider string, model string, us
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-Zentinelle-Key", agentKey)
 
-		client := &http.Client{Timeout: 5 * time.Second}
-		resp, err := client.Do(req)
+		resp, err := usageClient.Do(req)
 		if err != nil {
 			logJSON("warn", "failed to report usage", map[string]interface{}{
 				"error":      err.Error(),

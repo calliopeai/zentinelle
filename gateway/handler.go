@@ -26,6 +26,9 @@ func NewGateway(cfg *Config) *Gateway {
 			// No global timeout — streaming responses can take minutes.
 			// Per-request timeouts are handled by context.
 			Timeout: 0,
+			// Pooled, because the default transport keeps two idle
+			// connections per host and this one proxies every request.
+			Transport: providerTransport,
 			// Don't follow redirects from providers
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
