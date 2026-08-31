@@ -22,7 +22,13 @@ terraform {
 # =============================================================================
 
 locals {
-  redis_url = "rediss://${var.redis_endpoint}:${var.redis_port}/0"
+  # ssl_cert_reqs is not optional on a rediss:// URL: celery's redis backend
+  # refuses to construct without it —
+  #   "A rediss:// URL must have parameter ssl_cert_reqs and this must be set
+  #    to CERT_REQUIRED, CERT_OPTIONAL, or CERT_NONE"
+  # — so the worker died emitting its own startup banner. ElastiCache presents
+  # a valid cert, so require it rather than weakening to CERT_NONE.
+  redis_url = "rediss://${var.redis_endpoint}:${var.redis_port}/0?ssl_cert_reqs=required"
 }
 
 # =============================================================================
