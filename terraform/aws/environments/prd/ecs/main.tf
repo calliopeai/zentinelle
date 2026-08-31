@@ -746,7 +746,7 @@ resource "aws_ecs_task_definition" "celery_beat" {
     name      = "celery-beat"
     image     = var.backend_image
     essential = true
-    command   = ["celery", "-A", "config.celery", "beat", "--loglevel=info", "--scheduler=django_celery_beat.schedulers:DatabaseScheduler"]
+    command   = ["celery", "-A", "config.celery", "beat", "--loglevel=info"]
     environment = [
       { name = "ENVIRONMENT", value = var.env },
       { name = "AWS_REGION", value = var.region },
