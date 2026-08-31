@@ -56,7 +56,7 @@ export const MODELS: ChatModel[] = [
 ];
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/zentinelle/v1";
+  process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
 
 let messageCounter = 0;
 

@@ -34,7 +34,7 @@ import { useConfirm } from "@/hooks/use-confirm";
 import { ManageModelsDialog } from "./manage-models-dialog";
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/zentinelle/v1";
+  process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
 
 const PROVIDER_CATEGORIES: Record<string, string[]> = {
   "Direct API": ["anthropic", "openai", "google", "mistral", "cohere", "ai21", "deepseek"],

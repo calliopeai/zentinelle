@@ -6,8 +6,12 @@ export interface SessionUser {
   is_superuser: boolean;
 }
 
+// Relative, because NEXT_PUBLIC_* is inlined at build time: a task-definition
+// env var cannot change it, so an absolute dev default ships to every
+// deployment and makes the browser call its own machine. login() and logout()
+// run in the browser, so same-origin is both correct and host-agnostic.
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/zentinelle/v1";
+  process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
 
 export async function fetchSessionUser(
   cookieHeader?: string,
