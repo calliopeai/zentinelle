@@ -35,6 +35,15 @@ class AgentEndpoint(Tracking):
         LLAMAINDEX = 'llamaindex', 'LlamaIndex'
         MS_AGENT_FRAMEWORK = 'ms-agent-framework', 'Microsoft Agent Framework'
         OPENAI_AGENTS = 'openai_agents', 'OpenAI Agents SDK'
+        # Tier 2 harnesses (#214). New values, so they take the underscore
+        # spelling the rest of this enum uses rather than each framework's own
+        # punctuation; nothing is registered under them yet to break.
+        AGNO = 'agno', 'Agno'
+        GOOGLE_ADK = 'google_adk', 'Google ADK'
+        HAYSTACK = 'haystack', 'Haystack'
+        LETTA = 'letta', 'Letta'
+        PYDANTIC_AI = 'pydantic_ai', 'Pydantic AI'
+        SMOLAGENTS = 'smolagents', 'Smolagents'
         VERCEL_AI = 'vercel-ai', 'Vercel AI SDK'
         MCP = 'mcp', 'MCP Server'
         CHAT = 'chat', 'Chat Agent'
