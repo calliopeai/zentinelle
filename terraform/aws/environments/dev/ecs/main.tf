@@ -2,7 +2,7 @@
 # ECS Fargate Container Runtime — Zentinelle
 #
 # 4 services: backend (Django), celery (worker), celery-beat (scheduler),
-# frontend (Next.js). ALB routes /api/* and /graphql to backend, everything
+# frontend (Next.js). ALB routes /api/*, /gql/* and /proxy/* to backend, everything
 # else to frontend.
 #
 # Called by container_runtime.tf when enable_ecs = true.
@@ -191,7 +191,7 @@ resource "aws_lb_listener_rule" "api" {
   tags = var.tags
 }
 
-# Route /graphql to backend
+# Route /gql/* to backend (GraphQL)
 resource "aws_lb_listener_rule" "graphql" {
   listener_arn = aws_lb_listener.https.arn
   priority     = 110
@@ -203,7 +203,11 @@ resource "aws_lb_listener_rule" "graphql" {
 
   condition {
     path_pattern {
-      values = ["/graphql", "/graphql/*"]
+      # Django serves GraphQL at /gql/zentinelle/ (config/urls.py), not
+      # /graphql. The old patterns sent /graphql to the backend, where it
+      # 404s, and let /gql/* fall through to the frontend — so the console's
+      # Apollo client had no reachable API at all.
+      values = ["/gql", "/gql/*"]
     }
   }
 
@@ -245,6 +249,26 @@ resource "aws_lb_listener_rule" "integrations" {
   condition {
     path_pattern {
       values = ["/integrations/*"]
+    }
+  }
+
+  tags = var.tags
+}
+
+# Route /proxy/* to backend — the LLM proxy endpoint. Without this it
+# fell through to the frontend, so every proxied model call 404d.
+resource "aws_lb_listener_rule" "proxy" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 106
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/proxy", "/proxy/*"]
     }
   }
 
