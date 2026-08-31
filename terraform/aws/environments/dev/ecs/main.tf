@@ -139,7 +139,10 @@ resource "aws_lb_target_group" "frontend" {
     timeout             = 5
     path                = "/"
     protocol            = "HTTP"
-    matcher             = "200"
+    # The frontend redirects "/" to /dashboard, so it answers 307 and never a
+    # bare 200. Demanding 200 marked every healthy task unhealthy, and the
+    # service cycled tasks indefinitely while serving correctly.
+    matcher = "200-399"
   }
 
   deregistration_delay = 30
@@ -621,7 +624,11 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "REDIS_URL", value = local.redis_url },
       { name = "CELERY_BROKER_URL", value = local.redis_url },
       { name = "CELERY_RESULT_BACKEND", value = local.redis_url },
-      { name = "ALLOWED_HOSTS", value = "${var.domain},*.${var.domain}" },
+      # The ALB hostname has to be here too, or Django answers 400 to any
+      # request that did not arrive with the domain in the Host header —
+      # including the "reach it by ALB hostname" shape the tfvars example
+      # documents, and including the ALB health check itself.
+      { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name], var.extra_allowed_hosts)) },
       { name = "CSRF_TRUSTED_ORIGINS", value = "https://${var.domain},https://*.${var.domain}" },
     ]
     secrets = [
