@@ -103,12 +103,53 @@ function relativeTime(ts: string) {
 
 // ── Payload row ───────────────────────────────────────────────────────────
 
+// Above this many characters a payload is shown as a head rather than in full.
+// An event payload is normally a few hundred bytes; the ones that are not are
+// captured prompts and completions, and those run to megabytes. Rendering one
+// means serialising it, handing the whole string to the DOM as a single text
+// node, and laying that out, which is where the tab stops responding.
+const PAYLOAD_RENDER_LIMIT = 20_000;
+
+function formatPayload(payload: Record<string, unknown>): {
+  full: string;
+  text: string;
+  truncated: boolean;
+  size: number;
+} {
+  let full: string;
+  try {
+    full = JSON.stringify(payload, null, 2);
+  } catch {
+    // A payload that cannot be serialised (a cycle, a BigInt) must not take the
+    // events table down with it: this renders inside a row, and the row is the
+    // operator's only view of the event that caused the problem.
+    const message = "payload could not be displayed";
+    return { full: message, text: message, truncated: false, size: 0 };
+  }
+  return {
+    full,
+    text: full.slice(0, PAYLOAD_RENDER_LIMIT),
+    truncated: full.length > PAYLOAD_RENDER_LIMIT,
+    size: full.length,
+  };
+}
+
 function ExpandablePayload({
   payload,
 }: {
   payload: Record<string, unknown> | null;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+
+  // Serialised only while the row is open, and only once per payload. Without
+  // the memo every unrelated re-render of the table pays for the JSON of every
+  // expanded row.
+  const formatted = useMemo(
+    () => (expanded && payload ? formatPayload(payload) : null),
+    [expanded, payload]
+  );
+
   if (!payload || Object.keys(payload).length === 0) {
     return <span className="text-muted-foreground text-xs">no payload</span>;
   }
@@ -126,10 +167,28 @@ function ExpandablePayload({
         )}
         {expanded ? "Hide payload" : "View payload"}
       </button>
-      {expanded && (
-        <pre className="bg-muted/60 mt-1.5 max-h-48 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed">
-          {JSON.stringify(payload, null, 2)}
-        </pre>
+      {expanded && formatted && (
+        <>
+          <pre className="bg-muted/60 mt-1.5 max-h-48 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed">
+            {formatted.truncated && !showAll ? formatted.text : formatted.full}
+          </pre>
+          {formatted.truncated && (
+            <div className="text-muted-foreground mt-1 flex items-center gap-2">
+              <span>
+                {showAll
+                  ? `Showing all ${formatted.size.toLocaleString()} characters.`
+                  : `Showing the first ${PAYLOAD_RENDER_LIMIT.toLocaleString()} of ${formatted.size.toLocaleString()} characters.`}
+              </span>
+              <button
+                type="button"
+                className="hover:text-foreground underline"
+                onClick={() => setShowAll((v) => !v)}
+              >
+                {showAll ? "Show less" : "Show the whole payload"}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

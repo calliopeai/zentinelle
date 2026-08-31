@@ -1,0 +1,24 @@
+# The image installs its own dependencies; the host's virtualenv and caches are
+# built for another platform and must not land on top of them.
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov
+.coverage
+
+# Never belongs in an image
+.env
+.env.*
+!.env.example
+*.sqlite3
+
+# Noise that only invalidates the build cache
+.git
+.gitignore
+*.log
+.DS_Store

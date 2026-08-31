@@ -11,6 +11,7 @@ import { GET_RISKS } from "@/graphql/risks/queries";
 import { DELETE_RISK, REVIEW_RISK } from "@/graphql/risks/mutations";
 import { useConfirm } from "@/hooks/use-confirm";
 import type { RiskData } from "@/graphql/risks/types";
+import { SectionErrorBoundary } from "@/components/section-error-boundary";
 import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -564,11 +565,13 @@ export default function RisksPage() {
       </div>
 
       <div data-tour="risk-overview">
-      <RiskMatrix
-        risks={risks}
-        selectedCell={selectedCell}
-        onCellClick={handleCellClick}
-      />
+      <SectionErrorBoundary section="Risk matrix">
+  <RiskMatrix
+          risks={risks}
+          selectedCell={selectedCell}
+          onCellClick={handleCellClick}
+        />
+      </SectionErrorBoundary>
       </div>
 
       {selectedCell && (

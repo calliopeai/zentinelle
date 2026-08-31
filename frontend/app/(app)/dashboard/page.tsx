@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useDashboardStats } from "@/graphql/dashboard/hooks";
+import { SectionErrorBoundary } from "@/components/section-error-boundary";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -410,27 +411,29 @@ export default function DashboardPage() {
                 No policies configured
               </p>
             ) : (
-              <ChartContainer config={policyChartConfig} className="h-[240px] w-full">
-                <BarChart data={policyByTypeData} layout="vertical" margin={{ left: 0, right: 0 }}>
-                  <CartesianGrid horizontal={false} strokeDasharray="3 3" />
-                  <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                  <YAxis
-                    type="category"
-                    dataKey="type"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 11 }}
-                    width={100}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar
-                    dataKey="count"
-                    fill="var(--color-count)"
-                    radius={[0, 4, 4, 0]}
-                    maxBarSize={24}
-                  />
-                </BarChart>
-              </ChartContainer>
+              <SectionErrorBoundary section="Policy activity chart">
+  <ChartContainer config={policyChartConfig} className="h-[240px] w-full">
+                  <BarChart data={policyByTypeData} layout="vertical" margin={{ left: 0, right: 0 }}>
+                    <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                    <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                    <YAxis
+                      type="category"
+                      dataKey="type"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 11 }}
+                      width={100}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar
+                      dataKey="count"
+                      fill="var(--color-count)"
+                      radius={[0, 4, 4, 0]}
+                      maxBarSize={24}
+                    />
+                  </BarChart>
+                </ChartContainer>
+              </SectionErrorBoundary>
             )}
           </CardContent>
         </Card>

@@ -17,6 +17,7 @@ import {
   DELETE_POLICY,
   DUPLICATE_POLICY,
 } from "@/graphql/policies/mutations";
+import { SectionErrorBoundary } from "@/components/section-error-boundary";
 import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -493,7 +494,9 @@ export default function PoliciesPage() {
       </div>
 
       <div data-tour="policies-heatmap">
-        <PolicyCoverageHeatmap policies={policies} />
+        <SectionErrorBoundary section="Policy coverage matrix">
+  <PolicyCoverageHeatmap policies={policies} />
+        </SectionErrorBoundary>
       </div>
 
       <div data-tour="policies-table">
