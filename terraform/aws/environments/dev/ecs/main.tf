@@ -630,11 +630,14 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "REDIS_URL", value = local.redis_url },
       { name = "CELERY_BROKER_URL", value = local.redis_url },
       { name = "CELERY_RESULT_BACKEND", value = local.redis_url },
+      # localhost is not cosmetic: the container healthCheck below curls
+      # http://localhost:8000/..., and without it Django answers 400, curl -f
+      # fails, and ECS kills a task that is serving the ALB perfectly well.
       # The ALB hostname has to be here too, or Django answers 400 to any
       # request that did not arrive with the domain in the Host header —
       # including the "reach it by ALB hostname" shape the tfvars example
       # documents, and including the ALB health check itself.
-      { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name], var.extra_allowed_hosts)) },
+      { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name, "localhost", "127.0.0.1"], var.extra_allowed_hosts)) },
       { name = "CSRF_TRUSTED_ORIGINS", value = "https://${var.domain},https://*.${var.domain}" },
     ]
     secrets = [
@@ -722,7 +725,7 @@ resource "aws_ecs_task_definition" "celery" {
       # Required by prod settings even for workers, which import the same
       # settings module: without it Django raises on import and the celery
       # container exits before it ever connects to the broker.
-      { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name], var.extra_allowed_hosts)) },
+      { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name, "localhost", "127.0.0.1"], var.extra_allowed_hosts)) },
       { name = "POSTGRES_HOST", value = var.db_host },
       { name = "POSTGRES_PORT", value = tostring(var.db_port) },
       { name = "POSTGRES_DB", value = var.db_name },
@@ -803,7 +806,7 @@ resource "aws_ecs_task_definition" "celery_beat" {
       # Required by prod settings even for workers, which import the same
       # settings module: without it Django raises on import and the celery
       # container exits before it ever connects to the broker.
-      { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name], var.extra_allowed_hosts)) },
+      { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name, "localhost", "127.0.0.1"], var.extra_allowed_hosts)) },
       { name = "POSTGRES_HOST", value = var.db_host },
       { name = "POSTGRES_PORT", value = tostring(var.db_port) },
       { name = "POSTGRES_DB", value = var.db_name },
