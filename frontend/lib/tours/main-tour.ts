@@ -14,7 +14,8 @@ export interface TourStep {
   popover: {
     title: string;
     description: string;
-    side?: "left" | "right" | "top" | "bottom" | "over";
+    // driver.js Side has no "over"; it was never used by any step.
+    side?: "left" | "right" | "top" | "bottom";
     align?: "start" | "center" | "end";
   };
 }

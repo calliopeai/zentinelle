@@ -3,9 +3,12 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies
-COPY package.json package-lock.json* ./
-RUN npm install --legacy-peer-deps
+# Install dependencies.
+# npm ci, not npm install: install exactly what package-lock.json pins. With
+# npm install every caret range is re-resolved at build time, so the image gets
+# whatever was published that day and is not reproducible from the commit.
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
 
 # Copy source
 COPY . .
