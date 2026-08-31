@@ -37,7 +37,7 @@ bootstrap.md      # canonical technical knowledge — agent-agnostic, public
 memory.md         # this file — persistent decisions and state
 CLAUDE.md         # Claude Code shim → bootstrap.md + memory.md
 agents.md         # generic agents shim
-gemini.md         # Gemini shim
+antigravity.md    # Antigravity CLI shim
 calliope.md       # Calliope AI-internal shim (gitignored — internal wiring only)
 docs/wiki/        # deep technical documentation
 ```

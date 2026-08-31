@@ -28,7 +28,7 @@ zentinelle.git/
 ├── memory.md             # project memory and decisions
 ├── CLAUDE.md             # Claude Code shim
 ├── agents.md             # generic agents shim
-├── gemini.md             # Gemini shim
+├── antigravity.md        # Antigravity CLI shim
 ├── backend/              # Django 5.0 service
 │   ├── config/           # settings, URLs, WSGI/ASGI
 │   └── zentinelle/       # core Django app

@@ -16,7 +16,7 @@ bootstrap.md      # canonical technical reference — architecture, models, comm
 memory.md         # persistent decisions, milestones, open questions, project state
 CLAUDE.md         # Claude Code shim → points to bootstrap.md + memory.md
 agents.md         # generic agents shim (Codex, etc.)
-gemini.md         # Gemini CLI shim
+antigravity.md    # Antigravity CLI shim
 calliope.md       # internal-only shim (gitignored — auth wiring, env vars, internal URLs)
 docs/wiki/        # deep technical docs (architecture, API, policies, compliance, SDK, deployment)
 docs/primer.md    # this file — methodology and practices
