@@ -810,6 +810,10 @@ resource "aws_ecs_task_definition" "celery_beat" {
       { name = "POSTGRES_PASSWORD", valueFrom = "${var.db_credentials_arn}:password::" },
       { name = "SECRET_KEY", valueFrom = "${var.app_secrets_arn}:SECRET_KEY::" },
       { name = "ZENTINELLE_SECRET_KEY", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_SECRET_KEY::" },
+      # celery-beat imports the same settings as the others, and prod
+      # settings raise without this too. It was the only one of the three
+      # missing it, so it alone died on import.
+      { name = "ZENTINELLE_BOOTSTRAP_SECRET", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_BOOTSTRAP_SECRET::" },
     ]
     logConfiguration = {
       logDriver = "awslogs"
