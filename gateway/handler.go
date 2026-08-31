@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -43,6 +45,15 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		g.handleHealth(w, r)
 		return
 	}
+	if r.URL.Path == "/metrics" {
+		handleMetrics(w, r)
+		return
+	}
+
+	// Counted around the proxy only: /health and /metrics are the scraper's
+	// own traffic, and a gauge that included them would never read zero.
+	atomic.AddInt64(&metricActiveConnections, 1)
+	defer atomic.AddInt64(&metricActiveConnections, -1)
 
 	g.handleProxy(w, r)
 }
@@ -110,7 +121,9 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 	model := extractModel(body, provider.Name)
 
 	// 5. Policy check
+	policyStart := time.Now()
 	policyResult := CheckPolicy(r.Context(), g.cfg, agentKey, provider.Name, model)
+	metricPolicyCheckDuration.observe("", time.Since(policyStart).Seconds())
 
 	logJSON("info", "policy check completed", map[string]interface{}{
 		"request_id": requestID,
@@ -127,6 +140,7 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 			"model":      model,
 			"reason":     policyResult.Reason,
 		})
+		metricPolicyDenied.inc(labels("provider", provider.Name))
 		writeJSONError(w, http.StatusForbidden, "policy_denied", policyResult.Reason)
 		return
 	}
@@ -187,6 +201,7 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 	upstreamReq.Header.Set("X-Request-ID", requestID)
 
 	// 9. Forward request
+	upstreamStart := time.Now()
 	streaming := isStreamingRequest(body, r.Header.Get("Accept"))
 
 	logJSON("info", "forwarding request", map[string]interface{}{
@@ -205,9 +220,11 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 			"provider":   provider.Name,
 			"error":      err.Error(),
 		})
+		metricUpstreamErrors.inc(labels("provider", provider.Name, "error_type", "request_failed"))
 		writeJSONError(w, http.StatusBadGateway, "upstream_error", fmt.Sprintf("upstream request failed: %v", err))
 		return
 	}
+	metricUpstreamDuration.observe(labels("provider", provider.Name), time.Since(upstreamStart).Seconds())
 	defer upstreamResp.Body.Close()
 
 	// 10. Stream or copy response
@@ -268,6 +285,13 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
+
+	metricRequests.inc(labels(
+		"provider", provider.Name,
+		"model", model,
+		"status_code", strconv.Itoa(upstreamResp.StatusCode),
+	))
+	metricRequestDuration.observe(labels("provider", provider.Name), float64(latencyMs)/1000)
 
 	logJSON("info", "request completed", map[string]interface{}{
 		"request_id":      requestID,

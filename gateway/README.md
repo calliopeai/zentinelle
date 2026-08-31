@@ -57,6 +57,14 @@ docker run -p 8742:8742 \
 
 ## Environment Variables
 
+### Endpoints
+
+| Path | Purpose |
+|------|---------|
+| `/health` | Liveness, and which providers have keys configured |
+| `/metrics` | Prometheus text format. No authentication — scrape it from inside the cluster, not from the internet |
+| everything else | Proxied to the provider the path selects |
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GATEWAY_PORT` | `8742` | Port to listen on |

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 // PolicyResult holds the outcome of a policy evaluation.
@@ -91,6 +92,11 @@ func CheckPolicy(ctx context.Context, cfg *Config, agentKey string, provider str
 
 // policyFallback returns the appropriate result when the policy service is unreachable.
 func policyFallback(cfg *Config, reason string) PolicyResult {
+	// Every path into here is a policy check that could not be completed,
+	// which is the thing the error counter is for. Counted centrally so a new
+	// failure mode is counted by construction rather than by remembering.
+	metricPolicyCheckErrors.inc(labels("error_type", policyErrorType(reason)))
+
 	if cfg.FailOpen {
 		return PolicyResult{
 			Allowed: true,
@@ -165,4 +171,21 @@ func CheckOutputPolicy(ctx context.Context, cfg *Config, agentKey string, provid
 	}
 
 	return result
+}
+
+// policyErrorType reduces a failure to one of a few kinds. The message itself
+// is never a label: it carries a URL and an error string, so it is unbounded.
+func policyErrorType(reason string) string {
+	switch {
+	case strings.Contains(reason, "context deadline exceeded"), strings.Contains(reason, "Timeout"):
+		return "timeout"
+	case strings.Contains(reason, "returned status"):
+		return "bad_status"
+	case strings.Contains(reason, "failed to parse"), strings.Contains(reason, "failed to marshal"):
+		return "malformed"
+	case strings.Contains(reason, "check failed"):
+		return "unreachable"
+	default:
+		return "other"
+	}
 }
