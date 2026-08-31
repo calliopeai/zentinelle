@@ -12,6 +12,7 @@ Deployment operations are handled by the client-cove integration layer.
 from rest_framework import authentication, exceptions
 from zentinelle.models import AgentEndpoint, APIKey
 from zentinelle.utils.api_keys import KeyPrefixes
+from zentinelle.auth.mode import is_open_mode
 
 
 class ZentinelleAPIKeyAuthentication(authentication.BaseAuthentication):
@@ -198,7 +199,7 @@ def get_tenant_id_from_request(request):
         return '00000000-0000-0000-0000-000000000001'
 
     # Open mode — even anonymous users get the standalone tenant
-    if os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+    if is_open_mode():
         return '00000000-0000-0000-0000-000000000001'
 
     return None

@@ -16,6 +16,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
 from zentinelle.services.llm_provider import OPENAI_COMPAT_PROVIDERS
+from zentinelle.auth.mode import is_open_mode
 
 PROVIDER_LABELS = {
     'anthropic': 'Anthropic',
@@ -98,7 +99,7 @@ class AssistantProvidersView(View):
 
         # In open auth mode, default to the standalone tenant
         tenant_id = get_request_tenant_id(request.user)
-        if not tenant_id and os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+        if not tenant_id and is_open_mode():
             tenant_id = '00000000-0000-0000-0000-000000000001'
         if not tenant_id:
             tenant_id = 'default'

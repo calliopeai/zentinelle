@@ -10,6 +10,7 @@ import os
 import logging
 
 from strawberry.django.views import GraphQLView
+from zentinelle.auth.mode import auth_mode as auth_mode_value
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ class ZentinelleGraphQLView(GraphQLView):
         if getattr(request.user, 'is_authenticated', False):
             return
 
-        auth_mode = os.environ.get('AUTH_MODE', 'open').lower()
+        auth_mode = auth_mode_value()
 
         if auth_mode == 'open':
             request.user = _OPEN_USER

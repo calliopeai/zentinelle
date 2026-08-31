@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 from zentinelle.api.views.assistant import IsAuthenticatedOrOpenMode
 from zentinelle.services.llm_model_discovery import (clear_cache,
                                                       fetch_live_models)
+from zentinelle.auth.mode import is_open_mode
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ class AssistantModelsListView(APIView):
             return JsonResponse({'error': 'provider is required'}, status=400)
 
         tenant_id = get_request_tenant_id(request.user)
-        if not tenant_id and os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+        if not tenant_id and is_open_mode():
             tenant_id = '00000000-0000-0000-0000-000000000001'
 
         # Trigger discovery so the registry is up to date

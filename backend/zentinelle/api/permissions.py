@@ -14,6 +14,7 @@ from rest_framework import authentication
 from rest_framework.permissions import BasePermission
 
 from zentinelle.api.auth import ZentinelleAPIKeyAuthentication
+from zentinelle.auth.mode import is_open_mode
 
 
 class _OpenModeUser:
@@ -47,9 +48,21 @@ class OpenModeAuthentication(authentication.BaseAuthentication):
     """
 
     def authenticate(self, request):
-        if os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+        if is_open_mode():
             return (_OPEN_USER, None)
         return None
+
+    def authenticate_header(self, request):
+        """The challenge for a request that arrived with no credentials.
+
+        DRF asks the *first* authenticator in the list for this, and answers
+        403 when it gets nothing back and 401 when it gets a challenge. This
+        class is first, so without this an unauthenticated request to an
+        enforcing deployment was told "forbidden" — which reads as "your
+        credentials do not permit this" — when the truth was that it presented
+        none. The header names how to present them.
+        """
+        return 'X-Zentinelle-Key'
 
 
 class OpenOrAgentAuth(BasePermission):
@@ -61,7 +74,7 @@ class OpenOrAgentAuth(BasePermission):
     """
 
     def has_permission(self, request, view):
-        if os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+        if is_open_mode():
             return True
         return bool(request.user and request.user.is_authenticated)
 
