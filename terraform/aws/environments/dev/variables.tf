@@ -225,3 +225,19 @@ variable "manage_dns_records" {
   type        = bool
   default     = true
 }
+
+# -----------------------------------------------------------------------------
+# Container registry
+# -----------------------------------------------------------------------------
+
+variable "create_ecr_repositories" {
+  description = "Create ECR repositories for the backend, frontend and gateway images"
+  type        = bool
+  default     = true
+}
+
+variable "ecr_keep_images" {
+  description = "Number of tagged images to retain per repository"
+  type        = number
+  default     = 10
+}
