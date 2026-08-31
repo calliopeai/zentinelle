@@ -2095,6 +2095,7 @@ class Query:
         info: strawberry.types.Info,
         rule_type: Optional[str] = None,
         severity: Optional[str] = None,
+        endpoint_id: Optional[strawberry.ID] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
     ) -> list[ContentViolationType]:
@@ -2111,6 +2112,8 @@ class Query:
             qs = qs.filter(rule_type=rule_type)
         if severity:
             qs = qs.filter(severity=severity)
+        if endpoint_id:
+            qs = qs.filter(scan__endpoint_id=endpoint_id)
         if start_date:
             qs = qs.filter(created_at__gte=start_date)
         if end_date:
@@ -2709,6 +2712,7 @@ class Query:
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         granularity: Optional[str] = None,
+        endpoint_id: Optional[strawberry.ID] = None,
     ) -> Optional[UsageMetricsType]:
         from zentinelle.models import InteractionLog, AgentEndpoint
         from django.db.models import Sum, Count
@@ -2736,6 +2740,8 @@ class Query:
             created_at__gte=start_dt,
             created_at__lte=end_dt,
         )
+        if endpoint_id:
+            logs = logs.filter(endpoint_id=endpoint_id)
 
         agg = logs.aggregate(
             total_api_calls=Count('id'),

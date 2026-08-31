@@ -55,6 +55,7 @@ export interface ContentScansVariables {
 export interface ContentViolationsVariables {
   ruleType?: string | null;
   severity?: string | null;
+  endpointId?: string | null;
   startDate?: string | null;
   endDate?: string | null;
 }

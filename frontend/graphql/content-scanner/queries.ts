@@ -38,12 +38,14 @@ export const GET_CONTENT_VIOLATIONS = gql`
   query GetContentViolations(
     $ruleType: String
     $severity: String
+    $endpointId: ID
     $startDate: DateTime
     $endDate: DateTime
   ) {
     contentViolations(
       ruleType: $ruleType
       severity: $severity
+      endpointId: $endpointId
       startDate: $startDate
       endDate: $endDate
     ) {
