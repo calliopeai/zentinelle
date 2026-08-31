@@ -56,3 +56,8 @@ output "nameservers" {
   description = "Route53 zone nameservers — delegate from your registrar"
   value       = var.create_route53_zone ? aws_route53_zone.main[0].name_servers : []
 }
+
+output "ecr_repository_urls" {
+  description = "ECR repository URLs to push images to, keyed by component"
+  value       = { for k, r in aws_ecr_repository.this : k => r.repository_url }
+}
