@@ -913,6 +913,12 @@ resource "aws_ecs_task_definition" "frontend" {
       { name = "NEXT_PUBLIC_GQL_URL", value = "https://${var.domain}/graphql" },
       { name = "NEXT_PUBLIC_API_URL", value = "https://${var.domain}/api" },
       { name = "PORT", value = "3002" },
+      # Next.js standalone binds the resolved hostname, which under awsvpc is
+      # the task ENI address — the container log shows
+      #   Local: http://ip-10-0-13-240...:3002
+      # so nothing listens on loopback and any 127.0.0.1 probe gets
+      # ECONNREFUSED while the ALB, which dials the ENI, is perfectly happy.
+      { name = "HOSTNAME", value = "0.0.0.0" },
     ]
     logConfiguration = {
       logDriver = "awslogs"
