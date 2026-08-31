@@ -41,7 +41,7 @@ def check_endpoint_health():
         Event.objects.create(
             tenant_id=endpoint.tenant_id,
             endpoint=endpoint,
-            deployment=endpoint.deployment,
+            deployment_id_ext=endpoint.deployment_id_ext,
             event_type=Event.EventType.ENDPOINT_UNHEALTHY,
             event_category=Event.Category.ALERT,
             payload={
