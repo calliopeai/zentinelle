@@ -42,7 +42,7 @@ def acknowledge_compliance_alert(info: strawberry.types.Info, alert_id: strawber
     except (ValueError, ComplianceAlert.DoesNotExist):
         raise GraphQLError("Alert not found")
 
-    if not user_has_org_access(user, alert.organization_id):
+    if not user_has_org_access(user, alert.tenant_id):
         raise GraphQLError("Access denied")
 
     alert.status = ComplianceAlert.Status.ACKNOWLEDGED
@@ -64,7 +64,7 @@ def resolve_compliance_alert(info: strawberry.types.Info, alert_id: strawberry.I
     except (ValueError, ComplianceAlert.DoesNotExist):
         raise GraphQLError("Alert not found")
 
-    if not user_has_org_access(user, alert.organization_id):
+    if not user_has_org_access(user, alert.tenant_id):
         raise GraphQLError("Access denied")
 
     alert.status = ComplianceAlert.Status.RESOLVED
@@ -90,7 +90,7 @@ def dismiss_compliance_alert(info: strawberry.types.Info, alert_id: strawberry.I
     except (ValueError, ComplianceAlert.DoesNotExist):
         raise GraphQLError("Alert not found")
 
-    if not user_has_org_access(user, alert.organization_id):
+    if not user_has_org_access(user, alert.tenant_id):
         raise GraphQLError("Access denied")
 
     alert.status = ComplianceAlert.Status.FALSE_POSITIVE

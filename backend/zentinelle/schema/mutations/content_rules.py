@@ -169,7 +169,7 @@ def update_content_rule(info: strawberry.types.Info, input: UpdateContentRuleInp
     except (ValueError, ContentRule.DoesNotExist):
         return UpdateContentRulePayload(success=False, errors=["Rule not found"])
 
-    if not user_has_org_access(user, rule.organization_id):
+    if not user_has_org_access(user, rule.tenant_id):
         raise GraphQLError("Access denied")
 
     update_fields = ['updated_at']
@@ -239,7 +239,7 @@ def delete_content_rule(info: strawberry.types.Info, id: strawberry.ID) -> Delet
     except (ValueError, ContentRule.DoesNotExist):
         return DeleteContentRulePayload(success=False, errors=["Rule not found"])
 
-    if not user_has_org_access(user, rule.organization_id):
+    if not user_has_org_access(user, rule.tenant_id):
         raise GraphQLError("Access denied")
 
     rule.delete()
@@ -258,7 +258,7 @@ def toggle_content_rule_enabled(info: strawberry.types.Info, id: strawberry.ID, 
     except (ValueError, ContentRule.DoesNotExist):
         raise GraphQLError("Rule not found")
 
-    if not user_has_org_access(user, rule.organization_id):
+    if not user_has_org_access(user, rule.tenant_id):
         raise GraphQLError("Access denied")
 
     rule.enabled = enabled
@@ -279,7 +279,7 @@ def duplicate_content_rule(info: strawberry.types.Info, id: strawberry.ID, new_n
     except (ValueError, ContentRule.DoesNotExist):
         return DuplicateContentRulePayload(success=False, errors=["Rule not found"])
 
-    if not user_has_org_access(user, original_rule.organization_id):
+    if not user_has_org_access(user, original_rule.tenant_id):
         raise GraphQLError("Access denied")
 
     new_rule = ContentRule.objects.create(
@@ -319,7 +319,7 @@ def test_content_rule(info: strawberry.types.Info, id: strawberry.ID, test_conte
     except (ValueError, ContentRule.DoesNotExist):
         return TestContentRulePayload(success=False, errors=["Rule not found"])
 
-    if not user_has_org_access(user, rule.organization_id):
+    if not user_has_org_access(user, rule.tenant_id):
         raise GraphQLError("Access denied")
 
     matches = []
