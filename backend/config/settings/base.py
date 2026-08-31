@@ -289,6 +289,14 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'zentinelle.tasks.billing.send_usage_to_stripe',
         'schedule': crontab(minute=0),
     },
+    # Cross-mode usage export to Calliope AI billing (#245). Every 15 minutes
+    # rather than hourly: the batch is small and the receiver dedupes, so a
+    # shorter interval mostly reduces how much usage is sitting unexported
+    # when something goes wrong. No-ops entirely unless BILLING_EXPORT_ENABLED.
+    'zentinelle-export-usage-to-billing': {
+        'task': 'zentinelle.tasks.billing.export_usage_to_billing',
+        'schedule': timedelta(minutes=15),
+    },
 
     # License compliance
     'zentinelle-detect-license-violations': {
@@ -375,3 +383,32 @@ LOGGING = {
         },
     },
 }
+
+# ---------------------------------------------------------------------------
+# Usage export to Calliope AI billing (#245)
+#
+# The BYOK / on-prem path: the customer runs Zentinelle over their own keys and
+# infrastructure, and is billed for the governance control plane rather than for
+# their tokens.
+#
+# Off by default, and that default is deliberate. A standalone or self-hosted
+# deployment must not start posting its usage anywhere because it upgraded; an
+# operator turns this on.
+# ---------------------------------------------------------------------------
+BILLING_EXPORT_ENABLED = os.environ.get(
+    "BILLING_EXPORT_ENABLED", "false"
+).lower() in ("1", "true", "yes")
+
+# Where the batches go. The Client Cove billing ingest, which reconciles them
+# into the same AIUsage ledger the Managed path feeds.
+BILLING_EXPORT_URL = os.environ.get("BILLING_EXPORT_URL", "")
+BILLING_EXPORT_TOKEN = os.environ.get("BILLING_EXPORT_TOKEN", "")
+BILLING_EXPORT_TIMEOUT = int(os.environ.get("BILLING_EXPORT_TIMEOUT", "30"))
+
+# governance_only: report counts, bill for the control plane, never mark up
+#                  tokens the customer already paid their own provider for.
+# resale:          the Managed path, where the tokens are ours to price.
+#
+# The default is the one that under-bills if wrong. Charging a BYOK customer
+# for tokens they bought themselves is not a recoverable mistake.
+BILLING_MODE = os.environ.get("BILLING_MODE", "governance_only")
