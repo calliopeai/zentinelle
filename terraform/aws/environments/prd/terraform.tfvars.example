@@ -1,0 +1,65 @@
+# -----------------------------------------------------------------------------
+# Zentinelle — prd environment
+#
+# Copy to terraform.tfvars and edit. Every value below has a default; you only
+# need to set what differs for your account. The defaults describe Calliope's
+# own prd environment, so an operator deploying elsewhere should override at
+# least: name, domain, and the CIDRs.
+# -----------------------------------------------------------------------------
+
+region = "us-west-2"
+
+# --- identity -----------------------------------------------------------------
+# name must be unique per account+region. Every resource is prefixed with it,
+# so two stacks sharing a name collide.
+# name  = "prd-zentinelle"
+# env   = "production"
+# owner = "calliopeai"
+
+# --- domain -------------------------------------------------------------------
+# domain = "zentinelle.ai"
+
+# --- networking ---------------------------------------------------------------
+# These CIDRs collide with any existing VPC using the same range, and with
+# anything reachable over peering or transit gateway. Check before applying.
+# vpc_cidr         = "10.100.0.0/16"
+# public_subnets   = [...]
+# private_subnets  = [...]
+# database_subnets = [...]
+# cache_subnets    = [...]
+#
+# azs defaults to the first three available in the region. Pin it if you need
+# specific zones (capacity, or matching an existing subnet layout).
+# azs = ["us-west-2a", "us-west-2b", "us-west-2c"]
+
+# --- DNS and TLS --------------------------------------------------------------
+# ACM issues only when it can resolve the DNS validation record publicly, which
+# means the zone must be authoritative for `domain`. Creating a Route53 zone
+# does NOT make it authoritative: the registrar's nameservers must point at it.
+# If they point somewhere else, the apply blocks ~45 minutes and then fails.
+#
+# Pick one of these three shapes.
+#
+# 1. Greenfield. This stack owns the domain's DNS. Requires pointing the
+#    registrar at the nameservers in the route53_name_servers output, then
+#    re-running apply so ACM can validate.
+# create_route53_zone    = true
+# create_acm_certificate = true
+#
+# 2. Domain lives elsewhere (Cloudflare, another account). Bring a zone and a
+#    certificate you already validated.
+# create_route53_zone    = false
+# route53_zone_id        = "Z0123456789ABCDEFGHIJ"
+# create_acm_certificate = false
+# acm_certificate_arn    = "arn:aws:acm:us-west-2:000000000000:certificate/..."
+#
+# 3. No public DNS yet. Stand the stack up and reach it by ALB hostname.
+#    Requires acm_certificate_arn for the HTTPS listener.
+# create_route53_zone    = false
+# create_acm_certificate = false
+# manage_dns_records     = false
+# acm_certificate_arn    = "arn:aws:acm:..."
+
+# --- images -------------------------------------------------------------------
+# backend_image  = "000000000000.dkr.ecr.us-west-2.amazonaws.com/zentinelle-backend:latest"
+# frontend_image = "000000000000.dkr.ecr.us-west-2.amazonaws.com/zentinelle-frontend:latest"

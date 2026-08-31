@@ -54,5 +54,5 @@ output "alb_dns_name" {
 
 output "nameservers" {
   description = "Route53 zone nameservers — delegate from your registrar"
-  value       = aws_route53_zone.main.name_servers
+  value       = var.create_route53_zone ? aws_route53_zone.main[0].name_servers : []
 }

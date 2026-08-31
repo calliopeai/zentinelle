@@ -41,7 +41,7 @@ resource "aws_secretsmanager_secret" "app_secrets" {
 resource "aws_secretsmanager_secret_version" "app_secrets" {
   secret_id = aws_secretsmanager_secret.app_secrets.id
   secret_string = jsonencode({
-    SECRET_KEY                 = random_password.django_secret_key.result
+    SECRET_KEY                  = random_password.django_secret_key.result
     ZENTINELLE_BOOTSTRAP_SECRET = random_password.bootstrap_secret.result
   })
 

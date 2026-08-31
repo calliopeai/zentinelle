@@ -30,3 +30,9 @@ variable "db_name" { type = string }
 variable "db_username" { type = string }
 variable "redis_endpoint" { type = string }
 variable "redis_port" { type = number }
+
+variable "manage_dns_records" {
+  description = "Create the app and wildcard A records pointing at the ALB"
+  type        = bool
+  default     = true
+}
