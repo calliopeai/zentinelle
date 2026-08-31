@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useComplianceOverview } from "@/graphql/compliance/hooks";
 import { RUN_COMPLIANCE_CHECK, ACTIVATE_COMPLIANCE_PACK } from "@/graphql/compliance/mutations";
 import { LIST_COMPLIANCE_PACKS } from "@/graphql/compliance/queries";
+import { SectionErrorBoundary } from "@/components/section-error-boundary";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -357,41 +358,43 @@ export default function CompliancePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex items-center justify-center">
-            <ChartContainer config={radarConfig} className="h-[320px] w-full max-w-[500px]">
-              <RadarChart data={activeRadarData} cx="50%" cy="50%" outerRadius="75%">
-                <PolarGrid
-                  stroke="var(--color-border)"
-                  strokeDasharray="3 3"
-                />
-                <PolarAngleAxis
-                  dataKey="framework"
-                  tick={{ fontSize: 12 }}
-                  className="[&_.recharts-text]:fill-foreground"
-                />
-                <PolarRadiusAxis
-                  angle={90}
-                  domain={[0, 100]}
-                  tick={{ fontSize: 10 }}
-                  tickFormatter={(v) => `${v}%`}
-                  className="[&_.recharts-text]:fill-muted-foreground"
-                />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(value) => `${value}%`}
-                    />
-                  }
-                />
-                <Radar
-                  name="Coverage"
-                  dataKey="coverage"
-                  stroke="#37efed"
-                  strokeWidth={2}
-                  fill="#37efed"
-                  fillOpacity={0.2}
-                />
-              </RadarChart>
-            </ChartContainer>
+            <SectionErrorBoundary section="Compliance radar">
+  <ChartContainer config={radarConfig} className="h-[320px] w-full max-w-[500px]">
+                <RadarChart data={activeRadarData} cx="50%" cy="50%" outerRadius="75%">
+                  <PolarGrid
+                    stroke="var(--color-border)"
+                    strokeDasharray="3 3"
+                  />
+                  <PolarAngleAxis
+                    dataKey="framework"
+                    tick={{ fontSize: 12 }}
+                    className="[&_.recharts-text]:fill-foreground"
+                  />
+                  <PolarRadiusAxis
+                    angle={90}
+                    domain={[0, 100]}
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(v) => `${v}%`}
+                    className="[&_.recharts-text]:fill-muted-foreground"
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value) => `${value}%`}
+                      />
+                    }
+                  />
+                  <Radar
+                    name="Coverage"
+                    dataKey="coverage"
+                    stroke="#37efed"
+                    strokeWidth={2}
+                    fill="#37efed"
+                    fillOpacity={0.2}
+                  />
+                </RadarChart>
+              </ChartContainer>
+            </SectionErrorBoundary>
           </CardContent>
         </Card>
       )}

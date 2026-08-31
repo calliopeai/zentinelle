@@ -1,0 +1,14 @@
+# The image builds the binary itself. A host build lands in the context
+# otherwise, and it is compiled for the wrong platform.
+gateway
+*.test
+
+# Never belongs in an image
+.env
+.env.*
+
+# Noise that only invalidates the build cache
+.git
+.gitignore
+*.log
+.DS_Store

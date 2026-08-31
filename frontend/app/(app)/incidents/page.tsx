@@ -5,6 +5,7 @@ import { useMutation } from "@apollo/client/react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
+import { NotesDialog } from "@/components/notes-dialog";
 import { useIncidents } from "@/graphql/risks/hooks";
 import { GET_INCIDENTS } from "@/graphql/risks/queries";
 import {
@@ -115,24 +116,27 @@ export default function IncidentsPage() {
     }
   };
 
-  const handleResolve = async (id: string) => {
-    const resolution = window.prompt("Resolution summary:");
-    if (!resolution?.trim()) return;
+  // Which incident a notes dialog is about, or null when it is shut. The id
+  // rather than a boolean: the dialog is rendered once for the page, and the
+  // row that opened it is the only thing that says what to act on.
+  const [resolving, setResolving] = useState<string | null>(null);
+  const [closing, setClosing] = useState<string | null>(null);
+
+  const handleResolve = async (notes: string) => {
+    if (!resolving) return;
     try {
-      await resolveIncident({
-        variables: { id, resolution: resolution.trim() },
-      });
+      await resolveIncident({ variables: { id: resolving, resolution: notes } });
       toast.success("Incident resolved");
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to resolve");
     }
   };
 
-  const handleClose = async (id: string) => {
-    const lessons = window.prompt("Lessons learned (optional):") ?? "";
+  const handleClose = async (notes: string) => {
+    if (!closing) return;
     try {
       await closeIncident({
-        variables: { id, lessonsLearned: lessons.trim() || null },
+        variables: { id: closing, lessonsLearned: notes || null },
       });
       toast.success("Incident closed");
     } catch (err: any) {
@@ -260,12 +264,12 @@ export default function IncidentsPage() {
                 </DropdownMenuItem>
               )}
               {!isTerminal && (
-                <DropdownMenuItem onClick={() => handleResolve(incident.id)}>
+                <DropdownMenuItem onClick={() => setResolving(incident.id)}>
                   Resolve
                 </DropdownMenuItem>
               )}
               {incident.status === "resolved" && (
-                <DropdownMenuItem onClick={() => handleClose(incident.id)}>
+                <DropdownMenuItem onClick={() => setClosing(incident.id)}>
                   Close
                 </DropdownMenuItem>
               )}
@@ -352,6 +356,33 @@ export default function IncidentsPage() {
         onOpenChange={(open) => {
           if (!open) setSelectedIncident(null);
         }}
+      />
+
+      <NotesDialog
+        open={resolving !== null}
+        onOpenChange={(open) => {
+          if (!open) setResolving(null);
+        }}
+        title="Resolve incident"
+        description="What was done about it. This is written to the incident record."
+        label="Resolution summary"
+        placeholder="What happened, what was done, and what confirmed it was fixed."
+        confirmLabel="Resolve incident"
+        onConfirm={handleResolve}
+      />
+
+      <NotesDialog
+        open={closing !== null}
+        onOpenChange={(open) => {
+          if (!open) setClosing(null);
+        }}
+        title="Close incident"
+        description="Closing an incident is the end of its record. Anything learned belongs here."
+        label="Lessons learned"
+        placeholder="What would stop this happening again."
+        required={false}
+        confirmLabel="Close incident"
+        onConfirm={handleClose}
       />
     </div>
   );

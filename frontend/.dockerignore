@@ -1,0 +1,20 @@
+# The image installs its own dependencies and builds its own output. Without
+# this file `COPY . .` puts the host's on top of them, and a developer who has
+# ever run `npm install` here ships macOS binaries into a linux image — or, more
+# often, breaks the build outright with an error that names no file
+# ("The \"id\" argument must be of type string. Received undefined").
+node_modules
+.next
+out
+
+# Never belongs in an image
+.env
+.env.*
+!.env.example
+
+# Noise that only invalidates the build cache
+.git
+.gitignore
+*.log
+.DS_Store
+coverage
