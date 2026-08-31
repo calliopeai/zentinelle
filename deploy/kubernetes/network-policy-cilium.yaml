@@ -1,0 +1,127 @@
+# Egress policy for agent pods: the LLM providers are reachable through the
+# gateway or not at all.
+#
+# This is the half that makes the guarantee structural. Without it, an agent
+# reaches Zentinelle's governance by being configured to, and an agent that is
+# misconfigured — or one whose framework quietly reads OPENAI_BASE_URL from
+# somewhere else — silently escapes it. With it, the answer to "could an agent
+# have called a model without policy running?" is no, at the network layer,
+# regardless of SDK or framework.
+#
+# Cilium, because it matches egress by DNS name. Provider IPs change without
+# notice, so a CIDR-based policy is a list that is wrong by the time anyone
+# reads it. Calico's GlobalNetworkPolicy with DNS support is equivalent; the
+# vanilla-NetworkPolicy fallback is in network-policy-vanilla.yaml, with its
+# limits stated rather than glossed.
+#
+# Label the agent pods `zentinelle.ai/governed: "true"` for this to select
+# them. That label is the enrolment: an unlabelled pod is not governed, which
+# is worth auditing for rather than assuming.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: agents-egress-through-gateway-only
+  namespace: agents
+spec:
+  endpointSelector:
+    matchLabels:
+      zentinelle.ai/governed: "true"
+
+  egress:
+    # 1. The gateway. The only route to a model.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: zentinelle
+            app.kubernetes.io/name: zentinelle-gateway
+      toPorts:
+        - ports:
+            - port: "8742"
+              protocol: TCP
+
+    # 2. Cluster DNS. Required for the FQDN matching below to work at all:
+    #    Cilium learns which addresses a name resolves to by watching these
+    #    lookups, so a policy that blocked DNS would block the thing it uses
+    #    to decide.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: "*"
+
+    # 3. Everything else inside the cluster that an agent legitimately needs.
+    #    Narrow this to the specific services rather than leaving it as the
+    #    whole cluster if the workload allows.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: agents
+
+  # No egress rule names the providers, and that is the point: api.openai.com
+  # and its neighbours are simply not in the allowed set, so a direct call
+  # fails to connect rather than being answered. The gateway holds the keys,
+  # so even a reachable provider would refuse an agent's own request.
+---
+# The gateway's own egress, which is where toFQDNs earns its place.
+#
+# The agent policy above needs no provider names because agents may not reach
+# providers at all. The gateway may, and naming them here means the one pod
+# that holds the provider keys can reach the providers and the Zentinelle
+# service and nothing else. If it is ever compromised, that is the blast
+# radius.
+#
+# Names rather than addresses: provider IPs change without notice, so a CIDR
+# list is wrong by the time anyone reads it. Cilium resolves these by watching
+# the DNS answers the rule below permits.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: gateway-egress-to-providers
+  namespace: zentinelle
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: zentinelle-gateway
+
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: "*"
+
+    # The providers this cluster is allowed to reach. Keep this list and the
+    # PROVIDER_KEY_* entries in the Secret in step with each other: a key with
+    # no rule cannot connect, and a rule with no key reaches a provider that
+    # refuses it.
+    - toFQDNs:
+        - matchName: "api.openai.com"
+        - matchName: "api.anthropic.com"
+        - matchPattern: "*.googleapis.com"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+
+    # The Zentinelle service: policy checks, output-filter checks, usage and
+    # interaction logs. Replace with the real hostname.
+    - toFQDNs:
+        - matchName: "zentinelle.example.com"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP

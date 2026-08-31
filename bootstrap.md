@@ -63,6 +63,40 @@ Organization → Team → Deployment → Endpoint → User
 ```
 More specific scope wins. `Policy.scope_type` = what the policy targets, not where it's stored.
 
+### The Gateway as a Cluster-Local Enforcement Point
+
+Deployed into the cluster the agents run in, and paired with an egress policy,
+the gateway turns governance from something agents opt into into something
+they cannot avoid. Manifests in `deploy/kubernetes/` (#222).
+
+The distinction that matters: without the network policy, an agent reaches
+governance by being configured to, so a misconfigured agent — or a framework
+that reads a base URL from somewhere nobody checked — silently escapes it.
+With it, "could an agent have called a model without policy running?" is
+answered no at the network layer, for any SDK and any framework.
+
+Two policies, and the second is the one people forget:
+
+- **agents** may reach the gateway, DNS, and their own namespace. No provider
+  is in the allowed set, so a direct call fails to connect.
+- **the gateway** may reach the named providers and the Zentinelle service and
+  nothing else. It is the pod holding the provider keys, so that is its blast
+  radius if it is ever compromised.
+
+Matched by DNS name rather than CIDR, because provider addresses change
+without notice and an IP list is wrong by the time anyone reads it. Cilium is
+preferred for that reason; a vanilla NetworkPolicy fallback exists and states
+its own limits.
+
+The enrolment is a pod label, `zentinelle.ai/governed: "true"`. A pod without
+it is selected by no policy and is therefore governed by none — which is worth
+an audit query rather than an assumption.
+
+Scoping across clusters: customer = `tenant_id`, cluster = `ZENTINELLE_CLUSTER_ID`,
+agent = endpoint. One Zentinelle service serves many clusters, and every call
+the gateway makes carries `X-Zentinelle-Tenant` and `X-Zentinelle-Cluster` so
+its events can be told apart.
+
 ### Background Work: Celery Now, Temporal for Two of Three Shapes Later
 
 Zentinelle's background work is three shapes and only two are Temporal-shaped.
