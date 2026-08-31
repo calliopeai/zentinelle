@@ -1,7 +1,11 @@
 import { ApolloLink, HttpLink } from "@apollo/client";
 import { onError } from "@apollo/client/link/error";
 
-const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || "open";
+// "local", not "open" — see the note in app/(app)/layout.tsx. With open as the
+// default, an UNAUTHENTICATED error was swallowed on every deployment, so a
+// console with no session sat on empty pages instead of sending the operator to
+// a login. This suppression is what made the failure silent.
+const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || "local";
 
 const errorLink = onError(({ graphQLErrors, networkError }: any) => {
   if (graphQLErrors) {
