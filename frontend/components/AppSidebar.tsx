@@ -28,6 +28,7 @@ import { useComplianceAlerts } from "@/graphql/alerts/hooks";
 import { useUnreadNotifications } from "@/graphql/notifications/hooks";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NavUser } from "@/components/NavUser";
+import { GithubMark } from "@/components/GithubMark";
 import type { SessionUser } from "@/lib/auth/session";
 import {
   LayoutDashboardIcon,
@@ -43,7 +44,6 @@ import {
   CheckCircleIcon,
   BookOpenIcon,
   HelpCircleIcon,
-  GithubIcon,
   ExternalLinkIcon,
   SettingsIcon,
   PlayIcon,
@@ -334,7 +334,7 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <GithubIcon />
+                <GithubMark />
                 <span>GitHub</span>
                 <ExternalLinkIcon className="ml-auto size-3 opacity-60" />
               </a>
