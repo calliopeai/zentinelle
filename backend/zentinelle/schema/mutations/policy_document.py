@@ -19,6 +19,7 @@ except ImportError:
             return fn
         return decorator
 from zentinelle.models import PolicyDocument
+from zentinelle.schema.auth_helpers import get_request_tenant_id, user_has_org_access
 
 
 @strawberry.type
@@ -78,6 +79,19 @@ class RetryPolicyDocumentPayload:
     error: Optional[str] = None
 
 
+def _document_for_caller(info, document_id) -> PolicyDocument:
+    """The policy document this caller may act on, or DoesNotExist.
+
+    analyze, delete and retry each took the id from the wire with no tenant
+    constraint, so a document belonging to another tenant could be deleted, be
+    re-run, or have an LLM run over its extracted text.
+    """
+    tenant_id = get_request_tenant_id(info.context.request.user)
+    if not tenant_id:
+        raise PolicyDocument.DoesNotExist()
+    return PolicyDocument.objects.get(id=document_id, tenant_id=str(tenant_id))
+
+
 def _document_to_type(doc) -> PolicyDocumentType:
     """Convert a PolicyDocument model instance to the GraphQL type."""
     return PolicyDocumentType(
@@ -106,6 +120,11 @@ def _document_to_type(doc) -> PolicyDocumentType:
 def upload_policy_document(info: strawberry.types.Info, organization_id: uuid.UUID, name: str, document_type: str, file_content_base64: str, description: Optional[str] = '') -> UploadPolicyDocumentPayload:
     if not info.context.request.user.is_authenticated:
         return UploadPolicyDocumentPayload(success=False, error="Authentication required")
+
+    # The tenant a document is filed under comes from the client, so it is
+    # checked against the caller rather than believed.
+    if not user_has_org_access(info.context.request.user, organization_id):
+        return UploadPolicyDocumentPayload(success=False, error="Not permitted for that organization")
 
     from organization.models import Organization
     from zentinelle.services.document_processing import PolicyDocumentService
@@ -156,7 +175,7 @@ def analyze_policy_document(info: strawberry.types.Info, document_id: uuid.UUID,
     from zentinelle.services.document_processing import PolicyDocumentService
 
     try:
-        document = PolicyDocument.objects.get(id=document_id)
+        document = _document_for_caller(info, document_id)
     except PolicyDocument.DoesNotExist:
         return AnalyzePolicyDocumentPayload(success=False, error="Document not found")
 
@@ -206,7 +225,7 @@ def delete_policy_document(info: strawberry.types.Info, document_id: uuid.UUID) 
         return DeletePolicyDocumentPayload(success=False, error="Authentication required")
 
     try:
-        document = PolicyDocument.objects.get(id=document_id)
+        document = _document_for_caller(info, document_id)
         document.delete()
         return DeletePolicyDocumentPayload(success=True)
     except PolicyDocument.DoesNotExist:
@@ -218,7 +237,7 @@ def retry_policy_document(info: strawberry.types.Info, document_id: uuid.UUID) -
         return RetryPolicyDocumentPayload(success=False, error="Authentication required")
 
     try:
-        document = PolicyDocument.objects.get(id=document_id)
+        document = _document_for_caller(info, document_id)
     except PolicyDocument.DoesNotExist:
         return RetryPolicyDocumentPayload(success=False, error="Document not found")
 

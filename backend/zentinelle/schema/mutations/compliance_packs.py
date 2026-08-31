@@ -10,6 +10,7 @@ from typing import Optional
 import strawberry
 
 from zentinelle.services.compliance_packs import activate_pack, list_packs
+from zentinelle.schema.auth_helpers import user_has_org_access
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +44,16 @@ def activate_compliance_pack(info: strawberry.types.Info, pack: str, tenant_id: 
     if not info.context.request.user.is_authenticated:
         return ActivateCompliancePackPayload(success=False, error='Authentication required')
 
+    # A supplied tenant_id is checked against the caller rather than believed.
+    # It used to win outright, so any authenticated caller could activate a
+    # pack — or, with enforcement='disabled', deactivate the controls — in
+    # somebody else's tenant, and the pack writes policies through
+    # `Policy.objects.update_or_create`.
+    user = info.context.request.user
+    if tenant_id and not user_has_org_access(user, tenant_id):
+        return ActivateCompliancePackPayload(success=False, error='Not permitted for that tenant')
+
     if not tenant_id:
-        user = info.context.request.user
         if hasattr(user, 'tenant_id'):
             tenant_id = user.tenant_id
         elif hasattr(user, 'memberships'):
