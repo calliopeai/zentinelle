@@ -124,3 +124,56 @@ type responseTooLargeError struct {
 func (e *responseTooLargeError) Error() string {
 	return "response exceeded maximum size"
 }
+
+// bufferResponse reads the whole upstream response without writing anything to
+// the client. It is used when an output filter has to see the response before
+// the caller does; `deliverBuffered` writes it afterwards, if it is allowed.
+//
+// Nothing reaches the client until then, which is the point: a filter that
+// only redacted what came after it had already leaked the part that came
+// before, and on a streamed response that is most of it.
+func bufferResponse(upstreamResp *http.Response, maxBytes int64) ([]byte, error) {
+	body, err := io.ReadAll(io.LimitReader(upstreamResp.Body, maxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(body)) > maxBytes {
+		return nil, &responseTooLargeError{limit: maxBytes}
+	}
+	return body, nil
+}
+
+// deliverBuffered writes a response that was held back for inspection.
+func deliverBuffered(w http.ResponseWriter, upstreamResp *http.Response, body []byte) error {
+	for key, vals := range upstreamResp.Header {
+		for _, val := range vals {
+			w.Header().Add(key, val)
+		}
+	}
+	// The upstream length no longer describes what is being sent if anything
+	// about the body changed, and it is not this function's to recompute.
+	w.Header().Del("Content-Length")
+	w.WriteHeader(upstreamResp.StatusCode)
+	_, err := w.Write(body)
+	return err
+}
+
+// sseText pulls the assistant's text out of a buffered SSE stream so a filter
+// has prose to judge rather than a wire format. Anything that is not a data
+// line, and the terminal [DONE], is not content.
+func sseText(body []byte) string {
+	var out strings.Builder
+	for _, line := range strings.Split(string(body), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if payload == "" || payload == "[DONE]" {
+			continue
+		}
+		out.WriteString(payload)
+		out.WriteString("\n")
+	}
+	return out.String()
+}

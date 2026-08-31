@@ -64,9 +64,43 @@ class EvaluateView(APIView):
             'policies_evaluated': result.policies_evaluated,
             'warnings': result.warnings,
             'context': result.context,
+            # Whether this tenant has an output filter that a caller proxying
+            # an LLM response must honour.
+            #
+            # The Django proxy answers this for itself by querying Policy
+            # directly, which the Go gateway cannot do — it holds an agent key,
+            # not a database. Without being told, the gateway streamed every
+            # response straight through, so an agent connected through the SDK
+            # proxy bypassed output filtering entirely while the same policy
+            # applied to anyone using the Django path (#218).
+            #
+            # Reported on every evaluation rather than only on 'llm:invoke', so
+            # a caller learns it at the point it must decide whether to buffer.
+            'output_filter_required': self._output_filter_required(auth_endpoint),
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+    @staticmethod
+    def _output_filter_required(endpoint) -> bool:
+        """Whether an enabled OUTPUT_FILTER policy applies to this tenant.
+
+        Existence only: what the filter would decide is the business of the
+        `llm:response` evaluation the caller makes afterwards, with the content
+        in hand. This answers the cheaper question the caller has to settle
+        first — whether to buffer the response at all — because buffering costs
+        every streaming request its incrementality and must not be paid where
+        no filter exists.
+
+        Mirrors the query the Django proxy makes for the same decision.
+        """
+        from zentinelle.models import Policy
+
+        return Policy.objects.filter(
+            tenant_id=endpoint.tenant_id,
+            policy_type=Policy.PolicyType.OUTPUT_FILTER,
+            enabled=True,
+        ).exists()
 
     def _log_evaluation(self, endpoint: AgentEndpoint, request_data: dict, result):
         """Log the policy evaluation as an audit event."""

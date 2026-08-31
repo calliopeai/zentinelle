@@ -834,3 +834,158 @@ func TestUsageClientReusesConnections(t *testing.T) {
 		t.Errorf("10 usage reports opened %d connections: nothing is being reused", opened)
 	}
 }
+
+// pointOpenAIAt redirects the openai provider's base URL at a stub for the
+// duration of one test. The table is package level, which is what makes this
+// possible from inside the package and what makes restoring it mandatory.
+func pointOpenAIAt(t *testing.T, baseURL string) {
+	t.Helper()
+	original := providers["openai"]
+	replacement := original
+	replacement.BaseURL = baseURL
+	providers["openai"] = replacement
+	t.Cleanup(func() { providers["openai"] = original })
+}
+
+// --- Output filtering (#218) ---
+//
+// The governance gap these cover: the gateway streamed every response straight
+// through, so an agent connected via the SDK proxy bypassed output filters
+// that applied to anyone on the Django proxy. The filter now runs here too,
+// and the response is held until it has.
+
+// zentinelleStub stands in for the control plane. It answers the request-time
+// check with `outputFilterRequired`, and the response-time check with `allow`.
+func zentinelleStub(t *testing.T, outputFilterRequired, allow bool) (*httptest.Server, *int) {
+	t.Helper()
+	outputChecks := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req PolicyRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		w.Header().Set("Content-Type", "application/json")
+		if req.Action == "llm:response" {
+			outputChecks++
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"allowed": allow, "reason": "output filter",
+			})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"allowed": true, "reason": "ok",
+			"output_filter_required": outputFilterRequired,
+		})
+	}))
+	return srv, &outputChecks
+}
+
+// upstreamStub returns a provider that always answers with the given body.
+func upstreamStub(t *testing.T, contentType, body string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", contentType)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(body))
+	}))
+}
+
+func TestOutputFilterWithholdsADeniedResponse(t *testing.T) {
+	secret := `{"choices":[{"message":{"content":"the secret"}}]}`
+	upstream := upstreamStub(t, "application/json", secret)
+	defer upstream.Close()
+	control, outputChecks := zentinelleStub(t, true, false)
+	defer control.Close()
+
+	cfg := &Config{
+		ZentinelleURL: control.URL, FailOpen: false,
+		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
+		OpenAIKey: "sk-test",
+	}
+	pointOpenAIAt(t, upstream.URL)
+	gw := NewGateway(cfg)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o"}`))
+	req.Header.Set("X-Zentinelle-Key", "sk_agent_test")
+	w := httptest.NewRecorder()
+	gw.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusForbidden)
+	}
+	if strings.Contains(w.Body.String(), "the secret") {
+		t.Error("the filtered content reached the client anyway")
+	}
+	if *outputChecks != 1 {
+		t.Errorf("output policy checked %d times, want 1", *outputChecks)
+	}
+}
+
+func TestOutputFilterPassesAnAllowedResponse(t *testing.T) {
+	answer := `{"choices":[{"message":{"content":"fine"}}]}`
+	upstream := upstreamStub(t, "application/json", answer)
+	defer upstream.Close()
+	control, outputChecks := zentinelleStub(t, true, true)
+	defer control.Close()
+
+	cfg := &Config{
+		ZentinelleURL: control.URL, FailOpen: false,
+		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
+		OpenAIKey: "sk-test",
+	}
+	pointOpenAIAt(t, upstream.URL)
+	gw := NewGateway(cfg)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o"}`))
+	req.Header.Set("X-Zentinelle-Key", "sk_agent_test")
+	w := httptest.NewRecorder()
+	gw.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "fine") {
+		t.Errorf("allowed response body = %q, want it delivered", w.Body.String())
+	}
+	if *outputChecks != 1 {
+		t.Errorf("output policy checked %d times, want 1", *outputChecks)
+	}
+}
+
+func TestNoOutputFilterMeansNoSecondCheckAndNoBuffering(t *testing.T) {
+	upstream := upstreamStub(t, "application/json", `{"ok":true}`)
+	defer upstream.Close()
+	control, outputChecks := zentinelleStub(t, false, true)
+	defer control.Close()
+
+	cfg := &Config{
+		ZentinelleURL: control.URL, FailOpen: false,
+		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
+		OpenAIKey: "sk-test",
+	}
+	pointOpenAIAt(t, upstream.URL)
+	gw := NewGateway(cfg)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o"}`))
+	req.Header.Set("X-Zentinelle-Key", "sk_agent_test")
+	w := httptest.NewRecorder()
+	gw.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", w.Code)
+	}
+	// A tenant with no output filter must not pay for one: no second round
+	// trip, and the response is not held back.
+	if *outputChecks != 0 {
+		t.Errorf("output policy checked %d times with no filter configured, want 0", *outputChecks)
+	}
+}
+
+func TestSSETextExtractsOnlyContent(t *testing.T) {
+	body := []byte("data: {\"delta\":\"one\"}\n\nevent: ping\ndata: {\"delta\":\"two\"}\n\ndata: [DONE]\n")
+	got := sseText(body)
+	if !strings.Contains(got, "one") || !strings.Contains(got, "two") {
+		t.Errorf("sseText dropped content: %q", got)
+	}
+	if strings.Contains(got, "[DONE]") || strings.Contains(got, "event:") {
+		t.Errorf("sseText kept wire framing a filter should not judge: %q", got)
+	}
+}
