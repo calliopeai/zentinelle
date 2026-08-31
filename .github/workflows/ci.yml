@@ -1,0 +1,130 @@
+name: CI
+
+# Zentinelle had no pull-request CI at all: build-publish.yml and docs.yml both
+# trigger only on push-to-main and tags, so a PR merged with zero checks and
+# `gh pr checks` reported "no checks reported". Flagged on #270 as worth fixing
+# before the stack carries production traffic.
+#
+# What runs here is what the pre-commit checklist in CLAUDE.md already asks a
+# human to run, which is the point: the checklist stops depending on whoever is
+# at the keyboard remembering it.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: zentinelle
+          POSTGRES_USER: zentinelle
+          POSTGRES_PASSWORD: zentinelle
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # DATABASE_URL wins over the POSTGRES_* variables in settings, and the
+      # repo's .env points at the compose service name, so it must be set
+      # explicitly here or every test errors on "could not translate host name".
+      DATABASE_URL: postgresql://zentinelle:zentinelle@localhost:5432/zentinelle
+      REDIS_URL: redis://localhost:6379/0
+      DJANGO_SETTINGS_MODULE: config.settings
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install pipenv
+          pipenv install --dev --deploy --system || pipenv install --dev --system
+
+      # Step 1 of the checklist. A schema ordering violation or a bad import is
+      # a service that does not come up on deploy, so it is checked before
+      # anything slower runs.
+      - name: Django starts
+        working-directory: backend
+        run: python -c "import django, os; os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings'); django.setup()"
+
+      # Step 2. A missing migration is data loss or a failed start in prod.
+      - name: No missing migrations
+        working-directory: backend
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Tests
+        working-directory: backend
+        run: python -m pytest -q
+
+  gateway:
+    name: Gateway
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Vet
+        working-directory: gateway
+        run: go vet ./...
+
+      - name: Test
+        working-directory: gateway
+        run: go test ./...
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install
+        working-directory: frontend
+        # --legacy-peer-deps to match docker/Dockerfile.frontend exactly. CI
+        # that installs differently from the image build can be green while the
+        # image fails, which is the failure mode CI exists to prevent.
+        #
+        # Plain `npm ci` fails here: package-lock.json is out of sync with
+        # package.json (@swc/helpers missing from the lock). That is a real
+        # defect, found by this workflow's first run, and it is filed
+        # separately rather than fixed by regenerating the lockfile in a PR
+        # about CI — a regenerated lock moves every transitive pin and deserves
+        # its own review.
+        run: npm ci --legacy-peer-deps
+
+      # The build, not just tsc. Local `tsc` has passed while the Next build
+      # failed more than once — they do not check the same things.
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'

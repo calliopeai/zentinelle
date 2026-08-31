@@ -1,0 +1,131 @@
+name: Mirror images to ECR
+
+# Copies the published images from GHCR into an ECR registry, so an ECS
+# deployment pulls from inside its own account (#270, step 3).
+#
+# This is hardening, not a prerequisite. All three images are anonymously
+# pullable from GHCR today, so a stack can point `backend_image` /
+# `frontend_image` straight at ghcr.io and run. What ECR buys is not being
+# subject to GitHub's availability or anonymous pull-rate limits at the moment
+# a task starts, which is a different thing to care about in production than in
+# a first deploy.
+#
+# Nothing here runs without the AWS_ECR_ROLE_ARN secret. A fork, or this repo
+# before an account is wired up, skips the job rather than failing it.
+
+on:
+  workflow_run:
+    workflows: ["Build and Publish"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Source tag on GHCR to mirror (default: latest)'
+        required: false
+        default: 'latest'
+      products:
+        description: 'Comma-separated products, or "all"'
+        required: false
+        default: 'all'
+
+permissions:
+  contents: read
+  # For the OIDC handshake with AWS. No long-lived keys live in this repo.
+  id-token: write
+
+env:
+  GHCR_NAMESPACE: ghcr.io/calliopeai
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    # A mirror of a failed build would publish an image nobody wants to run.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    outputs:
+      products: ${{ steps.plan.outputs.products }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - id: plan
+        run: |
+          requested="${{ github.event.inputs.products || 'all' }}"
+          if [ "$requested" = "all" ] || [ -z "$requested" ]; then
+            products='["backend","frontend","gateway"]'
+          else
+            products=$(echo "$requested" | tr ',' '\n' | sed 's/^ *//;s/ *$//' \
+              | grep -v '^$' | jq -R . | jq -sc .)
+          fi
+          echo "products=$products" >> "$GITHUB_OUTPUT"
+          echo "tag=${{ github.event.inputs.tag || 'latest' }}" >> "$GITHUB_OUTPUT"
+
+  mirror:
+    name: Mirror ${{ matrix.product }}
+    runs-on: ubuntu-latest
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        product: ${{ fromJson(needs.plan.outputs.products) }}
+    steps:
+      - name: Check the account is wired up
+        id: guard
+        run: |
+          if [ -z "${{ secrets.AWS_ECR_ROLE_ARN }}" ]; then
+            echo "AWS_ECR_ROLE_ARN is not set — nothing to mirror into."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure AWS credentials
+        if: steps.guard.outputs.configured == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ECR_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          # Named so a CloudTrail reader can tell this apart from a human.
+          role-session-name: zentinelle-ecr-mirror
+
+      - name: Log in to ECR
+        if: steps.guard.outputs.configured == 'true'
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Install skopeo
+        if: steps.guard.outputs.configured == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq skopeo
+
+      - name: Copy GHCR -> ECR
+        if: steps.guard.outputs.configured == 'true'
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          src="${GHCR_NAMESPACE}/zentinelle-${{ matrix.product }}:${TAG}"
+          dst="${REGISTRY}/zentinelle-${{ matrix.product }}:${TAG}"
+
+          echo "Mirroring $src -> $dst"
+
+          # copy --all preserves the multi-arch index rather than flattening it
+          # to whichever architecture the runner happens to be. The images are
+          # built amd64 + arm64, and an ECS task on Graviton pulling an
+          # amd64-only manifest fails at start with a confusing error.
+          skopeo copy --all \
+            --src-no-creds \
+            --dest-creds "AWS:$(aws ecr get-login-password)" \
+            "docker://${src}" \
+            "docker://${dst}"
+
+      - name: Skipped
+        if: steps.guard.outputs.configured != 'true'
+        run: |
+          echo "Skipped: set AWS_ECR_ROLE_ARN (and optionally AWS_REGION) to"
+          echo "enable mirroring. Until then, point backend_image /"
+          echo "frontend_image at ${GHCR_NAMESPACE}/zentinelle-*, which is"
+          echo "anonymously pullable."
