@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@apollo/client/react";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
@@ -10,11 +10,13 @@ import { Loader2Icon } from "lucide-react";
 
 import {
   CREATE_CONTENT_RULE,
+  TEST_CONTENT_RULE,
   UPDATE_CONTENT_RULE,
 } from "@/graphql/content-rules/mutations";
 import type {
   ContentRuleData,
   CreateContentRulePayload,
+  TestContentRulePayload,
   UpdateContentRulePayload,
 } from "@/graphql/content-rules/types";
 
@@ -71,24 +73,49 @@ const ENFORCEMENT_OPTIONS = [
   { value: "require_approval", label: "Require Approval" },
 ];
 
+const SCAN_MODE_OPTIONS = [
+  { value: "input", label: "Input only — what the agent sends" },
+  { value: "output", label: "Output only — what the model returns" },
+  { value: "both", label: "Both directions" },
+];
+
+const SCOPE_OPTIONS = [
+  { value: "organization", label: "Organization — everything in this tenant" },
+  { value: "deployment", label: "Deployment" },
+  { value: "endpoint", label: "A single agent" },
+];
+
 const contentRuleSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(255),
   description: z.string().optional(),
   ruleType: z.string().min(1, "Rule type is required"),
   severity: z.string(),
   enforcement: z.string(),
-  config: z.string().optional().refine(
-    (val) => {
-      if (!val || val.trim() === "") return true;
-      try {
-        JSON.parse(val);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    { message: "Config must be valid JSON" }
-  ),
+  config: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val.trim() === "") return true;
+        try {
+          JSON.parse(val);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "Config must be valid JSON" },
+    ),
+  scanMode: z.string(),
+  scopeType: z.string(),
+  // A plain number, with the conversion done by `valueAsNumber` on the input
+  // below. z.coerce would do it too, but it widens the schema's *input* type
+  // to unknown, and the resolver then no longer matches the form's value type
+  // — which tsc lets through and the Next build does not.
+  //
+  // Lower runs first: a redact rule at 10 rewrites the text before a block
+  // rule at 20 decides on it, and that ordering is why the field is editable.
+  priority: z.number().int().min(0).max(1000),
   enabled: z.boolean(),
 });
 
@@ -117,6 +144,30 @@ export function CreateContentRuleDialog({
   }>(UPDATE_CONTENT_RULE);
   const submitting = creating || updating;
 
+  // Trying a rule against a sample before trusting it. The mutation takes a
+  // saved rule's id, so this is offered on edit only; a new rule has nothing
+  // to test against yet, and the panel says so rather than appearing broken.
+  const [sample, setSample] = useState("");
+  const [testResult, setTestResult] = useState<TestContentRulePayload | null>(
+    null,
+  );
+  const [testRule, { loading: testing }] = useMutation<{
+    testContentRule: TestContentRulePayload;
+  }>(TEST_CONTENT_RULE);
+
+  const runTest = async () => {
+    if (!editRule || !sample.trim()) return;
+    setTestResult(null);
+    try {
+      const { data } = await testRule({
+        variables: { id: editRule.id, content: sample },
+      });
+      setTestResult(data?.testContentRule ?? null);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not test the rule");
+    }
+  };
+
   const {
     register,
     handleSubmit,
@@ -138,6 +189,8 @@ export function CreateContentRuleDialog({
 
   useEffect(() => {
     if (open) {
+      setSample("");
+      setTestResult(null);
       if (editRule) {
         reset({
           name: editRule.name,
@@ -145,7 +198,12 @@ export function CreateContentRuleDialog({
           ruleType: editRule.ruleType,
           severity: editRule.severity,
           enforcement: editRule.enforcement,
-          config: editRule.config ? JSON.stringify(editRule.config, null, 2) : "",
+          config: editRule.config
+            ? JSON.stringify(editRule.config, null, 2)
+            : "",
+          scanMode: editRule.scanMode || "both",
+          scopeType: editRule.scopeType || "organization",
+          priority: editRule.priority ?? 100,
           enabled: editRule.enabled,
         });
       } else {
@@ -156,6 +214,9 @@ export function CreateContentRuleDialog({
           severity: "medium",
           enforcement: "log_only",
           config: "",
+          scanMode: "both",
+          scopeType: "organization",
+          priority: 100,
           enabled: true,
         });
       }
@@ -186,6 +247,9 @@ export function CreateContentRuleDialog({
               ruleType: values.ruleType,
               severity: values.severity,
               enforcement: values.enforcement,
+              scanMode: values.scanMode,
+              scopeType: values.scopeType,
+              priority: values.priority,
               config: configObj,
               enabled: values.enabled,
             },
@@ -196,7 +260,9 @@ export function CreateContentRuleDialog({
           handleClose(false);
           onSaved();
         } else {
-          toast.error(data?.updateContentRule?.errors?.[0] ?? "Failed to update rule");
+          toast.error(
+            data?.updateContentRule?.errors?.[0] ?? "Failed to update rule",
+          );
         }
       } else {
         const { data } = await createRule({
@@ -207,6 +273,9 @@ export function CreateContentRuleDialog({
               ruleType: values.ruleType,
               severity: values.severity,
               enforcement: values.enforcement,
+              scanMode: values.scanMode,
+              scopeType: values.scopeType,
+              priority: values.priority,
               config: configObj,
               enabled: values.enabled,
             },
@@ -217,7 +286,9 @@ export function CreateContentRuleDialog({
           handleClose(false);
           onSaved();
         } else {
-          toast.error(data?.createContentRule?.errors?.[0] ?? "Failed to create rule");
+          toast.error(
+            data?.createContentRule?.errors?.[0] ?? "Failed to create rule",
+          );
         }
       }
     } catch {
@@ -229,7 +300,9 @@ export function CreateContentRuleDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Content Rule" : "Create Content Rule"}</DialogTitle>
+          <DialogTitle>
+            {isEdit ? "Edit Content Rule" : "Create Content Rule"}
+          </DialogTitle>
           <DialogDescription>
             {isEdit
               ? "Update the content scanning rule configuration."
@@ -282,7 +355,9 @@ export function CreateContentRuleDialog({
               )}
             />
             {errors.ruleType && (
-              <p className="text-destructive text-sm">{errors.ruleType.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.ruleType.message}
+              </p>
             )}
           </div>
 
@@ -299,7 +374,9 @@ export function CreateContentRuleDialog({
                     </SelectTrigger>
                     <SelectContent>
                       {SEVERITY_OPTIONS.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        <SelectItem key={s.value} value={s.value}>
+                          {s.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -319,7 +396,9 @@ export function CreateContentRuleDialog({
                     </SelectTrigger>
                     <SelectContent>
                       {ENFORCEMENT_OPTIONS.map((e) => (
-                        <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                        <SelectItem key={e.value} value={e.value}>
+                          {e.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -327,6 +406,122 @@ export function CreateContentRuleDialog({
               />
             </div>
           </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Scan mode</Label>
+              <Controller
+                control={control}
+                name="scanMode"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SCAN_MODE_OPTIONS.map((s) => (
+                        <SelectItem key={s.value} value={s.value}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Scope</Label>
+              <Controller
+                control={control}
+                name="scopeType"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SCOPE_OPTIONS.map((s) => (
+                        <SelectItem key={s.value} value={s.value}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="rule-priority">Priority</Label>
+            <Input
+              id="rule-priority"
+              type="number"
+              min={0}
+              max={1000}
+              {...register("priority", { valueAsNumber: true })}
+              aria-invalid={!!errors.priority}
+            />
+            <p className="text-muted-foreground text-xs">
+              Lower runs first. A redact rule at 10 rewrites the text before a
+              block rule at 20 decides on it.
+            </p>
+            {errors.priority && (
+              <p className="text-destructive text-sm">
+                {errors.priority.message}
+              </p>
+            )}
+          </div>
+
+          {isEdit ? (
+            <div className="space-y-2 rounded-md border p-3">
+              <Label htmlFor="rule-sample">Try it against a sample</Label>
+              <Textarea
+                id="rule-sample"
+                placeholder="Paste text this rule should or should not match..."
+                rows={3}
+                value={sample}
+                onChange={(event) => setSample(event.target.value)}
+              />
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={runTest}
+                  disabled={testing || !sample.trim()}
+                >
+                  {testing ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : null}
+                  Test rule
+                </Button>
+                {testResult ? (
+                  <span
+                    className={
+                      testResult.matched
+                        ? "text-destructive text-sm"
+                        : "text-muted-foreground text-sm"
+                    }
+                  >
+                    {testResult.matched
+                      ? `Matched — ${testResult.matches?.length ?? 0} hit(s), so this rule would act on that text`
+                      : "No match — this rule would let that text through"}
+                  </span>
+                ) : null}
+              </div>
+              {testResult?.errors?.length ? (
+                <p className="text-destructive text-sm">
+                  {testResult.errors[0]}
+                </p>
+              ) : null}
+              <p className="text-muted-foreground text-xs">
+                Tests the rule as last saved. Save first to try changes made
+                above.
+              </p>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="rule-config">Config (JSON)</Label>
@@ -339,7 +534,9 @@ export function CreateContentRuleDialog({
               aria-invalid={!!errors.config}
             />
             {errors.config && (
-              <p className="text-destructive text-sm">{errors.config.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.config.message}
+              </p>
             )}
           </div>
 
@@ -359,11 +556,17 @@ export function CreateContentRuleDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleClose(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleClose(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting && (
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+              )}
               {isEdit ? "Save Changes" : "Create Rule"}
             </Button>
           </DialogFooter>

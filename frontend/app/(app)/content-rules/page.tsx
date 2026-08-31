@@ -16,7 +16,11 @@ import {
   DELETE_CONTENT_RULE,
   DUPLICATE_CONTENT_RULE,
 } from "@/graphql/content-rules/mutations";
-import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableColumnHeader,
+  type FilterConfig,
+} from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,6 +33,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/hooks/use-confirm";
 import { CreateContentRuleDialog } from "./create-content-rule-dialog";
+
+const SCAN_MODE_LABELS: Record<string, string> = {
+  input: "Input",
+  output: "Output",
+  both: "Input + output",
+};
 
 function severityVariant(severity: string) {
   switch (severity) {
@@ -72,9 +82,19 @@ function ActionsCell({
   onEdit: (rule: ContentRuleData) => void;
 }) {
   const confirm = useConfirm();
-  const [toggleEnabled] = useMutation<{ toggleContentRuleEnabled: ToggleContentRuleEnabledPayload }>(TOGGLE_CONTENT_RULE_ENABLED);
-  const [deleteRule] = useMutation<{ deleteContentRule: DeleteContentRulePayload }>(DELETE_CONTENT_RULE);
-  const [duplicateRule] = useMutation<{ duplicateContentRule: { success: boolean | null; ruleId: string | null; errors: string[] } }>(DUPLICATE_CONTENT_RULE);
+  const [toggleEnabled] = useMutation<{
+    toggleContentRuleEnabled: ToggleContentRuleEnabledPayload;
+  }>(TOGGLE_CONTENT_RULE_ENABLED);
+  const [deleteRule] = useMutation<{
+    deleteContentRule: DeleteContentRulePayload;
+  }>(DELETE_CONTENT_RULE);
+  const [duplicateRule] = useMutation<{
+    duplicateContentRule: {
+      success: boolean | null;
+      ruleId: string | null;
+      errors: string[];
+    };
+  }>(DUPLICATE_CONTENT_RULE);
 
   const handleToggle = async () => {
     try {
@@ -83,7 +103,7 @@ function ActionsCell({
       });
       if (data?.toggleContentRuleEnabled?.success) {
         toast.success(
-          `"${rule.name}" ${rule.enabled ? "disabled" : "enabled"}`
+          `"${rule.name}" ${rule.enabled ? "disabled" : "enabled"}`,
         );
         onRefresh();
       }
@@ -102,7 +122,7 @@ function ActionsCell({
         onRefresh();
       } else {
         toast.error(
-          data?.duplicateContentRule?.errors?.[0] ?? "Failed to duplicate"
+          data?.duplicateContentRule?.errors?.[0] ?? "Failed to duplicate",
         );
       }
     } catch {
@@ -123,9 +143,7 @@ function ActionsCell({
         toast.success(`"${rule.name}" deleted`);
         onRefresh();
       } else {
-        toast.error(
-          data?.deleteContentRule?.errors?.[0] ?? "Failed to delete"
-        );
+        toast.error(data?.deleteContentRule?.errors?.[0] ?? "Failed to delete");
       }
     } catch {
       toast.error("Failed to delete rule");
@@ -140,15 +158,11 @@ function ActionsCell({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onEdit(rule)}>
-          Edit
-        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onEdit(rule)}>Edit</DropdownMenuItem>
         <DropdownMenuItem onClick={handleToggle}>
           {rule.enabled ? "Disable" : "Enable"}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleDuplicate}>
-          Duplicate
-        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleDuplicate}>Duplicate</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={handleDelete}>
           Delete
@@ -217,6 +231,41 @@ export default function ContentRulesPage() {
       ),
     },
     {
+      accessorKey: "scanMode",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Scans" />
+      ),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground text-sm">
+          {SCAN_MODE_LABELS[row.original.scanMode] ?? row.original.scanMode}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "scopeType",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Scope" />
+      ),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground text-sm capitalize">
+          {row.original.scopeType?.replace(/_/g, " ") ?? "organization"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "priority",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Priority" />
+      ),
+      // Sortable, and worth sorting by: priority is evaluation order, so the
+      // table sorted on it reads as the order the rules actually run in.
+      cell: ({ row }) => (
+        <span className="text-sm tabular-nums">
+          {row.original.priority ?? 100}
+        </span>
+      ),
+    },
+    {
       accessorKey: "enabled",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Enabled" />
@@ -242,7 +291,11 @@ export default function ContentRulesPage() {
       id: "actions",
       header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => (
-        <ActionsCell rule={row.original} onRefresh={refetch} onEdit={handleEdit} />
+        <ActionsCell
+          rule={row.original}
+          onRefresh={refetch}
+          onEdit={handleEdit}
+        />
       ),
       enableSorting: false,
     },
@@ -277,7 +330,8 @@ export default function ContentRulesPage() {
         <div>
           <h1 className="text-xl font-semibold">Content Rules</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Configure content scanning and filtering rules for AI inputs and outputs
+            Configure content scanning and filtering rules for AI inputs and
+            outputs
           </p>
         </div>
         <Button size="sm" onClick={() => setCreateOpen(true)}>

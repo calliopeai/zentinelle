@@ -1,12 +1,15 @@
 import { gql } from "@apollo/client";
 
+// `matches`, not matchedText/severity. Those two were in this document and are
+// not in TestContentRulePayload, so every execution of it would have failed
+// validation with "Cannot query field" — the mutation had no caller, so
+// nothing ever ran it to find out.
 export const TEST_CONTENT_RULE = gql`
   mutation TestContentRule($id: ID!, $content: String!) {
     testContentRule(id: $id, content: $content) {
       success
       matched
-      matchedText
-      severity
+      matches
       errors
     }
   }
