@@ -156,3 +156,72 @@ def on_event_created(sender, instance, created, **kwargs):
             )
         except Exception as e:
             logger.debug(f"Webhook dispatch failed for policy violation: {e}")
+
+
+# =============================================================================
+# Policy cache invalidation
+# =============================================================================
+
+# Which models change what a cached evaluation would decide. `Policy` alone:
+# `PolicyEngine.evaluate` queries no other model, and its cache key is built
+# from the tenant's policy version.
+#
+# ContentRule is deliberately not here. The content scanner keeps its rules on
+# the scanner instance rather than in the shared cache, so a version bump would
+# not reach it, and adding it would buy nothing but the appearance of cover.
+CACHE_INVALIDATING_MODELS = {
+    'zentinelle.Policy',
+}
+
+
+def _invalidate_policy_cache(instance):
+    """Bump the tenant's policy cache version, whoever wrote the policy.
+
+    This lives on the model rather than in the mutation because the mutation is
+    not the only writer, and the ones that were not calling it are exactly the
+    ones nobody would think to check: the LLM assistant creates policies through
+    `services/llm_tools.py`, the Django admin saves them through a ModelAdmin,
+    and a policy document applies them through its own mutation. Each of those
+    left `evaluate` serving a cached decision for up to POLICY_CACHE_TTL — five
+    minutes in which an agent that a new `fail_open=false` policy forbids goes
+    on being allowed.
+
+    That is a GRC failure rather than a performance one: the product's claim is
+    that the policy an operator saved is the policy being enforced.
+
+    Not deferred to `transaction.on_commit`. Bumping now can invalidate for a
+    write that later rolls back, which costs one cache miss; deferring leaves a
+    window between the write becoming visible to other connections and the
+    version moving, which costs an enforcement decision made against rules that
+    have already changed. The cheap mistake is the right one to make.
+
+    Never raises. Invalidation runs inside somebody else's save, and a cache
+    that cannot be reached is not a reason to fail the write that was already
+    accepted; the TTL still bounds the staleness, which is the situation before
+    this existed.
+    """
+    tenant_id = getattr(instance, 'tenant_id', '')
+    if not tenant_id:
+        return
+    try:
+        from zentinelle.services.policy_engine import PolicyEngine
+        PolicyEngine().invalidate_cache(tenant_id)
+    except Exception:
+        logger.exception(
+            'failed to invalidate the policy cache for tenant %s after a write to %s; '
+            'evaluations may serve a stale decision until the cache entry expires',
+            tenant_id,
+            _get_model_label(instance),
+        )
+
+
+@receiver(post_save)
+def invalidate_policy_cache_on_save(sender, instance, **kwargs):
+    if _get_model_label(instance) in CACHE_INVALIDATING_MODELS:
+        _invalidate_policy_cache(instance)
+
+
+@receiver(post_delete)
+def invalidate_policy_cache_on_delete(sender, instance, **kwargs):
+    if _get_model_label(instance) in CACHE_INVALIDATING_MODELS:
+        _invalidate_policy_cache(instance)
