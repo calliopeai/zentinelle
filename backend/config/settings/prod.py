@@ -96,6 +96,26 @@ if _metadata_url:
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "true").lower() == "true"
+
+# The health and readiness probes are exempt from that redirect, because the
+# thing performing them speaks plain HTTP to the container and cannot follow a
+# 301. A load balancer health check carries no X-Forwarded-Proto — it is not
+# proxying anything, it is asking the container directly — so SECURE_SSL_REDIRECT
+# answered it 301, the target group scored that as a failure, and ECS replaced
+# the task on a loop. Kubernetes liveness and readiness probes behave the same
+# way, so this is not one platform's quirk.
+#
+# Exempting these two paths costs nothing: they carry no credentials, set no
+# cookies, and return no tenant data. Every other path still redirects, and real
+# traffic arrives through the load balancer with X-Forwarded-Proto set, so it is
+# never redirected in the first place.
+#
+# Matched without the leading slash, which is what SecurityMiddleware compares
+# against.
+SECURE_REDIRECT_EXEMPT = [
+    r"^api/zentinelle/v1/health$",
+    r"^api/zentinelle/v1/ready$",
+]
 SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000"))  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
