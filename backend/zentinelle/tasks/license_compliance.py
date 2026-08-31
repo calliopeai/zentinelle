@@ -348,36 +348,3 @@ def generate_monthly_compliance_reports():
     )
 
     return results
-
-
-# =============================================================================
-# Celery Beat Schedule Configuration
-# =============================================================================
-
-def get_compliance_schedule():
-    """
-    Return schedule configuration for Celery Beat.
-
-    Add to CELERY_BEAT_SCHEDULE in settings:
-    CELERY_BEAT_SCHEDULE.update(get_compliance_schedule())
-    """
-    from celery.schedules import crontab
-
-    return {
-        'detect-license-violations-daily': {
-            'task': 'zentinelle.tasks.license_compliance.detect_license_violations_all_orgs',
-            'schedule': crontab(hour=2, minute=0),  # 2:00 AM UTC daily
-        },
-        'weekly-compliance-summaries': {
-            'task': 'zentinelle.tasks.license_compliance.generate_weekly_compliance_summaries',
-            'schedule': crontab(hour=6, minute=0, day_of_week='monday'),  # Monday 6 AM UTC
-        },
-        'auto-resolve-violations': {
-            'task': 'zentinelle.tasks.license_compliance.auto_resolve_violations',
-            'schedule': crontab(minute=0, hour='*/6'),  # Every 6 hours
-        },
-        'monthly-compliance-reports': {
-            'task': 'zentinelle.tasks.license_compliance.generate_monthly_compliance_reports',
-            'schedule': crontab(hour=3, minute=0, day_of_month=1),  # 1st of month, 3 AM UTC
-        },
-    }

@@ -5,8 +5,10 @@ All environment-specific overrides live in dev.py and prod.py.
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -242,19 +244,74 @@ CELERY_TASK_TIME_LIMIT = 60 * 60  # 1 hour
 CELERY_TIMEZONE = "UTC"
 CELERY_TASK_ALWAYS_EAGER = False
 
-CELERY_TASK_ROUTES = {
-    "zentinelle.tasks.*": {"queue": "zentinelle-events"},
-    "zentinelle.services.*": {"queue": "zentinelle-events"},
-}
+# Every task runs on the default queue, which is the queue the worker services
+# consume. Do not add task routes without also giving the workers a matching
+# -Q, or the routed tasks are enqueued and never picked up.
 
+# The beat schedule is the single source of truth for periodic work. Beat runs
+# with the default scheduler, so this dict is the schedule; there is no
+# database scheduler and no seeding step.
 CELERY_BEAT_SCHEDULE = {
+    # Retention and registry
     'zentinelle-enforce-retention-policies': {
         'task': 'zentinelle.enforce_retention_policies',
-        'schedule': 86400,
+        'schedule': crontab(hour=1, minute=0),
     },
     'zentinelle-sync-model-registry': {
         'task': 'zentinelle.sync_model_registry',
-        'schedule': 86400,
+        'schedule': crontab(hour=5, minute=0),
+    },
+    'zentinelle-cleanup-old-events': {
+        'task': 'zentinelle.tasks.scheduled.cleanup_old_events',
+        'schedule': crontab(hour=4, minute=0, day_of_week='sunday'),
+    },
+
+    # Health
+    'zentinelle-check-endpoint-health': {
+        'task': 'zentinelle.tasks.scheduled.check_endpoint_health',
+        'schedule': timedelta(minutes=15),
+    },
+
+    # Billing
+    'zentinelle-send-usage-to-stripe': {
+        'task': 'zentinelle.tasks.billing.send_usage_to_stripe',
+        'schedule': crontab(minute=0),
+    },
+
+    # License compliance
+    'zentinelle-detect-license-violations': {
+        'task': 'zentinelle.tasks.license_compliance.detect_license_violations_all_orgs',
+        'schedule': crontab(hour=2, minute=0),
+    },
+    'zentinelle-auto-resolve-violations': {
+        'task': 'zentinelle.tasks.license_compliance.auto_resolve_violations',
+        'schedule': crontab(minute=0, hour='*/6'),
+    },
+    'zentinelle-weekly-compliance-summaries': {
+        'task': 'zentinelle.tasks.license_compliance.generate_weekly_compliance_summaries',
+        'schedule': crontab(hour=6, minute=0, day_of_week='monday'),
+    },
+    'zentinelle-monthly-compliance-reports': {
+        'task': 'zentinelle.tasks.license_compliance.generate_monthly_compliance_reports',
+        'schedule': crontab(hour=3, minute=0, day_of_month='1'),
+    },
+
+    # Compliance monitoring
+    'zentinelle-check-compliance-drift': {
+        'task': 'zentinelle.tasks.compliance_monitoring.check_compliance_drift',
+        'schedule': timedelta(hours=1),
+    },
+    'zentinelle-monitor-violation-rates': {
+        'task': 'zentinelle.tasks.compliance_monitoring.monitor_violation_rates',
+        'schedule': timedelta(minutes=30),
+    },
+    'zentinelle-check-policy-health': {
+        'task': 'zentinelle.tasks.compliance_monitoring.check_policy_health',
+        'schedule': timedelta(hours=6),
+    },
+    'zentinelle-detect-usage-anomalies': {
+        'task': 'zentinelle.tasks.compliance_monitoring.detect_usage_anomalies',
+        'schedule': timedelta(hours=1),
     },
 }
 

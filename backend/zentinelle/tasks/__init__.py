@@ -33,7 +33,6 @@ from zentinelle.tasks.compliance_monitoring import (
     monitor_violation_rates,
     check_policy_health,
     detect_usage_anomalies,
-    get_monitoring_schedule,
 )
 # License compliance
 from zentinelle.tasks.license_compliance import (
@@ -41,7 +40,6 @@ from zentinelle.tasks.license_compliance import (
     generate_weekly_compliance_summaries,
     auto_resolve_violations,
     generate_monthly_compliance_reports,
-    get_compliance_schedule,
 )
 
 __all__ = [
@@ -69,13 +67,11 @@ __all__ = [
     'monitor_violation_rates',
     'check_policy_health',
     'detect_usage_anomalies',
-    'get_monitoring_schedule',
     # License compliance
     'detect_license_violations_all_orgs',
     'generate_weekly_compliance_summaries',
     'auto_resolve_violations',
     'generate_monthly_compliance_reports',
-    'get_compliance_schedule',
     # ClickHouse audit sync
     'stream_audit_log_to_clickhouse',
     'stream_event_to_clickhouse',

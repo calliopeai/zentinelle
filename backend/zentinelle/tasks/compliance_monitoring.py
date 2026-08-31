@@ -538,33 +538,3 @@ def detect_usage_anomalies():
 
     logger.info(f"Usage anomaly detection complete: {results}")
     return results
-
-
-# ============================================================================
-# Celery Beat Schedule Configuration
-# ============================================================================
-
-def get_monitoring_schedule():
-    """
-    Return schedule configuration for Celery Beat.
-
-    Add to CELERY_BEAT_SCHEDULE in settings.
-    """
-    return {
-        'check-compliance-drift': {
-            'task': 'zentinelle.tasks.compliance_monitoring.check_compliance_drift',
-            'schedule': timedelta(hours=1),
-        },
-        'monitor-violation-rates': {
-            'task': 'zentinelle.tasks.compliance_monitoring.monitor_violation_rates',
-            'schedule': timedelta(minutes=30),
-        },
-        'check-policy-health': {
-            'task': 'zentinelle.tasks.compliance_monitoring.check_policy_health',
-            'schedule': timedelta(hours=6),
-        },
-        'detect-usage-anomalies': {
-            'task': 'zentinelle.tasks.compliance_monitoring.detect_usage_anomalies',
-            'schedule': timedelta(hours=1),
-        },
-    }
