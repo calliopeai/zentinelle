@@ -36,3 +36,25 @@ variable "manage_dns_records" {
   type        = bool
   default     = true
 }
+
+variable "auth_mode" {
+  description = "Authentication mode: local (built-in) or sso (OIDC/SAML). 'open' is rejected by prod settings."
+  type        = string
+  default     = "local"
+
+  validation {
+    condition     = contains(["local", "sso"], var.auth_mode)
+    error_message = "auth_mode must be \"local\" or \"sso\". \"open\" is refused by the backend under prod settings."
+  }
+}
+
+variable "extra_allowed_hosts" {
+  description = "Additional hosts to accept in Django's ALLOWED_HOSTS, beyond the domain and the ALB."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = !contains(var.extra_allowed_hosts, "*")
+    error_message = "\"*\" disables host validation entirely and is refused. List the hosts."
+  }
+}

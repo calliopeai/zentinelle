@@ -2,7 +2,7 @@
 # ECS Fargate Container Runtime — Zentinelle
 #
 # 4 services: backend (Django), celery (worker), celery-beat (scheduler),
-# frontend (Next.js). ALB routes /api/* and /graphql to backend, everything
+# frontend (Next.js). ALB routes /api/*, /gql/* and /proxy/* to backend, everything
 # else to frontend.
 #
 # Called by container_runtime.tf when enable_ecs = true.
@@ -22,7 +22,13 @@ terraform {
 # =============================================================================
 
 locals {
-  redis_url = "rediss://${var.redis_endpoint}:${var.redis_port}/0"
+  # ssl_cert_reqs is not optional on a rediss:// URL: celery's redis backend
+  # refuses to construct without it —
+  #   "A rediss:// URL must have parameter ssl_cert_reqs and this must be set
+  #    to CERT_REQUIRED, CERT_OPTIONAL, or CERT_NONE"
+  # — so the worker died emitting its own startup banner. ElastiCache presents
+  # a valid cert, so require it rather than weakening to CERT_NONE.
+  redis_url = "rediss://${var.redis_endpoint}:${var.redis_port}/0?ssl_cert_reqs=required"
 }
 
 # =============================================================================
@@ -139,7 +145,10 @@ resource "aws_lb_target_group" "frontend" {
     timeout             = 5
     path                = "/"
     protocol            = "HTTP"
-    matcher             = "200"
+    # The frontend redirects "/" to /dashboard, so it answers 307 and never a
+    # bare 200. Demanding 200 marked every healthy task unhealthy, and the
+    # service cycled tasks indefinitely while serving correctly.
+    matcher = "200-399"
   }
 
   deregistration_delay = 30
@@ -182,7 +191,7 @@ resource "aws_lb_listener_rule" "api" {
   tags = var.tags
 }
 
-# Route /graphql to backend
+# Route /gql/* to backend (GraphQL)
 resource "aws_lb_listener_rule" "graphql" {
   listener_arn = aws_lb_listener.https.arn
   priority     = 110
@@ -194,7 +203,11 @@ resource "aws_lb_listener_rule" "graphql" {
 
   condition {
     path_pattern {
-      values = ["/graphql", "/graphql/*"]
+      # Django serves GraphQL at /gql/zentinelle/ (config/urls.py), not
+      # /graphql. The old patterns sent /graphql to the backend, where it
+      # 404s, and let /gql/* fall through to the frontend — so the console's
+      # Apollo client had no reachable API at all.
+      values = ["/gql", "/gql/*"]
     }
   }
 
@@ -236,6 +249,26 @@ resource "aws_lb_listener_rule" "integrations" {
   condition {
     path_pattern {
       values = ["/integrations/*"]
+    }
+  }
+
+  tags = var.tags
+}
+
+# Route /proxy/* to backend — the LLM proxy endpoint. Without this it
+# fell through to the frontend, so every proxied model call 404d.
+resource "aws_lb_listener_rule" "proxy" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 106
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/proxy", "/proxy/*"]
     }
   }
 
@@ -610,6 +643,10 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "ENVIRONMENT", value = var.env },
       { name = "AWS_REGION", value = var.region },
       { name = "DJANGO_SETTINGS_MODULE", value = "config.settings.prod" },
+      # Django refuses to start under prod settings with AUTH_MODE=open,
+      # which is the default when the variable is absent. Not a warning:
+      # the worker raises on import and the container exits.
+      { name = "AUTH_MODE", value = var.auth_mode },
       { name = "POSTGRES_HOST", value = var.db_host },
       { name = "POSTGRES_PORT", value = tostring(var.db_port) },
       { name = "POSTGRES_DB", value = var.db_name },
@@ -617,13 +654,21 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "REDIS_URL", value = local.redis_url },
       { name = "CELERY_BROKER_URL", value = local.redis_url },
       { name = "CELERY_RESULT_BACKEND", value = local.redis_url },
-      { name = "ALLOWED_HOSTS", value = "${var.domain},*.${var.domain}" },
+      # localhost is not cosmetic: the container healthCheck below curls
+      # http://localhost:8000/..., and without it Django answers 400, curl -f
+      # fails, and ECS kills a task that is serving the ALB perfectly well.
+      # The ALB hostname has to be here too, or Django answers 400 to any
+      # request that did not arrive with the domain in the Host header —
+      # including the "reach it by ALB hostname" shape the tfvars example
+      # documents, and including the ALB health check itself.
+      { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name, "localhost", "127.0.0.1"], var.extra_allowed_hosts)) },
       { name = "CSRF_TRUSTED_ORIGINS", value = "https://${var.domain},https://*.${var.domain}" },
     ]
     secrets = [
       { name = "POSTGRES_PASSWORD", valueFrom = "${var.db_credentials_arn}:password::" },
       { name = "SECRET_KEY", valueFrom = "${var.app_secrets_arn}:SECRET_KEY::" },
       { name = "ZENTINELLE_BOOTSTRAP_SECRET", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_BOOTSTRAP_SECRET::" },
+      { name = "ZENTINELLE_SECRET_KEY", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_SECRET_KEY::" },
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -634,7 +679,12 @@ resource "aws_ecs_task_definition" "backend" {
       }
     }
     healthCheck = {
-      command     = ["CMD-SHELL", "curl -f http://localhost:8000/api/zentinelle/v1/health || exit 1"]
+      # python, not curl: the backend image is python:3.12-slim and does not
+      # install curl, so the old command failed with "command not found"
+      # on every probe. After startPeriod ECS killed a task that was
+      # serving the ALB correctly, which read as a service flapping
+      # rather than as a broken health check.
+      command     = ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/zentinelle/v1/health', timeout=4).status==200 else 1)\" || exit 1"]
       interval    = 30
       timeout     = 5
       retries     = 3
@@ -697,6 +747,14 @@ resource "aws_ecs_task_definition" "celery" {
       { name = "ENVIRONMENT", value = var.env },
       { name = "AWS_REGION", value = var.region },
       { name = "DJANGO_SETTINGS_MODULE", value = "config.settings.prod" },
+      # Django refuses to start under prod settings with AUTH_MODE=open,
+      # which is the default when the variable is absent. Not a warning:
+      # the worker raises on import and the container exits.
+      { name = "AUTH_MODE", value = var.auth_mode },
+      # Required by prod settings even for workers, which import the same
+      # settings module: without it Django raises on import and the celery
+      # container exits before it ever connects to the broker.
+      { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name, "localhost", "127.0.0.1"], var.extra_allowed_hosts)) },
       { name = "POSTGRES_HOST", value = var.db_host },
       { name = "POSTGRES_PORT", value = tostring(var.db_port) },
       { name = "POSTGRES_DB", value = var.db_name },
@@ -709,6 +767,7 @@ resource "aws_ecs_task_definition" "celery" {
       { name = "POSTGRES_PASSWORD", valueFrom = "${var.db_credentials_arn}:password::" },
       { name = "SECRET_KEY", valueFrom = "${var.app_secrets_arn}:SECRET_KEY::" },
       { name = "ZENTINELLE_BOOTSTRAP_SECRET", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_BOOTSTRAP_SECRET::" },
+      { name = "ZENTINELLE_SECRET_KEY", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_SECRET_KEY::" },
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -769,6 +828,14 @@ resource "aws_ecs_task_definition" "celery_beat" {
       { name = "ENVIRONMENT", value = var.env },
       { name = "AWS_REGION", value = var.region },
       { name = "DJANGO_SETTINGS_MODULE", value = "config.settings.prod" },
+      # Django refuses to start under prod settings with AUTH_MODE=open,
+      # which is the default when the variable is absent. Not a warning:
+      # the worker raises on import and the container exits.
+      { name = "AUTH_MODE", value = var.auth_mode },
+      # Required by prod settings even for workers, which import the same
+      # settings module: without it Django raises on import and the celery
+      # container exits before it ever connects to the broker.
+      { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name, "localhost", "127.0.0.1"], var.extra_allowed_hosts)) },
       { name = "POSTGRES_HOST", value = var.db_host },
       { name = "POSTGRES_PORT", value = tostring(var.db_port) },
       { name = "POSTGRES_DB", value = var.db_name },
@@ -780,6 +847,11 @@ resource "aws_ecs_task_definition" "celery_beat" {
     secrets = [
       { name = "POSTGRES_PASSWORD", valueFrom = "${var.db_credentials_arn}:password::" },
       { name = "SECRET_KEY", valueFrom = "${var.app_secrets_arn}:SECRET_KEY::" },
+      { name = "ZENTINELLE_SECRET_KEY", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_SECRET_KEY::" },
+      # celery-beat imports the same settings as the others, and prod
+      # settings raise without this too. It was the only one of the three
+      # missing it, so it alone died on import.
+      { name = "ZENTINELLE_BOOTSTRAP_SECRET", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_BOOTSTRAP_SECRET::" },
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -851,7 +923,14 @@ resource "aws_ecs_task_definition" "frontend" {
       }
     }
     healthCheck = {
-      command     = ["CMD-SHELL", "curl -f http://localhost:3002/ || exit 1"]
+      # node, not curl: the frontend image has no curl either. 200-399 is
+      # accepted because "/" redirects to /dashboard.
+      #
+      # 127.0.0.1 rather than localhost: node 18+ resolves localhost to ::1
+      # first, and the server binds IPv4, so the probe got ECONNREFUSED and
+      # the container reported UNHEALTHY while serving the ALB fine. curl
+      # falls back between address families; node does not.
+      command     = ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3002/', r => process.exit(r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))\" || exit 1"]
       interval    = 30
       timeout     = 5
       retries     = 3

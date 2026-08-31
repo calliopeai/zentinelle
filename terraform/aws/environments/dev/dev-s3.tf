@@ -7,7 +7,7 @@ resource "aws_s3_bucket" "files" {
 
   tags = merge(local.tags, {
     Name    = "${local.name}-files"
-    Purpose = "Backups, exports, and document storage"
+    Purpose = "Backups / exports / document storage"
   })
 }
 
