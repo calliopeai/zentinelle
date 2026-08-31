@@ -4,7 +4,7 @@ Tests for Zentinelle API views.
 import hashlib
 from datetime import timedelta
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -441,11 +441,19 @@ class RateLimitMiddlewareTest(ZentinelleAPITestMixin, TestCase):
 class RiskTrendViewTest(ZentinelleAPITestMixin, TestCase):
     """Tests for /api/zentinelle/v1/risks/trend."""
 
+    @override_settings(AUTH_MODE='local')
     def test_trend_unauthenticated(self):
-        """Trend endpoint rejects requests without an API key."""
+        """Trend endpoint rejects requests without an API key.
+
+        Pinned to an enforcing mode. The default is 'open', which authenticates
+        every caller as an admin, so without this the assertion was made against
+        a deployment that has no authentication to test and the endpoint
+        answered 200.
+        """
         response = self.client.get(reverse('zentinelle:risks-trend'))
         self.assertEqual(response.status_code, 401)
 
+    @override_settings(AUTH_MODE='local')
     def test_trend_invalid_key(self):
         """Trend endpoint rejects invalid API keys."""
         self.client.credentials(HTTP_X_ZENTINELLE_KEY='sk_agent_invalid_key_value')
@@ -644,6 +652,7 @@ def _build_audit_chain(tenant_id, count, action='create', resource_type='policy'
 class AuditChainVerifyViewTest(ZentinelleAPITestMixin, TestCase):
     """Integration tests for /api/zentinelle/v1/audit/verify."""
 
+    @override_settings(AUTH_MODE='local')
     def test_verify_unauthenticated(self):
         """Verify endpoint rejects requests without an API key."""
         response = self.client.get(reverse('zentinelle:audit-verify'))

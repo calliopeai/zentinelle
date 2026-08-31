@@ -16,6 +16,7 @@ from strawberry.scalars import JSON
 from zentinelle.models.system_prompt import (PromptCategory, PromptFavorite,
                                              PromptRating, PromptTag,
                                              SystemPrompt)
+from zentinelle.schema.auth_helpers import get_request_tenant_id
 
 # =============================================================================
 # Types
@@ -154,6 +155,22 @@ class PromptRatingDjangoType:
 # Queries
 # =============================================================================
 
+def _visible_prompts(user):
+    """Prompts this caller may see: their tenant's, and public ones.
+
+    Every lookup below was `SystemPrompt.objects.filter(id=...)` with no tenant
+    and no visibility constraint, so any prompt could be read, forked, rated or
+    favourited by its id — and `fork` copies the body into the caller's own
+    library, which turns a read leak into a copy of another tenant's private
+    prompt text. `slug` was worse than `id`: slugs are chosen, and guessable.
+    """
+    tenant_id = get_request_tenant_id(user)
+    visible = Q(visibility=SystemPrompt.Visibility.PUBLIC)
+    if tenant_id:
+        visible |= Q(tenant_id=str(tenant_id))
+    return SystemPrompt.objects.filter(visible)
+
+
 @strawberry.type
 class PromptLibraryQuery:
     """Queries for the prompt library."""
@@ -251,9 +268,9 @@ class PromptLibraryQuery:
         slug: Optional[str] = None,
     ) -> Optional[SystemPromptDjangoType]:
         if id:
-            return SystemPrompt.objects.filter(id=id).first()
+            return _visible_prompts(info.context.request.user).filter(id=id).first()
         if slug:
-            return SystemPrompt.objects.filter(slug=slug, status='active').first()
+            return _visible_prompts(info.context.request.user).filter(slug=slug, status='active').first()
         return None
 
     @strawberry.field
@@ -460,7 +477,7 @@ def update_system_prompt(info: strawberry.types.Info, id: uuid.UUID, input: Upda
     if not user or not user.is_authenticated:
         return UpdateSystemPromptPayload(success=False, errors=['Authentication required'])
 
-    prompt = SystemPrompt.objects.filter(id=id).first()
+    prompt = _visible_prompts(user).filter(id=id).first()
     if not prompt:
         return UpdateSystemPromptPayload(success=False, errors=['Prompt not found'])
 
@@ -496,7 +513,7 @@ def delete_system_prompt(info: strawberry.types.Info, id: uuid.UUID) -> DeleteSy
     if not user or not user.is_authenticated:
         return DeleteSystemPromptPayload(success=False, errors=['Authentication required'])
 
-    prompt = SystemPrompt.objects.filter(id=id).first()
+    prompt = _visible_prompts(user).filter(id=id).first()
     if not prompt:
         return DeleteSystemPromptPayload(success=False, errors=['Prompt not found'])
 
@@ -512,7 +529,7 @@ def fork_system_prompt(info: strawberry.types.Info, id: uuid.UUID) -> ForkSystem
     if not user or not user.is_authenticated:
         return ForkSystemPromptPayload(success=False, errors=['Authentication required'])
 
-    prompt = SystemPrompt.objects.filter(id=id).first()
+    prompt = _visible_prompts(user).filter(id=id).first()
     if not prompt:
         return ForkSystemPromptPayload(success=False, errors=['Prompt not found'])
 
@@ -525,7 +542,7 @@ def toggle_prompt_favorite(info: strawberry.types.Info, prompt_id: uuid.UUID) ->
     if not user or not user.is_authenticated:
         return TogglePromptFavoritePayload(success=False, is_favorited=False)
 
-    prompt = SystemPrompt.objects.filter(id=prompt_id).first()
+    prompt = _visible_prompts(user).filter(id=prompt_id).first()
     if not prompt:
         return TogglePromptFavoritePayload(success=False, is_favorited=False)
 
@@ -546,7 +563,7 @@ def rate_system_prompt(info: strawberry.types.Info, prompt_id: uuid.UUID, rating
     if rating < 1 or rating > 5:
         return RateSystemPromptPayload(success=False, errors=['Rating must be 1-5'])
 
-    prompt = SystemPrompt.objects.filter(id=prompt_id).first()
+    prompt = _visible_prompts(user).filter(id=prompt_id).first()
     if not prompt:
         return RateSystemPromptPayload(success=False, errors=['Prompt not found'])
 

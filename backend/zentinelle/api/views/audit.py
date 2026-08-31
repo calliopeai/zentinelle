@@ -41,10 +41,21 @@ class AuditChainVerifyView(APIView):
     permission_classes = [OpenOrAgentAuth]
 
     def get(self, request):
-        tenant_id = request.query_params.get('tenant_id')
-        if not tenant_id:
-            # Fall back to the authenticated tenant
-            tenant_id = get_tenant_id_from_request(request)
+        # The authenticated tenant, and never the query parameter. The
+        # parameter used to win, with the caller's own tenant consulted only
+        # when it was absent, so any agent key could read another tenant's
+        # chain integrity — records checked, the sequence a break sits at, and
+        # the root hash — by naming their tenant in the URL. A `?tenant_id=`
+        # that disagrees with the caller is refused rather than ignored,
+        # because a request that asks for someone else's audit chain should be
+        # told no rather than quietly handed its own.
+        tenant_id = get_tenant_id_from_request(request)
+        requested = request.query_params.get('tenant_id')
+        if requested and tenant_id and str(requested) != str(tenant_id):
+            return Response(
+                {'error': 'tenant_id does not match the authenticated tenant'},
+                status=403,
+            )
 
         if not tenant_id:
             return Response(

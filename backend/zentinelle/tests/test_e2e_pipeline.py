@@ -199,10 +199,16 @@ class AgentLifecycleE2ETest(TestCase):
             data={'agent_id': agent_id},
             format='json',
         )
-        self.assertEqual(dereg_resp.status_code, 200)
+        # 204, which is what the endpoint has returned since it was written:
+        # the deregistration succeeded and there is nothing to send back. This
+        # test asserted 200 from the day it was added, so it has never passed.
+        self.assertEqual(dereg_resp.status_code, 204)
 
         endpoint.refresh_from_db()
-        self.assertEqual(endpoint.status, AgentEndpoint.Status.INACTIVE)
+        # TERMINATED, which is the status the model actually defines and the
+        # one deregistration sets. There is no INACTIVE, so this assertion
+        # raised AttributeError rather than comparing anything.
+        self.assertEqual(endpoint.status, AgentEndpoint.Status.TERMINATED)
 
 
 class MultiAgentE2ETest(TestCase):

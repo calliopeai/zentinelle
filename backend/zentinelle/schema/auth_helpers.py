@@ -26,10 +26,42 @@ def get_user_org_ids(user):
 
 
 def user_has_org_access(user, org_id) -> bool:
-    """Check if a user has access to a specific tenant."""
+    """Whether this caller may act on data belonging to ``org_id``.
+
+    The tenant is compared. It was not before: this function took ``org_id``
+    and never read it, so it answered True for any authenticated viewer and
+    the twenty-odd resolvers that used it as their only tenant boundary had
+    none. Every one of those is `Model.objects.get(pk=<id from the wire>)`
+    followed by this check, which is the classic multi-tenant leak — a UUID is
+    unguessable, but unguessable is not a permission.
+
+    An admin still passes for any tenant. On this product an internal admin is
+    the operator of the install rather than a customer, and the Django admin
+    already reaches every row; narrowing that here would change who can
+    administer a deployment while pretending to be a bug fix.
+
+    A caller whose tenant cannot be resolved is refused rather than allowed:
+    the alternative is a request that acts on data it could not name.
+    """
     if not user or not getattr(user, 'is_authenticated', False):
         return False
-    return can_view(user)
+
+    # The tenant comparison comes first, and the role check is only reached for
+    # a Django user. `can_admin` reads `user.groups`, which an agent key's
+    # `ZentinelleAgentUser` does not have — asking it raises AttributeError,
+    # and every caller here sits inside a broad `except`, so the refusal would
+    # arrive as "something went wrong" rather than as an answer.
+    tenant_id = get_request_tenant_id(user)
+    if tenant_id and org_id and str(tenant_id) == str(org_id):
+        return True
+
+    # An internal admin still reaches every tenant: on this product that is the
+    # operator of the install rather than a customer, and the Django admin
+    # already reaches every row. Only a Django user can hold that role.
+    if hasattr(user, 'groups') and can_admin(user):
+        return True
+
+    return False
 
 
 def filter_by_org(queryset, user, org_field='tenant_id', global_view=False, organization_id=None):
@@ -47,6 +79,12 @@ def filter_by_org(queryset, user, org_field='tenant_id', global_view=False, orga
 
     tenant_id = get_request_tenant_id(user)
     if organization_id:
+        # Honoured only for a caller who may act on that tenant. It arrives
+        # from a resolver argument, so believing it outright would let any
+        # caller select the tenant they read — the same defect
+        # `user_has_org_access` had, one layer down.
+        if not user_has_org_access(user, organization_id):
+            return queryset.none()
         return queryset.filter(**{org_field: str(organization_id)})
     if tenant_id:
         return queryset.filter(**{org_field: str(tenant_id)})

@@ -13,6 +13,7 @@ from graphql_relay import from_global_id
 
 from zentinelle.models import Policy, AgentEndpoint
 from zentinelle.schema.types import PolicyType
+from zentinelle.schema.auth_helpers import get_request_tenant_id, user_has_org_access
 
 
 def _decode_id(global_or_raw_id):
@@ -88,6 +89,23 @@ class TogglePolicyEnabledPayload:
     error: Optional[str] = None
 
 
+def _policy_for_caller(info, policy_id: str) -> Policy:
+    """The policy this caller may act on, or DoesNotExist.
+
+    Every lookup in this module took the id from the wire with no tenant
+    constraint, so update, delete, duplicate and toggle all reached another
+    tenant's policies. `toggle_policy_enabled` could disable a victim's
+    blocking policy, and `duplicate_policy` returned its whole `config`.
+
+    DoesNotExist rather than a separate refusal: a caller who may not see a
+    policy should not learn one exists at that id.
+    """
+    tenant_id = get_request_tenant_id(info.context.request.user)
+    if not tenant_id:
+        raise Policy.DoesNotExist()
+    return Policy.objects.get(id=policy_id, tenant_id=str(tenant_id))
+
+
 def create_policy(info: strawberry.types.Info, organization_id: uuid.UUID, input: CreatePolicyInput) -> CreatePolicyPayload:
     if not info.context.request.user.is_authenticated:
         return CreatePolicyPayload(success=False, error="Authentication required")
@@ -96,8 +114,20 @@ def create_policy(info: strawberry.types.Info, organization_id: uuid.UUID, input
     if input.policy_type not in valid_types:
         return CreatePolicyPayload(success=False, error=f"Invalid policy type: {input.policy_type}")
 
+    # The caller's tenant, not the argument. `organization_id` arrives from the
+    # client, and writing it verbatim let any authenticated caller install a
+    # policy into another tenant — which, since PolicyEngine reads policies by
+    # tenant_id, is an enforcement injection rather than merely a stray row.
+    # The argument is still accepted so the mutation's shape does not change,
+    # and is refused when it names a tenant this caller may not write to.
+    caller_tenant_id = get_request_tenant_id(info.context.request.user)
+    if not caller_tenant_id:
+        return CreatePolicyPayload(success=False, error="No tenant for this caller")
+    if organization_id and not user_has_org_access(info.context.request.user, organization_id):
+        return CreatePolicyPayload(success=False, error="Not permitted for that organization")
+
     policy_data = {
-        'tenant_id': str(organization_id),
+        'tenant_id': str(organization_id or caller_tenant_id),
         'name': input.name,
         'policy_type': input.policy_type,
         'description': input.description or '',
@@ -112,7 +142,9 @@ def create_policy(info: strawberry.types.Info, organization_id: uuid.UUID, input
 
     if scope_type == Policy.ScopeType.ENDPOINT and input.scope_endpoint_id:
         try:
-            endpoint = AgentEndpoint.objects.get(id=input.scope_endpoint_id)
+            endpoint = AgentEndpoint.objects.get(
+                id=input.scope_endpoint_id, tenant_id=str(organization_id or caller_tenant_id)
+            )
             policy_data['scope_endpoint'] = endpoint
         except AgentEndpoint.DoesNotExist:
             return CreatePolicyPayload(success=False, error="Endpoint not found")
@@ -143,7 +175,7 @@ def update_policy(info: strawberry.types.Info, input: UpdatePolicyInput) -> Upda
         return UpdatePolicyPayload(success=False, error="Authentication required")
 
     try:
-        policy = Policy.objects.get(id=_decode_id(input.id))
+        policy = _policy_for_caller(info, _decode_id(input.id))
     except Policy.DoesNotExist:
         return UpdatePolicyPayload(success=False, error="Policy not found")
 
@@ -180,7 +212,7 @@ def delete_policy(info: strawberry.types.Info, id: strawberry.ID) -> DeletePolic
         return DeletePolicyPayload(success=False, error="Authentication required")
 
     try:
-        policy = Policy.objects.get(id=_decode_id(id))
+        policy = _policy_for_caller(info, _decode_id(id))
         tenant_id = policy.tenant_id
         policy.delete()
 
@@ -197,7 +229,7 @@ def duplicate_policy(info: strawberry.types.Info, id: strawberry.ID, new_name: O
         return DuplicatePolicyPayload(success=False, error="Authentication required")
 
     try:
-        original = Policy.objects.get(id=_decode_id(id))
+        original = _policy_for_caller(info, _decode_id(id))
     except Policy.DoesNotExist:
         return DuplicatePolicyPayload(success=False, error="Policy not found")
 
@@ -225,7 +257,7 @@ def toggle_policy_enabled(info: strawberry.types.Info, id: strawberry.ID) -> Tog
         return TogglePolicyEnabledPayload(success=False, error="Authentication required")
 
     try:
-        policy = Policy.objects.get(id=id)
+        policy = _policy_for_caller(info, id)
         policy.enabled = not policy.enabled
         policy.save(update_fields=['enabled', 'updated_at'])
 
