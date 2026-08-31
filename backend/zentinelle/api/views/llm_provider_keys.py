@@ -14,12 +14,13 @@ from django.views.decorators.csrf import csrf_exempt
 
 from zentinelle.models import LLMProviderKey
 from zentinelle.schema.auth_helpers import get_request_tenant_id
+from zentinelle.auth.mode import is_open_mode
 
 
 def _resolve_tenant_id(request) -> str:
     """Resolve tenant_id, with open-mode fallback to standalone tenant."""
     tid = get_request_tenant_id(request.user)
-    if not tid and os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+    if not tid and is_open_mode():
         return '00000000-0000-0000-0000-000000000001'
     return tid or 'default'
 

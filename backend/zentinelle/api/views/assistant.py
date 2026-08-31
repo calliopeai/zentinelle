@@ -22,6 +22,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.views import APIView
+from zentinelle.auth.mode import is_open_mode
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 class IsAuthenticatedOrOpenMode(BasePermission):
     """Allow if authenticated OR if AUTH_MODE=open."""
     def has_permission(self, request, view):
-        if os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+        if is_open_mode():
             return True
         return bool(request.user and request.user.is_authenticated)
 
@@ -73,7 +74,7 @@ class AssistantExecuteToolView(APIView):
 
         from zentinelle.schema.auth_helpers import get_request_tenant_id
         tenant_id = get_request_tenant_id(request.user)
-        if not tenant_id and os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+        if not tenant_id and is_open_mode():
             tenant_id = '00000000-0000-0000-0000-000000000001'
         if not tenant_id:
             return JsonResponse({'error': 'Tenant required'}, status=403)
@@ -144,7 +145,7 @@ class AssistantChatView(APIView):
 
         from zentinelle.schema.auth_helpers import get_request_tenant_id
         tenant_id = get_request_tenant_id(request.user)
-        if not tenant_id and os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+        if not tenant_id and is_open_mode():
             tenant_id = '00000000-0000-0000-0000-000000000001'
         if not tenant_id:
             tenant_id = 'default'
@@ -262,7 +263,7 @@ class AssistantChatView(APIView):
         from zentinelle.schema.auth_helpers import get_request_tenant_id
 
         tenant_id = get_request_tenant_id(request.user)
-        if not tenant_id and os.environ.get('AUTH_MODE', 'open').lower() == 'open':
+        if not tenant_id and is_open_mode():
             tenant_id = '00000000-0000-0000-0000-000000000001'
         if not tenant_id:
             tenant_id = 'default'
