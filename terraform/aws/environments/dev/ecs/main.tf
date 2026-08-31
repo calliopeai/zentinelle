@@ -713,6 +713,10 @@ resource "aws_ecs_task_definition" "celery" {
       # which is the default when the variable is absent. Not a warning:
       # the worker raises on import and the container exits.
       { name = "AUTH_MODE", value = var.auth_mode },
+      # Required by prod settings even for workers, which import the same
+      # settings module: without it Django raises on import and the celery
+      # container exits before it ever connects to the broker.
+      { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name], var.extra_allowed_hosts)) },
       { name = "POSTGRES_HOST", value = var.db_host },
       { name = "POSTGRES_PORT", value = tostring(var.db_port) },
       { name = "POSTGRES_DB", value = var.db_name },
@@ -790,6 +794,10 @@ resource "aws_ecs_task_definition" "celery_beat" {
       # which is the default when the variable is absent. Not a warning:
       # the worker raises on import and the container exits.
       { name = "AUTH_MODE", value = var.auth_mode },
+      # Required by prod settings even for workers, which import the same
+      # settings module: without it Django raises on import and the celery
+      # container exits before it ever connects to the broker.
+      { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name], var.extra_allowed_hosts)) },
       { name = "POSTGRES_HOST", value = var.db_host },
       { name = "POSTGRES_PORT", value = tostring(var.db_port) },
       { name = "POSTGRES_DB", value = var.db_name },
