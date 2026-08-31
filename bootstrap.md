@@ -222,6 +222,35 @@ Use this before making changes. Columns: **d=1** = direct callers that WILL brea
 
 Transparent HTTPS passthrough at `/proxy/<provider>/` with policy enforcement before forwarding to upstream.
 
+### Two paths, and which one is canonical for what
+
+There are two proxies, and they are not interchangeable. Both enforce policy;
+they differ in what else they do and in what they can see.
+
+| | **Go gateway** (`gateway/`, :8742) | **Django proxy** (`/proxy/<provider>/`) |
+|---|---|---|
+| Reached by | the SDK (`zentinelle-agent proxy`) | direct API clients, the portal |
+| Policy check | calls `/api/zentinelle/v1/evaluate` | `PolicyEngine.evaluate()` in process |
+| Output filtering | yes, since #218 | yes |
+| Interaction logging | usage only | full `InteractionLog` |
+| Providers | ~20, config-driven | anthropic, openai, google, vertex |
+
+The gateway holds an agent key, not a database. That is the whole reason for
+the split: it cannot query `Policy`, so anything it must decide has to be
+carried to it in an evaluation response. `output_filter_required` is the first
+such flag, and the reason it exists is that without it the gateway streamed
+every response straight through — an agent on the SDK proxy bypassed output
+filters that applied to everyone on the Django path.
+
+A filtered response is **buffered before any of it is written**. A filter that
+redacted only what came after it would already have leaked what came before,
+and on a streamed answer that is most of it. The cost is that a filtered
+response arrives whole rather than token by token, which is why the buffering
+is conditional on a filter existing rather than always on.
+
+The Django proxy stays canonical for anything needing the database in the
+request path: full interaction logging, and the multimodal request scan.
+
 ```
 Agent SDK → local proxy (port 8742) → Zentinelle /proxy/<provider>/ → provider API
              (injects X-Zentinelle-Key)   (policy evaluation)

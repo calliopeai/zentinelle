@@ -211,8 +211,39 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 	defer upstreamResp.Body.Close()
 
 	// 10. Stream or copy response
+	//
+	// Unless an output filter applies, in which case nothing may reach the
+	// client until the filter has seen the whole thing. Buffering costs a
+	// streamed response its incrementality, so it is paid only where a filter
+	// actually exists — which is why the request-time check reports it.
 	var respBody []byte
-	if streaming || isStreamingResponse(upstreamResp.Header.Get("Content-Type")) {
+	isStream := streaming || isStreamingResponse(upstreamResp.Header.Get("Content-Type"))
+
+	if policyResult.OutputFilterRequired {
+		respBody, err = bufferResponse(upstreamResp, g.cfg.MaxResponseBytes)
+		if err == nil {
+			output := string(respBody)
+			if isStream {
+				output = sseText(respBody)
+			}
+
+			outcome := CheckOutputPolicy(r.Context(), g.cfg, agentKey, provider.Name, model, output)
+			if !outcome.Allowed {
+				logJSON("warn", "response withheld by output filter", map[string]interface{}{
+					"request_id": requestID,
+					"provider":   provider.Name,
+					"model":      model,
+					"reason":     outcome.Reason,
+				})
+				// Nothing has been written yet, so this is a clean refusal
+				// rather than a truncated answer.
+				writeJSONError(w, http.StatusForbidden, "output_filtered", outcome.Reason)
+				return
+			}
+
+			err = deliverBuffered(w, upstreamResp, respBody)
+		}
+	} else if isStream {
 		respBody, err = streamResponse(w, upstreamResp, g.cfg.MaxResponseBytes)
 	} else {
 		respBody, err = copyResponse(w, upstreamResp, g.cfg.MaxResponseBytes)
