@@ -301,12 +301,17 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		"latency_ms":      latencyMs,
 	})
 
-	// 11. Async usage reporting
+	// 11. Async usage reporting, and the interaction itself
 	if len(respBody) > 0 {
 		usage := ExtractUsage(respBody, provider.Name)
 		if usage.PromptTokens > 0 || usage.CompletionTokens > 0 {
 			ReportUsage(g.cfg, agentKey, provider.Name, model, usage, latencyMs, requestID)
 		}
+		// Reuses the bodies already in hand — the request was read to extract
+		// the model, the response to extract usage — so a trace costs no extra
+		// buffering.
+		LogInteraction(g.cfg, agentKey, provider.Name, model,
+			body, respBody, isStream, usage, latencyMs, requestID)
 	}
 }
 

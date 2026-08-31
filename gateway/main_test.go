@@ -1212,3 +1212,111 @@ func TestHistogramBucketsAreCumulative(t *testing.T) {
 		}
 	}
 }
+
+// --- Interaction logging (#225) ---
+
+// interactionRecorder captures what the gateway posts to /interaction.
+func interactionRecorder(t *testing.T) (*httptest.Server, chan InteractionRecord) {
+	t.Helper()
+	records := make(chan InteractionRecord, 4)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/interaction") {
+			var rec InteractionRecord
+			json.NewDecoder(r.Body).Decode(&rec)
+			records <- rec
+			w.WriteHeader(http.StatusCreated)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"allowed": true, "reason": "ok"})
+	}))
+	return srv, records
+}
+
+func TestAnInteractionIsLoggedAfterTheResponse(t *testing.T) {
+	t.Setenv("LOG_INTERACTIONS", "true")
+
+	answer := `{"choices":[{"message":{"content":"hello"}}],"usage":{"prompt_tokens":11,"completion_tokens":22}}`
+	upstream := upstreamStub(t, "application/json", answer)
+	defer upstream.Close()
+	control, records := interactionRecorder(t)
+	defer control.Close()
+
+	cfg := &Config{
+		ZentinelleURL: control.URL, FailOpen: false,
+		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
+	}
+	pointOpenAIAt(t, upstream.URL)
+	gw := NewGateway(cfg)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions",
+		strings.NewReader(`{"model":"gpt-4o","messages":[{"role":"user","content":"ask"}]}`))
+	req.Header.Set("X-Zentinelle-Key", "sk_agent_test")
+	gw.ServeHTTP(httptest.NewRecorder(), req)
+
+	select {
+	case rec := <-records:
+		if !strings.Contains(rec.InputContent, "ask") {
+			t.Errorf("the prompt was not recorded: %q", rec.InputContent)
+		}
+		if !strings.Contains(rec.OutputContent, "hello") {
+			t.Errorf("the completion was not recorded: %q", rec.OutputContent)
+		}
+		if rec.AIModel != "gpt-4o" || rec.AIProvider != "openai" {
+			t.Errorf("provider/model = %q/%q", rec.AIProvider, rec.AIModel)
+		}
+		// The field names the endpoint actually reads. The issue's sample used
+		// prompt_tokens/completion_tokens, which that endpoint ignores — it
+		// would have answered 201 and stored null.
+		if rec.InputTokenCount != 11 || rec.OutputTokenCount != 22 {
+			t.Errorf("token counts = %d/%d, want 11/22", rec.InputTokenCount, rec.OutputTokenCount)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("no interaction was logged")
+	}
+}
+
+func TestInteractionLoggingCanBeTurnedOff(t *testing.T) {
+	t.Setenv("LOG_INTERACTIONS", "false")
+
+	upstream := upstreamStub(t, "application/json",
+		`{"choices":[{"message":{"content":"private"}}],"usage":{"prompt_tokens":1,"completion_tokens":1}}`)
+	defer upstream.Close()
+	control, records := interactionRecorder(t)
+	defer control.Close()
+
+	cfg := &Config{
+		ZentinelleURL: control.URL, FailOpen: false,
+		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
+	}
+	pointOpenAIAt(t, upstream.URL)
+	gw := NewGateway(cfg)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o"}`))
+	req.Header.Set("X-Zentinelle-Key", "sk_agent_test")
+	gw.ServeHTTP(httptest.NewRecorder(), req)
+
+	select {
+	case rec := <-records:
+		t.Errorf("prompt content was sent by a deployment that turned logging off: %q", rec.InputContent)
+	case <-time.After(500 * time.Millisecond):
+		// Nothing sent, which is the point.
+	}
+}
+
+func TestAnUnparseableLogInteractionsValueDisablesLogging(t *testing.T) {
+	// A typo is not permission to ship prompt text.
+	t.Setenv("LOG_INTERACTIONS", "no-thanks")
+	if interactionLoggingEnabled() {
+		t.Error("an unparseable LOG_INTERACTIONS was read as enabled")
+	}
+}
+
+func TestInteractionLoggingIsOnByDefault(t *testing.T) {
+	t.Setenv("LOG_INTERACTIONS", "")
+	if !interactionLoggingEnabled() {
+		t.Error("logging is off by default, so the gateway records less than the Django proxy on the same product")
+	}
+}
