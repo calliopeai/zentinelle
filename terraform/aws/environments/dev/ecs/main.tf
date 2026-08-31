@@ -654,9 +654,9 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "REDIS_URL", value = local.redis_url },
       { name = "CELERY_BROKER_URL", value = local.redis_url },
       { name = "CELERY_RESULT_BACKEND", value = local.redis_url },
-      # localhost is not cosmetic: the container healthCheck below curls
-      # http://localhost:8000/..., and without it Django answers 400, curl -f
-      # fails, and ECS kills a task that is serving the ALB perfectly well.
+      # localhost is not cosmetic: the container healthCheck below probes
+      # loopback, and without it Django answers 400, the probe fails, and ECS
+      # kills a task that is serving the ALB perfectly well.
       # The ALB hostname has to be here too, or Django answers 400 to any
       # request that did not arrive with the domain in the Host header —
       # including the "reach it by ALB hostname" shape the tfvars example
