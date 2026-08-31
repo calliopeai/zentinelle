@@ -9,7 +9,7 @@ from datetime import timedelta
 from typing import Dict, List, Any
 from celery import shared_task
 from django.utils import timezone
-from django.db.models import Count
+from django.db.models import Count, Q
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def check_compliance_drift():
 
     # Get active tenant IDs
     tenant_ids = list(ZentinelleLicense.objects.filter(
-        status__in=['active', 'trial']
+        Q(valid_until__isnull=True) | Q(valid_until__gte=timezone.now())
     ).values_list('tenant_id', flat=True).distinct())
     if not tenant_ids:
         tenant_ids = list(AgentEndpoint.objects.filter(
@@ -225,7 +225,7 @@ def monitor_violation_rates():
 
     # Get active tenant IDs
     tenant_ids = list(ZentinelleLicense.objects.filter(
-        status__in=['active', 'trial']
+        Q(valid_until__isnull=True) | Q(valid_until__gte=timezone.now())
     ).values_list('tenant_id', flat=True).distinct())
     if not tenant_ids:
         tenant_ids = list(AgentEndpoint.objects.filter(
@@ -355,7 +355,7 @@ def check_policy_health():
 
     # Get active tenant IDs
     tenant_ids = list(ZentinelleLicense.objects.filter(
-        status__in=['active', 'trial']
+        Q(valid_until__isnull=True) | Q(valid_until__gte=timezone.now())
     ).values_list('tenant_id', flat=True).distinct())
     if not tenant_ids:
         tenant_ids = list(AgentEndpoint.objects.filter(
@@ -467,7 +467,7 @@ def detect_usage_anomalies():
 
     # Get active tenant IDs
     tenant_ids = list(ZentinelleLicense.objects.filter(
-        status__in=['active', 'trial']
+        Q(valid_until__isnull=True) | Q(valid_until__gte=timezone.now())
     ).values_list('tenant_id', flat=True).distinct())
     if not tenant_ids:
         tenant_ids = list(AgentEndpoint.objects.filter(
