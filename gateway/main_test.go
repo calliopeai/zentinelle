@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -732,5 +734,103 @@ func TestFullProxyFlow(t *testing.T) {
 	}
 	if respBody["id"] != "chatcmpl-test" {
 		t.Errorf("response id = %v, want %q", respBody["id"], "chatcmpl-test")
+	}
+}
+
+// TestPolicyClientReusesConnections is the point of the pooled transport, and
+// it is asserted by counting connections rather than by reading the transport's
+// fields back: a client can be configured for pooling and still open a socket
+// per call if something upstream of it changes, and the field values would
+// still look right.
+//
+// http.DefaultClient, which CheckPolicy used, fails this: its transport keeps
+// two idle connections per host, and each policy check paid a TCP handshake
+// (plus a TLS one, off the loopback) on the request path of every proxied LLM
+// call.
+func TestPolicyClientReusesConnections(t *testing.T) {
+	var mu sync.Mutex
+	conns := map[string]bool{}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"allowed": true, "reason": "ok"}`))
+	}))
+	srv.Config.ConnState = func(c net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			mu.Lock()
+			conns[c.RemoteAddr().String()] = true
+			mu.Unlock()
+		}
+	}
+	defer srv.Close()
+
+	cfg := &Config{ZentinelleURL: srv.URL, PolicyTimeout: 5 * time.Second, FailOpen: false}
+	for i := 0; i < 10; i++ {
+		if got := CheckPolicy(context.Background(), cfg, "key", "openai", "gpt-4"); !got.Allowed {
+			t.Fatalf("call %d: policy check failed: %s", i, got.Reason)
+		}
+	}
+
+	mu.Lock()
+	opened := len(conns)
+	mu.Unlock()
+	if opened != 1 {
+		t.Errorf("10 policy checks opened %d connections, want 1: the transport is not pooling", opened)
+	}
+}
+
+// The usage reporter had it worse than the policy check: it built a new
+// http.Client, and so a new Transport, on every call, which cannot reuse a
+// connection even in principle. This holds the fix to the same standard.
+func TestUsageClientReusesConnections(t *testing.T) {
+	var mu sync.Mutex
+	conns := map[string]bool{}
+	idle := make(chan struct{}, 32)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	srv.Config.ConnState = func(c net.Conn, state http.ConnState) {
+		switch state {
+		case http.StateNew:
+			mu.Lock()
+			conns[c.RemoteAddr().String()] = true
+			mu.Unlock()
+		case http.StateIdle:
+			// The connection is back in the pool and the next call can take
+			// it. Waiting on this rather than on the handler is what makes the
+			// reports sequential: ReportUsage is fire-and-forget, so without it
+			// the calls overlap and open connections for the honest reason.
+			select {
+			case idle <- struct{}{}:
+			default:
+			}
+		}
+	}
+	defer srv.Close()
+
+	cfg := &Config{ZentinelleURL: srv.URL}
+	usage := UsageData{PromptTokens: 1, CompletionTokens: 1}
+	for i := 0; i < 10; i++ {
+		ReportUsage(cfg, "key", "openai", "gpt-4", usage, 12, "req")
+		select {
+		case <-idle:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("usage report %d never completed", i)
+		}
+	}
+
+	mu.Lock()
+	opened := len(conns)
+	mu.Unlock()
+
+	// Fewer connections than calls, rather than exactly one. The reporter is
+	// fire-and-forget, so a report can start before the previous one has
+	// returned its connection to the pool, and those overlaps open a second
+	// and third connection for an honest reason. What cannot happen once the
+	// client is shared is ten connections for ten calls, which is what a
+	// per-call http.Client gives every time.
+	if opened >= 10 {
+		t.Errorf("10 usage reports opened %d connections: nothing is being reused", opened)
 	}
 }

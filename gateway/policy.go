@@ -54,7 +54,7 @@ func CheckPolicy(ctx context.Context, cfg *Config, agentKey string, provider str
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Zentinelle-Key", agentKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := policyClient.Do(req)
 	if err != nil {
 		return policyFallback(cfg, fmt.Sprintf("policy check failed: %v", err))
 	}
