@@ -109,17 +109,11 @@ jobs:
 
       - name: Install
         working-directory: frontend
-        # --legacy-peer-deps to match docker/Dockerfile.frontend exactly. CI
-        # that installs differently from the image build can be green while the
-        # image fails, which is the failure mode CI exists to prevent.
-        #
-        # Plain `npm ci` fails here: package-lock.json is out of sync with
-        # package.json (@swc/helpers missing from the lock). That is a real
-        # defect, found by this workflow's first run, and it is filed
-        # separately rather than fixed by regenerating the lockfile in a PR
-        # about CI — a regenerated lock moves every transitive pin and deserves
-        # its own review.
-        run: npm ci --legacy-peer-deps
+        # Plain `npm ci`, matching frontend/Dockerfile. No
+        # --legacy-peer-deps on either side any more: the flag was absorbing a
+        # lockfile desync (#309), and absorbing it meant the next one would go
+        # unnoticed too. Failing loudly is the point of committing a lockfile.
+        run: npm ci
 
       # The build, not just tsc. Local `tsc` has passed while the Next build
       # failed more than once — they do not check the same things.

@@ -8,7 +8,7 @@ WORKDIR /app
 # npm install every caret range is re-resolved at build time, so the image gets
 # whatever was published that day and is not reproducible from the commit.
 COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps
+RUN npm ci
 
 # Copy source
 COPY . .
