@@ -290,6 +290,87 @@ All evaluators live in `zentinelle/services/evaluators/`. The policy engine runs
 
 Cache invalidation: versioned cache keys. Policy CRUD mutations bump version, next evaluate call misses cache and re-queries.
 
+## Astrolift Integration
+
+Astrolift runs agent workloads; Zentinelle governs them. Both sides need the
+same identity and the same URLs, so the contract is fixed here.
+
+### agent_id is the Astrolift deployment slug
+
+Astrolift sets `agent_id` to its deployment slug when calling
+`POST /api/zentinelle/v1/register`. The slug is already unique, stable and
+human readable on the Astrolift side, and `agent_id` is a SlugField, so the
+slug is the correlation id. Neither side stores a foreign key, and deeplinks
+are constructable without a round trip.
+
+The alternative, Zentinelle minting a UUID that Astrolift stores as a pod
+label, was rejected: it adds state Astrolift has to manage and makes every
+deeplink require a lookup first.
+
+Two consequences the implementation has to honour:
+
+- **agent_id is unique per tenant, not globally.** The model constrains
+  `('tenant_id', 'agent_id')`. Never look one up without a tenant filter: it
+  lets one tenant's slug block another's, and a 409 discloses that a slug is
+  taken in an account the caller cannot see.
+- **Register is idempotent.** A redeploy reuses the slug, so re-registering
+  updates the existing agent and returns `200` rather than `409`. It mints a
+  fresh API key, because registration is the only time the plaintext key
+  exists and the new workload needs one. Existing `config` is preserved, since
+  it may have been tuned since first registration.
+
+### Deeplink URL convention
+
+Astrolift builds these from `agent_id` alone. They are load-bearing; do not
+rename them.
+
+```
+/agents/{agent_id}/activity       policy evals, content scans, blocked requests
+/agents/{agent_id}/interactions   full InteractionLog
+/agents/{agent_id}/usage          token burn and cost
+/agents/{agent_id}/compliance     violations mapped to this agent
+/governance                       governance landing, Astrolift SECURE entry
+/risk                             risk register (redirects to /risks)
+```
+
+`/agents/{agent_id}` redirects to the activity tab.
+
+### Integration card endpoint
+
+```
+GET /api/zentinelle/v1/agent/{agent_id}/summary
+Authorization: Bearer sk_service_...
+```
+
+Feeds the "Powered by Zentinelle" card in Astrolift's OBSERVE > Agents panel:
+status, health, last event, 24h violations, effective policy count, today's
+token burn by provider, and enabled compliance frameworks. Cached 60s; the
+card is glanceable, not authoritative.
+
+`agent_id` is always resolved inside the key's tenant, so another tenant's
+slug returns 404, indistinguishable from one that does not exist.
+
+### Auth (spike outcome, #211)
+
+Three options were on the table: a service API key, an Astrolift
+`TenantResolver` implementation, and shared OIDC SSO.
+
+**Decision: service key now for backend-to-backend, OIDC later for portal
+links.** The service key is `key_type=service` on the existing `APIKey` model,
+carries its own `sk_service_` prefix so it can never be confused with a user
+or agent key in a log, and authenticates on the `Bearer` header. It is
+tenant-scoped by construction: the key names the tenant, and every view scopes
+its queries by it.
+
+`IsServiceKey` deliberately does not honour `AUTH_MODE=open`. With no key
+there is no tenant, and a view that cannot name its tenant must not return
+rows.
+
+The `TenantResolver` route was rejected for now: it only pays off if
+Zentinelle ends up embedded in Astrolift's Django process, and it couples the
+two services tightly for no gain while they stay separate. Portal SSO stays
+open; deeplinks currently land on Zentinelle's own auth.
+
 ## Wiki
 
 - [Architecture](docs/wiki/architecture.md)

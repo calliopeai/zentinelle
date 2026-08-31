@@ -25,6 +25,10 @@ class APIKey(Tracking):
         REVOKED = 'revoked', 'Revoked'
         EXPIRED = 'expired', 'Expired'
 
+    class KeyType(models.TextChoices):
+        USER = 'user', 'User'
+        SERVICE = 'service', 'Service'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     # TODO: decouple - organization FK removed (use tenant_id instead)
@@ -34,6 +38,14 @@ class APIKey(Tracking):
     user_id = models.CharField(max_length=255, db_index=True, blank=True, default="")
 
     # Key identification
+    key_type = models.CharField(
+        max_length=20,
+        choices=KeyType.choices,
+        default=KeyType.USER,
+        db_index=True,
+        help_text='user = a person\'s platform key; service = a platform-level '
+                  'integration such as Astrolift calling on behalf of a tenant',
+    )
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     key_prefix = models.CharField(
@@ -83,14 +95,20 @@ class APIKey(Tracking):
         return f"{self.name} ({self.key_prefix}...)"
 
     @classmethod
-    def generate_api_key(cls) -> tuple[str, str, str]:
+    def generate_api_key(cls, key_type: str = KeyType.USER) -> tuple[str, str, str]:
         """
         Generate a new API key.
         Returns: (full_key, key_hash, key_prefix)
 
-        Uses the centralized API key utility with bcrypt hashing.
+        Service keys get their own prefix so they are distinguishable in logs
+        and cannot be mistaken for a user key or an agent key.
         """
-        return _generate_api_key(prefix=KeyPrefixes.PLATFORM, prefix_length=15)
+        prefix = (
+            KeyPrefixes.SERVICE
+            if key_type == cls.KeyType.SERVICE
+            else KeyPrefixes.PLATFORM
+        )
+        return _generate_api_key(prefix=prefix, prefix_length=15)
 
     @classmethod
     def verify_api_key(cls, api_key: str, key_hash: str) -> bool:

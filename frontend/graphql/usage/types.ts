@@ -39,4 +39,5 @@ export interface UsageMetricsData {
 export interface UsageMetricsVariables {
   startDate?: string | null;
   endDate?: string | null;
+  endpointId?: string | null;
 }

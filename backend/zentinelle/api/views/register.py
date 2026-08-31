@@ -118,32 +118,52 @@ class RegisterView(APIView):
             suffix = uuid.uuid4().hex[:8]
             agent_id = slugify(f"{agent_type}-{suffix}")
 
-        # Check if agent_id already exists
-        if AgentEndpoint.objects.filter(agent_id=agent_id).exists():
-            return Response(
-                {'error': f'Agent ID "{agent_id}" already exists'},
-                status=status.HTTP_409_CONFLICT
-            )
+        # agent_id is unique per tenant, not globally: the model constrains
+        # ('tenant_id', 'agent_id'). Looking it up unscoped let one tenant's
+        # slug block another's, and the 409 disclosed that the slug was taken
+        # in an account the caller cannot see.
+        existing = AgentEndpoint.objects.filter(
+            tenant_id=tenant_id, agent_id=agent_id
+        ).first()
 
-        # Generate API key
+        # Generate API key. Registration is the only time the plaintext exists,
+        # so a re-register has to mint a fresh one for the caller to use.
         api_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
 
-        # Create endpoint
-        endpoint = AgentEndpoint.objects.create(
-            tenant_id=tenant_id,
-            agent_id=agent_id,
-            name=data.get('name', agent_id),
-            agent_type=data['agent_type'],
-            api_key_hash=key_hash,
-            api_key_prefix=key_prefix,
-            capabilities=data.get('capabilities', []),
-            metadata=data.get('metadata', {}),
-            status=AgentEndpoint.Status.ACTIVE,
-            health=AgentEndpoint.Health.UNKNOWN,
-            config=self._get_default_config(),
-        )
+        if existing is not None:
+            # Idempotent re-register. Astrolift sets agent_id to the deployment
+            # slug, and a redeploy reuses that slug, so this has to update the
+            # existing identity rather than fail. Config is left alone: it may
+            # have been tuned since the first registration.
+            existing.name = data.get('name', existing.name)
+            existing.agent_type = data['agent_type']
+            existing.api_key_hash = key_hash
+            existing.api_key_prefix = key_prefix
+            existing.capabilities = data.get('capabilities', existing.capabilities)
+            existing.metadata = data.get('metadata', existing.metadata)
+            existing.status = AgentEndpoint.Status.ACTIVE
+            existing.health = AgentEndpoint.Health.UNKNOWN
+            existing.save()
 
-        logger.info(f"Registered new agent: {agent_id} for tenant {tenant_id}")
+            endpoint = existing
+            created = False
+            logger.info(f"Re-registered agent: {agent_id} for tenant {tenant_id}")
+        else:
+            endpoint = AgentEndpoint.objects.create(
+                tenant_id=tenant_id,
+                agent_id=agent_id,
+                name=data.get('name', agent_id),
+                agent_type=data['agent_type'],
+                api_key_hash=key_hash,
+                api_key_prefix=key_prefix,
+                capabilities=data.get('capabilities', []),
+                metadata=data.get('metadata', {}),
+                status=AgentEndpoint.Status.ACTIVE,
+                health=AgentEndpoint.Health.UNKNOWN,
+                config=self._get_default_config(),
+            )
+            created = True
+            logger.info(f"Registered new agent: {agent_id} for tenant {tenant_id}")
 
         # Get effective policies for this endpoint
         from zentinelle.services.policy_engine import PolicyEngine
@@ -166,7 +186,10 @@ class RegisterView(APIView):
             ],
         }
 
-        return Response(response_data, status=status.HTTP_201_CREATED)
+        return Response(
+            response_data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
     def _get_default_config(self) -> dict:
         """Default configuration for new agents."""

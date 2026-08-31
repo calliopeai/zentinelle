@@ -89,3 +89,4 @@ __all__ = [
     'ReportStatusView',
     'ReportDownloadView',
 ]
+from zentinelle.api.views.agent_summary import AgentSummaryView  # noqa: E402,F401
