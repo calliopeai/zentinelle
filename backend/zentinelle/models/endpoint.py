@@ -17,7 +17,12 @@ class AgentEndpoint(Tracking):
 
     class AgentType(models.TextChoices):
         CLAUDE_CODE = 'claude_code', 'Claude Code'
+        # The Gemini *API*, not the Gemini CLI. The CLI is deprecated and its
+        # successor is Antigravity, below; this value stays because an agent
+        # calling Gemini through /proxy/google/ is still a Gemini agent.
         GEMINI = 'gemini', 'Gemini'
+        ANTIGRAVITY = 'antigravity', 'Antigravity CLI'
+        OPENCODE = 'opencode', 'OpenCode'
         CODEX = 'codex', 'Codex'
         CALLIOPE = 'calliope', 'Calliope AI'
         LANGCHAIN = 'langchain', 'LangChain'
