@@ -16,6 +16,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 
+from zentinelle.api.permissions import PORTAL_OR_AGENT_AUTH
 from zentinelle.api.views.assistant import IsAuthenticatedOrOpenMode
 from zentinelle.services.llm_model_discovery import (clear_cache,
                                                       fetch_live_models)
@@ -24,12 +25,46 @@ from zentinelle.auth.mode import is_open_mode
 logger = logging.getLogger(__name__)
 
 
+def _refuse_unless_admin(request):
+    """Refuse a caller who may not edit install-wide state, or None.
+
+    `AIModel.enabled_for_chat` is not tenant-scoped: `assistant_providers`
+    reads it to decide which models *every* tenant may use. So one tenant
+    turning a model off turned it off for all of them, and these two endpoints
+    accepted that from any authenticated caller — or, in open mode, from
+    anyone who could reach the port (#284).
+
+    This is the narrow fix, and deliberately not the interesting one: it keeps
+    the catalogue install-wide and requires the role that install-wide state
+    should always have required. Whether the catalogue ought to be per-tenant
+    instead is a product question, and `OrganizationModelApproval` already
+    exists as the place that would live.
+
+    An agent key is never an admin — it carries no Django groups — so this
+    also stops an agent editing the catalogue at all, which it had no business
+    doing.
+    """
+    from zentinelle.auth.roles import can_admin
+
+    user = getattr(request, 'user', None)
+    if user is not None and hasattr(user, 'groups') and can_admin(user):
+        return None
+    return JsonResponse(
+        {'error': 'Editing the model catalogue requires an admin role'},
+        status=403,
+    )
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class AssistantModelsListView(APIView):
     """List all models for a provider with their enabled_for_chat state."""
 
     permission_classes = [IsAuthenticatedOrOpenMode]
-    authentication_classes = []
+    # The portal session has to be visible here, or the admin check below has
+    # nobody to check: with no authentication classes DRF replaces the session
+    # user with AnonymousUser, so the only caller these views could ever
+    # recognise was the open-mode one — who is an admin by construction.
+    authentication_classes = PORTAL_OR_AGENT_AUTH
 
     def get(self, request):
         from zentinelle.models import AIModel
@@ -77,10 +112,18 @@ class AssistantModelsToggleView(APIView):
     """Toggle one model's enabled_for_chat flag."""
 
     permission_classes = [IsAuthenticatedOrOpenMode]
-    authentication_classes = []
+    # The portal session has to be visible here, or the admin check below has
+    # nobody to check: with no authentication classes DRF replaces the session
+    # user with AnonymousUser, so the only caller these views could ever
+    # recognise was the open-mode one — who is an admin by construction.
+    authentication_classes = PORTAL_OR_AGENT_AUTH
 
     def post(self, request):
         from zentinelle.models import AIModel
+
+        refusal = _refuse_unless_admin(request)
+        if refusal is not None:
+            return refusal
 
         try:
             data = json.loads(request.body)
@@ -117,10 +160,18 @@ class AssistantModelsBulkView(APIView):
     """Set the enabled set for an entire provider at once."""
 
     permission_classes = [IsAuthenticatedOrOpenMode]
-    authentication_classes = []
+    # The portal session has to be visible here, or the admin check below has
+    # nobody to check: with no authentication classes DRF replaces the session
+    # user with AnonymousUser, so the only caller these views could ever
+    # recognise was the open-mode one — who is an admin by construction.
+    authentication_classes = PORTAL_OR_AGENT_AUTH
 
     def post(self, request):
         from zentinelle.models import AIModel
+
+        refusal = _refuse_unless_admin(request)
+        if refusal is not None:
+            return refusal
 
         try:
             data = json.loads(request.body)
