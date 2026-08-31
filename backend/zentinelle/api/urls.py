@@ -25,6 +25,7 @@ Compliance & Content Scanning endpoints:
 - POST /api/zentinelle/v1/alerts/{alert_id}/acknowledge
 - POST /api/zentinelle/v1/alerts/{alert_id}/resolve
 - POST /api/zentinelle/v1/interaction
+- GET  /api/zentinelle/v1/agent/{agent_id}/summary   (service key, Astrolift card)
 
 AI Assistant endpoints:
 - POST /api/zentinelle/v1/assistant/chat
@@ -46,7 +47,9 @@ Note: Deployment operations and provisioner callbacks have moved to:
 """
 from django.urls import path
 
-from zentinelle.api.views import (AcknowledgeAlertView, AlertsListView,
+from zentinelle.api.views import (
+    AgentSummaryView,
+    AcknowledgeAlertView, AlertsListView,
                                   AsyncScanView, AuditChainVerifyView,
                                   AuditExportView, ComplianceReportSummaryView,
                                   ConfigView, DeregisterView,
@@ -125,6 +128,9 @@ urlpatterns = [
     path('alerts/<uuid:alert_id>/acknowledge', AcknowledgeAlertView.as_view(), name='alert-acknowledge'),
     path('alerts/<uuid:alert_id>/resolve', ResolveAlertView.as_view(), name='alert-resolve'),
     path('interaction', LogInteractionView.as_view(), name='interaction'),
+
+    # Astrolift integration — service-key authenticated, tenant-scoped
+    path('agent/<slug:agent_id>/summary', AgentSummaryView.as_view(), name='agent-summary'),
 
     # Compliance export endpoints
     path('export/violations.csv', ExportViolationsCSVView.as_view(), name='export-violations-csv'),

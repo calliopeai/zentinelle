@@ -72,3 +72,21 @@ PORTAL_OR_AGENT_AUTH = [
     ZentinelleAPIKeyAuthentication,
     authentication.SessionAuthentication,
 ]
+
+
+class IsServiceKey(BasePermission):
+    """
+    Require a platform-level service key.
+
+    Deliberately does NOT honour AUTH_MODE=open. Service endpoints are the
+    machine-to-machine surface between Calliope services and are tenant-scoped
+    by the key itself, so there is no meaningful "open" version of them: with
+    no key there is no tenant, and a view that cannot name its tenant must not
+    return rows.
+    """
+
+    def has_permission(self, request, view):
+        from zentinelle.api.auth import ZentinelleServiceUser
+
+        user = getattr(request, 'user', None)
+        return isinstance(user, ZentinelleServiceUser) and user.is_active

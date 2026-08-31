@@ -2,13 +2,16 @@
 API Key authentication for Zentinelle agent-facing endpoints.
 
 Supports API keys:
-- sk_agent_... : AgentEndpoint keys (for spawned agents like labs/notebooks)
+- sk_agent_...   : AgentEndpoint keys (for spawned agents like labs/notebooks)
+- sk_service_... : platform-level service keys, used by another Calliope
+                   service (Astrolift) calling on behalf of a tenant
 
 Note: Deployment key auth (sk_deploy_) has been removed in standalone mode.
 Deployment operations are handled by the client-cove integration layer.
 """
 from rest_framework import authentication, exceptions
-from zentinelle.models import AgentEndpoint
+from zentinelle.models import AgentEndpoint, APIKey
+from zentinelle.utils.api_keys import KeyPrefixes
 
 
 class ZentinelleAPIKeyAuthentication(authentication.BaseAuthentication):
@@ -80,6 +83,90 @@ class ZentinelleAgentUser:
         return f"Agent: {self.endpoint.agent_id}"
 
 
+class ZentinelleServiceUser:
+    """
+    Principal for a platform-level service key.
+
+    Carries a tenant_id but no AgentEndpoint: the caller is another service
+    acting on behalf of a whole tenant, not one agent. Views must still scope
+    every query by this tenant_id.
+    """
+
+    def __init__(self, api_key_record: APIKey):
+        self.api_key = api_key_record
+        self.tenant_id = api_key_record.tenant_id
+        self.scopes = api_key_record.scopes or []
+        self.is_authenticated = True
+        self.is_active = api_key_record.is_active
+
+    @property
+    def pk(self):
+        return self.api_key.pk
+
+    @property
+    def id(self):
+        return self.api_key.id
+
+    def has_scope(self, scope: str) -> bool:
+        return scope in self.scopes
+
+    def __str__(self):
+        return f"Service: {self.api_key.name}"
+
+
+class ZentinelleServiceKeyAuthentication(authentication.BaseAuthentication):
+    """
+    Authenticate a platform-level service key.
+
+    Usage:
+        Authorization: Bearer sk_service_...
+
+    Only keys with key_type=SERVICE authenticate here. A user key presented on
+    this header is rejected rather than silently upgraded.
+    """
+
+    keyword = 'Bearer'
+
+    def authenticate(self, request):
+        header = request.META.get('HTTP_AUTHORIZATION', '')
+        if not header.startswith('Bearer '):
+            return None
+
+        api_key = header[len('Bearer '):].strip()
+        if not api_key.startswith(KeyPrefixes.SERVICE):
+            # Not a service key. Let another authenticator handle it.
+            return None
+
+        key_prefix = api_key[:15]
+
+        try:
+            record = APIKey.objects.get(
+                key_prefix=key_prefix,
+                key_type=APIKey.KeyType.SERVICE,
+            )
+        except APIKey.DoesNotExist:
+            raise exceptions.AuthenticationFailed('Invalid service key')
+        except APIKey.MultipleObjectsReturned:
+            raise exceptions.AuthenticationFailed('Invalid service key')
+
+        if not APIKey.verify_api_key(api_key, record.key_hash):
+            raise exceptions.AuthenticationFailed('Invalid service key')
+
+        # is_active covers both revocation and expiry.
+        if not record.is_active:
+            raise exceptions.AuthenticationFailed('Service key is not active')
+
+        if not record.tenant_id:
+            raise exceptions.AuthenticationFailed('Service key has no tenant')
+
+        record.record_usage()
+
+        return (ZentinelleServiceUser(record), api_key)
+
+    def authenticate_header(self, request):
+        return self.keyword
+
+
 def get_endpoint_from_request(request) -> AgentEndpoint:
     """
     Helper to get the authenticated endpoint from a request.
@@ -99,6 +186,10 @@ def get_tenant_id_from_request(request):
 
     # Agent API key auth
     if hasattr(request, 'user') and isinstance(request.user, ZentinelleAgentUser):
+        return request.user.tenant_id
+
+    # Service key auth — another Calliope service acting for a tenant
+    if hasattr(request, 'user') and isinstance(request.user, ZentinelleServiceUser):
         return request.user.tenant_id
 
     # Session/portal auth — single-tenant standalone deployment
