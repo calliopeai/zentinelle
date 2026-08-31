@@ -5,41 +5,72 @@ Verifies that a sequence of AuditLog records has not been tampered with
 by recomputing hashes and validating the chain.
 """
 import hashlib
+import json
 import logging
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
+#: What a record's hash covers. Everything an auditor would object to seeing
+#: changed: who did what, to which resource, when, and the detail attached.
+#:
+#: `metadata` is serialised with sorted keys so the same mapping always hashes
+#: the same way; without that, a dict that round-tripped through JSON could
+#: rehash differently and read as tampering.
+#:
+#: Changing this set invalidates every hash already written. That is free
+#: exactly once, and this is that once: no row has ever carried a hash (#281),
+#: so the definition can be made right before anything depends on it. It was
+#: worth doing, because the previous version hashed `action` twice and omitted
+#: `resource_name` and `metadata` — a record whose metadata was rewritten
+#: verified as untouched.
+GENESIS = 'genesis'
+
+
 def _compute_entry_hash(record) -> str:
-    """Recompute the entry hash for an AuditLog record (or dict-like object)."""
-    def _get(obj, attr):
+    """The hash of one record's content. The single definition, used by both
+    the model that writes it and the verifier that checks it.
+
+    Two copies of this existed and disagreed: `AuditLog.save()` hashed five
+    fields and no timestamp, `verify_chain` hashed seven including one twice.
+    Had the write path ever run, every record it produced would have failed
+    verification immediately.
+    """
+    def _get(obj, attr, default=''):
         if isinstance(obj, dict):
-            return obj.get(attr, '')
-        return getattr(obj, attr, '') or ''
+            return obj.get(attr, default)
+        value = getattr(obj, attr, default)
+        return default if value is None else value
 
-    tenant_id = _get(record, 'tenant_id')
-    action = _get(record, 'action')
     timestamp = _get(record, 'timestamp')
-    ext_user_id = _get(record, 'ext_user_id')
-    resource_type = _get(record, 'resource_type')
-    resource_id = _get(record, 'resource_id')
-
     if hasattr(timestamp, 'isoformat'):
         timestamp_str = timestamp.isoformat()
     else:
         timestamp_str = str(timestamp) if timestamp else ''
 
+    metadata = _get(record, 'metadata', {}) or {}
+    try:
+        metadata_str = json.dumps(metadata, sort_keys=True, separators=(',', ':'), default=str)
+    except (TypeError, ValueError):
+        metadata_str = str(metadata)
+
     content = '|'.join([
-        str(tenant_id),
-        str(action),
+        str(_get(record, 'tenant_id')),
+        str(_get(record, 'action')),
         timestamp_str,
-        str(ext_user_id),
-        str(action),
-        str(resource_type),
-        str(resource_id),
+        str(_get(record, 'ext_user_id')),
+        str(_get(record, 'resource_type')),
+        str(_get(record, 'resource_id')),
+        str(_get(record, 'resource_name')),
+        metadata_str,
     ])
     return hashlib.sha256(content.encode()).hexdigest()
+
+
+def compute_chain_hash(prev_chain_hash: str, entry_hash: str) -> str:
+    """Link one record to the one before it."""
+    return hashlib.sha256(((prev_chain_hash or GENESIS) + entry_hash).encode()).hexdigest()
 
 
 def verify_chain(
@@ -53,8 +84,11 @@ def verify_chain(
     Fetches records in order, recomputes entry_hash for each, and verifies
     chain_hash linkage across all records.
 
-    Records that pre-date the migration (entry_hash == '') are skipped
-    gracefully — the chain is considered unbroken across such gaps.
+    Records that pre-date the chain being written at all (entry_hash == '')
+    cannot be checked. They are reported in `unverifiable_records` and are
+    never counted in `records_checked`: a count that included them would say
+    more rows had been verified than had been, and `valid` would be a claim
+    about rows nothing could vouch for.
 
     Returns:
         {
@@ -80,11 +114,13 @@ def verify_chain(
         return {
             'valid': True,
             'records_checked': 0,
+            'unverifiable_records': 0,
             'broken_at_sequence': None,
             'root_hash': '',
         }
 
     records_checked = 0
+    unverifiable = 0
     root_hash = ''
 
     # Seed prev_chain: 'genesis' if starting from sequence 1, otherwise
@@ -103,9 +139,16 @@ def verify_chain(
         prev_chain = 'genesis'
 
     for record in records:
-        # Skip pre-migration records that have no hash yet
+        # Records written before the chain was ever computed (#281) carry no
+        # hashes. They are counted separately and never counted as verified:
+        # they cannot be checked, and reporting them as valid would state an
+        # integrity guarantee that did not exist when they were written.
+        #
+        # They are not back-filled either. Hashing them now would make
+        # unverified history indistinguishable from verified history, which is
+        # the one outcome worse than admitting the gap.
         if not record.entry_hash and not record.chain_hash:
-            # Advance prev_chain only if we have a stored chain_hash to continue from
+            unverifiable += 1
             continue
 
         records_checked += 1
@@ -121,6 +164,7 @@ def verify_chain(
             return {
                 'valid': False,
                 'records_checked': records_checked,
+                'unverifiable_records': unverifiable,
                 'broken_at_sequence': record.chain_sequence,
                 'root_hash': root_hash,
             }
@@ -138,6 +182,7 @@ def verify_chain(
             return {
                 'valid': False,
                 'records_checked': records_checked,
+                'unverifiable_records': unverifiable,
                 'broken_at_sequence': record.chain_sequence,
                 'root_hash': root_hash,
             }
@@ -148,6 +193,7 @@ def verify_chain(
     return {
         'valid': True,
         'records_checked': records_checked,
+        'unverifiable_records': unverifiable,
         'broken_at_sequence': None,
         'root_hash': root_hash,
     }

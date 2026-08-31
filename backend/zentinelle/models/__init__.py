@@ -16,7 +16,7 @@ are in the `deployments` app.
 from zentinelle.models.endpoint import AgentEndpoint
 from zentinelle.models.policy import Policy, PolicyRevision, PolicyHistory
 from zentinelle.models.event import Event
-from zentinelle.models.audit import AuditLog
+from zentinelle.models.audit import AuditChainHead, AuditLog
 from zentinelle.models.policy_document import PolicyDocument
 
 # Compliance & Monitoring
@@ -105,6 +105,7 @@ __all__ = [
     'PolicyDocument',
     'Event',
     'AuditLog',
+    'AuditChainHead',
     # Compliance & Monitoring
     'ContentRule',
     'ContentScan',
