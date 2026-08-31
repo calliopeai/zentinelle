@@ -251,6 +251,18 @@ CELERY_TASK_ALWAYS_EAGER = False
 # The beat schedule is the single source of truth for periodic work. Beat runs
 # with the default scheduler, so this dict is the schedule; there is no
 # database scheduler and no seeding step.
+#
+# This is where Temporal Schedules will replace beat when the time comes
+# (#264, recorded in bootstrap.md). Beat is desired_count = 1 by construction:
+# if it dies, every job below silently stops, and raising the count splits the
+# brain. Its last-run state lives on an ephemeral Fargate filesystem, so a
+# restart can re-fire or skip — which is survivable today only because these
+# tasks happen to be idempotent, and that is a property to keep deliberately
+# rather than by luck.
+#
+# The event drain does NOT move: tasks.events and tasks.clickhouse_sync are
+# high-volume and stateless, and a durable-execution engine is the wrong tool
+# for a message queue.
 CELERY_BEAT_SCHEDULE = {
     # Retention and registry
     'zentinelle-enforce-retention-policies': {
