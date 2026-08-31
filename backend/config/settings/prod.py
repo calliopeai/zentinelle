@@ -56,6 +56,40 @@ if not _allowed:
     )
 ALLOWED_HOSTS = [h.strip() for h in _allowed.split(",") if h.strip()]
 
+# On ECS, the load balancer health-checks a task by its own private IP, so the
+# Host header on that request is an address and never the deployment's
+# hostname. Django rejects it with 400 DisallowedHost before any view runs, the
+# target group reports Target.ResponseCodeMismatch, and the task is killed and
+# replaced — forever, while the same endpoint answers 200 through the load
+# balancer. The first Zentinelle install died exactly there.
+#
+# So the task's own address is added to ALLOWED_HOSTS, read from the metadata
+# endpoint every ECS task has. This is narrow on purpose: one address, this
+# task's, discovered rather than configured. The alternative on offer was
+# ALLOWED_HOSTS = ["*"], which turns off Host validation for every deployment
+# to satisfy a health check.
+#
+# Failures here are swallowed deliberately. Outside ECS the variable is absent
+# and nothing happens; inside it, a metadata endpoint that is slow or missing
+# must not stop the application from booting, because the only thing lost is a
+# health check that was already failing.
+_metadata_url = os.environ.get("ECS_CONTAINER_METADATA_URI_V4") or os.environ.get(
+    "ECS_CONTAINER_METADATA_URI"
+)
+if _metadata_url:
+    try:
+        import json
+        import urllib.request
+
+        with urllib.request.urlopen(_metadata_url, timeout=2) as _response:  # noqa: S310
+            _networks = json.load(_response).get("Networks") or []
+        for _network in _networks:
+            for _address in _network.get("IPv4Addresses") or []:
+                if _address and _address not in ALLOWED_HOSTS:
+                    ALLOWED_HOSTS.append(_address)
+    except Exception:  # noqa: BLE001 - see above: booting matters more
+        pass
+
 # ──────────────────────────────────────────────────────────────────────────
 # HTTPS / Security headers
 # ──────────────────────────────────────────────────────────────────────────
