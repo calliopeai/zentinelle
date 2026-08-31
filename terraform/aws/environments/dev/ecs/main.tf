@@ -684,7 +684,7 @@ resource "aws_ecs_task_definition" "backend" {
       # on every probe. After startPeriod ECS killed a task that was
       # serving the ALB correctly, which read as a service flapping
       # rather than as a broken health check.
-      command     = ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/zentinelle/v1/health', timeout=4).status==200 else 1)\" || exit 1"]
+      command     = ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/zentinelle/v1/health', timeout=4).status==200 else 1)\" || exit 1"]
       interval    = 30
       timeout     = 5
       retries     = 3
@@ -925,7 +925,12 @@ resource "aws_ecs_task_definition" "frontend" {
     healthCheck = {
       # node, not curl: the frontend image has no curl either. 200-399 is
       # accepted because "/" redirects to /dashboard.
-      command     = ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3002/', r => process.exit(r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))\" || exit 1"]
+      #
+      # 127.0.0.1 rather than localhost: node 18+ resolves localhost to ::1
+      # first, and the server binds IPv4, so the probe got ECONNREFUSED and
+      # the container reported UNHEALTHY while serving the ALB fine. curl
+      # falls back between address families; node does not.
+      command     = ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3002/', r => process.exit(r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))\" || exit 1"]
       interval    = 30
       timeout     = 5
       retries     = 3
