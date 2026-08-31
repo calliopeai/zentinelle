@@ -61,12 +61,19 @@ docker run -p 8742:8742 \
 |----------|---------|-------------|
 | `GATEWAY_PORT` | `8742` | Port to listen on |
 | `ZENTINELLE_URL` | `http://localhost:8080` | Zentinelle API base URL |
-| `OPENAI_API_KEY` | - | Real OpenAI API key to inject |
-| `ANTHROPIC_API_KEY` | - | Real Anthropic API key to inject |
-| `GOOGLE_API_KEY` | - | Real Google API key to inject |
+| `PROVIDER_KEY_<NAME>` | - | API key for a provider, e.g. `PROVIDER_KEY_OPENAI`, `PROVIDER_KEY_MISTRAL`. `<NAME>` lowercased is the provider name |
+| `OPENAI_API_KEY` | - | Real OpenAI API key to inject (still honoured; `PROVIDER_KEY_OPENAI` wins where both are set) |
+| `ANTHROPIC_API_KEY` | - | Real Anthropic API key to inject (as above) |
+| `GOOGLE_API_KEY` | - | Real Google API key to inject (as above) |
+| `ZENTINELLE_TENANT_ID` | - | Tenant this gateway speaks for; sent as `X-Zentinelle-Tenant`. Omit for a single-tenant deployment |
+| `ZENTINELLE_CLUSTER_ID` | - | Cluster this gateway speaks for; sent as `X-Zentinelle-Cluster`. Omit for a single-cluster deployment |
 | `FAIL_OPEN` | `true` | Allow requests if Zentinelle is unreachable |
 | `POLICY_TIMEOUT_MS` | `2000` | Max time (ms) to wait for policy check |
 | `MAX_RESPONSE_BYTES` | `52428800` | Max response size (50MB) |
+
+Adding a provider needs no code change to configure its key: set
+`PROVIDER_KEY_<NAME>` and the gateway picks it up. The provider must still be
+in the routing table for a path to reach it.
 
 ## Agent Configuration
 
