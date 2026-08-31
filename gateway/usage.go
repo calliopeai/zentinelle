@@ -68,7 +68,7 @@ func extractSSEUsage(body string, provider string) UsageData {
 			continue
 		}
 
-		usageMap, ok := chunk["usage"].(map[string]interface{})
+		usageMap, ok := usageMapIn(chunk)
 		if !ok {
 			continue
 		}
@@ -88,12 +88,34 @@ func extractJSONUsage(body []byte, provider string) UsageData {
 		return UsageData{}
 	}
 
-	usageMap, ok := parsed["usage"].(map[string]interface{})
+	usageMap, ok := usageMapIn(parsed)
 	if !ok {
 		return UsageData{}
 	}
 
 	return parseUsageMap(usageMap, provider)
+}
+
+// usageMapIn finds the usage object in a decoded response or SSE event.
+//
+// OpenAI has two shapes. Chat Completions puts `usage` at the top level, both
+// in the final JSON and in the last SSE chunk. The Responses API, which is what
+// the OpenAI Agents SDK calls by default, wraps it: the completed event is
+// `{"type":"response.completed","response":{...,"usage":{...}}}` and the
+// non-streaming body is a response object whose usage is its own field. Reading
+// only the top level therefore metered every Agents SDK call as zero tokens,
+// which is a billing and quota hole rather than a cosmetic one: cost policies
+// and usage limits are evaluated on numbers that were never collected.
+func usageMapIn(parsed map[string]interface{}) (map[string]interface{}, bool) {
+	if usage, ok := parsed["usage"].(map[string]interface{}); ok {
+		return usage, true
+	}
+	if response, ok := parsed["response"].(map[string]interface{}); ok {
+		if usage, ok := response["usage"].(map[string]interface{}); ok {
+			return usage, true
+		}
+	}
+	return nil, false
 }
 
 func parseUsageMap(usageMap map[string]interface{}, provider string) UsageData {
@@ -106,6 +128,14 @@ func parseUsageMap(usageMap map[string]interface{}, provider string) UsageData {
 	case "openai":
 		usage.PromptTokens = jsonInt(usageMap, "prompt_tokens")
 		usage.CompletionTokens = jsonInt(usageMap, "completion_tokens")
+		// The Responses API names the same two counts `input_tokens` and
+		// `output_tokens`. Same provider, same account, different endpoint.
+		if usage.PromptTokens == 0 {
+			usage.PromptTokens = jsonInt(usageMap, "input_tokens")
+		}
+		if usage.CompletionTokens == 0 {
+			usage.CompletionTokens = jsonInt(usageMap, "output_tokens")
+		}
 	case "google":
 		usage.PromptTokens = jsonInt(usageMap, "promptTokenCount")
 		usage.CompletionTokens = jsonInt(usageMap, "candidatesTokenCount")

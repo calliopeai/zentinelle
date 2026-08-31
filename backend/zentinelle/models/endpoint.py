@@ -27,6 +27,15 @@ class AgentEndpoint(Tracking):
         CALLIOPE = 'calliope', 'Calliope AI'
         LANGCHAIN = 'langchain', 'LangChain'
         LANGGRAPH = 'langgraph', 'LangGraph'
+        # The harnesses the SDK ships a plugin for. Each value is the string
+        # that plugin actually registers with, which is why the Microsoft one
+        # is hyphenated and the rest are not: changing it here would reject
+        # every agent already running that plugin.
+        CREWAI = 'crewai', 'CrewAI'
+        LLAMAINDEX = 'llamaindex', 'LlamaIndex'
+        MS_AGENT_FRAMEWORK = 'ms-agent-framework', 'Microsoft Agent Framework'
+        OPENAI_AGENTS = 'openai_agents', 'OpenAI Agents SDK'
+        VERCEL_AI = 'vercel-ai', 'Vercel AI SDK'
         MCP = 'mcp', 'MCP Server'
         CHAT = 'chat', 'Chat Agent'
         CUSTOM = 'custom', 'Custom'
