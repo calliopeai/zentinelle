@@ -607,44 +607,26 @@ def _build_audit_chain(tenant_id, count, action='create', resource_type='policy'
     to the previous record's chain_hash (with 'genesis' for the first).
     """
     records = []
-    prev_chain = 'genesis'
     base_ts = timezone.now()
 
     for i in range(count):
         sequence = i + 1
-        record = AuditLog.objects.create(
+        # Saved once, with the timestamp already set, and nothing rewritten
+        # afterwards. The model computes the hashes and allocates the sequence
+        # itself now (#281); the old version created the row, then UPDATEd the
+        # timestamp and sequence, then UPDATEd hashes it had computed by hand —
+        # which both collides with the sequence the model assigns and would
+        # invalidate the hash it wrote, since the timestamp is part of it.
+        record = AuditLog(
             tenant_id=tenant_id,
             ext_user_id=f'user-{sequence}',
             action=action,
             resource_type=resource_type,
             resource_id=f'res-{sequence:04d}',
+            timestamp=base_ts + timedelta(seconds=sequence),
         )
-        # Pin a stable timestamp so re-hash is deterministic.
-        ts = base_ts + timedelta(seconds=sequence)
-        AuditLog.objects.filter(pk=record.pk).update(
-            timestamp=ts, chain_sequence=sequence,
-        )
-        record.refresh_from_db()
-
-        content = '|'.join([
-            str(record.tenant_id or ''),
-            str(record.action or ''),
-            record.timestamp.isoformat(),
-            str(record.ext_user_id or ''),
-            str(record.action or ''),
-            str(record.resource_type or ''),
-            str(record.resource_id or ''),
-        ])
-        entry_hash = hashlib.sha256(content.encode()).hexdigest()
-        chain_hash = hashlib.sha256((prev_chain + entry_hash).encode()).hexdigest()
-
-        AuditLog.objects.filter(pk=record.pk).update(
-            entry_hash=entry_hash,
-            chain_hash=chain_hash,
-        )
-        record.refresh_from_db()
+        record.save()
         records.append(record)
-        prev_chain = chain_hash
 
     return records
 
@@ -659,7 +641,14 @@ class AuditChainVerifyViewTest(ZentinelleAPITestMixin, TestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_verify_empty_chain_is_valid(self):
-        """No audit records → valid response with zero records checked."""
+        """No audit records → valid response with zero records checked.
+
+        Emptied explicitly: setting up the fixture endpoint writes an audit
+        record of its own, and since records are now actually hashed (#281) it
+        would be counted. The claim under test is about a tenant with nothing
+        in it, so the tenant is made to have nothing in it.
+        """
+        AuditLog.objects.filter(tenant_id=STANDALONE_TENANT).delete()
         self.authenticate()
         response = self.client.get(reverse('zentinelle:audit-verify'))
 
@@ -680,7 +669,16 @@ class AuditChainVerifyViewTest(ZentinelleAPITestMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data['valid'])
-        self.assertEqual(data['records_checked'], 3)
+        # Every row in the tenant, not a literal 3. Creating the fixture
+        # endpoint is itself an audited event, and now that records are
+        # actually hashed (#281) it joins the chain instead of being skipped
+        # as unhashed. Asserting "all of them, none skipped" is the claim that
+        # matters and does not drift with the fixtures.
+        self.assertEqual(
+            data['records_checked'],
+            AuditLog.objects.filter(tenant_id=STANDALONE_TENANT).count(),
+        )
+        self.assertEqual(data['unverifiable_records'], 0)
         self.assertIsNone(data['broken_at_sequence'])
         self.assertEqual(data['root_hash'], records[-1].chain_hash)
 
@@ -697,7 +695,10 @@ class AuditChainVerifyViewTest(ZentinelleAPITestMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertFalse(data['valid'])
-        self.assertEqual(data['broken_at_sequence'], 2)
+        # The sequence of the record actually tampered with, read off the
+        # record rather than assumed to be 2: creating the fixture endpoint is
+        # itself an audited event and takes the first sequence in the chain.
+        self.assertEqual(data['broken_at_sequence'], records[1].chain_sequence)
 
     def test_verify_recent_covering_full_chain(self):
         """`recent=N` with N >= chain length verifies the whole chain as valid."""
@@ -711,13 +712,17 @@ class AuditChainVerifyViewTest(ZentinelleAPITestMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data['valid'])
-        self.assertEqual(data['records_checked'], 3)
+        self.assertEqual(
+            data['records_checked'],
+            AuditLog.objects.filter(tenant_id=STANDALONE_TENANT).count(),
+        )
         self.assertEqual(data['root_hash'], records[-1].chain_hash)
 
     def test_verify_scopes_to_tenant(self):
         """Records from a different tenant are not included in verification."""
-        # Foreign tenant's chain — should not affect our tenant's empty result.
+        # Foreign tenant's chain — must not appear in ours.
         _build_audit_chain('some-other-tenant', count=3)
+        ours = AuditLog.objects.filter(tenant_id=STANDALONE_TENANT).count()
 
         self.authenticate()
         response = self.client.get(reverse('zentinelle:audit-verify'))
@@ -725,4 +730,5 @@ class AuditChainVerifyViewTest(ZentinelleAPITestMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data['valid'])
-        self.assertEqual(data['records_checked'], 0)
+        # Ours only: the foreign tenant's three records are not counted.
+        self.assertEqual(data['records_checked'], ours)

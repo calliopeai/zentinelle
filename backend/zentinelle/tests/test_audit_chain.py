@@ -8,6 +8,8 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+from zentinelle.services.audit_chain import _compute_entry_hash, compute_chain_hash
+
 
 def _make_record(
     tenant_id='tenant1',
@@ -16,11 +18,21 @@ def _make_record(
     ext_user_id='user1',
     resource_type='policy',
     resource_id='res-001',
+    resource_name='',
+    metadata=None,
     chain_sequence=1,
     entry_hash=None,
     chain_hash=None,
+    prev_chain=None,
 ):
-    """Create a minimal AuditLog-like mock object."""
+    """A stand-in AuditLog whose hashes are computed the way production does.
+
+    Deliberately calls `_compute_entry_hash` rather than restating the content
+    format. A test that re-implements the hash cannot notice the hash changing,
+    and this file restating it is one of the three copies that had already
+    drifted apart by the time #281 was found — the model hashed five fields,
+    the verifier seven, and neither matched.
+    """
     record = MagicMock()
     record.tenant_id = tenant_id
     record.action = action
@@ -28,30 +40,17 @@ def _make_record(
     record.ext_user_id = ext_user_id
     record.resource_type = resource_type
     record.resource_id = resource_id
+    record.resource_name = resource_name
+    record.metadata = {} if metadata is None else metadata
     record.chain_sequence = chain_sequence
 
-    # Compute real hashes if not supplied
-    if entry_hash is None or chain_hash is None:
-        ts = record.timestamp.isoformat()
-        content = '|'.join([
-            str(tenant_id),
-            str(action),
-            ts,
-            str(ext_user_id),
-            str(action),
-            str(resource_type),
-            str(resource_id),
-        ])
-        computed_entry = hashlib.sha256(content.encode()).hexdigest()
-        record.entry_hash = entry_hash if entry_hash is not None else computed_entry
-
-        prev_chain = 'genesis' if chain_sequence == 1 else ''
-        computed_chain = hashlib.sha256(
-            (prev_chain + record.entry_hash).encode()
-        ).hexdigest()
-        record.chain_hash = chain_hash if chain_hash is not None else computed_chain
+    record.entry_hash = (
+        _compute_entry_hash(record) if entry_hash is None else entry_hash
+    )
+    if chain_hash is None:
+        seed = prev_chain if prev_chain is not None else ('genesis' if chain_sequence == 1 else '')
+        record.chain_hash = compute_chain_hash(seed, record.entry_hash)
     else:
-        record.entry_hash = entry_hash
         record.chain_hash = chain_hash
 
     return record
