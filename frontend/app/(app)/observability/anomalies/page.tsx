@@ -23,6 +23,23 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { useUsageMetrics } from "@/graphql/usage/hooks";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import { SectionErrorBoundary } from "@/components/section-error-boundary";
+import {
+  Area,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ResponsiveContainer,
+  Scatter,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 /* ── Types ───────────────────────────────────────────────────────── */
 
@@ -55,7 +72,12 @@ interface Anomaly {
 
 const TYPE_META: Record<
   AnomalyType,
-  { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string }
+  {
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    color: string;
+    bg: string;
+  }
 > = {
   token_spike: {
     label: "Token usage spike",
@@ -178,6 +200,113 @@ function StatCard({
   );
 }
 
+/* ── Baseline timeline ──────────────────────────────────────────── */
+
+/**
+ * Tokens per day against the band they were expected to fall in.
+ *
+ * The band is the same one the detector uses — the trailing seven days' mean
+ * plus or minus two standard deviations — so a point drawn outside it is
+ * exactly a point that raised an anomaly below. Drawing a different band would
+ * be worse than drawing none: it would invite an operator to disagree with a
+ * detection on the strength of a picture that was never what the detector saw.
+ *
+ * `band` is plotted as a stacked pair rather than a range, because that is how
+ * recharts renders a filled area between two bounds: the lower bound is drawn
+ * transparent and the visible area sits on top of it.
+ */
+function BaselineTimeline({
+  series,
+  anomalyDates,
+}: {
+  series: { date: string; tokens: number | null }[];
+  anomalyDates: Set<string>;
+}) {
+  const points = useMemo(() => {
+    return series.map((point, index) => {
+      const trailing = series
+        .slice(Math.max(0, index - 7), index)
+        .map((p) => p.tokens ?? 0);
+      const { mean, std } = meanAndStddev(trailing);
+      const tokens = point.tokens ?? 0;
+      const lower = trailing.length ? Math.max(0, mean - 2 * std) : null;
+      const upper = trailing.length ? mean + 2 * std : null;
+      return {
+        date: point.date,
+        tokens,
+        lower,
+        // The visible band is the distance between the bounds, stacked on the
+        // invisible lower one.
+        band:
+          lower === null || upper === null ? null : Math.max(0, upper - lower),
+        anomaly: anomalyDates.has(point.date) ? tokens : null,
+      };
+    });
+  }, [series, anomalyDates]);
+
+  const config: ChartConfig = {
+    tokens: { label: "Tokens", color: "var(--chart-1)" },
+    band: { label: "Expected range", color: "var(--chart-2)" },
+    anomaly: { label: "Anomaly", color: "var(--destructive)" },
+  };
+
+  if (points.length < 2) {
+    return (
+      <p className="text-muted-foreground py-8 text-center text-sm">
+        Not enough history yet to draw a baseline.
+      </p>
+    );
+  }
+
+  return (
+    <ChartContainer config={config} className="h-[280px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart
+          data={points}
+          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+        >
+          <CartesianGrid vertical={false} strokeDasharray="3 3" />
+          <XAxis
+            dataKey="date"
+            tickLine={false}
+            axisLine={false}
+            fontSize={11}
+          />
+          <YAxis tickLine={false} axisLine={false} fontSize={11} width={56} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Area
+            dataKey="lower"
+            stackId="band"
+            stroke="none"
+            fill="transparent"
+            isAnimationActive={false}
+          />
+          <Area
+            dataKey="band"
+            stackId="band"
+            stroke="none"
+            fill="var(--chart-2)"
+            fillOpacity={0.18}
+            isAnimationActive={false}
+          />
+          <Line
+            dataKey="tokens"
+            stroke="var(--chart-1)"
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+          />
+          <Scatter
+            dataKey="anomaly"
+            fill="var(--destructive)"
+            isAnimationActive={false}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </ChartContainer>
+  );
+}
+
 /* ── Anomaly card ───────────────────────────────────────────────── */
 
 function AnomalyCard({
@@ -294,8 +423,14 @@ export default function AnomaliesPage() {
 
     /* ── 1. Day-level token & cost spikes (vs trailing window) ── */
     const series = (metrics.timeSeries ?? []).filter(
-      (p): p is { date: string; tokens: number | null; cost: number | null; apiCalls: number | null } =>
-        Boolean(p.date),
+      (
+        p,
+      ): p is {
+        date: string;
+        tokens: number | null;
+        cost: number | null;
+        apiCalls: number | null;
+      } => Boolean(p.date),
     );
 
     if (series.length >= 4) {
@@ -354,9 +489,7 @@ export default function AnomaliesPage() {
     }
 
     /* ── 2. Per-agent outliers (vs peer mean) ── */
-    const byAgent = (metrics.byAgent ?? []).filter(
-      (a) => (a.tokens ?? 0) > 0,
-    );
+    const byAgent = (metrics.byAgent ?? []).filter((a) => (a.tokens ?? 0) > 0);
     if (byAgent.length >= 4) {
       const tokenVals = byAgent.map((a) => a.tokens ?? 0);
       const { mean, std } = meanAndStddev(tokenVals);
@@ -435,6 +568,28 @@ export default function AnomaliesPage() {
 
   // Anchor the window to endDate (which itself is anchored at mount via
   // useMemo), keeping this computation pure.
+  const tokenSeries = useMemo(
+    () =>
+      (metrics?.timeSeries ?? [])
+        // No type predicate: UsageTimeSeriesPoint carries more fields than the
+        // two the chart wants, and a predicate narrowing to just those is not
+        // assignable to the parameter type. Filter, then map to the shape.
+        .filter((p) => Boolean(p?.date))
+        .map((p) => ({ date: p.date as string, tokens: p.tokens ?? 0 })),
+    [metrics],
+  );
+
+  // Which days raised a token anomaly, so the chart marks exactly those.
+  const anomalyDates = useMemo(
+    () =>
+      new Set(
+        anomalies
+          .filter((a) => a.type === "token_spike")
+          .map((a) => a.detectedAt),
+      ),
+    [anomalies],
+  );
+
   const counts = useMemo(() => {
     const now = new Date(endDate).getTime();
     const day = 24 * 60 * 60 * 1000;
@@ -547,15 +702,35 @@ export default function AnomaliesPage() {
         />
         <StatCard
           label="Open"
-          value={String(
-            anomalies.filter((a) => a.status === "open").length,
-          )}
+          value={String(anomalies.filter((a) => a.status === "open").length)}
           sub="Awaiting acknowledgement"
           icon={ShieldAlertIcon}
           color="text-violet-600 dark:text-violet-400"
           bg="bg-violet-500/10"
         />
       </div>
+
+      {/* Baseline timeline */}
+      <SectionErrorBoundary section="Anomaly timeline">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Tokens against the expected range
+            </CardTitle>
+            <CardDescription>
+              The shaded band is the trailing seven days&rsquo; mean plus or
+              minus two standard deviations — the same band the detector uses,
+              so a point drawn outside it is one of the detections below.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BaselineTimeline
+              series={tokenSeries}
+              anomalyDates={anomalyDates}
+            />
+          </CardContent>
+        </Card>
+      </SectionErrorBoundary>
 
       {/* Top anomaly types */}
       <Card>
@@ -579,9 +754,7 @@ export default function AnomaliesPage() {
                 const pct = max > 0 ? (count / max) * 100 : 0;
                 return (
                   <div key={type} className="flex items-center gap-3">
-                    <div
-                      className={`${meta.bg} shrink-0 rounded-md p-1.5`}
-                    >
+                    <div className={`${meta.bg} shrink-0 rounded-md p-1.5`}>
                       <Icon className={`h-3.5 w-3.5 ${meta.color}`} />
                     </div>
                     <div className="min-w-0 flex-1">
