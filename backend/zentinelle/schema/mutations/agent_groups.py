@@ -6,7 +6,7 @@ GraphQL mutations for managing agent groups.
 import strawberry
 from typing import Optional, Annotated
 from graphql_relay import from_global_id
-from zentinelle.schema.auth_helpers import get_request_tenant_id
+from zentinelle.schema.auth_helpers import get_request_tenant_id, require_request_tenant_id
 
 AgentGroupType = Annotated['AgentGroupType', strawberry.lazy('zentinelle.schema.types')]
 
@@ -55,7 +55,7 @@ def create_agent_group(
 ) -> CreateAgentGroupPayload:
     from zentinelle.models.agent_group import AgentGroup
     from django.utils.text import slugify
-    tenant_id = get_request_tenant_id(info.context.request.user) or 'default'
+    tenant_id = require_request_tenant_id(info.context.request.user)
     base_slug = slugify(name)[:240]
     slug = base_slug
     i = 1
@@ -80,7 +80,7 @@ def update_agent_group(
     color: Optional[str] = None,
 ) -> UpdateAgentGroupPayload:
     from zentinelle.models.agent_group import AgentGroup
-    tenant_id = get_request_tenant_id(info.context.request.user) or 'default'
+    tenant_id = require_request_tenant_id(info.context.request.user)
     try:
         group = AgentGroup.objects.get(
             id=_decode_id(id), tenant_id=tenant_id
@@ -104,7 +104,7 @@ def delete_agent_group(
     id: strawberry.ID,
 ) -> DeleteAgentGroupPayload:
     from zentinelle.models.agent_group import AgentGroup
-    tenant_id = get_request_tenant_id(info.context.request.user) or 'default'
+    tenant_id = require_request_tenant_id(info.context.request.user)
     deleted, _ = AgentGroup.objects.filter(
         id=_decode_id(id), tenant_id=tenant_id
     ).delete()
@@ -122,7 +122,7 @@ def assign_agent_to_group(
 ) -> AssignAgentToGroupPayload:
     from zentinelle.models.endpoint import AgentEndpoint
     from zentinelle.models.agent_group import AgentGroup
-    tenant_id = get_request_tenant_id(info.context.request.user) or 'default'
+    tenant_id = require_request_tenant_id(info.context.request.user)
     try:
         endpoint = AgentEndpoint.objects.get(
             id=_decode_id(agent_endpoint_id), tenant_id=tenant_id

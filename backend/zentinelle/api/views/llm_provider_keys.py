@@ -18,11 +18,19 @@ from zentinelle.auth.mode import is_open_mode
 
 
 def _resolve_tenant_id(request) -> str:
-    """Resolve tenant_id, with open-mode fallback to standalone tenant."""
+    """Resolve tenant_id, or return '' for a caller who has none.
+
+    Open mode still resolves to the standalone tenant — that is a deployment
+    choice, and it names one real tenant rather than a bucket. What is gone is
+    the `or 'default'` behind it: any two callers who fell through landed
+    together under a literal nobody owns and read each other's provider keys.
+    The empty string is a value every caller here already has to handle, and
+    it filters to nothing.
+    """
     tid = get_request_tenant_id(request.user)
     if not tid and is_open_mode():
         return '00000000-0000-0000-0000-000000000001'
-    return tid or 'default'
+    return tid or ''
 
 
 @method_decorator(csrf_exempt, name='dispatch')

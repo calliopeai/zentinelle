@@ -239,9 +239,9 @@ class ExportAuditLogsPayload:
 
 
 def update_organization_settings(info: strawberry.types.Info, settings: OrganizationSettingsInput) -> UpdateOrganizationSettingsPayload:
-    from zentinelle.schema.auth_helpers import get_request_tenant_id
+    from zentinelle.schema.auth_helpers import require_request_tenant_id
     from zentinelle.models.tenant_config import TenantConfig
-    tenant_id = get_request_tenant_id(info.context.request.user) or "default"
+    tenant_id = require_request_tenant_id(info.context.request.user)
 
     settings_dict = {}
     for field_name in ['name', 'contact_email', 'timezone', 'email_notifications',

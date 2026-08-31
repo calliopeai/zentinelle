@@ -2670,7 +2670,13 @@ class Query:
     def my_organization(self, info: strawberry.types.Info) -> Optional[OrganizationType]:
         """Return the organization object for the current tenant, backed by TenantConfig."""
         from zentinelle.models.tenant_config import TenantConfig
-        tenant_id = get_request_tenant_id(info.context.request.user) or "default"
+        # No tenant, no organization. The old fallback did not merely read the
+        # wrong row, it created one under a literal nobody owns — and
+        # get_or_create means the first such caller decided what everyone
+        # after them would see.
+        tenant_id = get_request_tenant_id(info.context.request.user)
+        if not tenant_id:
+            return None
         config, _ = TenantConfig.objects.get_or_create(tenant_id=tenant_id)
         return OrganizationType(
             id=tenant_id,
@@ -2692,7 +2698,13 @@ class Query:
     @strawberry.field
     def client_cove_integration(self, info: strawberry.types.Info) -> Optional[ClientCoveIntegrationType]:
         from zentinelle.models.integration import ClientCoveIntegration
-        tenant_id = get_request_tenant_id(info.context.request.user) or 'default'
+        # None rather than a shared 'default' bucket: a caller whose tenant
+        # cannot be resolved has no integration, and handing them whatever sits
+        # under a literal nobody owns is how two such callers end up reading
+        # each other's.
+        tenant_id = get_request_tenant_id(info.context.request.user)
+        if not tenant_id:
+            return None
         return ClientCoveIntegration.objects.filter(tenant_id=tenant_id).first()
 
     # Notifications (stub)
