@@ -56,10 +56,10 @@ def test_client_cove_connection(info: strawberry.types.Info, url: str, api_key: 
 
 def save_client_cove_config(info: strawberry.types.Info, url: str, api_key: str) -> SaveClientCoveConfigPayload:
     from zentinelle.models.integration import ClientCoveIntegration
-    from zentinelle.schema.auth_helpers import get_request_tenant_id
+    from zentinelle.schema.auth_helpers import get_request_tenant_id, require_request_tenant_id
     from django.utils import timezone
 
-    tenant_id = get_request_tenant_id(info.context.request.user) or 'default'
+    tenant_id = require_request_tenant_id(info.context.request.user)
     base_url = url.rstrip('/')
 
     ok, message = _test_connection(base_url, api_key)
@@ -108,6 +108,6 @@ def disconnect_client_cove(info: strawberry.types.Info) -> DisconnectClientCoveP
     from zentinelle.models.integration import ClientCoveIntegration
     from zentinelle.schema.auth_helpers import get_request_tenant_id
 
-    tenant_id = get_request_tenant_id(info.context.request.user) or 'default'
+    tenant_id = require_request_tenant_id(info.context.request.user)
     ClientCoveIntegration.objects.filter(tenant_id=tenant_id).delete()
     return DisconnectClientCovePayload(success=True)

@@ -105,3 +105,32 @@ def get_request_tenant_id(user):
     if can_view(user):
         return "00000000-0000-0000-0000-000000000001"
     return None
+
+
+def require_request_tenant_id(user) -> str:
+    """The caller's tenant, or a refusal. Never an invented one.
+
+    Ten resolvers wrote `get_request_tenant_id(user) or 'default'`. Any two
+    callers whose tenant could not be resolved landed in that same bucket and
+    read and wrote each other's rows — a smaller hole than an unscoped query,
+    since it needs resolution to fail first, but the same failure with a
+    friendlier name.
+
+    A shared fallback is worse than no fallback: it turns a misconfiguration
+    into a *working* request against a tenant nobody owns, so nothing ever
+    surfaces the problem that caused it. `filter_by_org` already models the
+    right answer, returning `queryset.none()` when it cannot resolve a tenant
+    rather than inventing one.
+
+    Raises GraphQLError, which is what a caller acting on nothing should be
+    told, rather than being handed somebody else's data.
+    """
+    from graphql import GraphQLError
+
+    tenant_id = get_request_tenant_id(user)
+    if not tenant_id:
+        raise GraphQLError(
+            'No tenant could be resolved for this request, so there is nothing '
+            'to act on.'
+        )
+    return tenant_id

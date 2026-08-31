@@ -126,8 +126,8 @@ def toggle_framework(info: strawberry.types.Info, framework_id: strawberry.ID, e
         return ToggleFrameworkPayload(framework=None, errors=['Authentication required'])
 
     from zentinelle.models import ComplianceFrameworkConfig
-    from zentinelle.schema.auth_helpers import get_request_tenant_id
-    tenant_id = get_request_tenant_id(info.context.request.user) or 'default'
+    from zentinelle.schema.auth_helpers import get_request_tenant_id, require_request_tenant_id
+    tenant_id = require_request_tenant_id(info.context.request.user)
 
     config, _ = ComplianceFrameworkConfig.objects.update_or_create(
         tenant_id=tenant_id,

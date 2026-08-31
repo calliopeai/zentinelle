@@ -12,7 +12,7 @@ from typing import Optional
 import strawberry
 
 from zentinelle.models.system_prompt import SystemPrompt, PromptFavorite, PromptRating
-from zentinelle.schema.auth_helpers import get_request_tenant_id
+from zentinelle.schema.auth_helpers import get_request_tenant_id, require_request_tenant_id
 from zentinelle.schema.types import SystemPromptType
 
 
@@ -22,7 +22,7 @@ def _extract_variables(text: str) -> list[str]:
 
 
 def _tenant_id(info) -> str:
-    return get_request_tenant_id(info.context.request.user) or 'default'
+    return require_request_tenant_id(info.context.request.user)
 
 
 @strawberry.input
