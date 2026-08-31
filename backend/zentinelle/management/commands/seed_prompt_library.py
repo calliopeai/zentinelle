@@ -25,7 +25,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if options['clear']:
             self.stdout.write('Clearing existing prompt library...')
-            SystemPrompt.objects.filter(organization__isnull=True).delete()
+            SystemPrompt.objects.filter(tenant_id="").delete()
             PromptCategory.objects.all().delete()
             PromptTag.objects.all().delete()
 
@@ -568,7 +568,7 @@ Handle edge cases:
 
             prompt, created = SystemPrompt.objects.update_or_create(
                 slug=prompt_data['slug'],
-                organization__isnull=True,
+                tenant_id="",
                 version=1,
                 defaults={
                     **prompt_data,

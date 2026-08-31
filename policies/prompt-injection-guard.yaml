@@ -1,0 +1,27 @@
+# Prompt-injection detection across the three surfaces an agent actually reads
+# from: the user's own input, the output of tools it calls, and retrieved RAG
+# context. The last two matter more than the first — indirect injection arrives
+# in content the agent fetched, not in what the operator typed.
+#
+# action_on_detect is 'flag' rather than 'block' to match the audit enforcement
+# below; a detector that blocks on its first day on real traffic will be judged
+# by its false positives.
+kind: Policy
+metadata:
+  name: Prompt Injection Guard
+  scope: organization
+  enforcement: audit
+  priority: 90
+spec:
+  type: prompt_injection
+  config:
+    sensitivity: medium
+    action_on_detect: flag
+    pattern_categories:
+      - jailbreak
+      - override
+      - delimiter
+      - indirect
+    scan_user_input: true
+    scan_tool_outputs: true
+    scan_rag_context: true

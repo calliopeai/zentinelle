@@ -1,0 +1,20 @@
+# Baseline context ceiling.
+#
+# Applied with: python manage.py policy_apply ./policies/ --tenant <id>
+#
+# Audit rather than enforce: this is the first policy set on a live tenant with
+# an active integration, and a token ceiling that blocks is indistinguishable
+# from an outage to whatever is calling. Audit records the same evaluations, so
+# the limits can be tuned against real traffic before they start refusing it.
+kind: Policy
+metadata:
+  name: Context Limit Baseline
+  scope: organization
+  enforcement: audit
+  priority: 40
+spec:
+  type: context_limit
+  config:
+    max_input_tokens: 180000
+    max_output_tokens: 16000
+    max_total_tokens: 196000
