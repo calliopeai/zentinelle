@@ -69,15 +69,17 @@ class LicenseService:
         """Check if running in dev mode."""
         return os.environ.get('CALLIOPE_DEV_MODE', '').lower() in ('true', '1', 'yes')
 
-    def _get_entitled_tools(self, organization) -> list:
+    def _get_entitled_tools(self, tenant_id) -> list:
         """
-        Get the list of entitled tools for an organization.
+        Get the list of entitled tools for a tenant.
 
-        Returns list of tool IDs from the organization's plan bundle.
+        Returns list of tool IDs from the tenant's plan bundle. The billing
+        package is a managed-cloud component and is absent from a standalone
+        install, which the except below already accounts for.
         """
         try:
             from billing.entitlement_service import entitlement_service
-            entitlements = entitlement_service.get_entitlements(organization)
+            entitlements = entitlement_service.get_entitlements(tenant_id)
             return entitlements.entitled_tools or []
         except Exception as e:
             logger.warning(f"Failed to get entitled tools for org {organization.id}: {e}")
@@ -96,13 +98,16 @@ class LicenseService:
         Returns:
             Base64-encoded signed token string
         """
-        # Get entitled tools from organization's entitlements
-        entitled_tools = self._get_entitled_tools(license_obj.organization)
+        # Entitlements are looked up by tenant. The organization FK this used to
+        # follow was removed from the model in favour of tenant_id, and reading
+        # it raised AttributeError inside the broad except below — so every
+        # online validation returned "Validation error: 'License' object has no
+        # attribute 'organization'" and no licence could ever be valid.
+        entitled_tools = self._get_entitled_tools(license_obj.tenant_id)
 
         payload = {
             'license_key': license_obj.license_key,
-            'org_id': str(license_obj.organization.id),
-            'org_slug': license_obj.organization.slug,
+            'org_id': str(license_obj.tenant_id),
             'license_type': license_obj.license_type,
             'features': license_obj.features,
             'max_deployments': license_obj.max_deployments,
@@ -227,7 +232,7 @@ class LicenseService:
                     is_valid=False,
                     mode='connected',
                     error='License grace period has expired. Please resolve the issue to restore access.',
-                    org_id=str(license_obj.organization.id),
+                    org_id=str(license_obj.tenant_id),
                     in_grace_period=False,
                     grace_period_info=grace_status.to_dict()
                 )
@@ -249,11 +254,11 @@ class LicenseService:
                         error=error,  # Include the error as a warning
                         license_data={
                             'license_key': license_obj.license_key,
-                            'org_id': str(license_obj.organization.id),
+                            'org_id': str(license_obj.tenant_id),
                             'license_type': license_obj.license_type,
                             'features': license_obj.features,
                         },
-                        org_id=str(license_obj.organization.id),
+                        org_id=str(license_obj.tenant_id),
                         features=list(license_obj.features.keys()) if isinstance(license_obj.features, dict) else license_obj.features,
                         expires_at=license_obj.valid_until,
                         in_grace_period=True,
@@ -265,7 +270,7 @@ class LicenseService:
                         is_valid=False,
                         mode='connected',
                         error=error,
-                        org_id=str(license_obj.organization.id),
+                        org_id=str(license_obj.tenant_id),
                         in_grace_period=False,
                         grace_period_info=None
                     )
@@ -279,11 +284,11 @@ class LicenseService:
                 mode='connected',
                 license_data={
                     'license_key': license_obj.license_key,
-                    'org_id': str(license_obj.organization.id),
+                    'org_id': str(license_obj.tenant_id),
                     'license_type': license_obj.license_type,
                     'features': license_obj.features,
                 },
-                org_id=str(license_obj.organization.id),
+                org_id=str(license_obj.tenant_id),
                 features=list(license_obj.features.keys()) if isinstance(license_obj.features, dict) else license_obj.features,
                 expires_at=license_obj.valid_until,
                 in_grace_period=False,
