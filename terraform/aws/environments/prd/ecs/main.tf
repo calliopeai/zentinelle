@@ -269,6 +269,8 @@ resource "aws_lb_listener" "http_redirect" {
 # =============================================================================
 
 resource "aws_route53_record" "app" {
+  count = var.manage_dns_records && var.route53_zone_id != "" ? 1 : 0
+
   zone_id = var.route53_zone_id
   name    = var.domain
   type    = "A"
@@ -281,6 +283,8 @@ resource "aws_route53_record" "app" {
 }
 
 resource "aws_route53_record" "wildcard" {
+  count = var.manage_dns_records && var.route53_zone_id != "" ? 1 : 0
+
   zone_id = var.route53_zone_id
   name    = "*.${var.domain}"
   type    = "A"

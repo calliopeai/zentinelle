@@ -10,21 +10,27 @@ terraform {
 }
 
 locals {
-  name         = "dev-zentinelle"
-  env          = "development"
+  name         = var.name
+  env          = var.env
   region       = var.region
   service_name = "zentinelle"
-  owner        = "calliopeai"
+  owner        = var.owner
   ver          = "1.0"
-  domain       = "dev.zentinelle.ai"
-  vpc_cidr     = "10.0.0.0/16"
+  domain       = var.domain
+  vpc_cidr     = var.vpc_cidr
 
-  azs = ["${local.region}a", "${local.region}b", "${local.region}c"]
+  # Fall back to the first three available AZs when the operator does not pin them.
+  azs = length(var.azs) > 0 ? var.azs : slice(data.aws_availability_zones.available.names, 0, 3)
 
-  public_subnets   = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-  private_subnets  = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
-  database_subnets = ["10.0.21.0/24", "10.0.22.0/24", "10.0.23.0/24"]
-  cache_subnets    = ["10.0.31.0/24", "10.0.32.0/24", "10.0.33.0/24"]
+  public_subnets   = var.public_subnets
+  private_subnets  = var.private_subnets
+  database_subnets = var.database_subnets
+  cache_subnets    = var.cache_subnets
+
+  # Resolved DNS/TLS handles: either what this stack created, or what the
+  # operator brought. Everything downstream reads these, never the resources.
+  route53_zone_id = var.create_route53_zone ? aws_route53_zone.main[0].zone_id : var.route53_zone_id
+  certificate_arn = var.create_acm_certificate ? aws_acm_certificate.wildcard[0].arn : var.acm_certificate_arn
 
   tags = {
     Name        = local.name
@@ -35,6 +41,10 @@ locals {
     Region      = local.region
     ManagedBy   = "terraform"
   }
+}
+
+data "aws_availability_zones" "available" {
+  state = "available"
 }
 
 data "aws_caller_identity" "current" {}
