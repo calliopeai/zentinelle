@@ -1,0 +1,54 @@
+# The same intent in vanilla NetworkPolicy, for a cluster whose CNI cannot
+# match egress by DNS name.
+#
+# Read the limitation before deploying this: vanilla NetworkPolicy has no
+# concept of a hostname. It can allow the gateway and deny the rest of the
+# internet, which is enough to stop a direct provider call — but it cannot
+# express "allow these providers", so anything else an agent legitimately
+# needs to reach outside the cluster has to be enumerated by CIDR here, and
+# those CIDRs go stale silently.
+#
+# Prefer Cilium or Calico where there is a choice. This exists so that a
+# cluster without them is not left with nothing.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agents-egress-through-gateway-only
+  namespace: agents
+spec:
+  podSelector:
+    matchLabels:
+      zentinelle.ai/governed: "true"
+  policyTypes:
+    - Egress
+
+  egress:
+    # The gateway.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: zentinelle
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: zentinelle-gateway
+      ports:
+        - port: 8742
+          protocol: TCP
+
+    # Cluster DNS.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+
+    # Nothing else. Every other destination, including every LLM provider, is
+    # denied by the absence of a rule — which is how NetworkPolicy works once
+    # a pod is selected by any egress policy at all.
