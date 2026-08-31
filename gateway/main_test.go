@@ -109,9 +109,7 @@ func TestLoadConfigInvalidPolicyTimeout(t *testing.T) {
 
 func TestProviderKeyMapping(t *testing.T) {
 	cfg := &Config{
-		OpenAIKey:    "sk-openai",
-		AnthropicKey: "sk-anthropic",
-		GoogleKey:    "goog-key",
+		ProviderAPIKeys: map[string]string{"openai": "sk-openai", "anthropic": "sk-anthropic", "google": "goog-key"},
 	}
 
 	tests := []struct {
@@ -210,12 +208,11 @@ func TestShouldForwardHeader(t *testing.T) {
 
 func TestHealthEndpoint(t *testing.T) {
 	cfg := &Config{
-		Port:          "8742",
-		ZentinelleURL: "http://localhost:8080",
-		FailOpen:      true,
-		PolicyTimeout: 2 * time.Second,
-		OpenAIKey:     "sk-test",
-		AnthropicKey:  "sk-ant-test",
+		Port:            "8742",
+		ZentinelleURL:   "http://localhost:8080",
+		FailOpen:        true,
+		PolicyTimeout:   2 * time.Second,
+		ProviderAPIKeys: map[string]string{"openai": "sk-test", "anthropic": "sk-ant-test"},
 	}
 
 	gw := NewGateway(cfg)
@@ -361,11 +358,11 @@ func TestPolicyDenied(t *testing.T) {
 	defer zentinelle.Close()
 
 	cfg := &Config{
-		Port:          "8742",
-		ZentinelleURL: zentinelle.URL,
-		FailOpen:      true,
-		PolicyTimeout: 2 * time.Second,
-		OpenAIKey:     "sk-test-key",
+		Port:            "8742",
+		ZentinelleURL:   zentinelle.URL,
+		FailOpen:        true,
+		PolicyTimeout:   2 * time.Second,
+		ProviderAPIKeys: map[string]string{"openai": "sk-test-key"},
 	}
 
 	gw := NewGateway(cfg)
@@ -410,11 +407,11 @@ func TestPolicyCheckRequestFormat(t *testing.T) {
 	defer zentinelle.Close()
 
 	cfg := &Config{
-		Port:          "8742",
-		ZentinelleURL: zentinelle.URL,
-		FailOpen:      true,
-		PolicyTimeout: 2 * time.Second,
-		OpenAIKey:     "sk-test",
+		Port:            "8742",
+		ZentinelleURL:   zentinelle.URL,
+		FailOpen:        true,
+		PolicyTimeout:   2 * time.Second,
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
 	}
 
 	// Use CheckPolicy directly
@@ -707,7 +704,7 @@ func TestFullProxyFlow(t *testing.T) {
 		FailOpen:         true,
 		PolicyTimeout:    2 * time.Second,
 		MaxResponseBytes: 52428800,
-		OpenAIKey:        "sk-real-openai-key",
+		ProviderAPIKeys:  map[string]string{"openai": "sk-real-openai-key"},
 	}
 
 	gw := NewGateway(cfg)
@@ -898,7 +895,7 @@ func TestOutputFilterWithholdsADeniedResponse(t *testing.T) {
 	cfg := &Config{
 		ZentinelleURL: control.URL, FailOpen: false,
 		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
-		OpenAIKey: "sk-test",
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
 	}
 	pointOpenAIAt(t, upstream.URL)
 	gw := NewGateway(cfg)
@@ -929,7 +926,7 @@ func TestOutputFilterPassesAnAllowedResponse(t *testing.T) {
 	cfg := &Config{
 		ZentinelleURL: control.URL, FailOpen: false,
 		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
-		OpenAIKey: "sk-test",
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
 	}
 	pointOpenAIAt(t, upstream.URL)
 	gw := NewGateway(cfg)
@@ -959,7 +956,7 @@ func TestNoOutputFilterMeansNoSecondCheckAndNoBuffering(t *testing.T) {
 	cfg := &Config{
 		ZentinelleURL: control.URL, FailOpen: false,
 		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
-		OpenAIKey: "sk-test",
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
 	}
 	pointOpenAIAt(t, upstream.URL)
 	gw := NewGateway(cfg)
@@ -987,5 +984,96 @@ func TestSSETextExtractsOnlyContent(t *testing.T) {
 	}
 	if strings.Contains(got, "[DONE]") || strings.Contains(got, "event:") {
 		t.Errorf("sseText kept wire framing a filter should not judge: %q", got)
+	}
+}
+
+// --- Dynamic provider keys (#226) and cluster identity (#227) ---
+
+func TestProviderKeysComeFromTheEnvironmentByConvention(t *testing.T) {
+	keys := loadProviderKeys([]string{
+		"PROVIDER_KEY_OPENAI=sk-one",
+		"PROVIDER_KEY_MISTRAL=sk-two",
+		"PROVIDER_KEY_AZURE_OPENAI=sk-three",
+		"UNRELATED=ignored",
+		"PROVIDER_KEY_EMPTY=",
+	})
+
+	for provider, want := range map[string]string{
+		"openai":       "sk-one",
+		"mistral":      "sk-two",
+		"azure_openai": "sk-three",
+	} {
+		if keys[provider] != want {
+			t.Errorf("key for %q = %q, want %q", provider, keys[provider], want)
+		}
+	}
+	if _, present := keys["empty"]; present {
+		t.Error("an empty PROVIDER_KEY_ value was taken as a configured provider")
+	}
+	if _, present := keys["unrelated"]; present {
+		t.Error("a variable outside the convention was read as a provider key")
+	}
+}
+
+func TestTheOriginalKeyVariablesStillWork(t *testing.T) {
+	// They are in every existing deployment's task definition. A rename that
+	// silently dropped them would produce a gateway that starts cleanly and
+	// then refuses every request to that provider.
+	t.Setenv("OPENAI_API_KEY", "sk-legacy")
+	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-legacy")
+
+	keys := loadProviderKeys(nil)
+	if keys["openai"] != "sk-legacy" || keys["anthropic"] != "sk-ant-legacy" {
+		t.Errorf("the original variables were dropped: %v", keys)
+	}
+}
+
+func TestAnExplicitProviderKeyWinsOverTheOriginalVariable(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "sk-old")
+	keys := loadProviderKeys([]string{"PROVIDER_KEY_OPENAI=sk-new"})
+	if keys["openai"] != "sk-new" {
+		t.Errorf("key for openai = %q, want the explicit sk-new", keys["openai"])
+	}
+}
+
+func TestIdentityHeadersAreSentToZentinelle(t *testing.T) {
+	var gotTenant, gotCluster string
+	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotTenant = r.Header.Get("X-Zentinelle-Tenant")
+		gotCluster = r.Header.Get("X-Zentinelle-Cluster")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"allowed": true, "reason": "ok"}`))
+	}))
+	defer control.Close()
+
+	cfg := &Config{
+		ZentinelleURL: control.URL, PolicyTimeout: 5 * time.Second,
+		TenantID: "acme-corp", ClusterID: "prod-us-east-1",
+	}
+	CheckPolicy(context.Background(), cfg, "sk_agent_test", "openai", "gpt-4o")
+
+	if gotTenant != "acme-corp" || gotCluster != "prod-us-east-1" {
+		t.Errorf("identity headers = %q/%q, want acme-corp/prod-us-east-1", gotTenant, gotCluster)
+	}
+}
+
+func TestNoIdentityHeadersWhenUnset(t *testing.T) {
+	// A single-cluster deployment's requests must be unchanged: an empty
+	// header is not the same as no header to anything reading it.
+	var present bool
+	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, tenant := r.Header["X-Zentinelle-Tenant"]
+		_, cluster := r.Header["X-Zentinelle-Cluster"]
+		present = tenant || cluster
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"allowed": true, "reason": "ok"}`))
+	}))
+	defer control.Close()
+
+	cfg := &Config{ZentinelleURL: control.URL, PolicyTimeout: 5 * time.Second}
+	CheckPolicy(context.Background(), cfg, "sk_agent_test", "openai", "gpt-4o")
+
+	if present {
+		t.Error("an identity header was sent by a gateway that has no tenant or cluster configured")
 	}
 }

@@ -63,6 +63,7 @@ func CheckPolicy(ctx context.Context, cfg *Config, agentKey string, provider str
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Zentinelle-Key", agentKey)
+	cfg.ApplyIdentityHeaders(req)
 
 	resp, err := policyClient.Do(req)
 	if err != nil {
@@ -141,6 +142,7 @@ func CheckOutputPolicy(ctx context.Context, cfg *Config, agentKey string, provid
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Zentinelle-Key", agentKey)
+	cfg.ApplyIdentityHeaders(req)
 
 	resp, err := policyClient.Do(req)
 	if err != nil {

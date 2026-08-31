@@ -195,6 +195,7 @@ func ReportUsage(cfg *Config, agentKey string, provider string, model string, us
 
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-Zentinelle-Key", agentKey)
+		cfg.ApplyIdentityHeaders(req)
 
 		resp, err := usageClient.Do(req)
 		if err != nil {
