@@ -1140,9 +1140,15 @@ class Query:
         now = timezone.now()
 
         # Get violation counts by severity - filtered by org
+        # `scan__tenant_id`, because ContentViolation has no tenant of its own
+        # — it inherits one through the scan it belongs to. The default
+        # org_field is 'tenant_id', so this raised FieldError rather than
+        # filtering, and the dashboard section it feeds was broken outright.
+        # queries.py:2107 already had it right; this one did not.
         violations_last_30_days = filter_by_org(
             ContentViolation.objects.filter(created_at__gte=now - timedelta(days=30)),
-            user
+            user,
+            org_field='scan__tenant_id',
         )
         critical_count = violations_last_30_days.filter(severity='critical').count()
         high_count = violations_last_30_days.filter(severity='high').count()
