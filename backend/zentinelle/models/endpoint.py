@@ -44,6 +44,14 @@ class AgentEndpoint(Tracking):
         LETTA = 'letta', 'Letta'
         PYDANTIC_AI = 'pydantic_ai', 'Pydantic AI'
         SMOLAGENTS = 'smolagents', 'Smolagents'
+        # Tier 3 harnesses (#215). Qwen and DeepSeek are deliberately absent:
+        # both are OpenAI-compatible and reach the existing /proxy/openai/
+        # route unchanged, so a separate value would name a distinction the
+        # gateway does not make.
+        BEE_AGENT = 'bee_agent', 'BeeAI Framework'
+        DSPY = 'dspy', 'DSPy'
+        MISTRAL_AGENTS = 'mistral_agents', 'Mistral Agents'
+        SPRING_AI = 'spring_ai', 'Spring AI'
         VERCEL_AI = 'vercel-ai', 'Vercel AI SDK'
         MCP = 'mcp', 'MCP Server'
         CHAT = 'chat', 'Chat Agent'
