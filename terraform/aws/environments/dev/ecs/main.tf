@@ -221,6 +221,27 @@ resource "aws_lb_listener_rule" "admin" {
 }
 
 # Route /static/* to backend (Django staticfiles)
+# Route /integrations/* to backend — Astrolift's audit webhook. The path is
+# fixed on the Astrolift side; without this rule the ALB sends it to the
+# frontend and every delivery 404s.
+resource "aws_lb_listener_rule" "integrations" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 104
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/integrations/*"]
+    }
+  }
+
+  tags = var.tags
+}
+
 resource "aws_lb_listener_rule" "static" {
   listener_arn = aws_lb_listener.https.arn
   priority     = 130
