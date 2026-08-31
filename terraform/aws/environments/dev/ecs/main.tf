@@ -679,7 +679,12 @@ resource "aws_ecs_task_definition" "backend" {
       }
     }
     healthCheck = {
-      command     = ["CMD-SHELL", "curl -f http://localhost:8000/api/zentinelle/v1/health || exit 1"]
+      # python, not curl: the backend image is python:3.12-slim and does not
+      # install curl, so the old command failed with "command not found"
+      # on every probe. After startPeriod ECS killed a task that was
+      # serving the ALB correctly, which read as a service flapping
+      # rather than as a broken health check.
+      command     = ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/zentinelle/v1/health', timeout=4).status==200 else 1)\" || exit 1"]
       interval    = 30
       timeout     = 5
       retries     = 3
@@ -918,7 +923,9 @@ resource "aws_ecs_task_definition" "frontend" {
       }
     }
     healthCheck = {
-      command     = ["CMD-SHELL", "curl -f http://localhost:3002/ || exit 1"]
+      # node, not curl: the frontend image has no curl either. 200-399 is
+      # accepted because "/" redirects to /dashboard.
+      command     = ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3002/', r => process.exit(r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))\" || exit 1"]
       interval    = 30
       timeout     = 5
       retries     = 3
