@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 import { makeCache } from "./cache";
 
 const GQL_URL =
-  process.env.NEXT_PUBLIC_GQL_URL || "http://localhost:8080/gql/zentinelle/";
+  process.env.NEXT_PUBLIC_GQL_URL || "/gql/zentinelle/";
 
 export const { getClient, query, PreloadQuery } = registerApolloClient(
   async () => {
