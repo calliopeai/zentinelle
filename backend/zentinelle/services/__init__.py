@@ -19,7 +19,6 @@ from zentinelle.services.license_service import (
     LicenseValidationResult,
     validate_license,
     is_dev_mode,
-    generate_offline_license,
 )
 from zentinelle.services.notification_service import (
     NotificationService,
@@ -58,7 +57,6 @@ __all__ = [
     'LicenseValidationResult',
     'validate_license',
     'is_dev_mode',
-    'generate_offline_license',
     # Notification Service
     'NotificationService',
     'get_notification_service',

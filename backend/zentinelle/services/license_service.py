@@ -10,16 +10,11 @@ For air-gapped deployments, licenses are signed with HMAC-SHA256.
 The signature ensures the license hasn't been tampered with.
 """
 import os
-import hmac
-import hashlib
-import base64
-import json
 import logging
 from typing import Optional, Dict, Any
 from datetime import datetime, timezone as dt_timezone
 from dataclasses import dataclass
 
-from django.conf import settings
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -45,24 +40,28 @@ class LicenseService:
     """
     Service for generating and validating licenses.
 
+    Validation is a database lookup. There is no signed offline token, and
+    that is deliberate (#262): the tokens this service used to mint were
+    signed with HMAC-SHA256 under a key that ships in this repository, and
+    this repository is MIT. Symmetric signing can prove a token was not
+    altered in transit; it cannot prove Calliope Labs issued it, because
+    anyone holding the source holds the key. A licence anyone can mint is not
+    a licence, and a check against one asserts something untrue.
+
+    Setting LICENSE_SIGNING_KEY in production did not help either: the party
+    the token would prove something to is the same party holding the key.
+
+    So the token is gone rather than re-keyed. Zentinelle AI ships MIT and is
+    free to use, self-host, modify and redistribute; the paid thing is a
+    service we operate and gate on our side. If something ever must be gated
+    inside a customer's copy it needs asymmetric signing — RS256 against a
+    public key baked into the image, the way JunoHub does it — and that is a
+    decision to take deliberately rather than a key rotation.
+
     Usage:
         service = LicenseService()
-
-        # Generate offline license
-        token = service.generate_offline_token(license_obj)
-
-        # Validate (checks all modes)
         result = service.validate()
     """
-
-    # Default signing key (should be overridden in production)
-    DEFAULT_SIGNING_KEY = 'calliope-dev-signing-key-replace-in-production'
-
-    def __init__(self, signing_key: Optional[str] = None):
-        self.signing_key = signing_key or getattr(
-            settings, 'LICENSE_SIGNING_KEY',
-            os.environ.get('LICENSE_SIGNING_KEY', self.DEFAULT_SIGNING_KEY)
-        )
 
     @property
     def is_dev_mode(self) -> bool:
@@ -84,117 +83,6 @@ class LicenseService:
         except Exception as e:
             logger.warning(f"Failed to get entitled tools for org {organization.id}: {e}")
             return []
-
-    def generate_offline_token(self, license_obj) -> str:
-        """
-        Generate a signed offline license token.
-
-        The token contains all necessary license data and a signature
-        that can be verified without calling home.
-
-        Args:
-            license_obj: License model instance
-
-        Returns:
-            Base64-encoded signed token string
-        """
-        # Entitlements are looked up by tenant. The organization FK this used to
-        # follow was removed from the model in favour of tenant_id, and reading
-        # it raised AttributeError inside the broad except below — so every
-        # online validation returned "Validation error: 'License' object has no
-        # attribute 'organization'" and no licence could ever be valid.
-        entitled_tools = self._get_entitled_tools(license_obj.tenant_id)
-
-        payload = {
-            'license_key': license_obj.license_key,
-            'org_id': str(license_obj.tenant_id),
-            'license_type': license_obj.license_type,
-            'features': license_obj.features,
-            'max_deployments': license_obj.max_deployments,
-            'max_agents': license_obj.max_agents,
-            'max_users': license_obj.max_users,
-            'entitled_tools': entitled_tools,
-            'valid_from': license_obj.valid_from.isoformat() if license_obj.valid_from else None,
-            'valid_until': license_obj.valid_until.isoformat() if license_obj.valid_until else None,
-            'issued_at': timezone.now().isoformat(),
-            'offline_allowed': True,
-        }
-
-        # Sign the payload
-        payload_json = json.dumps(payload, sort_keys=True)
-        signature = self._sign(payload_json)
-
-        # Combine payload and signature
-        token_data = {
-            'payload': payload,
-            'signature': signature,
-            'version': 1,
-        }
-
-        # Base64 encode for easy transport
-        token_json = json.dumps(token_data)
-        token_b64 = base64.urlsafe_b64encode(token_json.encode()).decode()
-
-        return token_b64
-
-    def validate_offline_token(self, token: str) -> LicenseValidationResult:
-        """
-        Validate an offline license token.
-
-        Args:
-            token: Base64-encoded signed token
-
-        Returns:
-            LicenseValidationResult with validation status
-        """
-        try:
-            # Decode token
-            token_json = base64.urlsafe_b64decode(token.encode()).decode()
-            token_data = json.loads(token_json)
-
-            payload = token_data.get('payload', {})
-            signature = token_data.get('signature', '')
-
-            # Verify signature
-            payload_json = json.dumps(payload, sort_keys=True)
-            expected_signature = self._sign(payload_json)
-
-            if not hmac.compare_digest(signature, expected_signature):
-                return LicenseValidationResult(
-                    is_valid=False,
-                    mode='offline',
-                    error='Invalid license signature'
-                )
-
-            # Check expiration
-            valid_until = payload.get('valid_until')
-            if valid_until:
-                expires = datetime.fromisoformat(valid_until)
-                if expires.tzinfo is None:
-                    expires = expires.replace(tzinfo=dt_timezone.utc)
-                if expires < datetime.now(dt_timezone.utc):
-                    return LicenseValidationResult(
-                        is_valid=False,
-                        mode='offline',
-                        error='License has expired',
-                        expires_at=expires
-                    )
-
-            return LicenseValidationResult(
-                is_valid=True,
-                mode='offline',
-                license_data=payload,
-                org_id=payload.get('org_id'),
-                features=payload.get('features', []),
-                expires_at=datetime.fromisoformat(valid_until) if valid_until else None
-            )
-
-        except (json.JSONDecodeError, ValueError, KeyError) as e:
-            return LicenseValidationResult(
-                is_valid=False,
-                mode='offline',
-                error=f'Invalid license token format: {e}'
-            )
 
     def validate_online(self, license_key: str) -> LicenseValidationResult:
         """
@@ -333,11 +221,24 @@ class LicenseService:
                 features=['*'],  # All features in dev mode
             )
 
-        # Check for offline token
-        token = offline_token or os.environ.get('CALLIOPE_OFFLINE_LICENSE')
-        if token:
-            logger.info("License validation: Using offline token")
-            return self.validate_offline_token(token)
+        # An offline token is no longer accepted. A deployment still setting
+        # CALLIOPE_OFFLINE_LICENSE is told so, rather than falling through to
+        # another mode and being given a result about something else.
+        if offline_token or os.environ.get('CALLIOPE_OFFLINE_LICENSE'):
+            logger.warning(
+                "An offline licence token was supplied. Offline tokens were removed "
+                "in #262: they were signed with a key that ships in MIT source, so "
+                "they proved nothing. Use a licence key."
+            )
+            return LicenseValidationResult(
+                is_valid=False,
+                mode='offline',
+                error=(
+                    'Offline licence tokens are no longer supported. They were signed '
+                    'with a symmetric key published in this repository, so anyone '
+                    'could mint one and they proved nothing.'
+                ),
+            )
 
         # Check for license key
         key = license_key or os.environ.get('CALLIOPE_LICENSE_KEY')
@@ -352,16 +253,6 @@ class LicenseService:
             error='No license key or token provided'
         )
 
-    def _sign(self, data: str) -> str:
-        """Sign data using HMAC-SHA256."""
-        signature = hmac.new(
-            self.signing_key.encode(),
-            data.encode(),
-            hashlib.sha256
-        ).hexdigest()
-        return signature
-
-
 # Convenience functions
 def validate_license(
     license_key: Optional[str] = None,
@@ -375,9 +266,3 @@ def validate_license(
 def is_dev_mode() -> bool:
     """Check if running in dev mode."""
     return LicenseService().is_dev_mode
-
-
-def generate_offline_license(license_obj) -> str:
-    """Generate offline license token for a license."""
-    service = LicenseService()
-    return service.generate_offline_token(license_obj)
