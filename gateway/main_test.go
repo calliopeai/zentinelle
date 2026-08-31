@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -1075,5 +1076,139 @@ func TestNoIdentityHeadersWhenUnset(t *testing.T) {
 
 	if present {
 		t.Error("an identity header was sent by a gateway that has no tenant or cluster configured")
+	}
+}
+
+// --- Prometheus metrics (#224) ---
+
+func TestMetricsEndpointExposesTheTextFormat(t *testing.T) {
+	cfg := &Config{ZentinelleURL: "http://localhost:8080"}
+	gw := NewGateway(cfg)
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	w := httptest.NewRecorder()
+	gw.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
+		t.Errorf("Content-Type = %q, want the Prometheus text format", ct)
+	}
+
+	body := w.Body.String()
+	for _, name := range []string{
+		"zentinelle_gateway_requests_total",
+		"zentinelle_gateway_policy_denied_total",
+		"zentinelle_gateway_request_duration_seconds",
+		"zentinelle_gateway_policy_check_duration_seconds",
+		"zentinelle_gateway_upstream_duration_seconds",
+		"zentinelle_gateway_active_connections",
+		"zentinelle_gateway_upstream_errors_total",
+		"zentinelle_gateway_policy_check_errors_total",
+	} {
+		if !strings.Contains(body, "# TYPE "+name) {
+			t.Errorf("%s is not exposed", name)
+		}
+	}
+}
+
+func TestAProxiedRequestIsCounted(t *testing.T) {
+	before := metricRequests.snapshot()
+
+	upstream := upstreamStub(t, "application/json", `{"ok":true}`)
+	defer upstream.Close()
+	control, _ := zentinelleStub(t, false, true)
+	defer control.Close()
+
+	cfg := &Config{
+		ZentinelleURL: control.URL, FailOpen: false,
+		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
+	}
+	pointOpenAIAt(t, upstream.URL)
+	gw := NewGateway(cfg)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o"}`))
+	req.Header.Set("X-Zentinelle-Key", "sk_agent_test")
+	gw.ServeHTTP(httptest.NewRecorder(), req)
+
+	key := labels("model", "gpt-4o", "provider", "openai", "status_code", "200")
+	if metricRequests.snapshot()[key] <= before[key] {
+		t.Errorf("a completed request did not increment %s{%s}", "zentinelle_gateway_requests_total", key)
+	}
+
+	if !strings.Contains(renderMetrics(), `zentinelle_gateway_requests_total{model="gpt-4o"`) {
+		t.Error("the counter is not rendered with its labels")
+	}
+}
+
+func TestADeniedRequestIsCountedWithoutTheReason(t *testing.T) {
+	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"allowed": false, "reason": "a very specific free text reason"}`))
+	}))
+	defer control.Close()
+
+	cfg := &Config{
+		ZentinelleURL: control.URL, FailOpen: false,
+		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
+	}
+	gw := NewGateway(cfg)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o"}`))
+	req.Header.Set("X-Zentinelle-Key", "sk_agent_test")
+	w := httptest.NewRecorder()
+	gw.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", w.Code)
+	}
+	rendered := renderMetrics()
+	if !strings.Contains(rendered, "zentinelle_gateway_policy_denied_total{provider=\"openai\"}") {
+		t.Error("a policy denial was not counted")
+	}
+	// The reason is free text written by whoever wrote the policy. As a label
+	// it would let a customer create unbounded series in the scraper.
+	if strings.Contains(rendered, "a very specific free text reason") {
+		t.Error("the policy reason was used as a label, which is unbounded cardinality")
+	}
+}
+
+func TestLabelCardinalityIsCapped(t *testing.T) {
+	vec := newCounterVec()
+	for i := 0; i < maxLabelSets+50; i++ {
+		vec.inc(labels("model", "m"+strconv.Itoa(i)))
+	}
+	snapshot := vec.snapshot()
+	if len(snapshot) > maxLabelSets+1 {
+		t.Errorf("%d distinct series, want at most %d plus overflow", len(snapshot), maxLabelSets)
+	}
+	if snapshot["overflow"] == 0 {
+		t.Error("nothing was folded into the overflow series")
+	}
+}
+
+func TestHistogramBucketsAreCumulative(t *testing.T) {
+	vec := newHistogramVec()
+	vec.observe("", 0.02)
+	vec.observe("", 3)
+
+	entry := vec.snapshot()[""]
+	if entry.total != 2 {
+		t.Errorf("count = %d, want 2", entry.total)
+	}
+	// 0.02s falls in every bucket from 0.025 up; 3s only from 5 up.
+	for i, upper := range latencyBuckets {
+		var want uint64
+		if upper >= 3 {
+			want = 2
+		} else if upper >= 0.02 {
+			want = 1
+		}
+		if entry.counts[i] != want {
+			t.Errorf("bucket le=%v = %d, want %d", upper, entry.counts[i], want)
+		}
 	}
 }
