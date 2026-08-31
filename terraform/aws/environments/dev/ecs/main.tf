@@ -624,6 +624,7 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "POSTGRES_PASSWORD", valueFrom = "${var.db_credentials_arn}:password::" },
       { name = "SECRET_KEY", valueFrom = "${var.app_secrets_arn}:SECRET_KEY::" },
       { name = "ZENTINELLE_BOOTSTRAP_SECRET", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_BOOTSTRAP_SECRET::" },
+      { name = "ZENTINELLE_SECRET_KEY", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_SECRET_KEY::" },
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -709,6 +710,7 @@ resource "aws_ecs_task_definition" "celery" {
       { name = "POSTGRES_PASSWORD", valueFrom = "${var.db_credentials_arn}:password::" },
       { name = "SECRET_KEY", valueFrom = "${var.app_secrets_arn}:SECRET_KEY::" },
       { name = "ZENTINELLE_BOOTSTRAP_SECRET", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_BOOTSTRAP_SECRET::" },
+      { name = "ZENTINELLE_SECRET_KEY", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_SECRET_KEY::" },
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -780,6 +782,7 @@ resource "aws_ecs_task_definition" "celery_beat" {
     secrets = [
       { name = "POSTGRES_PASSWORD", valueFrom = "${var.db_credentials_arn}:password::" },
       { name = "SECRET_KEY", valueFrom = "${var.app_secrets_arn}:SECRET_KEY::" },
+      { name = "ZENTINELLE_SECRET_KEY", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_SECRET_KEY::" },
     ]
     logConfiguration = {
       logDriver = "awslogs"

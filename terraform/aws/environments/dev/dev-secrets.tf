@@ -43,6 +43,12 @@ resource "aws_secretsmanager_secret_version" "app_secrets" {
   secret_string = jsonencode({
     SECRET_KEY                  = random_password.django_secret_key.result
     ZENTINELLE_BOOTSTRAP_SECRET = random_password.bootstrap_secret.result
+    # Fernet key for LLM provider key encryption. The backend refuses to boot
+    # without it under prod settings, so its absence was not a degraded mode:
+    # gunicorn workers died on import and the service never came up.
+    # Fernet requires exactly 32 url-safe base64 bytes, which is why this is a
+    # random_id rendered as b64_url rather than a random_password.
+    ZENTINELLE_SECRET_KEY = "${random_id.llm_key_encryption.b64_url}="
   })
 
   lifecycle {
@@ -58,4 +64,9 @@ resource "random_password" "django_secret_key" {
 resource "random_password" "bootstrap_secret" {
   length  = 64
   special = false
+}
+
+# 32 bytes, rendered url-safe base64, to satisfy Fernet's key format.
+resource "random_id" "llm_key_encryption" {
+  byte_length = 32
 }
