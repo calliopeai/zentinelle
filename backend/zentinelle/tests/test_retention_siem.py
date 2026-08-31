@@ -71,6 +71,7 @@ class TestEnforceRetentionTask(unittest.TestCase):
         mock_audit_qs,
         mock_event_delete_result=(3, {}),
         mock_audit_delete_result=(5, {}),
+        tenants_on_legal_hold=(),
     ):
         """
         Patch the ORM and run the task, returning its result dict.
@@ -96,9 +97,21 @@ class TestEnforceRetentionTask(unittest.TestCase):
         event_filter_mock.return_value = event_delete_chain
         audit_filter_mock.return_value = audit_delete_chain
 
+        # LegalHold is patched too. The task grew a legal-hold check after
+        # these tests were written — it reads every tenant with an active hold
+        # before deleting anything — and nothing here replaced it, so the task
+        # reached the real database and pytest-django refused it with
+        # "Database access not allowed". The tests were not wrong about the
+        # behaviour they assert; they were simply one model behind.
+        legal_hold_qs = MagicMock()
+        legal_hold_qs.values_list.return_value = list(tenants_on_legal_hold)
+
         with patch('zentinelle.models.Policy') as MockPolicy, \
              patch('zentinelle.models.AuditLog') as MockAuditLog, \
-             patch('zentinelle.models.Event') as MockEvent:
+             patch('zentinelle.models.Event') as MockEvent, \
+             patch('zentinelle.models.retention_policy.LegalHold') as MockLegalHold:
+
+            MockLegalHold.objects.filter.return_value = legal_hold_qs
 
             MockPolicy.objects.filter.return_value = iter(policies)
             MockPolicy.PolicyType.DATA_RETENTION = 'data_retention'
@@ -130,7 +143,12 @@ class TestEnforceRetentionTask(unittest.TestCase):
 
         with patch('zentinelle.models.Policy') as MockPolicy, \
              patch('zentinelle.models.AuditLog') as MockAuditLog, \
-             patch('zentinelle.models.Event') as MockEvent:
+             patch('zentinelle.models.Event') as MockEvent, \
+             patch('zentinelle.models.retention_policy.LegalHold') as MockLegalHold:
+
+            # No tenant is on legal hold. Without this the task reaches the
+            # real database on its first line and pytest-django refuses it.
+            MockLegalHold.objects.filter.return_value.values_list.return_value = []
 
             MockPolicy.objects.filter.return_value = [policy]
             MockPolicy.PolicyType.DATA_RETENTION = 'data_retention'
@@ -168,7 +186,12 @@ class TestEnforceRetentionTask(unittest.TestCase):
 
         with patch('zentinelle.models.Policy') as MockPolicy, \
              patch('zentinelle.models.AuditLog') as MockAuditLog, \
-             patch('zentinelle.models.Event') as MockEvent:
+             patch('zentinelle.models.Event') as MockEvent, \
+             patch('zentinelle.models.retention_policy.LegalHold') as MockLegalHold:
+
+            # No tenant is on legal hold. Without this the task reaches the
+            # real database on its first line and pytest-django refuses it.
+            MockLegalHold.objects.filter.return_value.values_list.return_value = []
 
             MockPolicy.objects.filter.return_value = [policy]
             MockPolicy.PolicyType.DATA_RETENTION = 'data_retention'
@@ -193,6 +216,26 @@ class TestEnforceRetentionTask(unittest.TestCase):
     # -----------------------------------------------------------------------
     # Test: per-tenant failure isolation
     # -----------------------------------------------------------------------
+    def test_a_tenant_under_legal_hold_is_not_swept(self):
+        """A legal hold stops retention deleting that tenant's records.
+
+        The task grew this check after the rest of these tests were written,
+        and nothing exercised it — the only sign it existed was that every test
+        here started failing on a database it was not allowed to touch. A legal
+        hold is the one thing that must outrank a retention policy: it is the
+        instruction not to destroy evidence.
+        """
+        held = _make_policy(tenant_id='tenant-held', event_retention_days=30)
+        result, MockEvent, MockAuditLog = self._run_task(
+            [held], MagicMock(), MagicMock(), MagicMock(),
+            tenants_on_legal_hold=['tenant-held'],
+        )
+
+        MockEvent.objects.filter.assert_not_called()
+        MockAuditLog.objects.filter.assert_not_called()
+        self.assertEqual(result['events_deleted'], 0)
+        self.assertEqual(result['audit_logs_deleted'], 0)
+
     def test_skips_tenant_gracefully_on_exception(self):
         """A per-tenant exception increments tenants_failed but does not abort the task."""
         good_policy = _make_policy(tenant_id='tenant-good', event_retention_days=30, audit_log_retention_days=365)
@@ -221,7 +264,10 @@ class TestEnforceRetentionTask(unittest.TestCase):
 
         with patch('zentinelle.models.Policy') as MockPolicy, \
              patch('zentinelle.models.AuditLog') as MockAuditLog, \
-             patch('zentinelle.models.Event') as MockEvent:
+             patch('zentinelle.models.Event') as MockEvent, \
+             patch('zentinelle.models.retention_policy.LegalHold') as MockLegalHold:
+
+            MockLegalHold.objects.filter.return_value.values_list.return_value = []
 
             MockPolicy.objects.filter.return_value = [good_policy, bad_policy]
             MockPolicy.PolicyType.DATA_RETENTION = 'data_retention'
