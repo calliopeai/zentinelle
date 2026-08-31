@@ -210,6 +210,17 @@ class UsageMetric(models.Model):
     )
     aggregated_at = models.DateTimeField(null=True, blank=True)
 
+    # Billing export (#245). Null means "not yet sent to Calliope AI billing".
+    # A nullable timestamp rather than a boolean because knowing *when* a row
+    # was exported is what makes a billing dispute answerable, and it mirrors
+    # `aggregated_at` above.
+    billing_exported_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text='When this metric was exported to Calliope AI billing'
+    )
+
     class Meta:
         ordering = ['-occurred_at']
         indexes = [
@@ -220,6 +231,11 @@ class UsageMetric(models.Model):
             models.Index(fields=['deployment_id_ext', 'metric_type', 'occurred_at']),
             # Aggregation queries
             models.Index(fields=['aggregated', 'occurred_at']),
+            # The billing exporter's query: unexported token metrics, oldest
+            # first. Without this it is a sequential scan of the whole table
+            # every run, on the table that grows fastest.
+            models.Index(fields=['billing_exported_at', 'metric_type',
+                                 'occurred_at']),
             models.Index(fields=['tenant_id', 'aggregated', 'occurred_at']),
             # User-level queries
             models.Index(fields=['tenant_id', 'user_identifier', 'occurred_at']),

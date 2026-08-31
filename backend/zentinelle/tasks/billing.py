@@ -526,3 +526,32 @@ def record_user_activity(self, organization_id: str, user_identifier: str, email
                     f"Organization {org.name} has reached user limit: "
                     f"{active_count}/{license_obj.max_users}"
                 )
+
+
+@shared_task(bind=True, name='zentinelle.tasks.billing.export_usage_to_billing')
+def export_usage_to_billing(self, limit: int = 500):
+    """Push metered usage to Calliope AI billing (#245).
+
+    The cross-mode path: works when Zentinelle runs inside a customer's own
+    perimeter, because it only needs outbound HTTPS to one host.
+
+    Errors are logged and swallowed rather than retried by Celery. The rows
+    stay unexported — `billing_exported_at` is only written after the receiver
+    accepts a batch — so the next run picks them up. A Celery retry storm
+    against a billing ingest that is already struggling helps nobody, and the
+    work is not lost either way.
+    """
+    from zentinelle.services.billing_export import (
+        BillingExportError,
+        export_pending,
+        is_enabled,
+    )
+
+    if not is_enabled():
+        return {'enabled': False, 'exported': 0}
+
+    try:
+        return export_pending(limit=limit)
+    except BillingExportError as exc:
+        logger.warning('Usage export deferred to the next run: %s', exc)
+        return {'enabled': True, 'exported': 0, 'error': str(exc)}
