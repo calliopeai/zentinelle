@@ -168,3 +168,7 @@ __all__ = [
     # Bootstrap Tokens
     'BootstrapToken',
 ]
+from zentinelle.models.astrolift import (  # noqa: E402,F401
+    AstroliftIntegration,
+    AstroliftAuditDelivery,
+)
