@@ -63,6 +63,29 @@ Organization → Team → Deployment → Endpoint → User
 ```
 More specific scope wins. `Policy.scope_type` = what the policy targets, not where it's stored.
 
+### Background Work: Celery Now, Temporal for Two of Three Shapes Later
+
+Zentinelle's background work is three shapes and only two are Temporal-shaped.
+Astrolift and the Client Cove provisioner already run Temporal on ECS, so the
+question is how far to follow, and the answer is a split rather than a switch
+(#264).
+
+| shape | where | why |
+|---|---|---|
+| Event drain — `tasks.events`, `tasks.clickhouse_sync`, classification | **stays on Celery** | High volume, short-lived, stateless, row-level idempotent. Temporal is a durable-execution engine, not a message queue: a workflow per telemetry event puts ingest volume through a Postgres-backed history store for no benefit, and the failure mode is a Temporal DB that grows with ingest |
+| Periodic work — `CELERY_BEAT_SCHEDULE` | **Temporal Schedules**, later | Beat is `desired_count = 1` by construction: if it dies every scheduled job silently stops, and raising the count splits the brain. The default scheduler keeps last-run state on an ephemeral Fargate filesystem, so a restart can re-fire or skip — survivable today only because the affected tasks happen to be idempotent |
+| Billing and reporting — Stripe usage, monthly counts, compliance reports, daily aggregation | **Temporal workflows**, later | Multi-step and money-touching. Durable state, retry with idempotency, and the ability to see where a stuck run stopped — the same shape as the provisioner cutover already live |
+
+**Not now, deliberately.** Zentinelle has no live installs, so there is no load
+data to size a Temporal deployment against and no urgency. Rewriting the task
+layer for a product that has not taken its first real install is backwards.
+
+Revisit when either becomes true:
+
+1. A production install is running and has produced real load figures.
+2. A scheduled job misfire causes a billing or compliance incident — the
+   failure mode the single beat replica is exposed to.
+
 ### Fail-Open by Default
 If Zentinelle is unreachable, agents continue running. Circuit breaker in SDK. Set `fail_open: false` per policy for hard enforcement.
 
