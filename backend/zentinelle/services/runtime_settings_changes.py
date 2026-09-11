@@ -1,7 +1,8 @@
 """Transactional staging and application of runtime settings."""
 from django.db import transaction
-from django.utils import timezone
-from zentinelle.models import RuntimeSettingsChange, RuntimeSettingsRevision, TenantConfig
+
+from zentinelle.models import (RuntimeSettingsChange, RuntimeSettingsRevision,
+                               TenantConfig)
 
 
 def apply_change(change_id, tenant_id, *, actor=''):

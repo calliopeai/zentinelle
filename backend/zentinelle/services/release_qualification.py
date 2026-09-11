@@ -2,6 +2,7 @@
 import json
 import re
 from urllib.parse import urlparse
+
 from zentinelle.models import ReleaseQualification
 
 REQUIRED_CHECKS = ('migrations', 'auth', 'csrf', 'secret_rotation', 'dependency_scan', 'backup_restore', 'rollback')

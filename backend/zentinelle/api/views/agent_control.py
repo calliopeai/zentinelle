@@ -74,7 +74,9 @@ class AgentControlView(APIView):
         from zentinelle.models import TenantConfig
         config = TenantConfig.objects.filter(tenant_id=tenant_id).values_list('settings', flat=True).first() or {}
         if config.get('control_approval_required', False):
-            from zentinelle.services.approvals import consume_approvals, context_digest, find_approval
+            from zentinelle.services.approvals import (consume_approvals,
+                                                       context_digest,
+                                                       find_approval)
             actor = str(request.user.pk)
             approval_context = {'agent_id': agent_id, 'action': action, 'denied_tools': payload.get('denied_tools', [])}
             approval = find_approval(payload.get('approval_token'), tenant_id=tenant_id, kind='assistant', subject=actor,

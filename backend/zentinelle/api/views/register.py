@@ -111,7 +111,8 @@ class RegisterView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        from zentinelle.services.agent_taxonomy import inherit_taxonomy, validate_taxonomy
+        from zentinelle.services.agent_taxonomy import (inherit_taxonomy,
+                                                        validate_taxonomy)
         metadata = dict(data.get('metadata') or {})
         tenant_config = TenantConfig.objects.filter(tenant_id=tenant_id).first()
         extensions = (tenant_config.settings or {}).get('taxonomy_extensions', []) if tenant_config else []

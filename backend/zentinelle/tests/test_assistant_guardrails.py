@@ -1,13 +1,13 @@
-from unittest.mock import patch
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 
 from zentinelle.models import Policy
 from zentinelle.services.assistant_guardrails import (check_support_message,
-                                                       check_support_output,
-                                                       check_untrusted_content)
+                                                      check_support_output,
+                                                      check_untrusted_content)
 
 TENANT = 'guardrail-tenant'
 

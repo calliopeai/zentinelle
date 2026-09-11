@@ -4,7 +4,6 @@ from pathlib import Path
 import yaml
 from django.test import SimpleTestCase
 
-
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -40,4 +39,3 @@ class DeploymentProfileTests(SimpleTestCase):
                 'app.kubernetes.io/name') == 'zentinelle-gateway'
             for item in egress
         ))
-

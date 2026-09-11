@@ -1,14 +1,15 @@
 """Explicit tenant privacy erasure with hold-aware cross-store accounting."""
-import os
 import hashlib
 import json
+import os
 import secrets
+
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
 from zentinelle.services.retention import (held, tenant_retention_lock,
-                                            verify_retention_manifest)
+                                           verify_retention_manifest)
 
 _REMOTE_ERASURE_ADAPTERS = {}
 
@@ -137,7 +138,8 @@ def erase_tenant(tenant_id, *, actor='privacy-operator', subject_id=None):
                 raise ValueError('Privacy erasure is blocked by an active legal hold for this subject')
         elif held(tenant_id):
             raise ValueError('Privacy erasure is blocked by an active legal hold')
-        from zentinelle.services.clickhouse_service import erase_tenant_analytics, _get_clickhouse_url
+        from zentinelle.services.clickhouse_service import (
+            _get_clickhouse_url, erase_tenant_analytics)
         analytics_ok = False if subject_id else erase_tenant_analytics(tenant_id)
         if _get_clickhouse_url() and not analytics_ok:
             raise RuntimeError('ClickHouse privacy erasure could not be confirmed for this scope')

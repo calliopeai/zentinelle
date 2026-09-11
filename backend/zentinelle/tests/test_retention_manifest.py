@@ -3,9 +3,9 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-from zentinelle.services.retention import (signed_retention_manifest,
-                                            verify_retention_manifest,
-                                            expire_archive)
+from zentinelle.services.retention import (expire_archive,
+                                           signed_retention_manifest,
+                                           verify_retention_manifest)
 
 
 class RetentionManifestTests(SimpleTestCase):

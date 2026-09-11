@@ -6,7 +6,6 @@ from django.utils import timezone
 
 from zentinelle.models import BudgetAccount, BudgetCharge
 
-
 _PROVIDER_USAGE_VERIFIERS = {}
 
 

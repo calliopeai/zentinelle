@@ -79,8 +79,15 @@ class PolicyEngine:
 
         # Build versioned cache key — version bumps on policy changes
         version = cache.get(f"policies_version:{tenant_id}", 0)
-        taxonomy_key = ','.join(sorted((endpoint.metadata or {}).get('taxonomy', {}).get('supported', [])))
-        cache_key = f"policies:v{version}:{tenant_id}:{endpoint.id}:{user_id}:{sub_organization_id}:{taxonomy_key}"
+        taxonomy_key = ','.join(
+            sorted(
+                (endpoint.metadata or {}).get(
+                    'taxonomy',
+                    {}).get(
+                    'supported',
+                    [])))
+        cache_key = f"policies:v{version}:{tenant_id}:{
+            endpoint.id}:{user_id}:{sub_organization_id}:{taxonomy_key}"
         if policy_types:
             cache_key += f":{','.join(sorted(policy_types))}"
 
@@ -136,8 +143,15 @@ class PolicyEngine:
         # Taxonomy selectors are additive: a policy with selectors applies only
         # when every selector is present on the endpoint.  Unselected policies
         # retain the existing hierarchy semantics.
-        endpoint_tags = set((endpoint.metadata or {}).get('taxonomy', {}).get('supported', []))
-        all_policies = [p for p in all_policies if self._taxonomy_matches(p, endpoint_tags)]
+        endpoint_tags = set(
+            (endpoint.metadata or {}).get(
+                'taxonomy',
+                {}).get(
+                'supported',
+                []))
+        all_policies = [
+            p for p in all_policies if self._taxonomy_matches(
+                p, endpoint_tags)]
 
         # Group policies by scope for proper merging
         org_policies = []
@@ -175,11 +189,22 @@ class PolicyEngine:
 
     @staticmethod
     def _taxonomy_matches(policy: Policy, endpoint_tags: set) -> bool:
-        selectors = policy.config.get('taxonomy_selectors', []) if isinstance(policy.config, dict) else []
+        selectors = policy.config.get(
+            'taxonomy_selectors',
+            []) if isinstance(
+            policy.config,
+            dict) else []
         if not selectors:
             return True
-        if not isinstance(selectors, list) or not all(isinstance(item, str) for item in selectors):
-            logger.warning('Malformed taxonomy selectors on policy %s; retaining for fail-closed evaluation', policy.id)
+        if not isinstance(
+                selectors,
+                list) or not all(
+                isinstance(
+                item,
+                str) for item in selectors):
+            logger.warning(
+                'Malformed taxonomy selectors on policy %s; retaining for fail-closed evaluation',
+                policy.id)
             return True
         return set(selectors).issubset(endpoint_tags)
 
@@ -200,7 +225,8 @@ class PolicyEngine:
             cache.set(version_key, 1, timeout=None)
         logger.info(f"Policy cache invalidated for tenant {tenant_id}")
 
-    def _merge_policies(self, policy_layers: List[List[Policy]]) -> List[Policy]:
+    def _merge_policies(self,
+                        policy_layers: List[List[Policy]]) -> List[Policy]:
         """
         Merge policies from different scopes.
         Later layers override earlier ones for same policy_type.
@@ -249,7 +275,8 @@ class PolicyEngine:
         # Preserve the complete taxonomy decision context in traces and
         # incident evidence. Unsupported labels remain visible to operators;
         # only canonical/tenant-approved labels participate in selection.
-        context['taxonomy'] = (endpoint.metadata or {}).get('taxonomy', {'supported': [], 'unsupported': []})
+        context['taxonomy'] = (endpoint.metadata or {}).get(
+            'taxonomy', {'supported': [], 'unsupported': []})
 
         policies = self.get_effective_policies(
             endpoint, user_id, policy_types=['output_filter'] if action == 'llm:response' else None,
@@ -259,20 +286,39 @@ class PolicyEngine:
         allowed = True
         denial_reason = None
         warnings = []
-        coverage_counts = {'enforced': 0, 'observation_only': 0, 'unsupported': 0}
+        coverage_counts = {
+            'enforced': 0,
+            'observation_only': 0,
+            'unsupported': 0}
 
         for policy in policies:
             if policy.enforcement == Policy.Enforcement.DISABLED:
                 continue
 
-            selectors = policy.config.get('taxonomy_selectors') if isinstance(policy.config, dict) else None
-            if selectors is not None and (not isinstance(selectors, list) or
-                                           not all(isinstance(item, str) and ':' in item for item in selectors)):
-                message = f"Policy {policy.name} has malformed taxonomy selectors"
-                results.append({'id': str(policy.id), 'version': policy.version, 'name': policy.name,
-                                'type': policy.policy_type, 'result': 'fail', 'message': message,
-                                'matched_selectors': selectors if isinstance(selectors, list) else [],
-                                'coverage': 'enforced' if policy.enforcement == Policy.Enforcement.ENFORCE else 'observation_only'})
+            selectors = policy.config.get('taxonomy_selectors') if isinstance(
+                policy.config, dict) else None
+            if selectors is not None and (
+                not isinstance(
+                    selectors,
+                    list) or not all(
+                    isinstance(
+                    item,
+                    str) and ':' in item for item in selectors)):
+                message = f"Policy {
+                    policy.name} has malformed taxonomy selectors"
+                results.append(
+                    {
+                        'id': str(
+                            policy.id),
+                        'version': policy.version,
+                        'name': policy.name,
+                        'type': policy.policy_type,
+                        'result': 'fail',
+                        'message': message,
+                        'matched_selectors': selectors if isinstance(
+                            selectors,
+                            list) else [],
+                        'coverage': 'enforced' if policy.enforcement == Policy.Enforcement.ENFORCE else 'observation_only'})
                 if policy.enforcement == Policy.Enforcement.ENFORCE and not dry_run:
                     allowed = False
                     denial_reason = message
@@ -290,10 +336,17 @@ class PolicyEngine:
                                'observation_only')
             coverage_counts[coverage_status] += 1
             try:
-                result = evaluator.evaluate(policy, action, user_id, context, dry_run=dry_run)
+                result = evaluator.evaluate(
+                    policy, action, user_id, context, dry_run=dry_run)
             except Exception as exc:
-                logger.error("Evaluator %s raised exception: %s", policy.policy_type, exc)
-                result = PolicyResult(passed=False, message=f"Policy evaluation error: {policy.name}")
+                logger.error(
+                    "Evaluator %s raised exception: %s",
+                    policy.policy_type,
+                    exc)
+                result = PolicyResult(
+                    passed=False,
+                    message=f"Policy evaluation error: {
+                        policy.name}")
 
             results.append({
                 'id': str(policy.id),
@@ -318,7 +371,8 @@ class PolicyEngine:
                         f"(endpoint={endpoint.agent_id}, action={action}, user={user_id})"
                     )
                     if dry_run:
-                        warnings.append(f"[Dry-run] Would be denied: {policy.name}: {result.message}")
+                        warnings.append(
+                            f"[Dry-run] Would be denied: {policy.name}: {result.message}")
                 else:  # audit mode
                     warnings.append(f"[Audit] {policy.name}: {result.message}")
 
@@ -334,7 +388,8 @@ class PolicyEngine:
 
         from zentinelle.services.risk_scorer import RiskScorer
         scorer = RiskScorer()
-        risk_score, risk_factors = scorer.compute(action, context, results, warnings)
+        risk_score, risk_factors = scorer.compute(
+            action, context, results, warnings)
 
         evaluation_result = EvaluationResult(
             allowed=True if dry_run else allowed,
@@ -364,7 +419,8 @@ class PolicyEngine:
                     policies=policies,
                 )
             except Exception as exc:
-                logger.warning("incident_service._maybe_create_incident failed: %s", exc)
+                logger.warning(
+                    "incident_service._maybe_create_incident failed: %s", exc)
 
             # Notify on policy violation
             try:
@@ -441,13 +497,18 @@ class PolicyEngine:
                 Policy.PolicyType.MULTIMODAL_POLICY: MultimodalPolicyEvaluator(),
                 '_noop': NoOpEvaluator(),
             }
-        return PolicyEngine._evaluator_cache.get(policy_type, PolicyEngine._evaluator_cache['_noop'])
+        return PolicyEngine._evaluator_cache.get(
+            policy_type, PolicyEngine._evaluator_cache['_noop'])
 
     def _check_organization_budget(self, endpoint, context):
         """Compatibility check using effective scope and server-owned spend."""
         from zentinelle.services.budgets import current_spend, monthly_limit
-        for policy in self.get_effective_policies(endpoint, policy_types=['budget_limit']):
-            if policy.enforcement == 'enforce' and policy.config.get('hard_limit', True):
+        for policy in self.get_effective_policies(
+                endpoint, policy_types=['budget_limit']):
+            if policy.enforcement == 'enforce' and policy.config.get(
+                    'hard_limit', True):
                 if current_spend(policy) >= monthly_limit(policy):
-                    return {'allowed': False, 'reason': 'Monthly budget exceeded'}
+                    return {
+                        'allowed': False,
+                        'reason': 'Monthly budget exceeded'}
         return {'allowed': True}

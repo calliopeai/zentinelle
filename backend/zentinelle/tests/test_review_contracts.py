@@ -58,8 +58,9 @@ class ReviewContractTests(TestCase):
         self.assertFalse(verify_evidence_bundle(bundle, 'another-tenant')['valid'])
 
     def test_incident_evidence_includes_originating_correlation_chain(self):
-        from zentinelle.models import Event, Incident
         from django.utils import timezone
+
+        from zentinelle.models import Event, Incident
         event = Event.objects.create(
             tenant_id=TENANT, endpoint=self.endpoint, event_type='tool_call',
             event_category='audit', status='processed', correlation_id='corr-incident', occurred_at=timezone.now(),

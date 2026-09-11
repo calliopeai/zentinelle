@@ -15,8 +15,9 @@ from zentinelle.api.auth import (ZentinelleAPIKeyAuthentication,
 from zentinelle.api.serializers import EvaluateRequestSerializer
 from zentinelle.models import AgentEndpoint, Event
 from zentinelle.models.compliance import InteractionLog
+from zentinelle.services.boundary_contract import (build_contract,
+                                                   canonical_action)
 from zentinelle.services.content_capture import record_interaction
-from zentinelle.services.boundary_contract import build_contract, canonical_action
 
 logger = logging.getLogger(__name__)
 

@@ -1,12 +1,13 @@
-from decimal import Decimal
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from django.test import TestCase
 
 from zentinelle.models import BudgetAccount, BudgetCharge
-from zentinelle.services.budget_reconciliation import (cancel_charge, clear_provider_usage_verifiers,
-                                                        reconcile_charge, register_provider_usage_verifier)
+from zentinelle.services.budget_reconciliation import (
+    cancel_charge, clear_provider_usage_verifiers, reconcile_charge,
+    register_provider_usage_verifier)
 
 
 class BudgetReconciliationTests(TestCase):

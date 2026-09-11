@@ -44,7 +44,7 @@ from zentinelle.models.llm_provider_key import LLMProviderKey  # noqa: F401
 from zentinelle.models.model_registry import (AIModel, ModelUsageLog,
                                               OrganizationModelApproval,
                                               load_model_fixtures)
-from zentinelle.models.model_route_canary import ModelRouteCanary
+from zentinelle.models.model_route_canary import ModelRouteCanary  # noqa: F401
 # Notifications
 from zentinelle.models.notification import Notification, create_notification
 from zentinelle.models.policy import Policy, PolicyHistory, PolicyRevision
@@ -56,14 +56,14 @@ from zentinelle.models.release_qualification import ReleaseQualification
 # Compliance Report Export
 from zentinelle.models.reporting import Report
 from zentinelle.models.retention_outcome import RetentionOutcome
-from zentinelle.models.runtime_settings_revision import RuntimeSettingsRevision
-from zentinelle.models.runtime_settings_change import RuntimeSettingsChange
 # Retention Policies
 from zentinelle.models.retention_policy import (DataArchive, LegalHold,
                                                 RetentionPolicy)
 # Risk Management
 from zentinelle.models.risk import (Incident, IncidentComment,
                                     NotificationConfig, Risk)
+from zentinelle.models.runtime_settings_change import RuntimeSettingsChange
+from zentinelle.models.runtime_settings_revision import RuntimeSettingsRevision
 # System Prompt Library
 from zentinelle.models.system_prompt import (PromptCategory, PromptFavorite,
                                              PromptRating, PromptTag,

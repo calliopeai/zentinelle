@@ -175,19 +175,38 @@ def _hash_action(name: str, args: dict) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
-def _deny_model_route(message, *, tenant_id=None, provider='', model='', policy=None):
+def _deny_model_route(
+        message,
+        *,
+        tenant_id=None,
+        provider='',
+        model='',
+        policy=None):
     """Record a redacted route denial, then fail closed for the caller."""
     trace_id = str(uuid.uuid4())
     if tenant_id:
         try:
             from zentinelle.models import AuditLog
             AuditLog.log(
-                tenant_id=tenant_id, action='model_route.denied',
-                resource_type='model_route', resource_id=f'{provider}/{model}',
-                changes={'decision': 'deny'},
-                metadata={'trace_id': trace_id, 'provider': provider,
-                          'model': model, 'policy_id': str(getattr(policy, 'id', '') or ''),
-                          'policy_version': getattr(policy, 'version', None)},
+                tenant_id=tenant_id,
+                action='model_route.denied',
+                resource_type='model_route',
+                resource_id=f'{provider}/{model}',
+                changes={
+                    'decision': 'deny'},
+                metadata={
+                    'trace_id': trace_id,
+                    'provider': provider,
+                    'model': model,
+                    'policy_id': str(
+                        getattr(
+                            policy,
+                            'id',
+                            '') or ''),
+                    'policy_version': getattr(
+                        policy,
+                        'version',
+                        None)},
             )
         except Exception:
             logger.warning('Unable to audit model route denial', exc_info=True)
@@ -198,68 +217,118 @@ def _check_model_route(model: str, provider: str, tenant_id: str = None):
     """Fail closed for a model explicitly disabled or unavailable by admins."""
     from zentinelle.models import AIModel
     policy_versions = []
-    registered = AIModel.objects.filter(model_id=model, provider__slug=provider).first()
-    if registered and (not registered.is_available or registered.deprecated or not registered.enabled_for_chat):
-        _deny_model_route(f'Model route is disabled: {provider}/{model}', tenant_id=tenant_id, provider=provider, model=model)
+    registered = AIModel.objects.filter(
+        model_id=model, provider__slug=provider).first()
+    if registered and (
+            not registered.is_available or registered.deprecated or not registered.enabled_for_chat):
+        _deny_model_route(
+            f'Model route is disabled: {provider}/{model}',
+            tenant_id=tenant_id,
+            provider=provider,
+            model=model)
     if registered and tenant_id:
         from zentinelle.models import OrganizationModelApproval
-        approval = OrganizationModelApproval.objects.filter(tenant_id=tenant_id, model=registered).first()
+        approval = OrganizationModelApproval.objects.filter(
+            tenant_id=tenant_id, model=registered).first()
         if approval and not approval.is_usable:
-            _deny_model_route(f'Model route is not approved for tenant: {provider}/{model}', tenant_id=tenant_id, provider=provider, model=model)
+            _deny_model_route(
+                f'Model route is not approved for tenant: {provider}/{model}',
+                tenant_id=tenant_id,
+                provider=provider,
+                model=model)
     if tenant_id:
         # Provider calls can originate outside an AgentEndpoint (for example,
         # the portal assistant). Apply tenant organization model restrictions
         # here as the last boundary before credentials/provider access.
         from zentinelle.models import Policy
-        from zentinelle.services.evaluators.model_restriction import ModelRestrictionEvaluator
+        from zentinelle.services.evaluators.model_restriction import \
+            ModelRestrictionEvaluator
         for policy in Policy.objects.filter(
-            tenant_id=tenant_id, policy_type=Policy.PolicyType.MODEL_RESTRICTION,
-            enabled=True, scope_type=Policy.ScopeType.ORGANIZATION,
+            tenant_id=tenant_id,
+            policy_type=Policy.PolicyType.MODEL_RESTRICTION,
+            enabled=True,
+            scope_type=Policy.ScopeType.ORGANIZATION,
             enforcement=Policy.Enforcement.ENFORCE,
-        ).order_by('-priority', 'id'):
+        ).order_by(
+                '-priority',
+                'id'):
             try:
-                policy_versions.append({'id': str(policy.id), 'version': getattr(policy, 'version', None)})
+                policy_versions.append(
+                    {'id': str(policy.id), 'version': getattr(policy, 'version', None)})
                 result = ModelRestrictionEvaluator().evaluate(
-                    policy, 'llm:invoke', None, {'model': model, 'provider': provider}, dry_run=False,
-                )
+                    policy, 'llm:invoke', None, {
+                        'model': model, 'provider': provider}, dry_run=False, )
             except Exception:
-                _deny_model_route(f'Model route policy evaluation failed: {policy.id}', tenant_id=tenant_id, provider=provider, model=model, policy=policy)
+                _deny_model_route(
+                    f'Model route policy evaluation failed: {
+                        policy.id}',
+                    tenant_id=tenant_id,
+                    provider=provider,
+                    model=model,
+                    policy=policy)
             if not result.passed:
-                _deny_model_route(f'Model route denied by policy {policy.id}: {result.message}', tenant_id=tenant_id, provider=provider, model=model, policy=policy)
+                _deny_model_route(
+                    f'Model route denied by policy {
+                        policy.id}: {
+                        result.message}',
+                    tenant_id=tenant_id,
+                    provider=provider,
+                    model=model,
+                    policy=policy)
     if tenant_id:
         try:
             from zentinelle.models import AuditLog
             AuditLog.log(
-                tenant_id=tenant_id, action='model_route.allowed',
-                resource_type='model_route', resource_id=f'{provider}/{model}',
-                changes={'decision': 'allow'},
+                tenant_id=tenant_id,
+                action='model_route.allowed',
+                resource_type='model_route',
+                resource_id=f'{provider}/{model}',
+                changes={
+                    'decision': 'allow'},
                 metadata={
-                    'provider': provider, 'model': model,
-                    'registered_model_id': str(getattr(registered, 'id', '') or ''),
+                    'provider': provider,
+                    'model': model,
+                    'registered_model_id': str(
+                        getattr(
+                            registered,
+                            'id',
+                            '') or ''),
                     'policy_versions': policy_versions,
                 },
             )
         except Exception:
-            logger.warning('Unable to audit model route admission', exc_info=True)
+            logger.warning(
+                'Unable to audit model route admission',
+                exc_info=True)
 
 
-def _check_tool_route(tool_name: str, tool_args: dict, tenant_id: str,
-                      *, approval_token: str = '', user_id: str = '', endpoint_id: str = ''):
+def _check_tool_route(
+        tool_name: str,
+        tool_args: dict,
+        tenant_id: str,
+        *,
+        approval_token: str = '',
+        user_id: str = '',
+        endpoint_id: str = ''):
     """Authorize tool and exact arguments before any tool side effect."""
     if not tenant_id:
         raise RuntimeError('Tool execution requires a tenant')
     if not isinstance(tool_args, dict):
         raise RuntimeError('Tool execution arguments must be an object')
     from zentinelle.models import Policy
-    from zentinelle.services.evaluators.tool_permission import ToolPermissionEvaluator
+    from zentinelle.services.evaluators.tool_permission import \
+        ToolPermissionEvaluator
     policies = None
     if endpoint_id:
         from zentinelle.models import AgentEndpoint
-        endpoint = AgentEndpoint.objects.filter(tenant_id=tenant_id, id=endpoint_id).first()
+        endpoint = AgentEndpoint.objects.filter(
+            tenant_id=tenant_id, id=endpoint_id).first()
         if endpoint is None:
-            raise RuntimeError('Tool execution endpoint is not registered in this tenant')
+            raise RuntimeError(
+                'Tool execution endpoint is not registered in this tenant')
         from zentinelle.services.policy_engine import PolicyEngine
-        policies = PolicyEngine().get_effective_policies(endpoint, user_id=user_id or None, use_cache=False)
+        policies = PolicyEngine().get_effective_policies(
+            endpoint, user_id=user_id or None, use_cache=False)
         policies = [policy for policy in policies
                     if policy.policy_type == Policy.PolicyType.TOOL_PERMISSION and
                     policy.enforcement == Policy.Enforcement.ENFORCE and policy.enabled]
@@ -278,10 +347,23 @@ def _check_tool_route(tool_name: str, tool_args: dict, tenant_id: str,
                  '_endpoint_id': endpoint_id},
             )
         except Exception as exc:
-            _deny_model_route(f'Tool policy evaluation failed: {policy.id}', tenant_id=tenant_id, provider='tool', model=tool_name, policy=policy)
+            _deny_model_route(
+                f'Tool policy evaluation failed: {
+                    policy.id}',
+                tenant_id=tenant_id,
+                provider='tool',
+                model=tool_name,
+                policy=policy)
             raise exc
         if not result.passed:
-            _deny_model_route(f'Tool {tool_name} denied by policy {policy.id}: {result.message}', tenant_id=tenant_id, provider='tool', model=tool_name, policy=policy)
+            _deny_model_route(
+                f'Tool {tool_name} denied by policy {
+                    policy.id}: {
+                    result.message}',
+                tenant_id=tenant_id,
+                provider='tool',
+                model=tool_name,
+                policy=policy)
 
 
 async def agentic_chat(
@@ -364,7 +446,8 @@ async def agentic_chat(
     yield {'type': 'done'}
 
 
-def _resource_id_from_args(name: str, args: dict, result_obj: dict) -> tuple[str, str]:
+def _resource_id_from_args(name: str, args: dict,
+                           result_obj: dict) -> tuple[str, str]:
     """Pull (resource_type, resource_id) from a tool's args/result, best-effort."""
     a = args or {}
     r = result_obj if isinstance(result_obj, dict) else {}
@@ -373,7 +456,9 @@ def _resource_id_from_args(name: str, args: dict, result_obj: dict) -> tuple[str
     if name in ('create_risk', 'update_risk', 'review_risk'):
         return ('risk', str(a.get('risk_id') or r.get('risk_id') or ''))
     if name in ('acknowledge_incident', 'resolve_incident'):
-        return ('incident', str(a.get('incident_id') or r.get('incident_id') or ''))
+        return (
+            'incident', str(
+                a.get('incident_id') or r.get('incident_id') or ''))
     if name == 'acknowledge_alert':
         return ('alert', str(a.get('alert_id') or r.get('alert_id') or ''))
     if name in ('run_compliance_check', 'generate_compliance_report'):
@@ -381,8 +466,12 @@ def _resource_id_from_args(name: str, args: dict, result_obj: dict) -> tuple[str
     return ('assistant_action', '')
 
 
-async def _execute_tool_with_audit(name: str, args: dict, tenant_id: str,
-                                   actor: Optional[str], endpoint_id: str = '') -> str:
+async def _execute_tool_with_audit(
+        name: str,
+        args: dict,
+        tenant_id: str,
+        actor: Optional[str],
+        endpoint_id: str = '') -> str:
     """Execute a tool and write an audit log entry for mutations."""
     from zentinelle.services.llm_tools import MUTATION_TOOLS, execute_tool
 
@@ -404,10 +493,18 @@ async def _execute_tool_with_audit(name: str, args: dict, tenant_id: str,
                 action=f'assistant.{name}',
                 resource_type=res_type,
                 resource_id=res_id,
-                resource_name=str(args.get('name', '') or '')[:255],
+                resource_name=str(
+                    args.get(
+                        'name',
+                        '') or '')[
+                    :255],
                 ext_user_id=actor or 'ai_assistant',
-                changes={'args': args},
-                metadata={'tool': name, 'success': bool(result_obj.get('success'))},
+                changes={
+                    'args': args},
+                metadata={
+                    'tool': name,
+                    'success': bool(
+                        result_obj.get('success'))},
             )
 
         try:
@@ -418,8 +515,12 @@ async def _execute_tool_with_audit(name: str, args: dict, tenant_id: str,
     return result_str
 
 
-async def _process_tool_calls(content_blocks: list, tenant_id: str,
-                              approved: set, actor: Optional[str], endpoint_id: str = ''):
+async def _process_tool_calls(
+        content_blocks: list,
+        tenant_id: str,
+        approved: set,
+        actor: Optional[str],
+        endpoint_id: str = ''):
     """Yield events for tool_use blocks. Returns list of tool_result blocks
     to send back to the model.
 
@@ -488,7 +589,8 @@ async def _process_tool_calls(content_blocks: list, tenant_id: str,
             'result': result_obj,
         }
 
-        nav = result_obj.get('navigation') if isinstance(result_obj, dict) else None
+        nav = result_obj.get('navigation') if isinstance(
+            result_obj, dict) else None
         if nav and isinstance(nav, dict):
             yield {
                 'type': 'navigation',
@@ -508,7 +610,13 @@ async def _process_tool_calls(content_blocks: list, tenant_id: str,
 def _format_action_preview(name: str, args: dict) -> str:
     """Short human-readable description of a pending action."""
     if name == 'create_policy':
-        return f"Create policy '{args.get('name', '?')}' ({args.get('policy_type', '?')})"
+        return f"Create policy '{
+            args.get(
+                'name',
+                '?')}' ({
+            args.get(
+                'policy_type',
+                '?')})"
     if name == 'update_policy':
         return f"Update policy {args.get('policy_id', '?')}"
     if name == 'create_risk':
@@ -603,7 +711,8 @@ async def _anthropic_tool_loop(messages, model, api_key, temperature,
                         block = blocks.get(idx)
                         if block and block.get('type') == 'tool_use':
                             try:
-                                block['input'] = json.loads(block['input'] or '{}')
+                                block['input'] = json.loads(
+                                    block['input'] or '{}')
                             except json.JSONDecodeError:
                                 block['input'] = {}
                     elif et == 'message_delta':
@@ -658,7 +767,8 @@ def _openai_token_param(model: str) -> str:
     if m.startswith(('o1', 'o3', 'o4')):
         return 'max_completion_tokens'
     # GPT-5 family and newer
-    if m.startswith(('gpt-5', 'gpt-6', 'gpt-7')) or m.startswith('chat-latest'):
+    if m.startswith(('gpt-5', 'gpt-6', 'gpt-7')
+                    ) or m.startswith('chat-latest'):
         return 'max_completion_tokens'
     return 'max_tokens'
 
@@ -679,7 +789,8 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
         _openai_token_param(model) if provider == 'openai' else 'max_tokens'
     )
 
-    # OpenAI tool schema: {type: function, function: {name, description, parameters}}
+    # OpenAI tool schema: {type: function, function: {name, description,
+    # parameters}}
     openai_tools = [
         {
             'type': 'function',
@@ -729,7 +840,8 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
                     body_txt = ''
                     try:
                         body_bytes = await resp.aread()
-                        body_txt = body_bytes.decode('utf-8', errors='ignore')[:500]
+                        body_txt = body_bytes.decode(
+                            'utf-8', errors='ignore')[:500]
                     except Exception:
                         pass
                     if resp.status_code == 404:
@@ -744,8 +856,8 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
                         provider, resp.status_code, model, body_txt,
                     )
                     raise RuntimeError(
-                        f"{provider} rejected request ({resp.status_code}): {body_txt}"
-                    )
+                        f"{provider} rejected request ({
+                            resp.status_code}): {body_txt}")
                 async for line in resp.aiter_lines():
                     if not line.startswith('data: '):
                         continue
@@ -838,15 +950,17 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
 
             # Treat model-supplied tool arguments as untrusted content too;
             # reject instruction-shaped payloads before invoking any tool.
-            from zentinelle.services.assistant_guardrails import check_untrusted_content
-            argument_check = check_untrusted_content(json.dumps(args, default=str))
+            from zentinelle.services.assistant_guardrails import \
+                check_untrusted_content
+            argument_check = check_untrusted_content(
+                json.dumps(args, default=str))
             if not argument_check.allowed:
                 yield {'type': 'error', 'message': 'assistant_guardrail_denied'}
                 return
 
             yield {'type': 'tool_call', 'name': name, 'args': args, 'hash': action_hash}
             result_str = await _execute_tool_with_audit(
-            name, args, tenant_id, actor, endpoint_id
+                name, args, tenant_id, actor, endpoint_id
             )
             any_executed = True
             try:
@@ -858,7 +972,8 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
                 yield {'type': 'error', 'message': 'assistant_guardrail_denied'}
                 return
             yield {'type': 'tool_result', 'name': name, 'result': result_obj}
-            nav = result_obj.get('navigation') if isinstance(result_obj, dict) else None
+            nav = result_obj.get('navigation') if isinstance(
+                result_obj, dict) else None
             if nav and isinstance(nav, dict):
                 yield {
                     'type': 'navigation',
@@ -901,7 +1016,9 @@ def _sanitize_schema_for_gemini(schema):
             if k not in _GEMINI_SCHEMA_KEYS:
                 continue
             if k == 'properties' and isinstance(v, dict):
-                out[k] = {pk: _sanitize_schema_for_gemini(pv) for pk, pv in v.items()}
+                out[k] = {
+                    pk: _sanitize_schema_for_gemini(pv) for pk,
+                    pv in v.items()}
             elif k == 'items':
                 out[k] = _sanitize_schema_for_gemini(v)
             else:
@@ -988,7 +1105,8 @@ async def _gemini_tool_loop(messages, model, api_key, temperature,
                     body_txt = ''
                     try:
                         body_bytes = await resp.aread()
-                        body_txt = body_bytes.decode('utf-8', errors='ignore')[:500]
+                        body_txt = body_bytes.decode(
+                            'utf-8', errors='ignore')[:500]
                     except Exception:
                         pass
                     logger.warning(
@@ -996,8 +1114,8 @@ async def _gemini_tool_loop(messages, model, api_key, temperature,
                         resp.status_code, model, body_txt,
                     )
                     raise RuntimeError(
-                        f'google rejected request ({resp.status_code}): {body_txt}'
-                    )
+                        f'google rejected request ({
+                            resp.status_code}): {body_txt}')
                 async for line in resp.aiter_lines():
                     if not line.startswith('data: '):
                         continue
@@ -1071,8 +1189,10 @@ async def _gemini_tool_loop(messages, model, api_key, temperature,
                 })
                 continue
 
-            from zentinelle.services.assistant_guardrails import check_untrusted_content
-            argument_check = check_untrusted_content(json.dumps(args, default=str))
+            from zentinelle.services.assistant_guardrails import \
+                check_untrusted_content
+            argument_check = check_untrusted_content(
+                json.dumps(args, default=str))
             if not argument_check.allowed:
                 yield {'type': 'error', 'message': 'assistant_guardrail_denied'}
                 return
@@ -1095,7 +1215,8 @@ async def _gemini_tool_loop(messages, model, api_key, temperature,
                 yield {'type': 'error', 'message': 'assistant_guardrail_denied'}
                 return
             yield {'type': 'tool_result', 'name': name, 'result': result_obj}
-            nav = result_obj.get('navigation') if isinstance(result_obj, dict) else None
+            nav = result_obj.get('navigation') if isinstance(
+                result_obj, dict) else None
             if nav and isinstance(nav, dict):
                 yield {
                     'type': 'navigation',

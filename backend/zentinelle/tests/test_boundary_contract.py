@@ -3,7 +3,9 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from zentinelle.services.boundary_contract import build_contract, canonical_action, evaluate_boundary
+from zentinelle.services.boundary_contract import (build_contract,
+                                                   canonical_action,
+                                                   evaluate_boundary)
 
 
 class BoundaryContractTests(SimpleTestCase):

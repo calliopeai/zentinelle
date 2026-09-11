@@ -86,7 +86,8 @@ class AssistantExecuteToolView(APIView):
         # Tool arguments are model supplied and remain untrusted even after a
         # human approves the exact argument digest. Reject instruction-shaped
         # payloads before looking up or consuming the approval.
-        from zentinelle.services.assistant_guardrails import check_untrusted_content
+        from zentinelle.services.assistant_guardrails import \
+            check_untrusted_content
         argument_check = check_untrusted_content(json.dumps(args, default=str))
         if not argument_check.allowed:
             try:

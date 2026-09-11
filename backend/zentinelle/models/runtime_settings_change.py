@@ -1,5 +1,6 @@
 """Reviewable tenant runtime settings changes."""
 import uuid
+
 from django.db import models
 from django.utils import timezone
 

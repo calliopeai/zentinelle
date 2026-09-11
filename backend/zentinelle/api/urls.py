@@ -50,32 +50,34 @@ from django.urls import path
 from zentinelle.api.views import (AcknowledgeAlertView, AgentControlView,
                                   AgentSummaryView, AlertsListView,
                                   AsyncScanView, AuditChainVerifyView,
-                                  AuditExportView, ComplianceReportSummaryView,
-                                  ConfigView, DeregisterView,
-                                  ControlEvidenceView,
+                                  AuditExportView, BrocsControlMapView,
                                   BudgetShowbackView,
-                                  BrocsControlMapView,
+                                  ComplianceReportSummaryView, ConfigView,
+                                  ControlEvidenceView, DeregisterView,
                                   EffectivePolicyView, EvaluateView,
                                   EventsView, ExportComplianceReportCSVView,
-                                  ModelRouteCanaryRollbackView, ModelRouteCanaryView,
                                   ExportViolationsCSVView, HeartbeatView,
                                   IncidentCommentView, IncidentDetailView,
                                   IncidentEvidenceView, IncidentListView,
                                   LogInteractionView,
+                                  ModelRouteCanaryRollbackView,
+                                  ModelRouteCanaryView,
                                   PolicyChangeAcknowledgementView,
                                   PolicyChangeSetListView,
                                   PolicyChangeSetTransitionView,
-                                  PolicyCopilotDraftView,
                                   PolicyCopilotDiffView,
+                                  PolicyCopilotDraftView,
                                   PolicyCopilotExplainView,
                                   PolicyCopilotStageView,
                                   PolicyCopilotStatusView, PolicyDiffView,
-                                  PolicyHistoryListView, RegisterView,
+                                  PolicyHistoryListView, PrivacyEraseView,
+                                  PrivacyRestoreView, RegisterView,
                                   ReportCreateView, ReportDownloadView,
                                   ReportStatusView, ResolveAlertView,
-                                  RetentionStatusView, PrivacyEraseView, PrivacyRestoreView, RiskTrendView,
+                                  RetentionStatusView, RiskTrendView,
                                   ScanContentView, ScanResultView, SecretsView,
-                                  SystemPromptsView, TelemetryDeliveryHealthView,
+                                  SystemPromptsView,
+                                  TelemetryDeliveryHealthView,
                                   ViolationsListView)
 from zentinelle.api.views.approvals import ApprovalIssueView
 from zentinelle.api.views.assistant import (AssistantChatView,
@@ -90,10 +92,9 @@ from zentinelle.api.views.auth import (CSRFTokenView, LoginView, LogoutView,
 from zentinelle.api.views.health import HealthView, ReadyView
 from zentinelle.api.views.llm_provider_keys import (LLMProviderKeyDeleteView,
                                                     LLMProviderKeysView)
-from zentinelle.api.views.runtime_settings import (RuntimeSettingsChangesView,
-                                                    RuntimeSettingsChangeTransitionView,
-                                                    RuntimeSettingsRollbackView,
-                                                    RuntimeSettingsView)
+from zentinelle.api.views.runtime_settings import (
+    RuntimeSettingsChangesView, RuntimeSettingsChangeTransitionView,
+    RuntimeSettingsRollbackView, RuntimeSettingsView)
 from zentinelle.auth.oidc import OIDCCallbackView, OIDCLoginView
 
 app_name = 'zentinelle'

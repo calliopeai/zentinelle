@@ -4,7 +4,6 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MATRIX_PATH = REPO_ROOT / 'docs' / 'sdk-support-matrix.json'
 

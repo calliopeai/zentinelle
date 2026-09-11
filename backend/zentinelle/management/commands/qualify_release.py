@@ -1,6 +1,6 @@
 """Persist a release qualification result from CI evidence."""
-import json
 import hashlib
+import json
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError

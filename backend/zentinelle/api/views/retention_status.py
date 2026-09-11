@@ -11,7 +11,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from zentinelle.api.auth import get_tenant_id_from_request
-from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess, PortalAdminAccess
+from zentinelle.api.permissions import (PORTAL_AUTH, PortalAccess,
+                                        PortalAdminAccess)
 from zentinelle.models import Policy, RetentionOutcome
 from zentinelle.services.retention import verify_retention_manifest
 

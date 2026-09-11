@@ -5,7 +5,8 @@ from django.test import TestCase
 from django.utils import timezone
 
 from zentinelle.models import EventDeliveryOutbox
-from zentinelle.tasks.events import apply_event_projections, dispatch_event_outbox
+from zentinelle.tasks.events import (apply_event_projections,
+                                     dispatch_event_outbox)
 
 
 class EventOutboxDispatchTests(TestCase):

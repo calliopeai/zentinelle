@@ -73,7 +73,8 @@ def evaluate_boundary(*, endpoint, action, user_id='', context=None, dry_run=Fal
         normalized = canonical_action(action)
         contract = build_contract(endpoint=endpoint, action=normalized, user_id=user_id, context=supplied)
         if normalized in {'tool_call', 'retrieval'}:
-            from zentinelle.services.assistant_guardrails import check_untrusted_content
+            from zentinelle.services.assistant_guardrails import \
+                check_untrusted_content
             for key in ('tool_outputs', 'tool_result', 'rag_context', 'retrieved_content', 'content'):
                 value = supplied.get(key)
                 if value is None:

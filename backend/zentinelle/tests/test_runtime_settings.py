@@ -5,10 +5,10 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory
 
-from zentinelle.api.views.runtime_settings import (RuntimeSettingsChangesView,
-                                                    RuntimeSettingsChangeTransitionView,
-                                                    RuntimeSettingsRollbackView, RuntimeSettingsView)
-from zentinelle.models import RuntimeSettingsChange, RuntimeSettingsRevision, TenantConfig
+from zentinelle.api.views.runtime_settings import (
+    RuntimeSettingsChangesView, RuntimeSettingsChangeTransitionView,
+    RuntimeSettingsRollbackView, RuntimeSettingsView)
+from zentinelle.models import RuntimeSettingsRevision, TenantConfig
 
 
 class RuntimeSettingsRevisionTests(TestCase):

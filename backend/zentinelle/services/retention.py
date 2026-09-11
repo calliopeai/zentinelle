@@ -3,8 +3,8 @@ import hashlib
 import json
 import logging
 import os
-import tempfile
 import secrets
+import tempfile
 from contextlib import contextmanager
 from datetime import timedelta
 
@@ -38,7 +38,14 @@ def _secure_delete_archive(path):
         raise ValueError('Archive cryptographic erasure failed') from exc
 
 
-def signed_retention_manifest(tenant_id, entity, action, record_count=0, destination='', subject_id=None, archive_checksum=None):
+def signed_retention_manifest(
+        tenant_id,
+        entity,
+        action,
+        record_count=0,
+        destination='',
+        subject_id=None,
+        archive_checksum=None):
     """Create a tamper-evident manifest for an archive/preservation outcome."""
     from django.conf import settings
     from django.core import signing
@@ -54,7 +61,10 @@ def signed_retention_manifest(tenant_id, entity, action, record_count=0, destina
         manifest['subject_id'] = str(subject_id)
     if archive_checksum is not None:
         manifest['archive_checksum'] = str(archive_checksum)
-    signature = signing.dumps(manifest, key=settings.SECRET_KEY, salt='zentinelle-retention-v1')
+    signature = signing.dumps(
+        manifest,
+        key=settings.SECRET_KEY,
+        salt='zentinelle-retention-v1')
     digest = hashlib.sha256(signature.encode()).hexdigest()
     return {**manifest, 'signature': signature, 'digest': digest}
 
@@ -70,10 +80,19 @@ def verify_retention_manifest(manifest):
     if manifest.get('digest') != expected_digest:
         return False
     try:
-        payload = signing.loads(signature, key=settings.SECRET_KEY, salt='zentinelle-retention-v1')
+        payload = signing.loads(
+            signature,
+            key=settings.SECRET_KEY,
+            salt='zentinelle-retention-v1')
     except (signing.BadSignature, TypeError, ValueError):
         return False
-    required = ('tenant_id', 'entity_type', 'action', 'record_count', 'destination', 'created_at')
+    required = (
+        'tenant_id',
+        'entity_type',
+        'action',
+        'record_count',
+        'destination',
+        'created_at')
     if not all(payload.get(key) == manifest.get(key) for key in required):
         return False
     if 'subject_id' in manifest:
@@ -82,7 +101,8 @@ def verify_retention_manifest(manifest):
     elif 'subject_id' in payload:
         return False
     if 'archive_checksum' in manifest:
-        return payload.get('archive_checksum') == manifest.get('archive_checksum')
+        return payload.get('archive_checksum') == manifest.get(
+            'archive_checksum')
     return 'archive_checksum' not in payload
 
 
@@ -93,22 +113,33 @@ def expire_archive(manifest, tenant_id):
     the provider's authenticated lifecycle API rather than treating a URI as a
     filesystem path. Missing files are idempotent success after verification.
     """
-    if not verify_retention_manifest(manifest) or str(manifest.get('tenant_id')) != str(tenant_id):
+    if not verify_retention_manifest(manifest) or str(
+            manifest.get('tenant_id')) != str(tenant_id):
         raise ValueError('Invalid or cross-tenant retention manifest')
     destination = str(manifest.get('destination') or '')
     if destination.startswith('file://'):
         destination = destination[7:]
     if '://' in destination or not os.path.isabs(destination):
-        raise ValueError('Archive expiry requires an absolute local destination')
+        raise ValueError(
+            'Archive expiry requires an absolute local destination')
     _secure_delete_archive(destination)
-    return {'tenant_id': str(tenant_id), 'destination': destination, 'expired': True}
+    return {
+        'tenant_id': str(tenant_id),
+        'destination': destination,
+        'expired': True}
 
 
 @contextmanager
 def tenant_retention_lock(tenant_id):
     """Serialize hold changes with cleanup across the deployment's SQL schemas."""
     from django.db import connections, transaction
-    lock_id = int.from_bytes(hashlib.sha256(('retention:' + tenant_id).encode()).digest()[:8], 'big', signed=True)
+    lock_id = int.from_bytes(
+        hashlib.sha256(
+            ('retention:' +
+             tenant_id).encode()).digest()[
+            :8],
+        'big',
+        signed=True)
     with transaction.atomic(using='default'):
         with connections['default'].cursor() as cursor:
             cursor.execute('SELECT pg_advisory_xact_lock(%s)', [lock_id])
@@ -118,30 +149,49 @@ def tenant_retention_lock(tenant_id):
 def held(tenant_id):
     from zentinelle.models.retention_policy import LegalHold
     now = timezone.now()
-    # Scoped holds protect the entire tenant until record-level scope is proven.
-    return LegalHold.objects.filter(tenant_id=tenant_id, status='active', effective_date__lte=now).filter(
-        Q(expiration_date__isnull=True) | Q(expiration_date__gt=now)
-    ).exists()
+    # Scoped holds protect the entire tenant until record-level scope is
+    # proven.
+    return LegalHold.objects.filter(
+        tenant_id=tenant_id,
+        status='active',
+        effective_date__lte=now).filter(
+        Q(
+            expiration_date__isnull=True) | Q(
+                expiration_date__gt=now)).exists()
 
 
 def retention_decision(tenant_id, entity, default_days):
     from zentinelle.models import Policy
     from zentinelle.models.retention_policy import RetentionPolicy
-    config_key = {'events': 'event_retention_days', 'audit_logs': 'audit_log_retention_days',
-                  'interactions': 'interaction_retention_days', 'scans': 'scan_retention_days',
-                  'usage_data': 'usage_retention_days'}[entity]
+    config_key = {
+        'events': 'event_retention_days',
+        'audit_logs': 'audit_log_retention_days',
+        'interactions': 'interaction_retention_days',
+        'scans': 'scan_retention_days',
+        'usage_data': 'usage_retention_days'}[entity]
     days = []
-    for policy in Policy.objects.filter(tenant_id=tenant_id, policy_type='data_retention', enabled=True, enforcement='enforce'):
+    for policy in Policy.objects.filter(
+            tenant_id=tenant_id,
+            policy_type='data_retention',
+            enabled=True,
+            enforcement='enforce'):
         value = policy.config.get(config_key)
         if value is not None:
-            days.append(max(1, int(value), int(policy.config.get('minimum_retention_days', 0))))
+            days.append(max(1, int(value), int(
+                policy.config.get('minimum_retention_days', 0))))
     action = 'delete'
-    for policy in RetentionPolicy.objects.filter(tenant_id=tenant_id, enabled=True, entity_type__in=[entity, 'all']):
+    for policy in RetentionPolicy.objects.filter(
+        tenant_id=tenant_id,
+        enabled=True,
+        entity_type__in=[
+            entity,
+            'all']):
         days.append(max(1, policy.get_effective_retention_days()))
         if policy.expiration_action == 'archive' and policy.archive_location:
             action = 'archive'
         elif policy.expiration_action != 'delete':
-            # Never substitute deletion for an archive, anonymize or review request.
+            # Never substitute deletion for an archive, anonymize or review
+            # request.
             action = 'preserve_for_review'
     return max(days) if days else default_days, action
 
@@ -156,16 +206,19 @@ def _archive_destination(location, tenant_id, entity):
     if location.startswith('file://'):
         location = location[7:]
     if '://' in location or not os.path.isabs(location):
-        raise ValueError('archive_location must be an absolute local path or file:// URI')
+        raise ValueError(
+            'archive_location must be an absolute local path or file:// URI')
     os.makedirs(location, mode=0o750, exist_ok=True)
-    return os.path.join(location, f'{tenant_id}-{entity}-{timezone.now().strftime("%Y%m%dT%H%M%S%fZ")}.jsonl')
+    return os.path.join(
+        location, f'{tenant_id}-{entity}-{timezone.now().strftime("%Y%m%dT%H%M%S%fZ")}.jsonl')
 
 
 def _archive_records(records, location, tenant_id, entity):
     """Atomically persist records and return destination, digest and count."""
     destination = _archive_destination(location, tenant_id, entity)
     directory = os.path.dirname(destination)
-    fd, temporary = tempfile.mkstemp(prefix='.zentinelle-', suffix='.tmp', dir=directory, text=True)
+    fd, temporary = tempfile.mkstemp(
+        prefix='.zentinelle-', suffix='.tmp', dir=directory, text=True)
     digest = hashlib.sha256()
     count = 0
     try:
@@ -177,7 +230,12 @@ def _archive_records(records, location, tenant_id, entity):
                     if hasattr(value, 'isoformat'):
                         value = value.isoformat()
                     payload[field.name] = value
-                line = (json.dumps(payload, sort_keys=True, default=str) + '\n').encode('utf-8')
+                line = (
+                    json.dumps(
+                        payload,
+                        sort_keys=True,
+                        default=str) +
+                    '\n').encode('utf-8')
                 output.buffer.write(line)
                 digest.update(line)
                 count += 1
@@ -197,76 +255,123 @@ def _archive_records(records, location, tenant_id, entity):
 def enforce_retention():
     from zentinelle.models import AuditLog, Event
     from zentinelle.models.compliance import ContentScan, InteractionLog
-    from zentinelle.models.usage import UsageMetric
     from zentinelle.models.retention_policy import RetentionPolicy
+    from zentinelle.models.usage import UsageMetric
     from zentinelle.services.audit_chain import prune_audit_prefix
-    models = [(Event, 'events', 'occurred_at', 90), (AuditLog, 'audit_logs', 'timestamp', 365),
-              (InteractionLog, 'interactions', 'occurred_at', 90), (ContentScan, 'scans', 'created_at', 90), (UsageMetric, 'usage_data', 'occurred_at', 365)]
+    models = [
+        (Event,
+         'events',
+         'occurred_at',
+         90),
+        (AuditLog,
+         'audit_logs',
+         'timestamp',
+         365),
+        (InteractionLog,
+         'interactions',
+         'occurred_at',
+         90),
+        (ContentScan,
+         'scans',
+         'created_at',
+         90),
+        (UsageMetric,
+         'usage_data',
+         'occurred_at',
+         365)]
     from zentinelle.services.clickhouse_service import (
         disable_automatic_retention, retain_analytics, retention_tenants)
     analytics = disable_automatic_retention()
     tenants = retention_tenants(analytics)
     for model, *_ in models:
-        tenants.update(model.objects.order_by().values_list('tenant_id', flat=True).distinct())
+        tenants.update(
+            model.objects.order_by().values_list(
+                'tenant_id',
+                flat=True).distinct())
     from zentinelle.models import RetentionOutcome
+
     def alert_failure(tenant_id, entity, error):
         """Emit a minimal operator alert without copying retained content."""
         try:
             Event.objects.create(
-                tenant_id=tenant_id, event_type='retention_failure',
-                event_category=Event.Category.ALERT, status=Event.Status.PENDING,
-                payload={'entity_type': entity, 'reason': str(error)[:255]},
+                tenant_id=tenant_id,
+                event_type='retention_failure',
+                event_category=Event.Category.ALERT,
+                status=Event.Status.PENDING,
+                payload={
+                    'entity_type': entity,
+                    'reason': str(error)[
+                        :255]},
                 occurred_at=timezone.now(),
             )
         except Exception:
-            logger.warning('Unable to emit retention failure alert for %s/%s', tenant_id, entity, exc_info=True)
-    result = {'events_deleted': 0, 'audit_logs_deleted': 0, 'interactions_deleted': 0,
-              'scans_deleted': 0, 'usage_data_deleted': 0, 'tenants_failed': 0, 'tenants_held': 0, 'preserved_for_review': []}
+            logger.warning(
+                'Unable to emit retention failure alert for %s/%s',
+                tenant_id,
+                entity,
+                exc_info=True)
+    result = {
+        'events_deleted': 0,
+        'audit_logs_deleted': 0,
+        'interactions_deleted': 0,
+        'scans_deleted': 0,
+        'usage_data_deleted': 0,
+        'tenants_failed': 0,
+        'tenants_held': 0,
+        'preserved_for_review': []}
     for tenant in sorted(tenants):
         try:
             with tenant_retention_lock(tenant):
                 if held(tenant):
                     result['tenants_held'] += 1
-                    RetentionOutcome.objects.create(tenant_id=tenant, entity_type='all', status=RetentionOutcome.Status.HELD)
+                    RetentionOutcome.objects.create(
+                        tenant_id=tenant, entity_type='all', status=RetentionOutcome.Status.HELD)
                     continue
                 for model, entity, date_field, default in models:
                     days, action = retention_decision(tenant, entity, default)
                     cutoff = timezone.now() - timedelta(days=days)
-                    qs = model.objects.filter(tenant_id=tenant, **{date_field + '__lt': cutoff})
+                    qs = model.objects.filter(
+                        tenant_id=tenant, **{date_field + '__lt': cutoff})
                     if model is Event:
                         qs = qs.filter(status=Event.Status.PROCESSED)
                     if action == 'archive':
                         records = list(qs.order_by('pk'))
                         policy = RetentionPolicy.objects.filter(
-                            tenant_id=tenant, enabled=True, entity_type__in=[entity, 'all'],
-                            expiration_action='archive',
-                        ).exclude(archive_location='').order_by('-priority').first()
+                            tenant_id=tenant, enabled=True, entity_type__in=[
+                                entity, 'all'], expiration_action='archive', ).exclude(
+                            archive_location='').order_by('-priority').first()
                         try:
                             destination, checksum, archived_count = _archive_records(
-                                records, policy.archive_location, tenant, entity,
-                            )
-                            manifest = signed_retention_manifest(tenant, entity, 'archive', archived_count, destination,
-                                                                 archive_checksum=checksum)
+                                records, policy.archive_location, tenant, entity, )
+                            manifest = signed_retention_manifest(
+                                tenant, entity, 'archive', archived_count, destination, archive_checksum=checksum)
                             RetentionOutcome.objects.create(
-                                tenant_id=tenant, entity_type=entity,
+                                tenant_id=tenant,
+                                entity_type=entity,
                                 status=RetentionOutcome.Status.ARCHIVED,
-                                record_count=archived_count, manifest=manifest,
-                                manifest_digest=manifest['digest'], destination=destination,
+                                record_count=archived_count,
+                                manifest=manifest,
+                                manifest_digest=manifest['digest'],
+                                destination=destination,
                             )
                             if records:
                                 qs.delete()
                             continue
                         except Exception as exc:
                             RetentionOutcome.objects.create(
-                                tenant_id=tenant, entity_type=entity,
-                                status=RetentionOutcome.Status.FAILED, error=str(exc),
+                                tenant_id=tenant,
+                                entity_type=entity,
+                                status=RetentionOutcome.Status.FAILED,
+                                error=str(exc),
                             )
                             alert_failure(tenant, entity, exc)
                             result['tenants_failed'] += 1
                             continue
                     if action != 'delete':
-                        result['preserved_for_review'].append({'tenant_id': tenant, 'entity': entity})
-                        manifest = signed_retention_manifest(tenant, entity, action)
+                        result['preserved_for_review'].append(
+                            {'tenant_id': tenant, 'entity': entity})
+                        manifest = signed_retention_manifest(
+                            tenant, entity, action)
                         RetentionOutcome.objects.create(
                             tenant_id=tenant, entity_type=entity,
                             status=RetentionOutcome.Status.PRESERVED,
@@ -278,26 +383,45 @@ def enforce_retention():
                     if model is AuditLog:
                         deleted = prune_audit_prefix(tenant, cutoff)
                     else:
-                        qs = model.objects.filter(tenant_id=tenant, **{date_field + '__lt': cutoff})
+                        qs = model.objects.filter(
+                            tenant_id=tenant, **{date_field + '__lt': cutoff})
                         if model is Event:
                             qs = qs.filter(status=Event.Status.PROCESSED)
-                            # Audit-category events get at least the audit retention window.
-                            audit_days, audit_action = retention_decision(tenant, 'audit_logs', 365)
+                            # Audit-category events get at least the audit
+                            # retention window.
+                            audit_days, audit_action = retention_decision(
+                                tenant, 'audit_logs', 365)
                             audit_cutoff = timezone.now() - timedelta(days=max(days, audit_days))
-                            qs = qs.exclude(event_category='audit') | qs.filter(event_category='audit', occurred_at__lt=audit_cutoff) if audit_action == 'delete' else qs.exclude(event_category='audit')
+                            qs = qs.exclude(
+                                event_category='audit') | qs.filter(
+                                event_category='audit',
+                                occurred_at__lt=audit_cutoff) if audit_action == 'delete' else qs.exclude(
+                                event_category='audit')
                         deleted, _ = qs.delete()
                     result[entity + '_deleted'] += deleted
                     RetentionOutcome.objects.create(
-                        tenant_id=tenant, entity_type=entity,
-                        status=RetentionOutcome.Status.DELETED, record_count=deleted,
+                        tenant_id=tenant,
+                        entity_type=entity,
+                        status=RetentionOutcome.Status.DELETED,
+                        record_count=deleted,
                     )
                 if analytics is not None:
-                    event_days, event_action = retention_decision(tenant, 'events', 90)
-                    audit_days, audit_action = retention_decision(tenant, 'audit_logs', 365)
+                    event_days, event_action = retention_decision(
+                        tenant, 'events', 90)
+                    audit_days, audit_action = retention_decision(
+                        tenant, 'audit_logs', 365)
                     if event_action == audit_action == 'delete':
-                        retain_analytics(analytics, tenant, timezone.now() - timedelta(days=max(event_days, audit_days)))
+                        retain_analytics(
+                            analytics,
+                            tenant,
+                            timezone.now() -
+                            timedelta(
+                                days=max(
+                                    event_days,
+                                    audit_days)))
         except Exception:
-            logger.exception('Retention failed for tenant %s; remaining records preserved', tenant)
+            logger.exception(
+                'Retention failed for tenant %s; remaining records preserved', tenant)
             alert_failure(tenant, 'all', 'retention enforcement failed')
             result['tenants_failed'] += 1
     return result
