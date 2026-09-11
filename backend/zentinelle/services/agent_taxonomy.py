@@ -51,3 +51,19 @@ def inherit_taxonomy(parent, child):
         raise ValueError('child taxonomy cannot widen parent authority')
     return {'supported': sorted(parent_supported | child_supported),
             'unsupported': sorted(set((parent or {}).get('unsupported', [])) | set((child or {}).get('unsupported', [])), key=str)}
+
+
+def compose_taxonomy(*levels):
+    """Compose org/team/client/project/agent taxonomy levels in order.
+
+    Each level is inherited by the next one, so an authority widening at any
+    scope fails closed. Empty levels are retained as read-only boundaries;
+    callers can therefore pass sparse scope chains without changing the
+    security semantics.
+    """
+    result = {'supported': [], 'unsupported': []}
+    for level in levels:
+        if level is None:
+            continue
+        result = inherit_taxonomy(result, level)
+    return result

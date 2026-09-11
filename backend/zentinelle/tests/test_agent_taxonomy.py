@@ -2,7 +2,7 @@ from django.test import SimpleTestCase
 import json
 from pathlib import Path
 
-from zentinelle.services.agent_taxonomy import inherit_taxonomy, validate_taxonomy
+from zentinelle.services.agent_taxonomy import compose_taxonomy, inherit_taxonomy, validate_taxonomy
 
 
 class AgentTaxonomyTests(SimpleTestCase):
@@ -32,3 +32,12 @@ class AgentTaxonomyTests(SimpleTestCase):
         with self.assertRaisesRegex(ValueError, 'widen'):
             inherit_taxonomy(validate_taxonomy(['function:legal']),
                              validate_taxonomy(['authority:write']))
+
+    def test_composes_multiple_scopes_and_preserves_unsupported_tags(self):
+        result = compose_taxonomy(
+            validate_taxonomy(['function:customer_service', 'project:acme']),
+            validate_taxonomy(['service:legal', 'workspace:claims']),
+            validate_taxonomy(['mode:workflow']),
+        )
+        self.assertEqual(result['supported'], ['function:customer_service', 'mode:workflow', 'service:legal'])
+        self.assertEqual(result['unsupported'], ['project:acme', 'workspace:claims'])
