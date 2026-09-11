@@ -83,8 +83,9 @@ class AgentControlView(APIView):
             endpoint.save(update_fields=['status', 'api_key_hash', 'updated_at'])
         elif action == 'contain_tools':
             tools = payload.get('denied_tools')
-            if not isinstance(tools, list) or not all(isinstance(item, str) for item in tools):
-                return JsonResponse({'error': 'denied_tools must be a list of strings'}, status=400)
+            if (not isinstance(tools, list) or len(tools) > 200 or
+                    not all(isinstance(item, str) and 0 < len(item) <= 128 for item in tools)):
+                return JsonResponse({'error': 'denied_tools must be a bounded list of strings'}, status=400)
             metadata = {**(endpoint.metadata or {}), 'containment': {'denied_tools': sorted(set(tools))}}
             endpoint.metadata = metadata
             endpoint.save(update_fields=['metadata', 'updated_at'])

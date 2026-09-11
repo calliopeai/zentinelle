@@ -123,6 +123,13 @@ class DependableControlsTests(TestCase):
         self.assertTrue(AuditLog.objects.filter(tenant_id=TENANT, resource_id=str(self.endpoint.id),
                                                  metadata__emergency=True).exists())
 
+    def test_tool_containment_rejects_unbounded_entries(self):
+        assign_role(self.user, ROLE_ADMIN)
+        self.client.force_login(self.user)
+        response = self.client.post(API + f'agents/{self.endpoint.agent_id}/control',
+                                    {'action': 'contain_tools', 'denied_tools': ['x' * 129]}, format='json')
+        self.assertEqual(response.status_code, 400)
+
     def test_agent_control_detail_exposes_containment_and_decision_traces(self):
         from zentinelle.models import AuditLog
         assign_role(self.user, ROLE_ADMIN)
