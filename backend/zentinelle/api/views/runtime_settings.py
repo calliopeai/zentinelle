@@ -77,6 +77,15 @@ class RuntimeSettingsView(APIView):
             revision = current_revision + 1
             RuntimeSettingsRevision.objects.create(tenant_id=tenant_id, revision=revision, settings=config.settings,
                 actor_id=str(getattr(actor, 'pk', '') or ''), actor_name=str(getattr(actor, 'username', '') or ''))
+            try:
+                from zentinelle.models import AuditLog
+                AuditLog.log(tenant_id=tenant_id, action='runtime_settings.changed',
+                             resource_type='tenant_runtime_settings', resource_id=tenant_id,
+                             ext_user_id=str(getattr(actor, 'pk', '') or ''),
+                             changes={'keys': sorted(updates), 'revision': revision})
+            except Exception:
+                # Settings remain durable even if audit projection is unavailable.
+                pass
         return JsonResponse({'settings': {key: config.settings.get(key, factory()) for key, factory in SETTING_DEFAULTS.items()}, 'revision': revision})
 
 
