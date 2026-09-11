@@ -106,6 +106,10 @@ class PolicyChangeSetTransitionView(APIView):
                 from zentinelle.services.policy_rollout import \
                     promote_change_set
                 change = promote_change_set(change.id, tenant_id, actor=actor)
+            elif next_status == PolicyChangeSet.Status.ROLLED_BACK:
+                from zentinelle.services.policy_rollout import \
+                    rollback_change_set
+                change = rollback_change_set(change.id, tenant_id, actor=actor)
             else:
                 change.transition(next_status, actor=actor, validation=data.get('validation'))
         except ValueError as exc:

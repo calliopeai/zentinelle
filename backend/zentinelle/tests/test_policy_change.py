@@ -78,6 +78,24 @@ class PolicyChangeSetTests(TestCase):
         self.assertEqual(policy.config, {'allowed_models': ['gpt-5']})
         self.assertEqual(promoted.applied_snapshots[0]['snapshot']['version'], 1)
 
+    def test_rollback_restores_policy_and_advances_version(self):
+        policy = Policy.objects.create(
+            tenant_id='tenant-a', name='Models', policy_type='model_restriction', config={'allowed_models': ['gpt-4']}
+        )
+        self.change.changes = [{'policy_id': str(policy.id), 'config': {'allowed_models': ['gpt-5']}}]
+        self.change.base_versions = {str(policy.id): policy.version}
+        self.change.status = PolicyChangeSet.Status.APPROVED
+        self.change.save(update_fields=['changes', 'base_versions', 'status', 'updated_at'])
+
+        from zentinelle.services.policy_rollout import (promote_change_set,
+                                                        rollback_change_set)
+        promoted = promote_change_set(self.change.id, 'tenant-a', actor='operator')
+        rolled_back = rollback_change_set(promoted.id, 'tenant-a', actor='admin')
+        policy.refresh_from_db()
+        self.assertEqual(rolled_back.status, PolicyChangeSet.Status.ROLLED_BACK)
+        self.assertEqual(policy.config, {'allowed_models': ['gpt-4']})
+        self.assertEqual(policy.version, 3)
+
 
 class PolicyChangeSetAPITests(TestCase):
     def setUp(self):

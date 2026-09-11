@@ -7,7 +7,7 @@ _MUTABLE_FIELDS = {
     'name', 'description', 'policy_type', 'config', 'priority', 'enabled',
     'enforcement', 'scope_type', 'scope_sub_organization_id_ext',
     'scope_deployment_id_ext', 'scope_user_id_ext', 'override_group',
-    'non_overridable',
+    'non_overridable', 'scope_endpoint_id',
 }
 
 
@@ -84,4 +84,38 @@ def promote_change_set(change_id, tenant_id, actor=''):
 
     change.applied_snapshots = snapshots
     change.transition(PolicyChangeSet.Status.PROMOTED, actor=actor)
+    return change
+
+
+@transaction.atomic
+def rollback_change_set(change_id, tenant_id, actor=''):
+    """Restore pre-promotion fields for a promoted change set."""
+    change = PolicyChangeSet.objects.select_for_update().get(
+        id=change_id, tenant_id=tenant_id,
+    )
+    if change.status != PolicyChangeSet.Status.PROMOTED:
+        raise ValueError('Only promoted policy changes can be rolled back')
+    if not isinstance(change.applied_snapshots, list) or not change.applied_snapshots:
+        raise ValueError('No promotion snapshots are available for rollback')
+
+    for entry in change.applied_snapshots:
+        policy_id = entry.get('policy_id')
+        if not entry.get('existed'):
+            Policy.objects.filter(id=policy_id, tenant_id=tenant_id).delete()
+            continue
+        snapshot = entry.get('snapshot') or {}
+        try:
+            policy = Policy.objects.select_for_update().get(
+                id=policy_id, tenant_id=tenant_id,
+            )
+        except Policy.DoesNotExist as exc:
+            raise ValueError(f'Policy {policy_id} is missing; rollback is incomplete') from exc
+        for key in _MUTABLE_FIELDS:
+            if key in snapshot:
+                setattr(policy, key, snapshot[key])
+        policy._changed_by = actor or change.created_by
+        policy._change_summary = f'Rolled back policy change set {change.id}'
+        policy.save()
+
+    change.transition(PolicyChangeSet.Status.ROLLED_BACK, actor=actor)
     return change
