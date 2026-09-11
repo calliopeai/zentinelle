@@ -47,6 +47,27 @@ def verify_retention_manifest(manifest):
     return all(payload.get(key) == manifest.get(key) for key in ('tenant_id', 'entity_type', 'action', 'record_count', 'destination', 'created_at'))
 
 
+def expire_archive(manifest, tenant_id):
+    """Delete one local archive only after tenant/signature verification.
+
+    Remote locations are intentionally unsupported here; an operator must use
+    the provider's authenticated lifecycle API rather than treating a URI as a
+    filesystem path. Missing files are idempotent success after verification.
+    """
+    if not verify_retention_manifest(manifest) or str(manifest.get('tenant_id')) != str(tenant_id):
+        raise ValueError('Invalid or cross-tenant retention manifest')
+    destination = str(manifest.get('destination') or '')
+    if destination.startswith('file://'):
+        destination = destination[7:]
+    if '://' in destination or not os.path.isabs(destination):
+        raise ValueError('Archive expiry requires an absolute local destination')
+    try:
+        os.unlink(destination)
+    except FileNotFoundError:
+        pass
+    return {'tenant_id': str(tenant_id), 'destination': destination, 'expired': True}
+
+
 @contextmanager
 def tenant_retention_lock(tenant_id):
     """Serialize hold changes with cleanup across the deployment's SQL schemas."""
