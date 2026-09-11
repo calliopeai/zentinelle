@@ -197,8 +197,16 @@ class AssistantModelsBulkView(APIView):
                 {'error': 'provider and enabled_ids are required'}, status=400
             )
 
+        if (not isinstance(enabled_ids, list) or len(enabled_ids) > 500 or
+                not all(isinstance(item, str) and 0 < len(item) <= 256 for item in enabled_ids)):
+            return JsonResponse({'error': 'enabled_ids must be a bounded list of model identifiers'}, status=400)
+
         enabled_set = set(enabled_ids)
         qs = AIModel.objects.filter(provider__slug=provider_slug)
+        known_ids = set(qs.values_list('model_id', flat=True))
+        unknown_ids = sorted(enabled_set - known_ids)
+        if unknown_ids:
+            return JsonResponse({'error': 'enabled_ids contains unknown models', 'models': unknown_ids[:20]}, status=400)
 
         updated = 0
         for m in qs:
