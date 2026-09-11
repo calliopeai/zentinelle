@@ -3,7 +3,8 @@ from django.http import JsonResponse
 from rest_framework.views import APIView
 
 from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
-from zentinelle.models import AuditLog, ControlEvidence, LLMProviderKey, Policy, TenantConfig
+from zentinelle.models import (AuditLog, ControlEvidence, LLMProviderKey, Policy,
+                               PolicyChangeSet, TenantConfig)
 from zentinelle.schema.auth_helpers import get_request_tenant_id
 
 
@@ -162,3 +163,31 @@ class PolicyCopilotDiffView(APIView):
         return JsonResponse({'policy_id': policy_id or None, 'before': before, 'after': after,
                              'changed_fields': changed, 'impacted_agent_count': impacted,
                              'mutated': False, 'next_step': 'Submit through staged policy workflow'})
+
+
+class PolicyCopilotStageView(APIView):
+    """Turn a reviewed draft into a normal staged-workflow change set."""
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
+
+    def post(self, request):
+        tenant_id = get_request_tenant_id(request.user) or ''
+        config = TenantConfig.objects.filter(tenant_id=tenant_id).first()
+        if not (config and (config.settings or {}).get('policy_copilot_enabled', False)):
+            return JsonResponse({'error': 'Policy copilot is disabled'}, status=403)
+        payload = request.data if isinstance(request.data, dict) else {}
+        draft = payload.get('draft')
+        if not isinstance(draft, dict) or draft.get('policy_type') not in {choice[0] for choice in Policy.PolicyType.choices}:
+            return JsonResponse({'error': 'A valid structured draft is required'}, status=400)
+        actor = str(getattr(request.user, 'pk', '') or getattr(request.user, 'username', '') or 'operator')
+        change = PolicyChangeSet.objects.create(
+            tenant_id=tenant_id, title=str(payload.get('title') or 'Policy copilot draft')[:255],
+            description='Created by policy copilot; requires normal validation and approval.',
+            changes=[draft], created_by=actor,
+            target_selectors=draft.get('target_selectors', {}) if isinstance(draft.get('target_selectors', {}), dict) else {},
+        )
+        AuditLog.objects.create(tenant_id=tenant_id, ext_user_id=actor, action=AuditLog.Action.ACCESS,
+                                resource_type='policy_copilot', resource_id=str(change.id),
+                                metadata={'operation': 'stage', 'mutated_live_policy': False})
+        return JsonResponse({'change_id': str(change.id), 'status': change.status,
+                             'mutated_live_policy': False, 'next_step': 'Validate, stage, approve, and promote through policy workflow'}, status=201)

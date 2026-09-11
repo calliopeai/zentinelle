@@ -32,8 +32,9 @@ from zentinelle.api.views.policy_change import (
     PolicyChangeAcknowledgementView, PolicyChangeSetListView,
     PolicyChangeSetTransitionView)
 from zentinelle.api.views.policy_copilot import (PolicyCopilotDiffView,
-                                                 PolicyCopilotDraftView,
-                                                 PolicyCopilotExplainView,
+                                                PolicyCopilotDraftView,
+                                                PolicyCopilotExplainView,
+                                                 PolicyCopilotStageView,
                                                  PolicyCopilotStatusView)
 from zentinelle.api.views.policy_history import (PolicyDiffView,
                                                  PolicyHistoryListView)
@@ -88,6 +89,7 @@ __all__ = [
     'PolicyCopilotStatusView',
     'PolicyCopilotDraftView',
     'PolicyCopilotDiffView',
+    'PolicyCopilotStageView',
     'PolicyCopilotExplainView',
     'PolicyDiffView',
     # Incidents

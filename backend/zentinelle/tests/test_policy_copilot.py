@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from zentinelle.api.views.policy_copilot import PolicyCopilotDraftView
 from zentinelle.auth.roles import ROLE_OPERATOR, assign_role
-from zentinelle.models import Policy, TenantConfig
+from zentinelle.models import Policy, PolicyChangeSet, TenantConfig
 
 
 class PolicyCopilotDraftInferenceTests(SimpleTestCase):
@@ -40,3 +40,18 @@ class PolicyCopilotDiffAPITests(TestCase):
         self.assertIn('config', response.json()['changed_fields'])
         policy.refresh_from_db()
         self.assertEqual(policy.config, {'denied_tools': []})
+
+    def test_stage_creates_normal_change_set_without_promoting_live_policy(self):
+        user = get_user_model().objects.create_user('copilot-stager')
+        assign_role(user, ROLE_OPERATOR)
+        TenantConfig.objects.create(tenant_id='tenant-stage', settings={'policy_copilot_enabled': True})
+        client = APIClient()
+        client.force_authenticate(user=user)
+        with patch('zentinelle.api.views.policy_copilot.get_request_tenant_id', return_value='tenant-stage'):
+            response = client.post('/api/zentinelle/v1/policy-copilot/stage', {
+                'draft': {'policy_type': 'tool_permission', 'config': {'denied_tools': ['shell']}},
+            }, format='json')
+        self.assertEqual(response.status_code, 201)
+        change = PolicyChangeSet.objects.get(id=response.json()['change_id'])
+        self.assertEqual(change.status, PolicyChangeSet.Status.DRAFT)
+        self.assertFalse(Policy.objects.filter(tenant_id='tenant-stage').exists())
