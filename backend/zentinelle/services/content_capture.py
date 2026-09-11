@@ -44,20 +44,21 @@ def capture_text(value, tenant_id=None):
     return str(value or '') if mode == 'full' else redact_text(value)
 
 
-def capture_payload(value, tenant_id=None):
+def capture_payload(value, tenant_id=None, _mode=None):
+    mode = _mode or capture_mode(tenant_id)
     if isinstance(value, dict):
         result = {}
         for key, item in value.items():
             if key.lower() in SECRET_KEYS or key.startswith('_'):
                 continue
-            if key.lower() in CONTENT_KEYS and capture_mode(tenant_id) == 'metadata':
+            if key.lower() in CONTENT_KEYS and mode == 'metadata':
                 continue
-            result[key] = capture_payload(item, tenant_id)
+            result[key] = capture_payload(item, tenant_id, mode)
         return result
     if isinstance(value, list):
-        return [capture_payload(item, tenant_id) for item in value]
+        return [capture_payload(item, tenant_id, mode) for item in value]
     if isinstance(value, str):
-        return value if capture_mode(tenant_id) == 'full' else redact_text(value)
+        return value if mode == 'full' else redact_text(value)
     return value
 
 
