@@ -417,7 +417,12 @@ func TestPolicyCheckRequestFormat(t *testing.T) {
 
 	// Use CheckPolicy directly
 	bgCtx := context.Background()
-	CheckPolicy(bgCtx, cfg, "sk_agent_test123", "openai", "gpt-4o")
+	CheckPolicy(bgCtx, cfg, "sk_agent_test123", "openai", "gpt-4o", map[string]interface{}{
+		"taxonomy": map[string]interface{}{
+			"supported":   []string{"authority:read_only", "function:customer_service", "mode:workflow"},
+			"unsupported": []string{},
+		},
+	})
 
 	// Verify request body structure
 	if receivedBody["action"] != "llm:invoke" {
@@ -433,6 +438,9 @@ func TestPolicyCheckRequestFormat(t *testing.T) {
 	}
 	if evalCtx["model"] != "gpt-4o" {
 		t.Errorf("context.model = %v, want %q", evalCtx["model"], "gpt-4o")
+	}
+	if _, ok := evalCtx["taxonomy"].(map[string]interface{}); !ok {
+		t.Errorf("context.taxonomy = %T, want object", evalCtx["taxonomy"])
 	}
 
 	// Verify headers
