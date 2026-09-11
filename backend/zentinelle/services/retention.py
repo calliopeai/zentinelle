@@ -10,6 +10,23 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
+def signed_retention_manifest(tenant_id, entity, action, record_count=0, destination=''):
+    """Create a tamper-evident manifest for an archive/preservation outcome."""
+    from django.conf import settings
+    from django.core import signing
+    manifest = {
+        'tenant_id': tenant_id,
+        'entity_type': entity,
+        'action': action,
+        'record_count': int(record_count),
+        'destination': destination,
+        'created_at': timezone.now().isoformat(),
+    }
+    signature = signing.dumps(manifest, key=settings.SECRET_KEY, salt='zentinelle-retention-v1')
+    digest = hashlib.sha256(signature.encode()).hexdigest()
+    return {**manifest, 'signature': signature, 'digest': digest}
+
+
 @contextmanager
 def tenant_retention_lock(tenant_id):
     """Serialize hold changes with cleanup across the deployment's SQL schemas."""
@@ -77,10 +94,13 @@ def enforce_retention():
                     days, action = retention_decision(tenant, entity, default)
                     if action != 'delete':
                         result['preserved_for_review'].append({'tenant_id': tenant, 'entity': entity})
+                        manifest = signed_retention_manifest(tenant, entity, action)
                         RetentionOutcome.objects.create(
                             tenant_id=tenant, entity_type=entity,
                             status=RetentionOutcome.Status.PRESERVED,
-                            manifest={'reason': 'retention_action_requires_external_preservation', 'action': action},
+                            manifest=manifest,
+                            manifest_digest=manifest['digest'],
+                            destination=manifest['destination'],
                         )
                         continue
                     cutoff = timezone.now() - timedelta(days=days)
