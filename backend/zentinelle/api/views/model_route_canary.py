@@ -1,6 +1,7 @@
 """Operator canary for the same model-route admission guard used at runtime."""
 import uuid
 
+from django.db import transaction
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -67,15 +68,16 @@ class ModelRouteCanaryRollbackView(APIView):
         tenant_id = get_request_tenant_id(request.user) or ''
         from zentinelle.models import ModelRouteCanary
         try:
-            record = ModelRouteCanary.objects.get(id=canary_id, tenant_id=tenant_id)
+            with transaction.atomic():
+                record = ModelRouteCanary.objects.select_for_update().get(id=canary_id, tenant_id=tenant_id)
+                if record.status == ModelRouteCanary.Status.ROLLED_BACK:
+                    return Response({'error': 'Canary is already rolled back'}, status=409)
+                actor = str(getattr(request.user, 'pk', '') or '')
+                record.status = ModelRouteCanary.Status.ROLLED_BACK
+                record.evidence = {**(record.evidence or {}), 'rollback': {'actor_id': actor}}
+                record.save(update_fields=['status', 'evidence'])
         except ModelRouteCanary.DoesNotExist:
             return Response({'error': 'Canary not found'}, status=404)
-        if record.status == ModelRouteCanary.Status.ROLLED_BACK:
-            return Response({'error': 'Canary is already rolled back'}, status=409)
-        actor = str(getattr(request.user, 'pk', '') or '')
-        record.status = ModelRouteCanary.Status.ROLLED_BACK
-        record.evidence = {**(record.evidence or {}), 'rollback': {'actor_id': actor}}
-        record.save(update_fields=['status', 'evidence'])
         try:
             from zentinelle.models import AuditLog
             AuditLog.log(tenant_id=tenant_id, action='model_route.rollback',
