@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 
 from zentinelle.api.auth import get_tenant_id_from_request
 from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
+from zentinelle.auth.roles import can_admin
 from zentinelle.models import PolicyChangeSet
 
 
@@ -90,6 +91,15 @@ class PolicyChangeSetTransitionView(APIView):
         next_status = data.get('status', '')
         if next_status not in PolicyChangeSet.Status.values:
             return Response({'detail': 'Unknown policy change status.'}, status=status.HTTP_400_BAD_REQUEST)
+        if next_status in (
+            PolicyChangeSet.Status.APPROVED,
+            PolicyChangeSet.Status.PROMOTED,
+            PolicyChangeSet.Status.ROLLED_BACK,
+        ) and not can_admin(request.user):
+            return Response(
+                {'detail': 'Administrator approval is required for this transition.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         actor = str(getattr(request.user, 'pk', '') or getattr(request.user, 'username', '') or 'operator')
         try:
             if next_status == PolicyChangeSet.Status.PROMOTED:

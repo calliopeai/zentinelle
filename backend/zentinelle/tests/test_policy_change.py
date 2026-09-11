@@ -121,3 +121,18 @@ class PolicyChangeSetAPITests(TestCase):
         response = PolicyChangeSetTransitionView.as_view()(request, change_id=uuid.UUID(str(change.id)))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['status'], PolicyChangeSet.Status.VALIDATED)
+
+    @patch('zentinelle.api.views.policy_change.get_tenant_id_from_request', return_value='tenant-a')
+    def test_operator_cannot_approve_or_promote(self, _tenant):
+        from zentinelle.api.views.policy_change import \
+            PolicyChangeSetTransitionView
+
+        change = PolicyChangeSet.objects.create(tenant_id='tenant-a', title='Draft')
+        request = self.factory.post(
+            '/policy-changes/transition',
+            data=json.dumps({'status': PolicyChangeSet.Status.APPROVED}),
+            content_type='application/json',
+        )
+        request.user = self.user
+        response = PolicyChangeSetTransitionView.as_view()(request, change_id=uuid.UUID(str(change.id)))
+        self.assertEqual(response.status_code, 403)
