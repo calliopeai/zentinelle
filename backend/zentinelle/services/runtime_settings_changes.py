@@ -21,6 +21,16 @@ def apply_change(change_id, tenant_id, *, actor=''):
             tenant_id=tenant_id, revision=revision, settings=config.settings,
             actor_id=actor, actor_name=actor,
         )
+        if {'discovery_refresh_seconds', 'assistant_provider', 'assistant_model', 'model_visibility'} & set(change.settings):
+            from zentinelle.services.llm_model_discovery import clear_cache
+            clear_cache(tenant_id=tenant_id)
+        # Runtime feature/authority changes should not leave policy decisions
+        # cached past the applied revision.
+        try:
+            from zentinelle.services.policy_engine import PolicyEngine
+            PolicyEngine().invalidate_cache(tenant_id)
+        except Exception:
+            pass
         change.applied_revision = revision
         change.transition(RuntimeSettingsChange.Status.APPLIED, actor=actor)
         try:
