@@ -169,6 +169,13 @@ def erase_tenant(tenant_id, *, actor='privacy-operator', subject_id=None):
             elif not os.path.isabs(destination):
                 raise RuntimeError('Archive destination must be absolute or a supported remote URI')
             else:
+                # Verify local archives before deleting any source rows. A
+                # missing or replaced path is an incomplete retention state,
+                # not proof that erasure succeeded.
+                if os.path.islink(destination):
+                    raise RuntimeError('Local archive cryptographic erasure requires a regular file')
+                if not os.path.isfile(destination):
+                    raise RuntimeError('Local archive is unavailable for erasure')
                 archive_plan.append((outcome, manifest, destination, None))
         counts = {}
         for model in models:
