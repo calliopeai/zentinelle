@@ -6,7 +6,8 @@ from unittest.mock import patch
 
 from zentinelle.api.views.policy_copilot import PolicyCopilotDraftView
 from zentinelle.auth.roles import ROLE_OPERATOR, assign_role
-from zentinelle.models import Policy, PolicyChangeSet, TenantConfig
+from zentinelle.models import LLMProviderKey, Policy, PolicyChangeSet, TenantConfig
+from zentinelle.api.views.policy_copilot import PolicyCopilotStatusView
 
 
 class PolicyCopilotDraftInferenceTests(SimpleTestCase):
@@ -30,6 +31,30 @@ class PolicyCopilotDraftInferenceTests(SimpleTestCase):
 
 
 class PolicyCopilotDiffAPITests(TestCase):
+    def test_status_is_disabled_without_flag_or_provider_entitlement(self):
+        user = get_user_model().objects.create_user('copilot-status')
+        assign_role(user, ROLE_OPERATOR)
+        TenantConfig.objects.create(tenant_id='tenant-status', settings={})
+        client = APIClient(); client.force_authenticate(user=user)
+        with patch('zentinelle.api.views.policy_copilot.get_request_tenant_id', return_value='tenant-status'):
+            response = client.get('/api/zentinelle/v1/policy-copilot/status')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()['enabled'])
+        self.assertFalse(response.json()['configured'])
+
+    def test_status_requires_active_assistant_provider_key(self):
+        user = get_user_model().objects.create_user('copilot-key-status')
+        assign_role(user, ROLE_OPERATOR)
+        TenantConfig.objects.create(tenant_id='tenant-key-status', settings={'policy_copilot_enabled': True})
+        LLMProviderKey.objects.create(tenant_id='tenant-key-status', provider='openai', encrypted_key=b'', enabled_for_assistant=True)
+        client = APIClient(); client.force_authenticate(user=user)
+        with patch('zentinelle.api.views.policy_copilot.get_request_tenant_id', return_value='tenant-key-status'):
+            response = client.get('/api/zentinelle/v1/policy-copilot/status')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()['enabled'])
+        self.assertTrue(response.json()['configured'])
+        self.assertFalse(response.json()['available'])
+
     def test_diff_is_tenant_scoped_and_non_mutating(self):
         user = get_user_model().objects.create_user('copilot-operator')
         assign_role(user, ROLE_OPERATOR)

@@ -30,6 +30,12 @@ def _prompt_audit_metadata(payload, *, operation, outcome='accepted'):
     return metadata
 
 
+def _has_assistant_key(tenant_id):
+    return any(bool(row.get_key()) for row in LLMProviderKey.objects.filter(
+        tenant_id=tenant_id, is_active=True, enabled_for_assistant=True,
+    )[:10])
+
+
 class PolicyCopilotStatusView(APIView):
     authentication_classes = PORTAL_AUTH
     permission_classes = [PortalAccess]
@@ -38,9 +44,7 @@ class PolicyCopilotStatusView(APIView):
         tenant_id = get_request_tenant_id(request.user) or ''
         config = TenantConfig.objects.filter(tenant_id=tenant_id).first()
         values = config.settings if config else {}
-        key_configured = LLMProviderKey.objects.filter(
-            tenant_id=tenant_id, is_active=True, enabled_for_assistant=True,
-        ).exists()
+        key_configured = _has_assistant_key(tenant_id)
         enabled = bool(values.get('policy_copilot_enabled', False))
         return JsonResponse({
             'enabled': enabled and key_configured,
@@ -65,7 +69,7 @@ class PolicyCopilotDraftView(APIView):
         values = config.settings if config else {}
         if not values.get('policy_copilot_enabled', False):
             return JsonResponse({'error': 'Policy copilot is disabled'}, status=403)
-        if not LLMProviderKey.objects.filter(tenant_id=tenant_id, is_active=True, enabled_for_assistant=True).exists():
+        if not _has_assistant_key(tenant_id):
             return JsonResponse({'error': 'Configure an active provider key before using the copilot'}, status=503)
         payload = request.data if isinstance(request.data, dict) else {}
         scope_error = _validate_scope(payload, tenant_id)
