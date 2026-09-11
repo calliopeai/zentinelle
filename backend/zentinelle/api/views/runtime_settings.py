@@ -61,6 +61,13 @@ class RuntimeSettingsView(APIView):
         unknown = sorted(set(updates) - set(SETTING_DEFAULTS))
         if unknown:
             return JsonResponse({'error': 'Unknown or unsafe settings', 'keys': unknown}, status=400)
+        if 'model_visibility' in updates and updates['model_visibility'] not in {'enabled_only', 'all_registered', 'approved_only'}:
+            return JsonResponse({'error': 'model_visibility must be enabled_only, all_registered, or approved_only'}, status=400)
+        if 'discovery_refresh_seconds' in updates and (not isinstance(updates['discovery_refresh_seconds'], int) or isinstance(updates['discovery_refresh_seconds'], bool) or not 300 <= updates['discovery_refresh_seconds'] <= 86400):
+            return JsonResponse({'error': 'discovery_refresh_seconds must be an integer from 300 to 86400'}, status=400)
+        for key, low, high in (('default_rate_limit_per_minute', 1, 100000), ('default_budget_cents', 0, 100000000)):
+            if key in updates and (not isinstance(updates[key], int) or isinstance(updates[key], bool) or not low <= updates[key] <= high):
+                return JsonResponse({'error': f'{key} must be an integer from {low} to {high}'}, status=400)
         if 'content_capture_mode' in updates and updates['content_capture_mode'] not in {'metadata', 'redacted', 'full'}:
             return JsonResponse({'error': 'content_capture_mode must be metadata, redacted, or full'}, status=400)
         if 'assistant_allowed_topics' in updates and not isinstance(updates['assistant_allowed_topics'], list):
@@ -80,13 +87,6 @@ class RuntimeSettingsView(APIView):
             return JsonResponse({'error': 'policy_copilot_enabled must be boolean'}, status=400)
         if 'control_approval_required' in updates and not isinstance(updates['control_approval_required'], bool):
             return JsonResponse({'error': 'control_approval_required must be boolean'}, status=400)
-        if 'discovery_refresh_seconds' in updates and (not isinstance(updates['discovery_refresh_seconds'], int) or isinstance(updates['discovery_refresh_seconds'], bool) or not 300 <= updates['discovery_refresh_seconds'] <= 86400):
-            return JsonResponse({'error': 'discovery_refresh_seconds must be an integer from 300 to 86400'}, status=400)
-        if 'model_visibility' in updates and updates['model_visibility'] not in {'enabled_only', 'all_registered', 'approved_only'}:
-            return JsonResponse({'error': 'model_visibility must be enabled_only, all_registered, or approved_only'}, status=400)
-        for key, low, high in (('default_rate_limit_per_minute', 1, 100000), ('default_budget_cents', 0, 100000000)):
-            if key in updates and (not isinstance(updates[key], int) or isinstance(updates[key], bool) or not low <= updates[key] <= high):
-                return JsonResponse({'error': f'{key} must be an integer from {low} to {high}'}, status=400)
         tenant_id = _tenant_id(request)
         expected = payload.get('expected_revision')
         actor = getattr(request, 'user', None)
@@ -151,6 +151,13 @@ class RuntimeSettingsChangesView(APIView):
         unknown = sorted(set(updates) - set(SETTING_DEFAULTS))
         if unknown:
             return JsonResponse({'error': 'Unknown or unsafe settings', 'keys': unknown}, status=400)
+        if 'model_visibility' in updates and updates['model_visibility'] not in {'enabled_only', 'all_registered', 'approved_only'}:
+            return JsonResponse({'error': 'model_visibility must be enabled_only, all_registered, or approved_only'}, status=400)
+        if 'discovery_refresh_seconds' in updates and (not isinstance(updates['discovery_refresh_seconds'], int) or isinstance(updates['discovery_refresh_seconds'], bool) or not 300 <= updates['discovery_refresh_seconds'] <= 86400):
+            return JsonResponse({'error': 'discovery_refresh_seconds must be an integer from 300 to 86400'}, status=400)
+        for key, low, high in (('default_rate_limit_per_minute', 1, 100000), ('default_budget_cents', 0, 100000000)):
+            if key in updates and (not isinstance(updates[key], int) or isinstance(updates[key], bool) or not low <= updates[key] <= high):
+                return JsonResponse({'error': f'{key} must be an integer from {low} to {high}'}, status=400)
         tenant_id = _tenant_id(request)
         latest = RuntimeSettingsRevision.objects.filter(tenant_id=tenant_id).order_by('-revision').first()
         actor = str(getattr(request.user, 'pk', '') or getattr(request.user, 'username', '') or 'operator')
