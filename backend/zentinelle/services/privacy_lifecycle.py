@@ -15,6 +15,8 @@ _REMOTE_ERASURE_ADAPTERS = {}
 def _secure_delete_file(path):
     """Best-effort cryptographic erasure for a local regular archive file."""
     try:
+        if os.path.islink(path) or not os.path.isfile(path):
+            raise RuntimeError('Local archive cryptographic erasure requires a regular file')
         size = os.path.getsize(path)
         with open(path, 'r+b', buffering=0) as archive:
             remaining = size

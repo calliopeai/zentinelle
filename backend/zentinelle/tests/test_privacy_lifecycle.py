@@ -105,3 +105,22 @@ class PrivacyLifecycleTests(TestCase):
         result = erase_tenant('tenant-a')
         self.assertEqual(result['archives_deleted'], 1)
         self.assertFalse(os.path.exists(path))
+
+    @patch('zentinelle.services.clickhouse_service._get_clickhouse_url', return_value='')
+    @patch('zentinelle.services.clickhouse_service.erase_tenant_analytics', return_value=False)
+    def test_archive_symlink_is_rejected_without_deleting_source_rows(self, _analytics, _url):
+        from zentinelle.models import RetentionOutcome
+        from zentinelle.services.retention import signed_retention_manifest
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False) as target:
+            target.write(b'outside archive')
+            target_path = target.name
+        link_path = target_path + '.link'
+        os.symlink(target_path, link_path)
+        self.addCleanup(lambda: os.path.exists(target_path) and os.unlink(target_path))
+        self.addCleanup(lambda: os.path.lexists(link_path) and os.unlink(link_path))
+        Event.objects.create(tenant_id='tenant-a', event_type='must-survive', occurred_at=timezone.now())
+        manifest = signed_retention_manifest('tenant-a', 'events', 'archive', 1, link_path)
+        RetentionOutcome.objects.create(tenant_id='tenant-a', entity_type='events', status='archived', manifest=manifest, destination=link_path)
+        with self.assertRaisesRegex(RuntimeError, 'regular file'):
+            erase_tenant('tenant-a')
+        self.assertEqual(Event.objects.filter(tenant_id='tenant-a', event_type='must-survive').count(), 1)
