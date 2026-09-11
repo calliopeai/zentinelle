@@ -74,7 +74,7 @@ def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-a
         if charge.reconciled_at:
             return charge
         provider_request_id = provider_usage.get('request_id')
-        if provider_request_id is not None and str(provider_request_id) != str(charge.request_id):
+        if not provider_request_id or str(provider_request_id) != str(charge.request_id):
             raise ValueError('Provider usage request_id does not match the reserved charge')
         verifier = _PROVIDER_USAGE_VERIFIERS.get(provider.strip().lower())
         if verifier is None or not verifier(provider_usage, tenant_id, str(charge.request_id)):

@@ -59,6 +59,14 @@ class BudgetReconciliationTests(TestCase):
         charge.refresh_from_db()
         self.assertIsNone(charge.reconciled_at)
 
+    def test_provider_request_id_is_required_for_reconciliation(self):
+        account = BudgetAccount.objects.create(tenant_id='tenant-a', policy_id_ext=uuid.uuid4(), period=date.today())
+        charge = BudgetCharge.objects.create(tenant_id='tenant-a', endpoint_id_ext=uuid.uuid4(), request_id='required-id', amount_usd=Decimal('1.00'), account_ids=[account.id])
+        with self.assertRaisesRegex(ValueError, 'request_id'):
+            reconcile_charge(charge.id, tenant_id='tenant-a', provider_usage={
+                'provider': 'fixture', 'attestation': 'trusted', 'billed_usd': '0.01',
+            })
+
     def test_non_finite_billing_and_unbounded_tokens_are_rejected(self):
         account = BudgetAccount.objects.create(tenant_id='tenant-a', policy_id_ext=uuid.uuid4(), period=date.today())
         charge = BudgetCharge.objects.create(tenant_id='tenant-a', endpoint_id_ext='00000000-0000-0000-0000-000000000002', request_id='req-bad', amount_usd=Decimal('1.00'), account_ids=[account.id])
