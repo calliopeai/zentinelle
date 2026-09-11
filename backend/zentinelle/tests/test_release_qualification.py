@@ -26,6 +26,18 @@ class ReleaseQualificationTests(TestCase):
         with self.assertRaisesRegex(ValueError, 'sha256 digest'):
             qualify_release(release_id='rel-bad-sbom', version='1.2.3', checks=checks, sbom_digest='sha256:bad')
 
+    def test_command_binds_digest_to_sbom_file(self):
+        checks = {name: True for name in ('migrations', 'auth', 'csrf', 'secret_rotation', 'dependency_scan', 'backup_restore', 'rollback')}
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt') as sbom, tempfile.NamedTemporaryFile(mode='w', suffix='.json') as artifact:
+            sbom.write('package==1.0\n'); sbom.flush()
+            import hashlib
+            with open(sbom.name, 'rb') as handle:
+                digest = 'sha256:' + hashlib.sha256(handle.read()).hexdigest()
+            json.dump({'checks': checks, 'sbom_digest': digest}, artifact); artifact.flush()
+            output = StringIO()
+            call_command('qualify_release', release_id='rel-file', release_version='1.2.3', checks_file=artifact.name, sbom_file=sbom.name, stdout=output)
+        self.assertIn('qualified', output.getvalue())
+
     def test_management_command_persists_ci_artifact(self):
         checks = {name: True for name in ('migrations', 'auth', 'csrf', 'secret_rotation', 'dependency_scan', 'backup_restore', 'rollback')}
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json') as artifact:

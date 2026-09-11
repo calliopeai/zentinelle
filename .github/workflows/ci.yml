@@ -107,7 +107,8 @@ jobs:
             --release-id "ci-${GITHUB_RUN_ID}" \
             --release-version "${GITHUB_SHA}" \
             --checks-file /tmp/zentinelle-release-checks.json \
-            --sbom-digest "$sbom_digest"
+            --sbom-digest "$sbom_digest" \
+            --sbom-file /tmp/zentinelle-sbom.txt
           cp /tmp/zentinelle-release-checks.json "release-qualification-${GITHUB_RUN_ID}.json"
           cp /tmp/zentinelle-sbom.txt "release-sbom-${GITHUB_RUN_ID}.txt"
         env:
