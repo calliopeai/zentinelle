@@ -87,6 +87,7 @@ jobs:
       - name: Qualify release and publish evidence
         working-directory: backend
         run: |
+          python manage.py migrate --no-input
           pip freeze --all | sort > /tmp/zentinelle-sbom.txt
           sbom_digest="sha256:$(sha256sum /tmp/zentinelle-sbom.txt | cut -d' ' -f1)"
           cat > /tmp/zentinelle-release-checks.json <<JSON
