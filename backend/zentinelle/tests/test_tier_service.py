@@ -10,23 +10,20 @@ Tests cover:
 
 These tests do not require database access and can run without Django setup.
 """
-import pytest
 from unittest.mock import Mock
 
-from zentinelle.services.tier_service import (
-    ZentinelleTierService,
-    ZentinelleTiers,
-    TierLimits,
-    zentinelle_tier_service,
-    TIER_FEATURES,
-    TIER_LIMITS,
-    FEATURE_REQUIRED_TIER,
-)
+import pytest
 
+from zentinelle.services.tier_service import (FEATURE_REQUIRED_TIER,
+                                              TIER_FEATURES, TIER_LIMITS,
+                                              TierLimits, ZentinelleTiers,
+                                              ZentinelleTierService,
+                                              zentinelle_tier_service)
 
 # =============================================================================
 # Tests for ZentinelleTiers class
 # =============================================================================
+
 
 class TestZentinelleTiers:
     """Tests for the ZentinelleTiers class."""

@@ -4,16 +4,12 @@ Hugging Face token management.
 Docs: https://huggingface.co/docs/hub/api#access-tokens
 """
 import logging
-import httpx
 from datetime import datetime
 
-from .base import (
-    BaseKeyManager,
-    ProviderKeyInfo,
-    KeyCreationError,
-    KeyRevocationError,
-    KeyManagerError,
-)
+import httpx
+
+from .base import (BaseKeyManager, KeyCreationError, KeyManagerError,
+                   KeyRevocationError, ProviderKeyInfo)
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +96,7 @@ class HuggingFaceKeyManager(BaseKeyManager):
                 key_value=data['token'],
                 name=name,
                 created_at=datetime.fromisoformat(data['createdAt'].replace('Z', '+00:00'))
-                    if 'createdAt' in data else None,
+                if 'createdAt' in data else None,
             )
 
         except KeyManagerError:

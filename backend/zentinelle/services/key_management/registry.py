@@ -4,27 +4,35 @@ Key manager registry and factory.
 Provides access to provider-specific key managers with feature gating.
 """
 import logging
-from typing import Type
+from typing import TYPE_CHECKING, Type
+
+from .anthropic_manager import AnthropicKeyManager
+from .base import BaseKeyManager, KeyNotSupportedError
+from .bedrock_manager import BedrockKeyManager
+from .fireworks_manager import FireworksKeyManager
+from .huggingface_manager import HuggingFaceKeyManager
+from .litellm_manager import LiteLLMKeyManager
+from .openai_manager import OpenAIKeyManager
+from .openrouter_manager import OpenRouterKeyManager
+from .together_manager import TogetherKeyManager
+
+if TYPE_CHECKING:
+    from zentinelle.models import ManagedAPIKey
+
 
 # TODO: decouple - billing features not available in standalone mode
 try:
-    from billing.features import Features, org_has_feature
     from billing.exceptions import FeatureNotAvailable
+    from billing.features import Features, org_has_feature
 except ImportError:
     Features = None
-    org_has_feature = lambda org, feature: True
+
+    def org_has_feature(org, feature):
+        return True
+
     class FeatureNotAvailable(Exception):
         pass
 
-from .base import BaseKeyManager, KeyNotSupportedError
-from .openai_manager import OpenAIKeyManager
-from .anthropic_manager import AnthropicKeyManager
-from .together_manager import TogetherKeyManager
-from .fireworks_manager import FireworksKeyManager
-from .bedrock_manager import BedrockKeyManager
-from .huggingface_manager import HuggingFaceKeyManager
-from .openrouter_manager import OpenRouterKeyManager
-from .litellm_manager import LiteLLMKeyManager
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +159,8 @@ def rotate_managed_key(
         Updated ManagedAPIKey instance
     """
     from django.utils import timezone
-    from zentinelle.models import ManagedAPIKey, KeyRotationLog
+
+    from zentinelle.models import KeyRotationLog, ManagedAPIKey
 
     organization = managed_key.ai_config.organization
 

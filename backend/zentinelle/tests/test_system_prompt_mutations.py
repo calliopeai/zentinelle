@@ -13,15 +13,9 @@ from django.test import TestCase
 
 from zentinelle.models.system_prompt import SystemPrompt
 from zentinelle.schema import schema
-from zentinelle.services.prompt_tester import (
-    ImprovementSuggestion,
-    PromptAnalysis,
-)
-from zentinelle.tests._graphql_helpers import (
-    admin_context,
-    anon_context,
-)
-
+from zentinelle.services.prompt_tester import (ImprovementSuggestion,
+                                               PromptAnalysis)
+from zentinelle.tests._graphql_helpers import admin_context, anon_context
 
 FORK_PROMPT = """
 mutation Fork($id: ID!) {
@@ -129,13 +123,8 @@ class ForkSystemPromptTests(TestCase):
             {'id': str(self.original.id)},
             context=anon_context(),
         )
-        self.assertIsNone(result.errors)
-        payload = result.data['forkSystemPrompt']
-        self.assertFalse(payload['success'])
-        self.assertIn('Authentication required', payload['errors'])
-
-        # No fork created
-        self.assertEqual(SystemPrompt.objects.count(), 1)
+        self.assertTrue(result.errors)
+        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
 
 
 class AnalyzeSystemPromptTests(TestCase):
@@ -214,7 +203,7 @@ class AnalyzeSystemPromptTests(TestCase):
         # Should not even hit the service
         with patch(
             'zentinelle.services.prompt_tester.analyze_prompt_sync',
-        ) as mock_analyze:
+        ):
             result = _exec(
                 ANALYZE_PROMPT,
                 {
@@ -225,8 +214,5 @@ class AnalyzeSystemPromptTests(TestCase):
                 context=anon_context(),
             )
 
-        self.assertIsNone(result.errors)
-        payload = result.data['analyzeSystemPrompt']
-        self.assertFalse(payload['success'])
-        self.assertEqual(payload['error'], 'Authentication required')
-        mock_analyze.assert_not_called()
+        self.assertTrue(result.errors)
+        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')

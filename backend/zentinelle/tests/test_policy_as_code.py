@@ -3,11 +3,10 @@ Tests for policy-as-code management commands.
 """
 import os
 import tempfile
+from unittest.mock import MagicMock, patch
+
 import yaml
-
 from django.test import SimpleTestCase
-from unittest.mock import patch, MagicMock
-
 
 VALID_POLICY_YAML = {
     'apiVersion': 'zentinelle.ai/v1',
@@ -63,9 +62,9 @@ class TestPolicyValidate(SimpleTestCase):
 
     def test_validate_invalid_policy_type_fails(self):
         """Document with unknown spec.type raises ValueError."""
-        from zentinelle.management.commands.policy_apply import _validate_doc
-
         import copy
+
+        from zentinelle.management.commands.policy_apply import _validate_doc
         doc = copy.deepcopy(VALID_POLICY_YAML)
         doc['spec']['type'] = 'not_a_real_policy_type'
 
@@ -80,8 +79,9 @@ class TestPolicyApply(SimpleTestCase):
     @patch('zentinelle.management.commands.policy_apply.Policy')
     def test_apply_creates_policy(self, mock_policy_cls):
         """policy_apply calls update_or_create with correct args."""
-        from django.core.management import call_command
         from io import StringIO
+
+        from django.core.management import call_command
 
         tmpdir = tempfile.mkdtemp()
         _write_yaml(tmpdir, 'model_restriction.yaml', VALID_POLICY_YAML)
@@ -105,8 +105,9 @@ class TestPolicyApply(SimpleTestCase):
     @patch('zentinelle.management.commands.policy_apply.Policy')
     def test_apply_dry_run_does_not_write(self, mock_policy_cls):
         """--dry-run prints what would happen but does not call update_or_create."""
-        from django.core.management import call_command
         from io import StringIO
+
+        from django.core.management import call_command
 
         tmpdir = tempfile.mkdtemp()
         _write_yaml(tmpdir, 'model_restriction.yaml', VALID_POLICY_YAML)
@@ -129,8 +130,9 @@ class TestPolicyExport(SimpleTestCase):
     @patch('zentinelle.management.commands.policy_export.Policy')
     def test_export_creates_yaml_files(self, mock_policy_cls):
         """policy_export writes one YAML file per policy."""
-        from django.core.management import call_command
         from io import StringIO
+
+        from django.core.management import call_command
 
         policy = MagicMock()
         policy.name = 'My Model Policy'

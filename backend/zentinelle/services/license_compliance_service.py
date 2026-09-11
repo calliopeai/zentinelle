@@ -11,13 +11,18 @@ Features:
 - Violation resolution workflow
 """
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
+
+if TYPE_CHECKING:
+    from zentinelle.models import (LicenseComplianceReport,
+                                   LicenseComplianceViolation)
+
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +97,10 @@ class LicenseComplianceService:
         - Agent registration count
         - Feature usage breakdown
         """
-        from zentinelle.models import (
-            License, LicensedUser, LicenseComplianceReport,
-            MonthlyUserCount
-        )
         from deployments.models import Deployment
+
+        from zentinelle.models import (License, LicenseComplianceReport,
+                                       LicensedUser, MonthlyUserCount)
 
         report = LicenseComplianceReport.objects.create(
             organization=organization,
@@ -220,9 +224,8 @@ class LicenseComplianceService:
         - Resolution status
         - Compliance trend over time
         """
-        from zentinelle.models import (
-            LicenseComplianceReport, LicenseComplianceViolation
-        )
+        from zentinelle.models import (LicenseComplianceReport,
+                                       LicenseComplianceViolation)
 
         report = LicenseComplianceReport.objects.create(
             organization=organization,
@@ -342,8 +345,9 @@ class LicenseComplianceService:
         - Feature access audit logs
         - Violation resolution history
         """
-        from zentinelle.models import LicenseComplianceReport, AuditLog
         from billing.audit import FeatureAccessAuditLog
+
+        from zentinelle.models import AuditLog, LicenseComplianceReport
 
         report = LicenseComplianceReport.objects.create(
             organization=organization,
@@ -449,10 +453,11 @@ class LicenseComplianceService:
         - License expiration
         - Feature usage authorization
         """
-        from zentinelle.models import (
-            License, LicensedUser, LicenseComplianceViolation, AgentEndpoint
-        )
         from deployments.models import Deployment
+
+        from zentinelle.models import (AgentEndpoint, License,
+                                       LicenseComplianceViolation,
+                                       LicensedUser)
 
         violations_found = []
 
@@ -710,8 +715,10 @@ class LicenseComplianceService:
 
         Returns current status without generating a full report.
         """
-        from zentinelle.models import License, LicensedUser, LicenseComplianceViolation
         from deployments.models import Deployment
+
+        from zentinelle.models import (License, LicenseComplianceViolation,
+                                       LicensedUser)
 
         license_obj = License.objects.filter(
             organization=organization,

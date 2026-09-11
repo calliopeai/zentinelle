@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_policy(
     pk=1,
     tenant_id='tenant-abc',

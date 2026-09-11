@@ -19,8 +19,8 @@ import logging
 from datetime import timedelta
 
 from celery import shared_task
-from django.utils import timezone
 from django.conf import settings
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,7 @@ def aggregate_daily_infrastructure_costs():
     Should be scheduled to run at 1 AM daily via Celery Beat.
     """
     from organization.models import Organization
+
     from zentinelle.models import CloudAccountConfig
     from zentinelle.services import CloudCostService
 
@@ -129,8 +130,9 @@ def send_infrastructure_costs_to_stripe_task(self, summary_id: str):
         summary_id: UUID of InfrastructureCostSummary
     """
     import stripe
-    from zentinelle.models import InfrastructureCostSummary
     from billing.models import Subscription
+
+    from zentinelle.models import InfrastructureCostSummary
 
     stripe.api_key = getattr(settings, 'STRIPE_SECRET_KEY', '')
     if not stripe.api_key:
@@ -217,15 +219,14 @@ def check_infrastructure_cost_alerts():
     Should be scheduled to run every 4 hours.
     """
     from decimal import Decimal
+
     from django.db.models import Avg, Sum
-    from zentinelle.models import (
-        InfrastructureCost,
-        CloudAccountConfig,
-        UsageAlert,
-    )
+
+    from zentinelle.models import (CloudAccountConfig, InfrastructureCost,
+                                   UsageAlert)
     from zentinelle.services import AlertService
 
-    service = AlertService()
+    AlertService()
     alerts_created = 0
 
     # Get recent hourly costs
@@ -269,7 +270,7 @@ def check_infrastructure_cost_alerts():
                         title=f"Infrastructure cost spike detected ({account.cloud_provider})",
                         message=(
                             f"Hourly infrastructure cost (${recent_cost:.2f}) is "
-                            f"{(recent_cost/avg_cost):.1f}x higher than the weekly average "
+                            f"{(recent_cost / avg_cost):.1f}x higher than the weekly average "
                             f"(${avg_cost:.2f}/hr)"
                         ),
                         details={

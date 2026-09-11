@@ -267,7 +267,7 @@ def _resource_id_from_args(name: str, args: dict, result_obj: dict) -> tuple[str
 async def _execute_tool_with_audit(name: str, args: dict, tenant_id: str,
                                    actor: Optional[str]) -> str:
     """Execute a tool and write an audit log entry for mutations."""
-    from zentinelle.services.llm_tools import (MUTATION_TOOLS, execute_tool)
+    from zentinelle.services.llm_tools import MUTATION_TOOLS, execute_tool
 
     result_str = await asyncio.to_thread(execute_tool, name, args, tenant_id)
 
@@ -308,7 +308,8 @@ async def _process_tool_calls(content_blocks: list, tenant_id: str,
     'pending_action' event instead of executing — and the tool result fed
     back to the model says "awaiting user approval".
     """
-    from zentinelle.services.llm_tools import REQUIRES_CONFIRMATION
+    from zentinelle.services.llm_tools import \
+        MUTATION_TOOLS as REQUIRES_CONFIRMATION
 
     tool_results = []
     for block in content_blocks:
@@ -320,7 +321,7 @@ async def _process_tool_calls(content_blocks: list, tenant_id: str,
         action_hash = _hash_action(tool_name, tool_args)
 
         needs_confirm = (
-            tool_name in REQUIRES_CONFIRMATION and action_hash not in approved
+            tool_name in REQUIRES_CONFIRMATION
         )
 
         if needs_confirm:
@@ -691,9 +692,10 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
             name = tc['name']
             action_hash = _hash_action(name, args)
 
-            from zentinelle.services.llm_tools import REQUIRES_CONFIRMATION
+            from zentinelle.services.llm_tools import \
+                MUTATION_TOOLS as REQUIRES_CONFIRMATION
             needs_confirm = (
-                name in REQUIRES_CONFIRMATION and action_hash not in approved
+                name in REQUIRES_CONFIRMATION
             )
 
             if needs_confirm:
@@ -795,7 +797,9 @@ async def _gemini_tool_loop(messages, model, api_key, temperature,
          may contain multiple functionCall parts, and they all get
          answered in one user turn full of functionResponse parts.
     """
-    from zentinelle.services.llm_tools import REQUIRES_CONFIRMATION, TOOL_SCHEMAS
+    from zentinelle.services.llm_tools import \
+        MUTATION_TOOLS as REQUIRES_CONFIRMATION
+    from zentinelle.services.llm_tools import TOOL_SCHEMAS
 
     function_declarations = [
         {
@@ -911,7 +915,7 @@ async def _gemini_tool_loop(messages, model, api_key, temperature,
             args = call['args'] or {}
             action_hash = _hash_action(name, args)
             needs_confirm = (
-                name in REQUIRES_CONFIRMATION and action_hash not in approved
+                name in REQUIRES_CONFIRMATION
             )
 
             if needs_confirm:

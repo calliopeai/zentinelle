@@ -8,12 +8,13 @@ import uuid
 from typing import Optional
 
 import strawberry
-from strawberry.scalars import JSON
 from graphql_relay import from_global_id
+from strawberry.scalars import JSON
 
-from zentinelle.models import Policy, AgentEndpoint
+from zentinelle.models import AgentEndpoint, Policy
+from zentinelle.schema.auth_helpers import (get_request_tenant_id,
+                                            user_has_org_access)
 from zentinelle.schema.types import PolicyType
-from zentinelle.schema.auth_helpers import get_request_tenant_id, user_has_org_access
 
 
 def _decode_id(global_or_raw_id):
@@ -38,7 +39,11 @@ class CreatePolicyInput:
     scope_type: Optional[str] = None
     scope_endpoint_id: Optional[strawberry.ID] = None
     scope_user_id: Optional[str] = None
+    scope_sub_organization_id: Optional[str] = None
+    scope_deployment_id: Optional[str] = None
     config: Optional[JSON] = None
+    override_group: Optional[str] = None
+    non_overridable: Optional[bool] = None
     priority: Optional[int] = None
     enforcement: Optional[str] = None
     enabled: Optional[bool] = None
@@ -50,6 +55,8 @@ class UpdatePolicyInput:
     name: Optional[str] = None
     description: Optional[str] = None
     config: Optional[JSON] = None
+    override_group: Optional[str] = None
+    non_overridable: Optional[bool] = None
     priority: Optional[int] = None
     enforcement: Optional[str] = None
     enabled: Optional[bool] = None
@@ -133,6 +140,8 @@ def create_policy(info: strawberry.types.Info, organization_id: uuid.UUID, input
         'description': input.description or '',
         'config': input.config or {},
         'priority': input.priority or 0,
+        'override_group': input.override_group or '',
+        'non_overridable': bool(input.non_overridable),
         'enabled': input.enabled if input.enabled is not None else True,
         'user_id': str(info.context.request.user.id) if info.context.request.user.is_authenticated else '',
     }
@@ -151,6 +160,11 @@ def create_policy(info: strawberry.types.Info, organization_id: uuid.UUID, input
 
     elif scope_type == Policy.ScopeType.USER and input.scope_user_id:
         policy_data['scope_user_id_ext'] = input.scope_user_id
+
+    if scope_type == Policy.ScopeType.SUB_ORGANIZATION:
+        policy_data['scope_sub_organization_id_ext'] = input.scope_sub_organization_id or ''
+    if scope_type == Policy.ScopeType.DEPLOYMENT:
+        policy_data['scope_deployment_id_ext'] = input.scope_deployment_id or ''
 
     if input.enforcement:
         valid_enforcement = [e.value for e in Policy.Enforcement]
@@ -185,6 +199,10 @@ def update_policy(info: strawberry.types.Info, input: UpdatePolicyInput) -> Upda
         policy.description = input.description
     if input.config:
         policy.config = input.config
+    if input.override_group is not None:
+        policy.override_group = input.override_group
+    if input.non_overridable is not None:
+        policy.non_overridable = input.non_overridable
     if input.priority is not None:
         policy.priority = input.priority
     if input.enabled is not None:
@@ -245,6 +263,8 @@ def duplicate_policy(info: strawberry.types.Info, id: strawberry.ID, new_name: O
         scope_user_id_ext=original.scope_user_id_ext,
         config=original.config.copy(),
         priority=original.priority,
+        override_group=original.override_group,
+        non_overridable=original.non_overridable,
         enforcement=original.enforcement,
         enabled=False,
     )

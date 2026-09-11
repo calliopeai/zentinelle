@@ -1,3 +1,4 @@
+import { CapabilityProvider } from "@/components/PermissionGuard";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -19,7 +20,8 @@ const INTERNAL_API_URL =
 // the console presented a synthetic superuser while the backend (correctly)
 // answered its unauthenticated queries with empty sets: a console that looks
 // signed in and shows nothing. Dev sets NEXT_PUBLIC_AUTH_MODE=open in .env.
-const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || "local";
+const AUTH_MODE =
+  process.env.AUTH_MODE || process.env.NEXT_PUBLIC_AUTH_MODE || "local";
 
 const OPEN_MODE_USER: SessionUser = {
   id: "0",
@@ -27,6 +29,7 @@ const OPEN_MODE_USER: SessionUser = {
   email: "",
   is_staff: true,
   is_superuser: true,
+  capabilities: ["view", "mutate", "admin"],
 };
 
 export default async function AppLayout({
@@ -37,18 +40,20 @@ export default async function AppLayout({
   // Open mode: skip auth entirely
   if (AUTH_MODE === "open") {
     return (
-      <SidebarProvider>
-        <AppSidebar ssrUser={OPEN_MODE_USER} />
-        <SidebarInset>
-          <PageHeader />
-          {children}
-        </SidebarInset>
-        <ChatBubble />
-        <DemoTour />
-        <Suspense fallback={null}>
-          <EmbedModeStyles />
-        </Suspense>
-      </SidebarProvider>
+      <CapabilityProvider user={OPEN_MODE_USER}>
+        <SidebarProvider>
+          <AppSidebar ssrUser={OPEN_MODE_USER} />
+          <SidebarInset>
+            <PageHeader />
+            {children}
+          </SidebarInset>
+          <ChatBubble />
+          <DemoTour />
+          <Suspense fallback={null}>
+            <EmbedModeStyles />
+          </Suspense>
+        </SidebarProvider>
+      </CapabilityProvider>
     );
   }
 
@@ -85,13 +90,15 @@ export default async function AppLayout({
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar ssrUser={ssrUser} />
-      <SidebarInset>
-        <PageHeader />
-        {children}
-      </SidebarInset>
-      <ChatBubble />
-    </SidebarProvider>
+    <CapabilityProvider user={ssrUser}>
+      <SidebarProvider>
+        <AppSidebar ssrUser={ssrUser} />
+        <SidebarInset>
+          <PageHeader />
+          {children}
+        </SidebarInset>
+        <ChatBubble />
+      </SidebarProvider>
+    </CapabilityProvider>
   );
 }

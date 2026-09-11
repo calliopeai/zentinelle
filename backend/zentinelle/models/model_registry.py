@@ -8,7 +8,9 @@ Organizations can maintain a registry of approved AI models with:
 - Cost tracking metadata
 """
 import uuid
+
 from django.db import models
+
 from zentinelle.models.base import Tracking
 
 

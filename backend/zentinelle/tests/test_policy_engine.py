@@ -1,17 +1,12 @@
 """
 Tests for the Policy Engine service.
 """
-from django.test import TestCase
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from zentinelle.models import (
-    AgentEndpoint,
-    Policy,
-)
-from zentinelle.services.policy_engine import (
-    PolicyEngine,
-    PolicyResult,
-)
+from django.test import TestCase
+
+from zentinelle.models import AgentEndpoint, Policy
+from zentinelle.services.policy_engine import PolicyEngine, PolicyResult
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 
@@ -54,8 +49,9 @@ class PolicyEngineTest(TestCase):
 
     def test_policy_inheritance_more_specific_wins(self):
         """Test that more specific scope overrides broader scope."""
-        org_policy = Policy.objects.create(
+        Policy.objects.create(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Org Rate Limit',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -65,6 +61,7 @@ class PolicyEngineTest(TestCase):
 
         endpoint_policy = Policy.objects.create(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Endpoint Rate Limit',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ENDPOINT,
@@ -87,6 +84,7 @@ class PolicyEngineTest(TestCase):
 
         Policy.objects.create(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Org Resource Quota',
             policy_type=Policy.PolicyType.RESOURCE_QUOTA,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -95,6 +93,7 @@ class PolicyEngineTest(TestCase):
 
         deploy_policy = Policy.objects.create(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Deploy Resource Quota',
             policy_type=Policy.PolicyType.RESOURCE_QUOTA,
             scope_type=Policy.ScopeType.DEPLOYMENT,
@@ -192,6 +191,7 @@ class PolicyEngineTest(TestCase):
         """Test that higher priority policies win within same scope."""
         Policy.objects.create(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Low Priority',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -200,6 +200,7 @@ class PolicyEngineTest(TestCase):
         )
         high_priority = Policy.objects.create(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='High Priority',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -399,6 +400,7 @@ class PolicyMergingTest(TestCase):
         """Test that later layers override earlier ones."""
         org_policy = Policy(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Org Policy',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -408,6 +410,7 @@ class PolicyMergingTest(TestCase):
 
         endpoint_policy = Policy(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Endpoint Policy',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ENDPOINT,

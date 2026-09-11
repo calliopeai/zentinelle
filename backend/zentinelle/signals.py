@@ -6,7 +6,7 @@ Django signals for Zentinelle.
 """
 import logging
 
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 logger = logging.getLogger(__name__)
@@ -120,7 +120,8 @@ def on_audit_log_created(sender, instance, created, **kwargs):
         return
 
     try:
-        from zentinelle.tasks.clickhouse_sync import stream_audit_log_to_clickhouse
+        from zentinelle.tasks.clickhouse_sync import \
+            stream_audit_log_to_clickhouse
         stream_audit_log_to_clickhouse.apply_async(
             args=[str(instance.id)],
             countdown=1,  # Small delay to ensure DB commit

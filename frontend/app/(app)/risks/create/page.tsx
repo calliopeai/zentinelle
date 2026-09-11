@@ -1,5 +1,7 @@
 "use client";
 
+import { withPermissionAuthenticationRequired } from "@/components/PermissionGuard";
+
 import { useRouter } from "next/navigation";
 import { useMutation } from "@apollo/client/react";
 import { useForm, Controller } from "react-hook-form";
@@ -81,7 +83,7 @@ const riskSchema = z.object({
 
 type RiskFormValues = z.infer<typeof riskSchema>;
 
-export default function CreateRiskPage() {
+function CreateRiskPage() {
   const router = useRouter();
   const [createRisk, { loading: submitting }] = useMutation<{
     createRisk: CreateRiskPayload;
@@ -332,3 +334,5 @@ export default function CreateRiskPage() {
     </div>
   );
 }
+
+export default withPermissionAuthenticationRequired(CreateRiskPage, "mutate");

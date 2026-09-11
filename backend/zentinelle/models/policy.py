@@ -1,9 +1,10 @@
 import uuid
 
 from django.db import models
-from zentinelle.models.base import Tracking
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+
+from zentinelle.models.base import Tracking
 
 
 class Policy(Tracking):
@@ -108,6 +109,10 @@ class Policy(Tracking):
 
     # Policy configuration (schema depends on policy_type)
     config = models.JSONField(default=dict)
+
+    # Distinct rules compose. Only an explicit override group participates in inheritance.
+    override_group = models.CharField(max_length=255, blank=True, default='')
+    non_overridable = models.BooleanField(default=False)
 
     # Behavior
     priority = models.IntegerField(
@@ -274,6 +279,13 @@ def create_policy_revision(sender, instance, created, **kwargs):
         'enabled': instance.enabled,
         'description': instance.description,
         'version': instance.version,
+        'scope_type': instance.scope_type,
+        'scope_sub_organization_id_ext': instance.scope_sub_organization_id_ext,
+        'scope_deployment_id_ext': instance.scope_deployment_id_ext,
+        'scope_endpoint_id': str(instance.scope_endpoint_id) if instance.scope_endpoint_id else None,
+        'scope_user_id_ext': instance.scope_user_id_ext,
+        'override_group': instance.override_group,
+        'non_overridable': instance.non_overridable,
     }
     PolicyHistory.objects.get_or_create(
         policy=instance,

@@ -6,15 +6,14 @@ DELETE /api/zentinelle/v1/settings/llm-providers/{provider} — remove a key
 Tenant-scoped, encrypted-at-rest provider API key storage.
 """
 import json
-import os
-from django.http import JsonResponse
-from django.views import View
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
 
+from django.http import JsonResponse
+from rest_framework.views import APIView
+
+from zentinelle.api.permissions import PORTAL_AUTH, PortalAdminAccess
+from zentinelle.auth.mode import is_open_mode
 from zentinelle.models import LLMProviderKey
 from zentinelle.schema.auth_helpers import get_request_tenant_id
-from zentinelle.auth.mode import is_open_mode
 
 
 def _resolve_tenant_id(request) -> str:
@@ -33,8 +32,9 @@ def _resolve_tenant_id(request) -> str:
     return tid or ''
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class LLMProviderKeysView(View):
+class LLMProviderKeysView(APIView):
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAdminAccess]
 
     def get(self, request):
         tenant_id = _resolve_tenant_id(request)
@@ -131,8 +131,9 @@ class LLMProviderKeysView(View):
         }, status=201 if created else 200)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class LLMProviderKeyDeleteView(View):
+class LLMProviderKeyDeleteView(APIView):
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAdminAccess]
 
     def delete(self, request, provider):
         tenant_id = _resolve_tenant_id(request)

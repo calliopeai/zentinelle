@@ -2,13 +2,11 @@
 Celery tasks for processing Zentinelle events.
 """
 import logging
+
 from celery import shared_task
 
-from zentinelle.services.event_store import (
-    EventEnvelope,
-    event_store,
-    dead_letter_queue,
-)
+from zentinelle.services.event_store import (EventEnvelope, dead_letter_queue,
+                                             event_store)
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +52,7 @@ def process_event_batch(self, event_ids: list[str], category: str):
 
 def _process_single_event(event):
     """Process a single event based on its type."""
-    from zentinelle.models import Event, AgentEndpoint
+    from zentinelle.models import AgentEndpoint, Event
 
     event_type = event.event_type
 

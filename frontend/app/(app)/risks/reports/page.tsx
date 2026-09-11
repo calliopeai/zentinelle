@@ -1,5 +1,8 @@
 "use client";
 
+import { authenticatedFetch } from "@/lib/auth/fetch";
+
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Card,
@@ -131,7 +134,7 @@ async function postReport(body: {
   params: Record<string, unknown>;
 }): Promise<{ id: number; status: string } | { error: string }> {
   try {
-    const res = await fetch(`${API_BASE_URL}/reports/`, {
+    const res = await authenticatedFetch(`${API_BASE_URL}/reports/`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -151,7 +154,7 @@ async function postReport(body: {
 
 async function fetchReportStatus(id: number): Promise<ReportRecord | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/reports/${id}/`, {
+    const res = await authenticatedFetch(`${API_BASE_URL}/reports/${id}/`, {
       credentials: "include",
       cache: "no-store",
     });

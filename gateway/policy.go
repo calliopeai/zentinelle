@@ -28,21 +28,25 @@ type PolicyResult struct {
 
 // PolicyRequest is the body sent to Zentinelle's evaluate endpoint.
 type PolicyRequest struct {
-	AgentID string                 `json:"agent_id"`
+	AgentID string                 `json:"agent_id,omitempty"`
 	Action  string                 `json:"action"`
 	Context map[string]interface{} `json:"context"`
 }
 
 // CheckPolicy evaluates a request against Zentinelle policies.
-// On timeout or error, it returns allowed=true if fail-open is configured,
-// or allowed=false if fail-closed.
-func CheckPolicy(ctx context.Context, cfg *Config, agentKey string, provider string, model string) PolicyResult {
+// A failed check cannot authorize a request: this service authenticates the key too.
+func CheckPolicy(ctx context.Context, cfg *Config, agentKey string, provider string, model string, requestContext ...map[string]interface{}) PolicyResult {
 	reqBody := PolicyRequest{
 		AgentID: "", // Zentinelle resolves the agent from the key
 		Action:  "llm:invoke",
 		Context: map[string]interface{}{
 			"provider": provider,
 		},
+	}
+	if len(requestContext) > 0 {
+		for key, value := range requestContext[0] {
+			reqBody.Context[key] = value
+		}
 	}
 	if model != "" {
 		reqBody.Context["model"] = model
@@ -79,7 +83,7 @@ func CheckPolicy(ctx context.Context, cfg *Config, agentKey string, provider str
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return policyFallback(cfg, fmt.Sprintf("policy check returned status %d: %s", resp.StatusCode, string(respBody)))
+		return policyFallback(cfg, fmt.Sprintf("policy check returned status %d", resp.StatusCode))
 	}
 
 	var result PolicyResult
@@ -97,12 +101,6 @@ func policyFallback(cfg *Config, reason string) PolicyResult {
 	// failure mode is counted by construction rather than by remembering.
 	metricPolicyCheckErrors.inc(labels("error_type", policyErrorType(reason)))
 
-	if cfg.FailOpen {
-		return PolicyResult{
-			Allowed: true,
-			Reason:  fmt.Sprintf("fail-open: %s", reason),
-		}
-	}
 	return PolicyResult{
 		Allowed: false,
 		Reason:  fmt.Sprintf("fail-closed: %s", reason),
@@ -124,8 +122,8 @@ func CheckOutputPolicy(ctx context.Context, cfg *Config, agentKey string, provid
 		AgentID: "",
 		Action:  "llm:response",
 		Context: map[string]interface{}{
-			"provider": provider,
-			"output":   output,
+			"provider":    provider,
+			"output_text": output,
 		},
 	}
 	if model != "" {
@@ -162,7 +160,7 @@ func CheckOutputPolicy(ctx context.Context, cfg *Config, agentKey string, provid
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return policyFallback(cfg, fmt.Sprintf("output policy check returned status %d: %s", resp.StatusCode, string(respBody)))
+		return policyFallback(cfg, fmt.Sprintf("output policy check returned status %d", resp.StatusCode))
 	}
 
 	var result PolicyResult

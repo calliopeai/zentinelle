@@ -5,14 +5,16 @@ POST /api/zentinelle/v1/evaluate
 import logging
 
 from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from zentinelle.api.auth import (ZentinelleAPIKeyAuthentication,
+                                 get_endpoint_from_request)
+from zentinelle.api.serializers import EvaluateRequestSerializer
 from zentinelle.models import AgentEndpoint, Event
 from zentinelle.models.compliance import InteractionLog
-from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_endpoint_from_request
-from zentinelle.api.serializers import EvaluateRequestSerializer
+from zentinelle.services.content_capture import record_interaction
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +39,7 @@ class EvaluateView(APIView):
         auth_endpoint = get_endpoint_from_request(request)
 
         # Verify agent_id matches
-        if auth_endpoint.agent_id != data['agent_id']:
+        if data.get('agent_id') and auth_endpoint.agent_id != data['agent_id']:
             return Response(
                 {'error': 'Agent ID mismatch'},
                 status=status.HTTP_403_FORBIDDEN
@@ -63,7 +65,7 @@ class EvaluateView(APIView):
             'reason': result.reason,
             'policies_evaluated': result.policies_evaluated,
             'warnings': result.warnings,
-            'context': result.context,
+            'context': {k: v for k, v in result.context.items() if not k.startswith('_') and k != 'request_body'},
             # Whether this tenant has an output filter that a caller proxying
             # an LLM response must honour.
             #
@@ -104,8 +106,9 @@ class EvaluateView(APIView):
 
     def _log_evaluation(self, endpoint: AgentEndpoint, request_data: dict, result):
         """Log the policy evaluation as an audit event."""
-        from zentinelle.tasks.events import process_event_batch
         from django.utils import timezone
+
+        from zentinelle.tasks.events import process_event_batch
 
         # Determine event type based on result
         if not result.allowed:
@@ -146,6 +149,7 @@ class EvaluateView(APIView):
     def _log_interaction(self, endpoint: AgentEndpoint, request_data: dict, result):
         """Create an InteractionLog and record usage metrics."""
         from django.utils import timezone
+
         from zentinelle.services.usage_tracking import UsageTrackingService
 
         ctx = request_data.get('context', {})
@@ -196,7 +200,7 @@ class EvaluateView(APIView):
             topics.append(tool)
 
         try:
-            InteractionLog.objects.create(
+            record_interaction(
                 tenant_id=endpoint.tenant_id,
                 endpoint=endpoint,
                 deployment_id_ext=endpoint.deployment_id_ext,

@@ -9,7 +9,9 @@ Inspired by:
 """
 
 from django.core.management.base import BaseCommand
-from zentinelle.models.system_prompt import PromptCategory, PromptTag, SystemPrompt
+
+from zentinelle.models.system_prompt import (PromptCategory, PromptTag,
+                                             SystemPrompt)
 
 
 class Command(BaseCommand):

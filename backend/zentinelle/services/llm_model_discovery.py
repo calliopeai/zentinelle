@@ -15,7 +15,8 @@ from typing import Optional
 
 import httpx
 
-from zentinelle.services.llm_provider import OPENAI_COMPAT_PROVIDERS, get_api_key
+from zentinelle.services.llm_provider import (OPENAI_COMPAT_PROVIDERS,
+                                              get_api_key)
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ def _classify_model_type(model_id: str) -> str:
     if any(x in m for x in ['tts', 'text-to-speech']):
         return 'text_to_speech'
     if any(x in m for x in ['dall-e', 'gpt-image', 'chatgpt-image',
-                              'stable-diffusion', 'sdxl', 'flux', 'midjourney']):
+                            'stable-diffusion', 'sdxl', 'flux', 'midjourney']):
         return 'image_gen'
     if any(x in m for x in ['sora', '-video', 'video-']):
         return 'image_gen'  # closest existing bucket; no 'video' enum yet
@@ -343,8 +344,9 @@ def fetch_live_models(provider: str, tenant_id: str) -> Optional[list]:
 
 def _persist_to_registry(provider_slug: str, models: list) -> None:
     """Upsert discovered models into the AIModel registry."""
-    from zentinelle.models import AIModel, AIProvider
     from datetime import datetime
+
+    from zentinelle.models import AIModel, AIProvider
 
     provider, _ = AIProvider.objects.get_or_create(
         slug=provider_slug,

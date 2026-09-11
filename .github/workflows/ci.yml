@@ -49,6 +49,8 @@ jobs:
       DATABASE_URL: postgresql://zentinelle:zentinelle@localhost:5432/zentinelle
       REDIS_URL: redis://localhost:6379/0
       DJANGO_SETTINGS_MODULE: config.settings
+      AUTH_MODE: local
+      CLICKHOUSE_URL: ""
 
     steps:
       - uses: actions/checkout@v4
@@ -79,6 +81,39 @@ jobs:
         working-directory: backend
         run: python -m pytest -q
 
+
+      - name: Backend lint
+        working-directory: backend
+        run: |
+          flake8
+          isort --check-only .
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Real gateway and multi-schema backend contract
+        env:
+          ZENTINELLE_CONTRACT_TEST: '1'
+          CONTRACT_KEYS_FILE: /tmp/zentinelle-contract-keys.json
+          CONTRACT_BACKEND_URL: http://127.0.0.1:62592
+          CELERY_BROKER_URL: memory://
+          CELERY_RESULT_BACKEND: cache+memory://
+        run: |
+          python backend/manage.py prepare_schemas
+          python backend/manage.py migrate --database default --no-input
+          python backend/manage.py migrate --database zentinelle --no-input
+          python backend/manage.py migrate --database analytics --no-input
+          python backend/manage.py shell < tests/integration/seed_gateway_contract.py
+          python backend/manage.py runserver 127.0.0.1:62592 --noreload > /tmp/zentinelle-contract-server.log 2>&1 &
+          contract_pid=$!
+          trap 'kill "$contract_pid"; rm -f "$CONTRACT_KEYS_FILE"' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:62592/api/zentinelle/v1/health > /dev/null; then break; fi
+            sleep 1
+          done
+          go -C gateway test -race -run TestRealBackendEnforcementContract -v
+
   gateway:
     name: Gateway
     runs-on: ubuntu-latest
@@ -95,7 +130,7 @@ jobs:
 
       - name: Test
         working-directory: gateway
-        run: go test ./...
+        run: go test -race ./...
 
   frontend:
     name: Frontend

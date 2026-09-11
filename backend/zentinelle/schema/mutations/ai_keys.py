@@ -10,16 +10,13 @@ from datetime import datetime
 from typing import Optional
 
 import strawberry
-from graphql_relay import from_global_id
-
 from deployments.models import Deployment
-from deployments.models.ai_keys import (
-    OrganizationAIAdminKey,
-    DeploymentAIKey,
-    AIKeyMode,
-    AIProvider as AIProviderChoices,
-)
+from deployments.models.ai_keys import AIKeyMode
+from deployments.models.ai_keys import AIProvider as AIProviderChoices
+from deployments.models.ai_keys import DeploymentAIKey, OrganizationAIAdminKey
+from graphql_relay import from_global_id
 from organization.models import Organization
+
 from zentinelle.schema.auth_helpers import user_has_org_access
 
 logger = logging.getLogger(__name__)
@@ -565,6 +562,7 @@ class UpdateDeploymentAIKeyPayload:
 
 def update_deployment_ai_key(info: strawberry.types.Info, input: UpdateDeploymentAIKeyInput) -> UpdateDeploymentAIKeyPayload:
     import asyncio
+
     from deployments.services.deployment_manager import get_deployment_manager
 
     raw_id = input.deployment_id

@@ -3,10 +3,12 @@ Agent Group Mutations.
 
 GraphQL mutations for managing agent groups.
 """
+from typing import Annotated, Optional
+
 import strawberry
-from typing import Optional, Annotated
 from graphql_relay import from_global_id
-from zentinelle.schema.auth_helpers import get_request_tenant_id, require_request_tenant_id
+
+from zentinelle.schema.auth_helpers import require_request_tenant_id
 
 AgentGroupType = Annotated['AgentGroupType', strawberry.lazy('zentinelle.schema.types')]
 
@@ -53,8 +55,9 @@ def create_agent_group(
     tier: Optional[str] = 'standard',
     color: Optional[str] = 'brand',
 ) -> CreateAgentGroupPayload:
-    from zentinelle.models.agent_group import AgentGroup
     from django.utils.text import slugify
+
+    from zentinelle.models.agent_group import AgentGroup
     tenant_id = require_request_tenant_id(info.context.request.user)
     base_slug = slugify(name)[:240]
     slug = base_slug
@@ -120,8 +123,8 @@ def assign_agent_to_group(
     agent_endpoint_id: strawberry.ID,
     group_id: Optional[strawberry.ID] = None,
 ) -> AssignAgentToGroupPayload:
-    from zentinelle.models.endpoint import AgentEndpoint
     from zentinelle.models.agent_group import AgentGroup
+    from zentinelle.models.endpoint import AgentEndpoint
     tenant_id = require_request_tenant_id(info.context.request.user)
     try:
         endpoint = AgentEndpoint.objects.get(

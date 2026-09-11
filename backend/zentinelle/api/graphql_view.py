@@ -6,10 +6,10 @@ AUTH_MODE controls authentication:
   local — session cookie auth (login via /auth/login)
   sso   — session cookie from OIDC provider
 """
-import os
 import logging
 
 from strawberry.django.views import GraphQLView
+
 from zentinelle.auth.mode import auth_mode as auth_mode_value
 
 logger = logging.getLogger(__name__)
@@ -55,9 +55,4 @@ class ZentinelleGraphQLView(GraphQLView):
             request.user = _OPEN_USER
             return
 
-        if auth_mode in ('local', 'standalone'):
-            auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-            if auth_header.startswith('Session '):
-                debug = os.environ.get('DEBUG', 'False').lower() in ('1', 'true', 'yes')
-                if debug:
-                    request.user = _OPEN_USER
+        # Local/SSO identity is established only by authenticated sessions.

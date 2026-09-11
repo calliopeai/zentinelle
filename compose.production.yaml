@@ -1,0 +1,128 @@
+# Production deployment: docker compose -f compose.production.yaml up -d --build
+# Set a public ZENTINELLE_DOMAIN with DNS pointing here; Caddy provisions HTTPS.
+x-backend: &backend
+  build: ./backend
+  env_file: .env
+  environment: &backend-environment
+    DJANGO_SETTINGS_MODULE: config.settings.prod
+    DEBUG: "false"
+    AUTH_MODE: ${AUTH_MODE:-local}
+    SECRET_KEY: ${SECRET_KEY:?Set a strong SECRET_KEY}
+    ZENTINELLE_SECRET_KEY: ${ZENTINELLE_SECRET_KEY:?Set a Fernet encryption key}
+    ZENTINELLE_BOOTSTRAP_SECRET: ${ZENTINELLE_BOOTSTRAP_SECRET:?Set a strong bootstrap secret}
+    ALLOWED_HOSTS: ${ZENTINELLE_DOMAIN:?Set the public DNS hostname},backend
+    SECURE_SSL_REDIRECT: "false"  # Caddy enforces HTTPS; internal services use the private network.
+    DATABASE_URL: ""  # Use the explicitly configured local PostgreSQL service.
+    CSRF_TRUSTED_ORIGINS: https://${ZENTINELLE_DOMAIN}
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: zentinelle
+    POSTGRES_USER: zentinelle
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a strong database password}
+    REDIS_URL: redis://redis:6379/0
+    CELERY_BROKER_URL: redis://redis:6379/0
+    CELERY_RESULT_BACKEND: redis://redis:6379/1
+    CONTENT_CAPTURE_MODE: ${CONTENT_CAPTURE_MODE:-metadata}
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  edge:
+    image: caddy:2-alpine
+    environment:
+      ZENTINELLE_DOMAIN: ${ZENTINELLE_DOMAIN}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    depends_on: [backend, frontend, gateway]
+
+  backend:
+    <<: *backend
+    command: >-
+      sh -c 'python manage.py prepare_schemas &&
+        python manage.py migrate --database default --no-input &&
+      python manage.py migrate --database zentinelle --no-input &&
+      python manage.py migrate --database analytics --no-input &&
+      exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120'
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, urllib.request; urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/api/zentinelle/v1/health', headers={'Host': os.environ['ALLOWED_HOSTS'].split(',')[0]}))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  celery:
+    <<: *backend
+    command: celery -A config worker -l info
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  celery-beat:
+    <<: *backend
+    command: celery -A config beat -l info
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  gateway:
+    build: ./gateway
+    env_file: .env
+    environment:
+      ZENTINELLE_URL: http://backend:8000
+      GATEWAY_PORT: "8742"
+      FAIL_OPEN: "false"
+      LOG_INTERACTIONS: ${LOG_INTERACTIONS:-false}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_AUTH_MODE: ${AUTH_MODE:-local}
+    environment:
+      AUTH_MODE: ${AUTH_MODE:-local}
+      INTERNAL_API_URL: http://backend:8000/api/zentinelle/v1
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: zentinelle
+      POSTGRES_DB: zentinelle
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zentinelle"]
+      interval: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes: ["redis_data:/data"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

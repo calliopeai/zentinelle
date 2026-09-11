@@ -9,17 +9,20 @@ from typing import Optional
 
 import strawberry
 
+from zentinelle.models import PolicyDocument
+from zentinelle.schema.auth_helpers import (get_request_tenant_id,
+                                            user_has_org_access)
+
 try:
     from billing.features import Features, require_feature_for_mutation
 except ImportError:
     class Features:
         ZENTINELLE_POLICY_DOCUMENTS = 'zentinelle_policy_documents'
+
     def require_feature_for_mutation(feature):
         def decorator(fn):
             return fn
         return decorator
-from zentinelle.models import PolicyDocument
-from zentinelle.schema.auth_helpers import get_request_tenant_id, user_has_org_access
 
 
 @strawberry.type
@@ -127,6 +130,7 @@ def upload_policy_document(info: strawberry.types.Info, organization_id: uuid.UU
         return UploadPolicyDocumentPayload(success=False, error="Not permitted for that organization")
 
     from organization.models import Organization
+
     from zentinelle.services.document_processing import PolicyDocumentService
 
     try:
@@ -150,7 +154,7 @@ def upload_policy_document(info: strawberry.types.Info, organization_id: uuid.UU
     if len(file_content) > max_size:
         return UploadPolicyDocumentPayload(
             success=False,
-            error=f"File too large. Maximum size is {max_size // (1024*1024)}MB"
+            error=f"File too large. Maximum size is {max_size // (1024 * 1024)}MB"
         )
 
     try:
@@ -172,6 +176,7 @@ def analyze_policy_document(info: strawberry.types.Info, document_id: uuid.UUID,
         return AnalyzePolicyDocumentPayload(success=False, error="Authentication required")
 
     import asyncio
+
     from zentinelle.services.document_processing import PolicyDocumentService
 
     try:

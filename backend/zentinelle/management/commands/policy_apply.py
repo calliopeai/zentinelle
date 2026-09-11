@@ -6,8 +6,8 @@ Apply YAML-defined policies from a directory to the database.
 Usage:
     python manage.py policy_apply ./policies/ --tenant myorg [--dry-run] [--enforcement enforce|audit]
 """
-import os
 import glob as glob_module
+import os
 
 import yaml
 from django.core.management.base import BaseCommand, CommandError

@@ -6,9 +6,9 @@ import uuid
 from typing import Optional
 
 import strawberry
+from deployments.models import JunoHubConfig, TerraformProvision
 from strawberry.scalars import JSON
 
-from deployments.models import JunoHubConfig, TerraformProvision
 from zentinelle.schema.types import JunoHubConfigType, TerraformProvisionType
 
 logger = logging.getLogger(__name__)

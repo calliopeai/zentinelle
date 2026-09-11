@@ -9,14 +9,12 @@ import hashlib
 import hmac
 import json
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from zentinelle.services.webhook_dispatcher import (
-    _deliver_webhook,
-    _deliver_slack,
-    dispatch_webhook,
-    WEBHOOK_SECRET_HEADER,
-)
+from zentinelle.services.webhook_dispatcher import (WEBHOOK_SECRET_HEADER,
+                                                    _deliver_slack,
+                                                    _deliver_webhook,
+                                                    dispatch_webhook)
 
 
 def _make_config(channel, config_dict, trigger_severities=None, enabled=True):

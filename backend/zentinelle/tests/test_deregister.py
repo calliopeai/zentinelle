@@ -5,8 +5,8 @@ Uses unittest.TestCase + Django's RequestFactory.
 No real database or Redis — all external calls are mocked.
 """
 import json
-import uuid
 import unittest
+import uuid
 from unittest.mock import MagicMock, patch
 
 from django.test import RequestFactory
@@ -125,7 +125,7 @@ class TestDeregisterView(unittest.TestCase):
         mock_event_cls.Category.AUDIT = 'audit'
         mock_event_cls.Status.PENDING = 'pending'
 
-        with patch('zentinelle.tasks.events.process_event_batch') as mock_task:
+        with patch('zentinelle.tasks.events.process_event_batch'):
             request = self._post(key='sk_agent_validkey')
             response = self.view(request)
 

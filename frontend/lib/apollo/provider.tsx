@@ -1,5 +1,6 @@
 "use client";
 
+import { authenticatedFetch } from "@/lib/auth/fetch";
 import { HttpLink } from "@apollo/client";
 import {
   ApolloNextAppProvider,
@@ -13,6 +14,7 @@ const GQL_URL =
 function makeClient(): ApolloClient {
   const httpLink = new HttpLink({
     uri: GQL_URL,
+    fetch: authenticatedFetch,
     credentials: "include",
   });
   return new ApolloClient({

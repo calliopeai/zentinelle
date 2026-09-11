@@ -6,12 +6,13 @@ When `block_secrets: true` and `output_text` is provided, built-in secret
 patterns are scanned automatically — no pre-computed scan_result required.
 Pattern library is shared with ContentScanner to avoid duplication.
 """
-import re
 import logging
-from typing import Dict, Any, Optional, List
+import re
+from typing import Any, Dict, List, Optional
 
 from zentinelle.models import Policy
-from zentinelle.services.evaluators.base import BasePolicyEvaluator, PolicyResult
+from zentinelle.services.evaluators.base import (BasePolicyEvaluator,
+                                                 PolicyResult)
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ def _get_secret_patterns() -> List[tuple]:
         except re.error:
             logger.warning("OutputFilterEvaluator: could not compile secret pattern '%s'", name)
     return compiled
+
 
 # Severity ordering for comparison
 SEVERITY_ORDER = {
@@ -81,7 +83,9 @@ class OutputFilterEvaluator(BasePolicyEvaluator):
         warnings = []
 
         scan_result = context.get('scan_result')
-        output_text = context.get('output_text')
+        output_text = context.get('output_text', context.get('output'))
+        if action in ('llm:response', 'chain_output') and output_text is None and scan_result is None:
+            return PolicyResult(passed=False, message='Output inspection requires output_text')
 
         # Path 1: pre-computed scan result provided — check violations against policy
         if scan_result is not None:
@@ -92,6 +96,11 @@ class OutputFilterEvaluator(BasePolicyEvaluator):
 
         # Path 2: raw output text
         if output_text is not None:
+            if config.get('block_pii', False):
+                from zentinelle.services.content_scanner import ContentScanner
+                for raw, _ in ContentScanner.PII_PATTERNS.values():
+                    if re.search(raw, output_text, re.IGNORECASE):
+                        return PolicyResult(passed=False, message='Output blocked: PII detected')
             # 2a. Built-in secret patterns (runs whenever block_secrets is true,
             #     regardless of whether a scan_result was also provided)
             if config.get('block_secrets', False):

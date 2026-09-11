@@ -9,10 +9,11 @@ Baselines are maintained by the `update_agent_baselines` Celery beat task
 and read from Redis on the hot evaluation path (read-only, no DB hit).
 """
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from zentinelle.models import Policy
-from zentinelle.services.evaluators.base import BasePolicyEvaluator, PolicyResult
+from zentinelle.services.evaluators.base import (BasePolicyEvaluator,
+                                                 PolicyResult)
 
 logger = logging.getLogger(__name__)
 

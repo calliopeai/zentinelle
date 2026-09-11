@@ -50,6 +50,7 @@ def simulate_policy(
     would_block = 0
     would_warn = 0
     would_pass = 0
+    inconclusive = 0
     blocked_samples = []
 
     # Build a minimal unsaved Policy object for the evaluator
@@ -67,31 +68,22 @@ def simulate_policy(
     evaluator = engine._get_evaluator(policy_type)
 
     for event in events:
-        # Build context from event fields
-        context = {}
-        if isinstance(event.payload, dict):
-            context.update(event.payload)
-
-        # Event model has no separate metadata field — look for nested 'metadata'
-        # key inside payload (agents may embed it there).
-        nested_metadata = context.pop('metadata', {})
-        if not isinstance(nested_metadata, dict):
-            nested_metadata = {}
-
-        if 'tokens_used' in nested_metadata:
-            context['tokens_used'] = nested_metadata['tokens_used']
-        if 'model' in nested_metadata:
-            context['model'] = nested_metadata['model']
-        if 'action' in nested_metadata:
-            context['action'] = nested_metadata['action']
-
-        # Fall back to event_type as action
-        context.setdefault('action', event.event_type)
-
+        payload = event.payload if isinstance(event.payload, dict) else {}
+        context = payload.get('context', payload)
+        metadata = payload.get('metadata') if isinstance(payload.get('metadata'), dict) else {}
+        action = payload.get('action') or metadata.get('action') or event.event_type
         try:
+            from zentinelle.services.evaluation_context import \
+                normalize_context
+            context = normalize_context(context)
+            required_context = {'prompt_injection': 'input_text', 'output_filter': 'output_text'}
+            required = required_context.get(policy_type)
+            if required and required not in context:
+                inconclusive += 1
+                continue
             result = evaluator.evaluate(
                 temp_policy,
-                event.event_type,
+                action,
                 user_id=event.user_identifier or None,
                 context=context,
                 dry_run=True,
@@ -103,7 +95,7 @@ def simulate_policy(
                     if len(blocked_samples) < 20:
                         blocked_samples.append({
                             'event_id': str(event.id),
-                            'action': event.event_type,
+                            'action': action,
                             'reason': result.message or 'Policy violation',
                         })
                 else:
@@ -118,7 +110,7 @@ def simulate_policy(
                 policy_type,
                 exc,
             )
-            would_pass += 1
+            inconclusive += 1
 
     impact_percent = round((would_block / total_events) * 100, 2) if total_events > 0 else 0.0
 
@@ -127,6 +119,7 @@ def simulate_policy(
         'would_block': would_block,
         'would_warn': would_warn,
         'would_pass': would_pass,
+        'inconclusive': inconclusive,
         'impact_percent': impact_percent,
         'blocked_samples': blocked_samples,
         'simulated_policy_type': policy_type,
@@ -183,11 +176,19 @@ def detect_policy_conflicts(tenant_id: str, proposed_policy_config: dict) -> lis
             )
 
         # Check if existing policy has higher priority and same type — shadowing
-        if conflict_type is None and policy.priority > proposed_priority:
+        same_group = (proposed_policy_config.get('override_group') and
+                      proposed_policy_config['override_group'] == policy.override_group)
+        same_scope = (policy.scope_type == proposed_policy_config.get('scope_type', 'organization') and
+                      all(str(getattr(policy, field) or '') == str(proposed_policy_config.get(field) or '')
+                          for field in ('scope_endpoint_id', 'scope_deployment_id_ext',
+                                        'scope_sub_organization_id_ext', 'scope_user_id_ext')))
+        if (conflict_type is None and same_group and same_scope and
+                not proposed_policy_config.get('non_overridable') and
+                policy.priority > proposed_priority):
             conflict_type = 'shadowed'
             detail = (
                 f"Existing policy '{policy.name}' has higher priority ({policy.priority}) "
-                f"than proposed ({proposed_priority}) and will always evaluate first for "
+                f"than proposed ({proposed_priority}) and replaces the proposed rule in its explicit override group for "
                 f"policy type '{proposed_type}'."
             )
 

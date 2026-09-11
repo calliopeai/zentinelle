@@ -3,7 +3,7 @@ Authorization helpers for Zentinelle GraphQL schema.
 
 Uses the RBAC role system from zentinelle.auth.roles.
 """
-from zentinelle.auth.roles import can_view, can_admin
+from zentinelle.auth.roles import can_admin, can_view
 
 
 def is_internal_admin(user):

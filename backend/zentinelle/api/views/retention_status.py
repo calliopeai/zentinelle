@@ -7,13 +7,12 @@ Returns active data_retention policy configs for the authenticated tenant.
 """
 import logging
 
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from zentinelle.api.permissions import OpenOrAgentAuth, PORTAL_OR_AGENT_AUTH
+from rest_framework.views import APIView
 
+from zentinelle.api.auth import get_tenant_id_from_request
+from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.models import Policy
-from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_tenant_id_from_request
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +36,8 @@ class RetentionStatusView(APIView):
     }
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def get(self, request):
         tenant_id = get_tenant_id_from_request(request)

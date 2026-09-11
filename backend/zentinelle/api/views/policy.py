@@ -9,12 +9,13 @@ import logging
 from typing import Optional
 
 from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from zentinelle.api.auth import (ZentinelleAPIKeyAuthentication,
+                                 get_endpoint_from_request)
 from zentinelle.models import AgentEndpoint, Policy
-from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_endpoint_from_request
 
 logger = logging.getLogger(__name__)
 

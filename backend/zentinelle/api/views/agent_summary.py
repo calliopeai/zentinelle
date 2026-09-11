@@ -23,13 +23,8 @@ from rest_framework.views import APIView
 
 from zentinelle.api.auth import ZentinelleServiceKeyAuthentication
 from zentinelle.api.permissions import IsServiceKey
-from zentinelle.models import (
-    AgentEndpoint,
-    ComplianceFrameworkConfig,
-    ContentViolation,
-    Event,
-    UsageMetric,
-)
+from zentinelle.models import (AgentEndpoint, ComplianceFrameworkConfig,
+                               ContentViolation, Event, UsageMetric)
 
 logger = logging.getLogger(__name__)
 

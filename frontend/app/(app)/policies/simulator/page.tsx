@@ -189,6 +189,11 @@ export default function PolicySimulatorPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Simulation Results</CardTitle>
+                  {result.inconclusive > 0 && (
+                    <p role="status" className="text-sm text-amber-600">
+                      {result.inconclusive} events could not be evaluated. They are excluded from pass counts.
+                    </p>
+                  )}
                   <CardDescription>
                     Impact on {totalEvents} events from the last{" "}
                     {result.lookbackDays} days

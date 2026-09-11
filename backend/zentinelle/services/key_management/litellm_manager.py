@@ -7,16 +7,12 @@ LiteLLM is a self-hosted proxy that provides key management,
 rate limiting, and usage tracking across multiple providers.
 """
 import logging
-import httpx
 from datetime import datetime
 
-from .base import (
-    BaseKeyManager,
-    ProviderKeyInfo,
-    KeyCreationError,
-    KeyRevocationError,
-    KeyManagerError,
-)
+import httpx
+
+from .base import (BaseKeyManager, KeyCreationError, KeyManagerError,
+                   KeyRevocationError, ProviderKeyInfo)
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +114,7 @@ class LiteLLMKeyManager(BaseKeyManager):
                 key_value=data.get('key', data.get('token', '')),
                 name=name,
                 created_at=datetime.fromisoformat(data['created_at'].replace('Z', '+00:00'))
-                    if 'created_at' in data else datetime.now(),
+                if 'created_at' in data else datetime.now(),
                 rate_limit=data.get('rpm_limit'),
                 budget_limit=data.get('max_budget'),
             )
@@ -187,7 +183,7 @@ class LiteLLMKeyManager(BaseKeyManager):
                 'spend_usd': data.get('spend', 0),
                 'max_budget': data.get('max_budget'),
                 'remaining_budget': (data.get('max_budget', 0) - data.get('spend', 0))
-                    if data.get('max_budget') else None,
+                if data.get('max_budget') else None,
             }
 
         except Exception as e:

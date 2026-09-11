@@ -33,8 +33,8 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if cfg.ZentinelleURL != "http://localhost:8080" {
 		t.Errorf("ZentinelleURL = %q, want %q", cfg.ZentinelleURL, "http://localhost:8080")
 	}
-	if !cfg.FailOpen {
-		t.Error("FailOpen should default to true")
+	if cfg.FailOpen {
+		t.Error("FailOpen should default to false")
 	}
 	if cfg.PolicyTimeout != 2000*time.Millisecond {
 		t.Errorf("PolicyTimeout = %v, want %v", cfg.PolicyTimeout, 2000*time.Millisecond)
@@ -444,7 +444,7 @@ func TestPolicyCheckRequestFormat(t *testing.T) {
 	}
 }
 
-func TestPolicyFailOpen(t *testing.T) {
+func TestPolicyNeverBypassesAuthentication(t *testing.T) {
 	cfg := &Config{
 		ZentinelleURL: "http://127.0.0.1:1", // unreachable
 		FailOpen:      true,
@@ -452,11 +452,11 @@ func TestPolicyFailOpen(t *testing.T) {
 	}
 
 	result := CheckPolicy(context.Background(), cfg, "sk_agent_test", "openai", "gpt-4o")
-	if !result.Allowed {
-		t.Error("fail-open: should allow when zentinelle unreachable")
+	if result.Allowed {
+		t.Error("must deny when authentication service is unreachable")
 	}
-	if !strings.Contains(result.Reason, "fail-open") {
-		t.Errorf("reason should contain 'fail-open', got %q", result.Reason)
+	if !strings.Contains(result.Reason, "fail-closed") {
+		t.Errorf("reason should contain 'fail-closed', got %q", result.Reason)
 	}
 }
 
@@ -749,7 +749,7 @@ func TestPolicyClientReusesConnections(t *testing.T) {
 	var mu sync.Mutex
 	conns := map[string]bool{}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"allowed": true, "reason": "ok"}`))
 	}))
@@ -760,6 +760,7 @@ func TestPolicyClientReusesConnections(t *testing.T) {
 			mu.Unlock()
 		}
 	}
+	srv.Start()
 	defer srv.Close()
 
 	cfg := &Config{ZentinelleURL: srv.URL, PolicyTimeout: 5 * time.Second, FailOpen: false}
@@ -785,7 +786,7 @@ func TestUsageClientReusesConnections(t *testing.T) {
 	conns := map[string]bool{}
 	idle := make(chan struct{}, 32)
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	srv.Config.ConnState = func(c net.Conn, state http.ConnState) {
@@ -805,6 +806,7 @@ func TestUsageClientReusesConnections(t *testing.T) {
 			}
 		}
 	}
+	srv.Start()
 	defer srv.Close()
 
 	cfg := &Config{ZentinelleURL: srv.URL}
@@ -1314,9 +1316,9 @@ func TestAnUnparseableLogInteractionsValueDisablesLogging(t *testing.T) {
 	}
 }
 
-func TestInteractionLoggingIsOnByDefault(t *testing.T) {
+func TestInteractionLoggingRequiresExplicitOptIn(t *testing.T) {
 	t.Setenv("LOG_INTERACTIONS", "")
-	if !interactionLoggingEnabled() {
-		t.Error("logging is off by default, so the gateway records less than the Django proxy on the same product")
+	if interactionLoggingEnabled() {
+		t.Error("prompt logging must require explicit opt-in")
 	}
 }

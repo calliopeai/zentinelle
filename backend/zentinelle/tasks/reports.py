@@ -10,7 +10,7 @@ from celery import shared_task
 logger = logging.getLogger(__name__)
 
 CONTROL_COVERAGE_HEADERS = [
-    'control_name', 'policy_type', 'required_enforcement', 'actual_enforcement', 'status',
+    'control_name', 'policy_type', 'required_enforcement', 'actual_enforcement', 'status', 'evidence_status', 'control_id',
 ]
 VIOLATION_SUMMARY_HEADERS = ['date', 'policy_type', 'violation_count', 'warn_count']
 AUDIT_TRAIL_HEADERS = [
@@ -23,13 +23,11 @@ AUDIT_TRAIL_HEADERS = [
 def generate_report(report_id: int) -> None:
     """Async report generation task."""
     from django.utils import timezone
+
     from zentinelle.models import Report
     from zentinelle.services.report_generator import (
-        generate_control_coverage,
-        generate_violation_summary,
-        generate_audit_trail,
-        rows_to_csv,
-    )
+        generate_audit_trail, generate_control_coverage,
+        generate_violation_summary, rows_to_csv)
 
     try:
         report = Report.objects.get(id=report_id)

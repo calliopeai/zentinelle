@@ -103,10 +103,14 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Read request body
+	maxRequestBytes := g.cfg.MaxResponseBytes
+	if maxRequestBytes <= 0 {
+		maxRequestBytes = 52428800
+	}
 	var body []byte
 	var err error
 	if r.Body != nil {
-		body, err = io.ReadAll(io.LimitReader(r.Body, g.cfg.MaxResponseBytes))
+		body, err = io.ReadAll(io.LimitReader(r.Body, maxRequestBytes+1))
 		if err != nil {
 			logJSON("error", "failed to read request body", map[string]interface{}{
 				"request_id": requestID,
@@ -117,12 +121,17 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if int64(len(body)) > maxRequestBytes {
+		writeJSONError(w, http.StatusRequestEntityTooLarge, "request_too_large", "request exceeds configured limit")
+		return
+	}
+
 	// 4. Extract model name from request body for policy context
 	model := extractModel(body, provider.Name)
 
 	// 5. Policy check
 	policyStart := time.Now()
-	policyResult := CheckPolicy(r.Context(), g.cfg, agentKey, provider.Name, model)
+	policyResult := CheckPolicy(r.Context(), g.cfg, agentKey, provider.Name, model, map[string]interface{}{"input_text": string(body), "request_id": requestID, "request_body": string(body)})
 	metricPolicyCheckDuration.observe("", time.Since(policyStart).Seconds())
 
 	logJSON("info", "policy check completed", map[string]interface{}{
@@ -238,6 +247,10 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 
 	if policyResult.OutputFilterRequired {
 		respBody, err = bufferResponse(upstreamResp, g.cfg.MaxResponseBytes)
+		if err != nil {
+			writeJSONError(w, http.StatusBadGateway, "inspection_failed", "response could not be inspected")
+			return
+		}
 		if err == nil {
 			output := string(respBody)
 			if isStream {

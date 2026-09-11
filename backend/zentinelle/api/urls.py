@@ -47,14 +47,13 @@ Note: Deployment operations and provisioner callbacks have moved to:
 """
 from django.urls import path
 
-from zentinelle.api.views import (
-    AgentSummaryView,
-    AcknowledgeAlertView, AlertsListView,
-                                  AsyncScanView, AuditChainVerifyView,
-                                  AuditExportView, ComplianceReportSummaryView,
-                                  ConfigView, DeregisterView,
-                                  EffectivePolicyView, EvaluateView,
-                                  EventsView, ExportComplianceReportCSVView,
+from zentinelle.api.views import (AcknowledgeAlertView, AgentSummaryView,
+                                  AlertsListView, AsyncScanView,
+                                  AuditChainVerifyView, AuditExportView,
+                                  ComplianceReportSummaryView, ConfigView,
+                                  DeregisterView, EffectivePolicyView,
+                                  EvaluateView, EventsView,
+                                  ExportComplianceReportCSVView,
                                   ExportViolationsCSVView, HeartbeatView,
                                   IncidentCommentView, IncidentDetailView,
                                   IncidentListView, LogInteractionView,
@@ -65,16 +64,18 @@ from zentinelle.api.views import (
                                   RiskTrendView, ScanContentView,
                                   ScanResultView, SecretsView,
                                   SystemPromptsView, ViolationsListView)
+from zentinelle.api.views.approvals import ApprovalIssueView
 from zentinelle.api.views.assistant import (AssistantChatView,
-                                              AssistantExecuteToolView)
+                                            AssistantExecuteToolView)
 from zentinelle.api.views.assistant_models import (AssistantModelsBulkView,
-                                                    AssistantModelsListView,
-                                                    AssistantModelsToggleView)
+                                                   AssistantModelsListView,
+                                                   AssistantModelsToggleView)
 from zentinelle.api.views.assistant_providers import AssistantProvidersView
+from zentinelle.api.views.auth import (CSRFTokenView, LoginView, LogoutView,
+                                       MeView)
+from zentinelle.api.views.health import HealthView, ReadyView
 from zentinelle.api.views.llm_provider_keys import (LLMProviderKeyDeleteView,
                                                     LLMProviderKeysView)
-from zentinelle.api.views.auth import LoginView, LogoutView, MeView
-from zentinelle.api.views.health import HealthView, ReadyView
 from zentinelle.auth.oidc import OIDCCallbackView, OIDCLoginView
 
 app_name = 'zentinelle'
@@ -85,6 +86,8 @@ urlpatterns = [
     path('ready', ReadyView.as_view(), name='ready'),
 
     # Portal auth (session-based, httpOnly cookies)
+    path('approvals', ApprovalIssueView.as_view(), name='approval-issue'),
+    path('auth/csrf', CSRFTokenView.as_view(), name='auth-csrf'),
     path('auth/login', LoginView.as_view(), name='auth-login'),
     path('auth/logout', LogoutView.as_view(), name='auth-logout'),
     path('auth/me', MeView.as_view(), name='auth-me'),

@@ -1,5 +1,8 @@
 "use client";
 
+import { authenticatedFetch } from "@/lib/auth/fetch";
+
+
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Loader2Icon, SearchIcon } from "lucide-react";
@@ -51,7 +54,7 @@ export function ManageModelsDialog({
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    fetch(`${API_URL}/assistant/models?provider=${provider}`, {
+    authenticatedFetch(`${API_URL}/assistant/models?provider=${provider}`, {
       credentials: "include",
     })
       .then((r) => (r.ok ? r.json() : null))
@@ -91,7 +94,7 @@ export function ManageModelsDialog({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${API_URL}/assistant/models/bulk`, {
+      const res = await authenticatedFetch(`${API_URL}/assistant/models/bulk`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

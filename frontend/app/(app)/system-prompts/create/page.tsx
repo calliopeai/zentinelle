@@ -1,5 +1,7 @@
 "use client";
 
+import { withPermissionAuthenticationRequired } from "@/components/PermissionGuard";
+
 import { useRouter } from "next/navigation";
 import { useMutation } from "@apollo/client/react";
 import { useForm, Controller } from "react-hook-form";
@@ -67,7 +69,7 @@ const promptSchema = z.object({
 
 type PromptFormValues = z.infer<typeof promptSchema>;
 
-export default function CreateSystemPromptPage() {
+function CreateSystemPromptPage() {
   const router = useRouter();
   const [createPrompt, { loading: submitting }] = useMutation<{
     createSystemPrompt: CreateSystemPromptPayload;
@@ -303,3 +305,5 @@ export default function CreateSystemPromptPage() {
     </div>
   );
 }
+
+export default withPermissionAuthenticationRequired(CreateSystemPromptPage, "mutate");

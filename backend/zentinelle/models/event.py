@@ -124,6 +124,11 @@ class Event(models.Model):
             models.Index(fields=['tenant_id', 'event_category', '-occurred_at']),
         ]
 
+    def save(self, *args, **kwargs):
+        from zentinelle.services.content_capture import capture_payload
+        self.payload = capture_payload(self.payload)
+        return super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.event_type} - {self.occurred_at}"
 

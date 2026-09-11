@@ -10,13 +10,14 @@ Query params:
   - all=true — include deprecated models
 """
 import os
+
 from django.http import JsonResponse
-from django.views import View
 from django.utils.decorators import method_decorator
+from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from zentinelle.services.llm_provider import OPENAI_COMPAT_PROVIDERS
 from zentinelle.auth.mode import is_open_mode
+from zentinelle.services.llm_provider import OPENAI_COMPAT_PROVIDERS
 
 PROVIDER_LABELS = {
     'anthropic': 'Anthropic',
@@ -151,7 +152,8 @@ class AssistantProvidersView(View):
         # For each provider with credentials, use registry models if any,
         # else fall back to curated list. This way we always show models
         # for every configured provider.
-        from zentinelle.api.views.assistant_providers_fallback import FALLBACK_PROVIDERS
+        from zentinelle.api.views.assistant_providers_fallback import \
+            FALLBACK_PROVIDERS
         by_provider = {}
         all_provider_slugs = set(FALLBACK_PROVIDERS.keys()) | set(registry_by_provider.keys())
 

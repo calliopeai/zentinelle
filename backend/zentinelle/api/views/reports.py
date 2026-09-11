@@ -10,13 +10,12 @@ import os
 
 from django.http import FileResponse
 from rest_framework import status
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from zentinelle.api.permissions import OpenOrAgentAuth, PORTAL_OR_AGENT_AUTH
+from rest_framework.views import APIView
 
+from zentinelle.api.auth import get_tenant_id_from_request
+from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.models import Report
-from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_tenant_id_from_request
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,8 @@ _VALID_REPORT_TYPES = {rt.value for rt in Report.ReportType}
 _VALID_FORMATS = {'csv', 'pdf', 'ndjson'}
 
 try:
-    from zentinelle.tasks.reports import generate_report as generate_report_task
+    from zentinelle.tasks.reports import \
+        generate_report as generate_report_task
 except Exception:  # pragma: no cover
     generate_report_task = None  # type: ignore[assignment]
 
@@ -56,8 +56,8 @@ class ReportCreateView(APIView):
     Returns 201 {id, status: 'pending'}.
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def post(self, request):
         tenant_id = get_tenant_id_from_request(request)
@@ -117,8 +117,8 @@ class ReportStatusView(APIView):
     Returns report metadata including current status.
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def get(self, request, report_id):
         tenant_id = get_tenant_id_from_request(request)
@@ -137,8 +137,8 @@ class ReportDownloadView(APIView):
     Returns the generated report file. Returns 409 if not yet complete.
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def get(self, request, report_id):
         tenant_id = get_tenant_id_from_request(request)

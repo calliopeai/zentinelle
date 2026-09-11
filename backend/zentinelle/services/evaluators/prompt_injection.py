@@ -12,12 +12,13 @@ This is OWASP LLM Top 10 #1 (LLM01).
 Pattern library is shared with ContentScanner to avoid duplication.
 Custom patterns can be added per-policy via config.
 """
-import re
 import logging
-from typing import Dict, Any, Optional, List, Tuple
+import re
+from typing import Any, Dict, List, Optional, Tuple
 
 from zentinelle.models import Policy
-from zentinelle.services.evaluators.base import BasePolicyEvaluator, PolicyResult
+from zentinelle.services.evaluators.base import (BasePolicyEvaluator,
+                                                 PolicyResult)
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,11 @@ class PromptInjectionEvaluator(BasePolicyEvaluator):
         context: Dict[str, Any],
         dry_run: bool = False,
     ) -> PolicyResult:
+        from zentinelle.services.evaluation_context import normalize_context
+        context = normalize_context(context)
         config = policy.config
+        if action in ('llm:invoke', 'chain_input') and config.get('scan_user_input', True) and 'input_text' not in context:
+            return PolicyResult(passed=False, message='Input inspection requires input_text')
         warnings = []
 
         sensitivity = config.get('sensitivity', 'medium')

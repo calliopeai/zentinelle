@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, List
+from typing import List, Optional
 
 
 @dataclass
@@ -137,8 +137,9 @@ class StandaloneTenantResolver(TenantResolver):
     def _validate_platform_key(self, raw: str) -> AuthContext:
         """Look up an APIKey record by prefix, verify with bcrypt."""
         try:
-            from zentinelle.models.api_key import APIKey
             from django.utils import timezone
+
+            from zentinelle.models.api_key import APIKey
 
             # Extract the stored prefix (first 15 chars — matches KeyPrefixes.PLATFORM + 8 chars)
             key_prefix = raw[:15]
@@ -191,8 +192,9 @@ class StandaloneTenantResolver(TenantResolver):
     def _validate_basic(self, b64: str) -> AuthContext:
         """Validate HTTP Basic auth credentials via Django authenticate."""
         try:
-            from django.contrib.auth import authenticate
             import base64
+
+            from django.contrib.auth import authenticate
 
             decoded = base64.b64decode(b64).decode()
             username, _, password = decoded.partition(":")
@@ -244,8 +246,8 @@ class ClientCoveTenantResolver(TenantResolver):
         }
 
     def get_tenant(self, tenant_id: str) -> Optional[TenantContext]:
-        from django.core.cache import cache
         import httpx
+        from django.core.cache import cache
 
         cache_key = f"cove:tenant:{tenant_id}"
         cached = cache.get(cache_key)
@@ -274,9 +276,10 @@ class ClientCoveTenantResolver(TenantResolver):
             return None
 
     def validate_token(self, token: str) -> AuthContext:
-        from django.core.cache import cache
         import hashlib
+
         import httpx
+        from django.core.cache import cache
 
         cache_key = f"cove:auth:{hashlib.sha256(token.encode()).hexdigest()[:16]}"
         cached = cache.get(cache_key)

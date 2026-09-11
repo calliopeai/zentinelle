@@ -5,7 +5,7 @@ Kept separate from policy_engine.py to avoid circular imports and to keep the
 engine focused on evaluation rather than side-effects.
 """
 import logging
-from typing import List, Dict, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List
 
 if TYPE_CHECKING:
     from zentinelle.services.policy_engine import EvaluationResult
@@ -81,7 +81,8 @@ def _maybe_create_incident(
 
             # Create in-app notification
             try:
-                from zentinelle.models.notification import create_notification, Notification
+                from zentinelle.models.notification import (
+                    Notification, create_notification)
                 create_notification(
                     tenant_id=tenant_id,
                     type=Notification.Type.INCIDENT_OPENED,
@@ -94,7 +95,8 @@ def _maybe_create_incident(
 
             # Queue notification (best-effort)
             try:
-                from zentinelle.tasks.notifications import send_incident_notification
+                from zentinelle.tasks.notifications import \
+                    send_incident_notification
                 send_incident_notification.delay(incident.id)
             except Exception as exc:
                 logger.warning("Failed to queue incident notification: %s", exc)

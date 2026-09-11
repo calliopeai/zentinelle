@@ -10,15 +10,13 @@ POST /api/zentinelle/v1/incidents/{id}/comments/ — add a comment
 import logging
 
 from django.utils import timezone
-
 from rest_framework import status
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from zentinelle.api.permissions import OpenOrAgentAuth, PORTAL_OR_AGENT_AUTH
+from rest_framework.views import APIView
 
+from zentinelle.api.auth import get_tenant_id_from_request
+from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.models import Incident, IncidentComment
-from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_tenant_id_from_request
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +65,8 @@ class IncidentListView(APIView):
     POST /api/zentinelle/v1/incidents/ — create a manual incident.
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def get(self, request):
         tenant_id = get_tenant_id_from_request(request)
@@ -135,8 +133,8 @@ class IncidentDetailView(APIView):
     PATCH /api/zentinelle/v1/incidents/{id}/ — update status or assignee.
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def _get_incident(self, request, incident_id):
         tenant_id = get_tenant_id_from_request(request)
@@ -195,8 +193,8 @@ class IncidentCommentView(APIView):
     POST /api/zentinelle/v1/incidents/{id}/comments/ — add a comment to an incident.
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def _get_incident(self, request, incident_id):
         tenant_id = get_tenant_id_from_request(request)
@@ -224,7 +222,7 @@ class IncidentCommentView(APIView):
         if not body:
             return Response({'detail': '"body" is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        author_id = request.data.get('author_id', 'system')
+        author_id = str(request.user.pk)
 
         comment = IncidentComment.objects.create(
             incident=incident,

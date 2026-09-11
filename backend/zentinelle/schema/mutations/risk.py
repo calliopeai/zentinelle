@@ -6,12 +6,17 @@ GraphQL mutations for managing risks and incidents.
 Risk mutations require the ZENTINELLE_RISK_MANAGEMENT feature (Enterprise plan).
 Incident mutations require the ZENTINELLE_INCIDENTS feature (Enterprise plan).
 """
-import strawberry
+from datetime import date, datetime
 from typing import Optional
-from datetime import datetime, date
+
+import strawberry
+from django.utils import timezone
 from graphql import GraphQLError
 from graphql_relay import from_global_id
-from django.utils import timezone
+
+from zentinelle.models import Incident, Risk
+from zentinelle.schema.auth_helpers import (get_request_tenant_id,
+                                            user_has_org_access)
 
 try:
     from billing.features import Features, require_feature_for_mutation
@@ -24,8 +29,6 @@ except ImportError:
         def decorator(fn):
             return fn
         return decorator
-from zentinelle.models import Risk, Incident
-from zentinelle.schema.auth_helpers import user_has_org_access, get_request_tenant_id
 
 
 @strawberry.input

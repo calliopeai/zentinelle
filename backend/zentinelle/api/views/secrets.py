@@ -15,7 +15,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_endpoint_from_request
+from zentinelle.api.auth import (ZentinelleAPIKeyAuthentication,
+                                 get_endpoint_from_request)
 
 
 class SecretsView(APIView):

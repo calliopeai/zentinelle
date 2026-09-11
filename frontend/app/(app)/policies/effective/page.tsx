@@ -1,5 +1,8 @@
 "use client";
 
+import { authenticatedFetch } from "@/lib/auth/fetch";
+
+
 import { useMemo, useState } from "react";
 import {
   ArrowDownIcon,
@@ -303,7 +306,7 @@ async function fetchEffectivePolicy(
     headers["X-Zentinelle-Key"] = endpointKey;
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await authenticatedFetch(`${API_BASE_URL}${path}`, {
     method: "GET",
     credentials: "include",
     headers,

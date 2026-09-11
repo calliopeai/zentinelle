@@ -1,3 +1,13 @@
+import hashlib
+import hmac
+from unittest.mock import patch
+
+from django.test import TestCase, override_settings
+from django.urls import reverse
+from rest_framework.test import APIClient
+
+from zentinelle.models import AgentEndpoint, Event, Policy
+
 """
 End-to-end integration tests: full agent lifecycle pipeline.
 
@@ -6,15 +16,6 @@ Tests the complete flow an SDK client follows:
 
 Uses Django's test client with a real database — no mocks.
 """
-import hashlib
-import hmac
-
-from django.test import TestCase
-from django.urls import reverse
-from rest_framework.test import APIClient
-from unittest.mock import patch
-
-from zentinelle.models import AgentEndpoint, Policy, Event
 
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
@@ -236,7 +237,7 @@ class MultiAgentE2ETest(TestCase):
             format='json',
             HTTP_X_ZENTINELLE_BOOTSTRAP=bt,
         )
-        key_b = resp_b.json()['api_key']
+        resp_b.json()['api_key']
         id_b = resp_b.json()['agent_id']
 
         # Agent A cannot access Agent B's config
@@ -297,6 +298,7 @@ class BootstrapTokenE2ETest(TestCase):
         self.assertIsNotNone(record.last_used_at)
 
 
+@override_settings(AUTH_MODE="local")
 class AuthE2ETest(TestCase):
     """Test portal session auth endpoints."""
 

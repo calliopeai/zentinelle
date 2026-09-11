@@ -1,5 +1,7 @@
 "use client";
 
+import { useCapability } from "@/components/PermissionGuard";
+
 import * as React from "react";
 import { useRef, useEffect } from "react";
 import {
@@ -294,6 +296,7 @@ function PendingActionList({
   onApprove: (hash: string, preview: string) => void;
   onReject: (hash: string) => void;
 }) {
+  const canMutate = useCapability("mutate");
   return (
     <div className="space-y-1.5">
       {actions.map((a) => {
@@ -321,7 +324,7 @@ function PendingActionList({
                 <div className="text-muted-foreground break-words">{a.preview}</div>
               </div>
             </div>
-            {isPending && (
+            {isPending && canMutate && (
               <div className="flex gap-1.5 mt-2">
                 <Button
                   size="sm"

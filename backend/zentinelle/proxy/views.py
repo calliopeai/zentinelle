@@ -14,11 +14,17 @@ Note: httpx is required (already used by ClientCoveTenantResolver).
 """
 import json
 import logging
+import uuid
 
 from django.http import JsonResponse, StreamingHttpResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
+
+from zentinelle.auth.resolver import StandaloneTenantResolver
+from zentinelle.models import AgentEndpoint
+from zentinelle.services.content_capture import record_interaction
+from zentinelle.services.policy_engine import PolicyEngine
 
 
 def _extract_sse_text(content: bytes) -> str:
@@ -62,9 +68,6 @@ def _extract_sse_text(content: bytes) -> str:
 
     return ''.join(text_parts)
 
-from zentinelle.auth.resolver import StandaloneTenantResolver
-from zentinelle.models import AgentEndpoint
-from zentinelle.services.policy_engine import PolicyEngine
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +175,7 @@ class ProxyView(View):
             'action': 'llm:invoke',
             'provider': provider,
             'path': path,
+            'request_id': request.headers.get('X-Request-ID') or str(uuid.uuid4()),
         }
 
         body_bytes = b''
@@ -190,7 +194,8 @@ class ProxyView(View):
                     if safety_settings:
                         context['safety_settings'] = safety_settings
 
-                    from zentinelle.services.multimodal_scanner import analyze_request_body
+                    from zentinelle.services.multimodal_scanner import \
+                        analyze_request_body
                     mm = analyze_request_body(body_json, provider)
                     if mm.has_media:
                         context['multimodal'] = mm.media_summary
@@ -312,10 +317,10 @@ class ProxyView(View):
                 ).exists()
 
                 if output_filter_policies and full_content:
-                    output_text = _extract_sse_text(full_content)
+                    output_text = full_content.decode("utf-8", errors="replace")
                     if output_text:
                         output_context = dict(context)
-                        output_context['output'] = output_text
+                        output_context['output_text'] = output_text
                         try:
                             filter_result = engine.evaluate(
                                 endpoint, 'llm:response', context=output_context
@@ -330,9 +335,10 @@ class ProxyView(View):
                                 )
                         except Exception as exc:
                             logger.warning('Streaming output filter evaluation failed: %s', exc)
+                            return JsonResponse({'error': 'output_inspection_failed'}, status=503)
 
                 self._log_interaction(endpoint, provider, context, eval_result,
-                                     response_body=full_content, upstream_status=upstream_status)
+                                      response_body=full_content, upstream_status=upstream_status)
 
                 def stream_generator():
                     for chunk in buffered_chunks:
@@ -365,7 +371,7 @@ class ProxyView(View):
                     try:
                         out_text = response_body.decode('utf-8', errors='replace')
                         output_context = dict(context)
-                        output_context['output'] = out_text
+                        output_context['output_text'] = out_text
                         filter_result = engine.evaluate(endpoint, 'llm:response', context=output_context)
                         if not filter_result.allowed:
                             return JsonResponse(
@@ -375,10 +381,11 @@ class ProxyView(View):
                             )
                     except Exception as exc:
                         logger.warning('Output filter evaluation failed: %s', exc)
+                        return JsonResponse({'error': 'output_inspection_failed'}, status=503)
 
                 self._log_interaction(endpoint, provider, context, eval_result,
-                                     response_body=response_body,
-                                     upstream_status=upstream_response.status_code)
+                                      response_body=response_body,
+                                      upstream_status=upstream_response.status_code)
 
                 from django.http import HttpResponse
                 django_response = HttpResponse(
@@ -452,6 +459,7 @@ class ProxyView(View):
                          response_body=None, upstream_status=None):
         """Log proxy request to InteractionLog and record usage metrics."""
         from django.utils import timezone
+
         from zentinelle.models.compliance import InteractionLog
         from zentinelle.services.usage_tracking import UsageTrackingService
 
@@ -495,7 +503,7 @@ class ProxyView(View):
         user_identifier = context.get('user_id', '')
 
         try:
-            InteractionLog.objects.create(
+            record_interaction(
                 tenant_id=endpoint.tenant_id,
                 endpoint=endpoint,
                 deployment_id_ext=endpoint.deployment_id_ext,

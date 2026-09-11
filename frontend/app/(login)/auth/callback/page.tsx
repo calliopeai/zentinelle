@@ -1,5 +1,8 @@
 "use client";
 
+import { authenticatedFetch } from "@/lib/auth/fetch";
+
+
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -18,7 +21,7 @@ function CallbackInner() {
     localStorage.setItem("jwt", token);
 
     // Store in httpOnly cookie for server-side token reads
-    fetch("/api/auth/store-token", {
+    authenticatedFetch("/api/auth/store-token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),

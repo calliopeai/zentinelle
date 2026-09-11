@@ -6,10 +6,11 @@ policy violations, and generate alerts for remediation.
 """
 import logging
 from datetime import timedelta
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 from celery import shared_task
-from django.utils import timezone
 from django.db.models import Count, Q
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +30,7 @@ def check_compliance_drift():
     - Disabled controls that should be active
     - New violations since last check
     """
-    from zentinelle.models import (
-        ZentinelleLicense,
-        AgentEndpoint,
-    )
+    from zentinelle.models import AgentEndpoint, ZentinelleLicense
 
     results = {
         'organizations_checked': 0,
@@ -82,8 +80,9 @@ def check_compliance_drift():
 
 def _check_org_compliance_drift(tenant_id: str) -> List[Dict[str, Any]]:
     """Check a single tenant for compliance drift."""
-    from zentinelle.models import Policy, ContentRule, ComplianceAssessment
-    from zentinelle.models.compliance import COMPLIANCE_FRAMEWORKS, COMPLIANCE_CAPABILITIES
+    from zentinelle.models import ComplianceAssessment, ContentRule, Policy
+    from zentinelle.models.compliance import (COMPLIANCE_CAPABILITIES,
+                                              COMPLIANCE_FRAMEWORKS)
 
     issues = []
 
@@ -210,7 +209,8 @@ def monitor_violation_rates():
     - New violation types
     - Repeated violations from same source
     """
-    from zentinelle.models import ContentViolation, ComplianceAlert, ZentinelleLicense, AgentEndpoint
+    from zentinelle.models import (AgentEndpoint, ComplianceAlert,
+                                   ContentViolation, ZentinelleLicense)
 
     results = {
         'organizations_checked': 0,
@@ -345,7 +345,8 @@ def check_policy_health():
     - Orphaned policies (no scope target)
     - Policies approaching expiration
     """
-    from zentinelle.models import Policy, ComplianceAlert, ZentinelleLicense, AgentEndpoint
+    from zentinelle.models import (AgentEndpoint, ComplianceAlert, Policy,
+                                   ZentinelleLicense)
 
     results = {
         'organizations_checked': 0,
@@ -452,7 +453,8 @@ def detect_usage_anomalies():
     - Off-hours activity
     - Unusual model usage
     """
-    from zentinelle.models import InteractionLog, ComplianceAlert, ZentinelleLicense, AgentEndpoint
+    from zentinelle.models import (AgentEndpoint, ComplianceAlert,
+                                   InteractionLog, ZentinelleLicense)
 
     results = {
         'organizations_checked': 0,
@@ -484,7 +486,7 @@ def detect_usage_anomalies():
                 created_at__gte=current_hour,
             )
             current_count = current_interactions.count()
-            current_cost = sum(
+            sum(
                 float(i.estimated_cost_usd or 0)
                 for i in current_interactions
             )
@@ -524,7 +526,7 @@ def detect_usage_anomalies():
                         description=(
                             f"Current: {current_count} requests\n"
                             f"Average: {avg_hourly_count:.0f} requests/hour\n"
-                            f"Spike: {current_count/avg_hourly_count:.1f}x normal"
+                            f"Spike: {current_count / avg_hourly_count:.1f}x normal"
                         ),
                         metadata={
                             'threshold_value': avg_hourly_count,

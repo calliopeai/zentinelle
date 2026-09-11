@@ -1,5 +1,8 @@
 "use client";
 
+import { authenticatedFetch } from "@/lib/auth/fetch";
+
+
 import { useState, useCallback, useRef, useEffect } from "react";
 
 export interface ToolCall {
@@ -88,7 +91,7 @@ export function useAvailableModels(opts: UseModelsOptions = {}) {
     if (requireTools) params.set("require_tools", "true");
     const url = `${API_URL}/assistant/providers${params.toString() ? "?" + params.toString() : ""}`;
 
-    fetch(url, { credentials: "include" })
+    authenticatedFetch(url, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data?.providers || !Array.isArray(data.providers)) return;
@@ -173,7 +176,7 @@ export function useChat() {
       abortRef.current = new AbortController();
 
       try {
-        const res = await fetch(`${API_URL}/assistant/chat`, {
+        const res = await authenticatedFetch(`${API_URL}/assistant/chat`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -374,11 +377,11 @@ export function useChat() {
 
       // Deterministically execute via dedicated endpoint
       try {
-        const res = await fetch(`${API_URL}/assistant/execute-tool`, {
+        const res = await authenticatedFetch(`${API_URL}/assistant/execute-tool`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: target.name, args: target.args }),
+          body: JSON.stringify({ name: target.name, args: target.args, approval_token: target.hash }),
         });
 
         if (!res.ok) {

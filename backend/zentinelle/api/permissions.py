@@ -8,7 +8,6 @@ status, etc.) need to be callable from BOTH:
 
 Use OpenOrAgentAuth for those endpoints.
 """
-import os
 
 from rest_framework import authentication
 from rest_framework.permissions import BasePermission
@@ -49,6 +48,7 @@ class OpenModeAuthentication(authentication.BaseAuthentication):
 
     def authenticate(self, request):
         if is_open_mode():
+            authentication.SessionAuthentication().enforce_csrf(request)
             return (_OPEN_USER, None)
         return None
 
@@ -76,14 +76,19 @@ class OpenOrAgentAuth(BasePermission):
     def has_permission(self, request, view):
         if is_open_mode():
             return True
-        return bool(request.user and request.user.is_authenticated)
+        from zentinelle.api.auth import ZentinelleAgentUser
+        from zentinelle.auth.roles import can_mutate, can_view
+        if isinstance(request.user, ZentinelleAgentUser):
+            return request.user.is_active
+        check = can_view if request.method in ('GET', 'HEAD', 'OPTIONS') else can_mutate
+        return check(request.user)
 
 
 # Convenience: list of authentication classes for portal-AND-agent endpoints
 PORTAL_OR_AGENT_AUTH = [
-    OpenModeAuthentication,
     ZentinelleAPIKeyAuthentication,
     authentication.SessionAuthentication,
+    OpenModeAuthentication,
 ]
 
 
@@ -103,3 +108,26 @@ class IsServiceKey(BasePermission):
 
         user = getattr(request, 'user', None)
         return isinstance(user, ZentinelleServiceUser) and user.is_active
+
+
+class PortalSessionAuthentication(authentication.SessionAuthentication):
+    def authenticate_header(self, request):
+        return 'Session'
+
+
+PORTAL_AUTH = [PortalSessionAuthentication, OpenModeAuthentication]
+
+
+class PortalAccess(BasePermission):
+    """Human management access: viewers read; operators mutate."""
+
+    def has_permission(self, request, view):
+        from zentinelle.auth.roles import can_mutate, can_view
+        check = can_view if request.method in ('GET', 'HEAD', 'OPTIONS') else can_mutate
+        return check(request.user)
+
+
+class PortalAdminAccess(BasePermission):
+    def has_permission(self, request, view):
+        from zentinelle.auth.roles import can_admin
+        return can_admin(request.user)

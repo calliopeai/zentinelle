@@ -9,7 +9,7 @@ Handles:
 import hashlib
 import io
 import logging
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 from django.utils import timezone
 
@@ -199,6 +199,7 @@ Output Format (JSON):
             Analysis results with generated prompts
         """
         import json
+
         from zentinelle.services.ai_service import AIService
 
         # Truncate text if too long (keep first ~100k chars)
@@ -255,8 +256,9 @@ Output Format (JSON):
         Returns:
             List of created SystemPrompt objects
         """
-        from zentinelle.models import SystemPrompt
         from django.utils.text import slugify
+
+        from zentinelle.models import SystemPrompt
 
         created_prompts = []
         prompts_data = analysis.get('prompts', [])

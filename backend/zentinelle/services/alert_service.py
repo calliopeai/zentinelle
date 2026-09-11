@@ -6,7 +6,7 @@ Sends alerts via email (SES) and creates in-app notifications.
 """
 
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from django.conf import settings
 

@@ -7,10 +7,8 @@ text extraction, and media detection.
 import base64
 import unittest
 
-from zentinelle.services.multimodal_scanner import (
-    analyze_request_body,
-    MultimodalAnalysis,
-)
+from zentinelle.services.multimodal_scanner import (MultimodalAnalysis,
+                                                    analyze_request_body)
 
 
 class TestGeminiTextAndImage(unittest.TestCase):

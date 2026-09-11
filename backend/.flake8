@@ -1,0 +1,6 @@
+[flake8]
+# Existing SQL, policy templates and explanatory comments intentionally exceed
+# a fixed column limit. Keep correctness, imports, indentation and whitespace
+# checks enabled; avoid wrapping embedded payloads just to satisfy E501.
+extend-ignore = E501
+exclude = .venv,__pycache__

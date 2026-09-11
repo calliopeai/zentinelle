@@ -8,7 +8,7 @@ git clone https://github.com/calliopeai/zentinelle
 cd zentinelle
 cp .env.example .env
 
-# Default AUTH_MODE=open — no login required
+# Default AUTH_MODE=local — create an administrator after startup.
 docker compose up -d
 ```
 
@@ -178,17 +178,18 @@ The short version:
 
 ```bash
 # Generate secrets
-docker compose exec backend python manage.py generate_secrets
+python3 -c 'import secrets,base64; print("SECRET_KEY="+secrets.token_hex(32)); print("ZENTINELLE_BOOTSTRAP_SECRET="+secrets.token_hex(32)); print("ZENTINELLE_SECRET_KEY="+base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()); print("POSTGRES_PASSWORD="+secrets.token_hex(24))'
 
 # Set in .env
 SECRET_KEY=<generated>
 ZENTINELLE_SECRET_KEY=<generated>
 ZENTINELLE_BOOTSTRAP_SECRET=<generated>
-ALLOWED_HOSTS=zentinelle.example.com
+ZENTINELLE_DOMAIN=zentinelle.example.com
+POSTGRES_PASSWORD=<generated>
 AUTH_MODE=local  # or sso
 
 # Use prod settings
-DJANGO_SETTINGS_MODULE=config.settings.prod docker compose up -d
+docker compose -f compose.production.yaml up -d --build
 ```
 
-Production settings reject startup if any required secret is missing.
+Production settings reject startup if required secrets are missing or weak. See [control upgrade notes](dependable-controls.md) before upgrading an existing database.

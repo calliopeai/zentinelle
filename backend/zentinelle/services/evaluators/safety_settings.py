@@ -17,9 +17,10 @@ Policy config example:
 }
 """
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from zentinelle.models import Policy
+
 from .base import BasePolicyEvaluator, PolicyResult
 
 logger = logging.getLogger(__name__)
@@ -90,7 +91,7 @@ class SafetySettingsEvaluator(BasePolicyEvaluator):
                 return PolicyResult(
                     passed=False,
                     message=f'Safety threshold for {cat} is {agent_thresh}, '
-                            f'minimum required is {min_thresh}',
+                    f'minimum required is {min_thresh}',
                 )
 
             if agent_rank == min_rank and min_rank < len(THRESHOLD_ORDER) - 1:

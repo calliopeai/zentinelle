@@ -23,7 +23,7 @@ DEBUG = False
 # Required production secrets
 # ──────────────────────────────────────────────────────────────────────────
 
-if SECRET_KEY == "change-me-in-production":  # noqa: F405
+if SECRET_KEY == "change-me-in-production" or len(SECRET_KEY) < 32:  # noqa: F405
     raise ValueError(
         "SECRET_KEY must be set in production. "
         "Generate one: python -c \"from django.core.management.utils import "
@@ -37,7 +37,7 @@ if not os.environ.get("ZENTINELLE_SECRET_KEY"):
         "import Fernet; print(Fernet.generate_key().decode())\""
     )
 
-if not os.environ.get("ZENTINELLE_BOOTSTRAP_SECRET"):
+if len(os.environ.get("ZENTINELLE_BOOTSTRAP_SECRET", "")) < 32:
     raise ValueError(
         "ZENTINELLE_BOOTSTRAP_SECRET must be set in production for "
         "agent bootstrap tokens. Generate: python -c \"import secrets; "

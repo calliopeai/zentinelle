@@ -40,11 +40,14 @@ func LoadConfig() (*Config, error) {
 	port := envOr("GATEWAY_PORT", "8742")
 	zentinelleURL := strings.TrimRight(envOr("ZENTINELLE_URL", "http://localhost:8080"), "/")
 
-	failOpen := true
+	failOpen := false
 	if v := os.Getenv("FAIL_OPEN"); v != "" {
 		parsed, err := strconv.ParseBool(v)
 		if err != nil {
 			return nil, fmt.Errorf("invalid FAIL_OPEN value %q: %w", v, err)
+		}
+		if parsed {
+			return nil, fmt.Errorf("FAIL_OPEN=true is unsupported: the policy service also authenticates gateway keys")
 		}
 		failOpen = parsed
 	}

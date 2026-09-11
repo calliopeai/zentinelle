@@ -11,7 +11,6 @@ from rest_framework.test import APIClient
 
 from zentinelle.models import AgentEndpoint
 
-
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 BOOTSTRAP_SECRET = 'test-bootstrap-secret'
 

@@ -5,12 +5,11 @@ Enforces human-in-the-loop approval requirements based on cost,
 data sensitivity, and external call characteristics.
 """
 import logging
-from typing import Dict, Any, Optional
-
-from django.core import signing
+from typing import Any, Dict, Optional
 
 from zentinelle.models import Policy
-from zentinelle.services.evaluators.base import BasePolicyEvaluator, PolicyResult
+from zentinelle.services.evaluators.base import (BasePolicyEvaluator,
+                                                 PolicyResult)
 
 logger = logging.getLogger(__name__)
 
@@ -65,43 +64,18 @@ class HumanOversightEvaluator(BasePolicyEvaluator):
         approval_token = context.get('approval_token')
 
         require_approval_for = config.get('require_approval_for', [])
-        approval_timeout = config.get(
+        config.get(
             'approval_timeout_seconds', DEFAULT_APPROVAL_TIMEOUT_SECONDS
         )
         auto_approve_threshold = config.get('auto_approve_below_cost_usd')
-
-        # 1. Auto-approve by cost threshold
-        if (
-            auto_approve_threshold is not None
-            and estimated_cost is not None
-            and estimated_cost < auto_approve_threshold
-        ):
-            return PolicyResult(passed=True)
-
-        # 2. Validate existing approval token
-        if approval_token:
-            validation = self._validate_approval_token(
-                token=approval_token,
-                user_id=user_id,
-                policy_id=str(policy.id),
-                max_age=approval_timeout,
-            )
-            if validation.passed:
-                return PolicyResult(passed=True)
-            # Token present but invalid — fall through to condition check
-            # so we give the caller a clear message about what triggered denial
-            logger.debug(
-                "Human oversight: approval token invalid (%s), continuing evaluation",
-                validation.message,
-            )
 
         # 3. Check require_approval_for conditions
         triggered_conditions = []
 
         if 'high_cost' in require_approval_for:
-            if estimated_cost is not None and estimated_cost > 1.0:
+            if estimated_cost is None or estimated_cost >= (auto_approve_threshold if auto_approve_threshold is not None else 1.0):
                 triggered_conditions.append(
-                    f"high_cost (estimated ${estimated_cost:.4f} > $1.00)"
+                    "high_cost or unknown cost"
                 )
 
         if 'sensitive_data' in require_approval_for:
@@ -113,6 +87,10 @@ class HumanOversightEvaluator(BasePolicyEvaluator):
                 triggered_conditions.append("external_calls")
 
         # 4. Deny if any condition triggered
+        if triggered_conditions and approval_token:
+            from zentinelle.services.approvals import validate_policy_approval
+            return validate_policy_approval(policy, action, user_id, context)
+
         if triggered_conditions:
             conditions_str = ', '.join(triggered_conditions)
             return PolicyResult(
@@ -125,65 +103,3 @@ class HumanOversightEvaluator(BasePolicyEvaluator):
 
         # 5. Allow
         return PolicyResult(passed=True)
-
-    def _validate_approval_token(
-        self,
-        token: str,
-        user_id: Optional[str],
-        policy_id: str,
-        max_age: int = DEFAULT_APPROVAL_TIMEOUT_SECONDS,
-    ) -> PolicyResult:
-        """
-        Validate an approval token using the same HMAC approach as
-        tool_permission.py (django.core.signing).
-
-        Expected token payload:
-        {
-            "policy": "policy_uuid",
-            "user": "user_id" (optional),
-            "granted_by": "approver_id",
-            "reason": "approval reason",
-        }
-        """
-        try:
-            payload = signing.loads(
-                token,
-                salt='human-oversight-approval',
-                max_age=max_age,
-            )
-
-            if 'policy' in payload and payload['policy'] != policy_id:
-                return PolicyResult(
-                    passed=False,
-                    message="Approval token was issued for a different policy",
-                )
-
-            if 'user' in payload and user_id and payload['user'] != user_id:
-                return PolicyResult(
-                    passed=False,
-                    message="Approval token was issued for a different user",
-                )
-
-            logger.info(
-                "Human oversight approval validated: user=%s, granted_by=%s",
-                user_id,
-                payload.get('granted_by'),
-            )
-            return PolicyResult(passed=True)
-
-        except signing.SignatureExpired:
-            return PolicyResult(
-                passed=False,
-                message="Approval token has expired. Please request new approval.",
-            )
-        except signing.BadSignature:
-            return PolicyResult(
-                passed=False,
-                message="Invalid approval token. Please request proper approval.",
-            )
-        except Exception as exc:
-            logger.error("Error validating human oversight approval token: %s", exc)
-            return PolicyResult(
-                passed=False,
-                message="Failed to validate approval token",
-            )

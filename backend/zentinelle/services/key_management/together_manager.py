@@ -4,16 +4,12 @@ Together AI API key management.
 Docs: https://docs.together.ai/reference/api-keys
 """
 import logging
-import httpx
 from datetime import datetime
 
-from .base import (
-    BaseKeyManager,
-    ProviderKeyInfo,
-    KeyCreationError,
-    KeyRevocationError,
-    KeyManagerError,
-)
+import httpx
+
+from .base import (BaseKeyManager, KeyCreationError, KeyManagerError,
+                   KeyRevocationError, ProviderKeyInfo)
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +81,7 @@ class TogetherKeyManager(BaseKeyManager):
                 key_value=data['key'],
                 name=data.get('name', name),
                 created_at=datetime.fromisoformat(data['created_at'].replace('Z', '+00:00'))
-                    if 'created_at' in data else None,
+                if 'created_at' in data else None,
             )
 
         except KeyManagerError:

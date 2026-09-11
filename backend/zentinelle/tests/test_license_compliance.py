@@ -468,7 +468,7 @@ class CeleryTasksTest(TestCase):
         )
 
         # Now the user count is within limit (0 users)
-        results = auto_resolve_violations()
+        auto_resolve_violations()
 
         violation.refresh_from_db()
         self.assertEqual(violation.status, LicenseComplianceViolation.Status.RESOLVED)

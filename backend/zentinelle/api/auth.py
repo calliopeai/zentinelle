@@ -10,9 +10,10 @@ Note: Deployment key auth (sk_deploy_) has been removed in standalone mode.
 Deployment operations are handled by the client-cove integration layer.
 """
 from rest_framework import authentication, exceptions
+
+from zentinelle.auth.mode import is_open_mode
 from zentinelle.models import AgentEndpoint, APIKey
 from zentinelle.utils.api_keys import KeyPrefixes
-from zentinelle.auth.mode import is_open_mode
 
 
 class ZentinelleAPIKeyAuthentication(authentication.BaseAuthentication):
@@ -183,7 +184,6 @@ def get_tenant_id_from_request(request):
     Helper to get tenant_id from request.
     Works with API key auth (agent), session auth (admin), and open mode.
     """
-    import os
 
     # Agent API key auth
     if hasattr(request, 'user') and isinstance(request.user, ZentinelleAgentUser):

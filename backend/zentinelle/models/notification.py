@@ -7,6 +7,7 @@ Populated by:
 - Incident post_save signal → on new open incident
 """
 import uuid
+
 from django.db import models
 
 
@@ -52,8 +53,9 @@ def create_notification(tenant_id: str, type: str, subject: str, message: str, m
     Helper to create a notification, silently skipping duplicates within 5 minutes.
     Deduplication key: (tenant_id, type, subject) within the last 5 minutes.
     """
-    from django.utils import timezone
     from datetime import timedelta
+
+    from django.utils import timezone
 
     cutoff = timezone.now() - timedelta(minutes=5)
     exists = Notification.objects.filter(

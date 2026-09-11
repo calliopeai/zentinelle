@@ -1,5 +1,8 @@
 "use client";
 
+import { authenticatedFetch } from "@/lib/auth/fetch";
+
+
 import { useEffect, useMemo, useState } from "react";
 
 const API_URL =
@@ -132,7 +135,7 @@ export default function RiskOverviewPage() {
   );
 
   useEffect(() => {
-    fetch(`${API_URL}/risks/trend?days=30`, { credentials: "include" })
+    authenticatedFetch(`${API_URL}/risks/trend?days=30`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data?.trend) return;

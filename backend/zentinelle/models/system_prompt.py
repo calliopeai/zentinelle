@@ -9,11 +9,12 @@ A flexible prompt library system that supports:
 - Community sharing and favorites
 """
 
-import uuid
 import re
-from django.db import models
-from django.core.validators import MinLengthValidator
+import uuid
+
 from django.contrib.postgres.fields import ArrayField
+from django.core.validators import MinLengthValidator
+from django.db import models
 
 
 class PromptCategory(models.Model):

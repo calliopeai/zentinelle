@@ -96,18 +96,26 @@ def generate_control_coverage(tenant_id: str, pack_name: str, format: str = 'csv
         matching = Policy.objects.filter(
             tenant_id=tenant_id,
             name=control_name,
+            policy_type=policy_type,
+            scope_type=Policy.ScopeType.ORGANIZATION,
             enabled=True,
         ).first()
 
         if matching is None:
             actual_enforcement = ''
             row_status = 'inactive'
+        elif matching.enforcement == Policy.Enforcement.DISABLED:
+            actual_enforcement = matching.enforcement
+            row_status = 'inactive'
+        elif any(matching.config.get(k) != v for k, v in policy_def.get('config', {}).items()):
+            actual_enforcement = matching.enforcement
+            row_status = 'configuration-review'
         elif matching.enforcement == Policy.Enforcement.AUDIT:
             actual_enforcement = matching.enforcement
             row_status = 'audit-only'
         else:
             actual_enforcement = matching.enforcement
-            row_status = 'active'
+            row_status = 'configured'
 
         rows.append({
             'control_name': control_name,
@@ -115,6 +123,8 @@ def generate_control_coverage(tenant_id: str, pack_name: str, format: str = 'csv
             'required_enforcement': required_enforcement,
             'actual_enforcement': actual_enforcement,
             'status': row_status,
+            'evidence_status': 'unverified',
+            'control_id': f"{pack_name}:{policy_type}:{control_name}",
         })
 
     if format == 'pdf':
@@ -131,7 +141,7 @@ def _control_coverage_html(pack: dict, rows: list) -> str:
     generated = date.today().isoformat()
 
     status_class = {
-        'active': 'badge-active',
+        'configured': 'badge-active',
         'inactive': 'badge-inactive',
         'audit-only': 'badge-audit',
     }
@@ -148,14 +158,14 @@ def _control_coverage_html(pack: dict, rows: list) -> str:
     )
 
     total = len(rows)
-    active = sum(1 for r in rows if r['status'] == 'active')
+    active = sum(1 for r in rows if r['status'] == 'configured')
     coverage_pct = f"{active / total * 100:.0f}%" if total else "N/A"
 
     return (
         f"<html><head><meta charset='utf-8'></head><body>"
         f"<h1>Control Coverage Report: {pack_name}</h1>"
         f"<p class='meta'>Generated: {generated} &nbsp;|&nbsp; "
-        f"Coverage: {active}/{total} controls active ({coverage_pct})</p>"
+        f"Coverage: {active}/{total} controls configured ({coverage_pct}). Operating effectiveness has not been verified.</p>"
         f"<table>"
         f"<tr><th>Control Name</th><th>Policy Type</th>"
         f"<th>Required Enforcement</th><th>Actual Enforcement</th><th>Status</th></tr>"
@@ -275,6 +285,7 @@ def generate_audit_trail(
     Raw AuditLog records as a list of row dicts (for CSV) or NDJSON string (format='ndjson').
     """
     import json as _json
+
     from zentinelle.models import AuditLog
 
     qs = AuditLog.objects.filter(
@@ -300,6 +311,7 @@ def generate_audit_trail(
     ]
 
     if format == 'ndjson':
-        return '\n'.join(_json.dumps(r) for r in rows)
+        from zentinelle.services.audit_chain import serialize_record
+        return '\n'.join(_json.dumps(serialize_record(entry)) for entry in qs.order_by('chain_sequence'))
 
     return rows

@@ -18,16 +18,14 @@ import json
 import logging
 
 from django.http import StreamingHttpResponse
-from django.utils.dateparse import parse_datetime, parse_date
 from django.utils import timezone
-
-from rest_framework.views import APIView
+from django.utils.dateparse import parse_date, parse_datetime
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from zentinelle.api.permissions import OpenOrAgentAuth, PORTAL_OR_AGENT_AUTH
+from rest_framework.views import APIView
 
+from zentinelle.api.auth import get_tenant_id_from_request
+from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.models import AuditLog
-from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_tenant_id_from_request
 
 logger = logging.getLogger(__name__)
 
@@ -35,20 +33,12 @@ logger = logging.getLogger(__name__)
 # Helpers: format-specific streaming generators
 # ---------------------------------------------------------------------------
 
+
 def _stream_ndjson(queryset):
     """Yield one JSON-encoded line per AuditLog record."""
     for record in queryset.iterator(chunk_size=500):
-        yield json.dumps({
-            'id': str(record.id),
-            'tenant_id': record.tenant_id,
-            'action': record.action,
-            'timestamp': record.timestamp.isoformat(),
-            'ext_user_id': record.ext_user_id,
-            'resource_type': record.resource_type,
-            'resource_id': record.resource_id,
-            'chain_sequence': record.chain_sequence,
-            'entry_hash': record.entry_hash,
-        }) + '\n'
+        from zentinelle.services.audit_chain import serialize_record
+        yield json.dumps(serialize_record(record)) + '\n'
 
 
 _CSV_FIELDS = [
@@ -128,8 +118,8 @@ class AuditExportView(APIView):
         format  ndjson | csv | cef  (default: ndjson)
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     # The view returns a StreamingHttpResponse with custom content-type;
     # DRF's content negotiation would try to match a renderer for ?format=
@@ -162,9 +152,9 @@ class AuditExportView(APIView):
             return Response({'error': f"Invalid 'to' value: {to_raw!r}"}, status=400)
 
         fmt = request.query_params.get('format', 'ndjson').lower()
-        if fmt not in ('ndjson', 'csv', 'cef'):
+        if fmt not in ('ndjson', 'bundle', 'csv', 'cef'):
             return Response(
-                {'error': f"Unsupported format {fmt!r}. Choose from: ndjson, csv, cef"},
+                {'error': f"Unsupported format {fmt!r}. Choose from: ndjson, bundle, csv, cef"},
                 status=400,
             )
 
@@ -175,10 +165,14 @@ class AuditExportView(APIView):
                 timestamp__gte=from_dt,
                 timestamp__lte=to_dt,
             )
-            .order_by('timestamp')
+            .order_by('chain_sequence')
         )
 
-        if fmt == 'ndjson':
+        if fmt == 'bundle':
+            from zentinelle.services.audit_chain import stream_evidence_bundle
+            streaming_gen = stream_evidence_bundle(queryset, tenant_id, {'from': from_dt.isoformat(), 'to': to_dt.isoformat()})
+            content_type = 'application/x-ndjson'
+        elif fmt == 'ndjson':
             streaming_gen = _stream_ndjson(queryset)
             content_type = 'application/x-ndjson'
         elif fmt == 'csv':
@@ -189,6 +183,8 @@ class AuditExportView(APIView):
             content_type = 'text/plain'
 
         response = StreamingHttpResponse(streaming_gen, content_type=content_type)
+        from zentinelle.services.audit_chain import checkpoint
+        response['X-Zentinelle-Audit-Checkpoint'] = checkpoint(tenant_id)
         if fmt == 'csv':
             response['Content-Disposition'] = 'attachment; filename="audit_export.csv"'
         return response

@@ -11,21 +11,21 @@ Skipped: requires managed-cloud models (Organization, OrganizationMember, Deploy
 that are not available in standalone mode. These tests will be re-enabled when the
 managed deployment shim is implemented.
 """
-import pytest
-
-pytestmark = pytest.mark.skip(
-    reason='Requires managed-cloud models (Organization, OrganizationMember, Deployment)'
-)
-
 import uuid  # noqa: E402
 from unittest.mock import MagicMock, patch  # noqa: E402
 
+import pytest
 from django.contrib.auth import get_user_model  # noqa: E402
 from django.test import TestCase, override_settings  # noqa: E402
 
 from zentinelle.models import License  # noqa: E402
 from zentinelle.services.notification_service import (  # noqa: E402
     NotificationService, get_notification_service)
+
+pytestmark = pytest.mark.skip(
+    reason='Requires managed-cloud models (Organization, OrganizationMember, Deployment)'
+)
+
 
 User = get_user_model()
 

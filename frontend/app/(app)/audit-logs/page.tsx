@@ -1,5 +1,8 @@
 "use client";
 
+import { authenticatedFetch } from "@/lib/auth/fetch";
+
+
 import { useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
@@ -52,7 +55,7 @@ const API_BASE_URL =
   "/api/zentinelle/v1";
 
 async function verifyAuditChain(): Promise<VerifyResult> {
-  const res = await fetch(`${API_BASE_URL}/audit/verify`, {
+  const res = await authenticatedFetch(`${API_BASE_URL}/audit/verify`, {
     method: "GET",
     credentials: "include",
     headers: { Accept: "application/json" },

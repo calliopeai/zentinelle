@@ -12,7 +12,7 @@ so the rest of the application works normally without ClickHouse.
 import json
 import logging
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from django.conf import settings
 
@@ -58,6 +58,7 @@ def _get_client():
         )
         return None
     except Exception as e:
+        _client_checked = False  # Retry transient connection failures on the next call.
         logger.error(f"Failed to create ClickHouse client: {e}")
         return None
 
@@ -103,6 +104,7 @@ def insert_audit_events(rows: List[Dict[str, Any]]) -> int:
         'created_at',
     ]
 
+    from zentinelle.services.content_capture import capture_payload
     data = []
     for row in rows:
         data.append([
@@ -116,7 +118,7 @@ def insert_audit_events(rows: List[Dict[str, Any]]) -> int:
             row.get('resource_type', ''),
             str(row.get('resource_id', '')),
             row.get('resource_name', ''),
-            json.dumps(row.get('metadata', {})) if isinstance(row.get('metadata'), dict) else str(row.get('metadata', '{}')),
+            json.dumps(capture_payload(row.get('metadata', {}))) if isinstance(row.get('metadata'), dict) else '{}',
             row.get('ip_address') or None,
             row.get('user_agent', ''),
             row.get('correlation_id', ''),
@@ -242,11 +244,9 @@ def event_timeline(
         return []
 
     if granularity == 'hour':
-        time_col = 'hour'
         table = 'audit_events_hourly_counts'
         date_filter = "hour >= now() - INTERVAL {days:UInt32} DAY"
     else:
-        time_col = 'toDate(hour) AS day'
         table = 'audit_events_hourly_counts'
         date_filter = "hour >= now() - INTERVAL {days:UInt32} DAY"
 
@@ -436,3 +436,47 @@ def search_events(
     except Exception as e:
         logger.error(f"ClickHouse search_events failed: {e}")
         return {'events': [], 'total': 0}
+
+
+RETENTION_TABLES = {
+    'audit_events': 'occurred_at',
+    'audit_events_hourly_counts': 'hour',
+    'audit_events_agent_daily': 'day',
+    'audit_events_org_daily': 'day',
+}
+
+
+def disable_automatic_retention():
+    """Database TTL cannot consult legal holds; the shared retention job owns expiry."""
+    if not _get_clickhouse_url():
+        return None
+    client = _get_client()
+    if client is None:
+        raise RuntimeError('Cannot verify ClickHouse retention while analytics is unavailable')
+    for table in RETENTION_TABLES:
+        create_sql = client.query(f'SHOW CREATE TABLE {table}').result_rows[0][0]
+        if 'TTL' in create_sql:
+            client.command(f'ALTER TABLE {table} REMOVE TTL')
+    return client
+
+
+def retention_tenants(client):
+    if client is None:
+        return set()
+    tenants = set()
+    for table in RETENTION_TABLES:
+        tenants.update(str(row[0]) for row in client.query(f'SELECT DISTINCT organization_id FROM {table}').result_rows)
+    return tenants
+
+
+def retain_analytics(client, tenant_id, cutoff):
+    """Called under the SQL tenant lock after holds and all minimums are checked."""
+    import uuid
+    tenant_id = str(uuid.UUID(tenant_id))
+    for table, date_field in RETENTION_TABLES.items():
+        client.command(
+            f'ALTER TABLE {table} DELETE WHERE organization_id = {{tenant:UUID}} '
+            f'AND {date_field} < toDateTime({{cutoff:String}})',
+            parameters={'tenant': tenant_id, 'cutoff': cutoff.strftime('%Y-%m-%d %H:%M:%S')},
+            settings={'mutations_sync': 2},
+        )

@@ -9,12 +9,9 @@ import json
 
 from django.core.management.base import BaseCommand
 
-from zentinelle.services.billing_export import (
-    BillingExportError,
-    billing_mode,
-    export_pending,
-    is_enabled,
-)
+from zentinelle.services.billing_export import (BillingExportError,
+                                                billing_mode, export_pending,
+                                                is_enabled)
 
 
 class Command(BaseCommand):

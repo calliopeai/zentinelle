@@ -16,11 +16,10 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 
-from zentinelle.api.permissions import PORTAL_OR_AGENT_AUTH
-from zentinelle.api.views.assistant import IsAuthenticatedOrOpenMode
-from zentinelle.services.llm_model_discovery import (clear_cache,
-                                                      fetch_live_models)
+from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.auth.mode import is_open_mode
+from zentinelle.services.llm_model_discovery import (clear_cache,
+                                                     fetch_live_models)
 
 logger = logging.getLogger(__name__)
 
@@ -59,17 +58,16 @@ def _refuse_unless_admin(request):
 class AssistantModelsListView(APIView):
     """List all models for a provider with their enabled_for_chat state."""
 
-    permission_classes = [IsAuthenticatedOrOpenMode]
+    permission_classes = [PortalAccess]
     # The portal session has to be visible here, or the admin check below has
     # nobody to check: with no authentication classes DRF replaces the session
     # user with AnonymousUser, so the only caller these views could ever
     # recognise was the open-mode one — who is an admin by construction.
-    authentication_classes = PORTAL_OR_AGENT_AUTH
+    authentication_classes = PORTAL_AUTH
 
     def get(self, request):
         from zentinelle.models import AIModel
         from zentinelle.schema.auth_helpers import get_request_tenant_id
-        import os
 
         provider_slug = request.GET.get('provider', '')
         if not provider_slug:
@@ -111,12 +109,12 @@ class AssistantModelsListView(APIView):
 class AssistantModelsToggleView(APIView):
     """Toggle one model's enabled_for_chat flag."""
 
-    permission_classes = [IsAuthenticatedOrOpenMode]
+    permission_classes = [PortalAccess]
     # The portal session has to be visible here, or the admin check below has
     # nobody to check: with no authentication classes DRF replaces the session
     # user with AnonymousUser, so the only caller these views could ever
     # recognise was the open-mode one — who is an admin by construction.
-    authentication_classes = PORTAL_OR_AGENT_AUTH
+    authentication_classes = PORTAL_AUTH
 
     def post(self, request):
         from zentinelle.models import AIModel
@@ -159,12 +157,12 @@ class AssistantModelsToggleView(APIView):
 class AssistantModelsBulkView(APIView):
     """Set the enabled set for an entire provider at once."""
 
-    permission_classes = [IsAuthenticatedOrOpenMode]
+    permission_classes = [PortalAccess]
     # The portal session has to be visible here, or the admin check below has
     # nobody to check: with no authentication classes DRF replaces the session
     # user with AnonymousUser, so the only caller these views could ever
     # recognise was the open-mode one — who is an admin by construction.
-    authentication_classes = PORTAL_OR_AGENT_AUTH
+    authentication_classes = PORTAL_AUTH
 
     def post(self, request):
         from zentinelle.models import AIModel

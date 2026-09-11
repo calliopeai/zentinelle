@@ -6,6 +6,7 @@ look up provider credentials at runtime. Falls back to env vars if no
 tenant-specific key exists.
 """
 import os
+
 from cryptography.fernet import Fernet
 from django.db import models
 

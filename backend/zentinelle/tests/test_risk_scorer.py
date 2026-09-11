@@ -1,6 +1,8 @@
 """Unit tests for the RiskScorer."""
-import sys
+# Import directly to bypass package __init__ chain
+import importlib.util as _ilu
 import os
+import sys
 import types
 import unittest
 from unittest.mock import MagicMock
@@ -9,6 +11,8 @@ from unittest.mock import MagicMock
 # Stub out Django and Zentinelle ORM modules so this test has no DB deps.
 # Must happen BEFORE any zentinelle import.
 # ---------------------------------------------------------------------------
+
+
 def _stub_django():
     """Insert minimal Django stubs into sys.modules."""
     for mod_name in [
@@ -59,11 +63,13 @@ if 'zentinelle.models' not in sys.modules:
     class _PolicyStub:
         class PolicyType:
             pass
+
         class ScopeType:
             ORGANIZATION = 'organization'
             SUB_ORGANIZATION = 'sub_organization'
             ENDPOINT = 'endpoint'
             USER = 'user'
+
         class Enforcement:
             ENFORCE = 'enforce'
             AUDIT = 'audit'
@@ -73,8 +79,6 @@ if 'zentinelle.models' not in sys.modules:
     _models_mod.AgentEndpoint = MagicMock()
     sys.modules['zentinelle.models'] = _models_mod
 
-# Import directly to bypass package __init__ chain
-import importlib.util as _ilu
 _scorer_path = os.path.join(os.path.dirname(__file__), '..', 'services', 'risk_scorer.py')
 _spec = _ilu.spec_from_file_location('zentinelle.services.risk_scorer', os.path.abspath(_scorer_path))
 _mod = _ilu.module_from_spec(_spec)

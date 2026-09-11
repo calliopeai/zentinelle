@@ -11,12 +11,14 @@ Tasks:
 Note: Stripe billing integration is handled in billing/tasks.py for real-time
 tracking. These tasks handle aggregation and reconciliation.
 """
+import importlib
 import logging
 from datetime import datetime, timedelta
+
 from celery import shared_task
-from django.utils import timezone
-from django.db.models import Sum
 from django.conf import settings
+from django.db.models import Sum
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ def aggregate_hourly_usage(self, hour: str = None):
         logger.info("Managed-only task skipped in standalone mode")
         return
 
-    from zentinelle.models import UsageMetric, UsageAggregate
+    from zentinelle.models import UsageAggregate, UsageMetric
 
     # Default to previous hour
     if hour:
@@ -83,7 +85,7 @@ def aggregate_daily_usage(self, date: str = None):
         date: ISO format date to aggregate (default: yesterday)
     """
     try:
-        from organization.models import Organization
+        importlib.import_module('organization.models')
     except ImportError:
         logger.info("Managed-only task skipped in standalone mode")
         return
@@ -155,7 +157,7 @@ def generate_monthly_user_counts(self, year: int = None, month: int = None):
         month: Month to generate for (default: previous month)
     """
     try:
-        from organization.models import Organization
+        importlib.import_module('organization.models')
     except ImportError:
         logger.info("Managed-only task skipped in standalone mode")
         return
@@ -215,7 +217,8 @@ def send_usage_to_stripe(self, aggregate_ids: list = None):
         return
 
     import stripe
-    from zentinelle.models import UsageAggregate, License
+
+    from zentinelle.models import License, UsageAggregate
 
     stripe.api_key = getattr(settings, 'STRIPE_SECRET_KEY', '')
     if not stripe.api_key:
@@ -273,7 +276,7 @@ def send_usage_to_stripe(self, aggregate_ids: list = None):
             # Skip infrastructure billing for BYOC
             if (aggregate.metric_type.startswith('compute_') or
                 aggregate.metric_type.startswith('storage_') or
-                aggregate.metric_type.startswith('data_transfer_')):
+                    aggregate.metric_type.startswith('data_transfer_')):
                 if not license_obj.bill_infrastructure:
                     aggregate.mark_sent('skipped_byoc', '')
                     continue
@@ -341,6 +344,7 @@ def send_monthly_user_counts_to_stripe(self, year: int = None, month: int = None
         return
 
     import stripe
+
     from zentinelle.models import MonthlyUserCount
 
     stripe.api_key = getattr(settings, 'STRIPE_SECRET_KEY', '')
@@ -413,13 +417,14 @@ def check_license_limits(self):
     For BYOC, this is informational for billing purposes.
     """
     try:
-        from organization.models import Organization
+        importlib.import_module('organization.models')
     except ImportError:
         logger.info("Managed-only task skipped in standalone mode")
         return
 
     from deployments.models import Deployment
-    from zentinelle.models import License, LicensedUser, AgentEndpoint
+
+    from zentinelle.models import AgentEndpoint, License, LicensedUser
 
     logger.info("Checking license limits across all organizations")
 
@@ -541,11 +546,8 @@ def export_usage_to_billing(self, limit: int = 500):
     against a billing ingest that is already struggling helps nobody, and the
     work is not lost either way.
     """
-    from zentinelle.services.billing_export import (
-        BillingExportError,
-        export_pending,
-        is_enabled,
-    )
+    from zentinelle.services.billing_export import (BillingExportError,
+                                                    export_pending, is_enabled)
 
     if not is_enabled():
         return {'enabled': False, 'exported': 0}

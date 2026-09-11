@@ -1,5 +1,8 @@
 "use client";
 
+import { authenticatedFetch } from "@/lib/auth/fetch";
+
+
 import { useCallback, useEffect, useState } from "react";
 import { Loader2Icon, MessageSquareIcon, SendIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -189,7 +192,7 @@ function CommentsThread({ incidentId }: { incidentId: string }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
+      const res = await authenticatedFetch(
         `${API_URL}/incidents/${incidentId}/comments/`,
         {
           credentials: "include",
@@ -234,7 +237,7 @@ function CommentsThread({ incidentId }: { incidentId: string }) {
             ? trimmed
             : `[severity:${severity}] ${trimmed}`;
 
-        const res = await fetch(
+        const res = await authenticatedFetch(
           `${API_URL}/incidents/${incidentId}/comments/`,
           {
             method: "POST",

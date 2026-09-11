@@ -6,12 +6,11 @@ an allowlist, blocklist, and approval-required list.
 """
 import fnmatch
 import logging
-from typing import Dict, Any, Optional
-
-from django.core import signing
+from typing import Any, Dict, Optional
 
 from zentinelle.models import Policy
-from zentinelle.services.evaluators.base import BasePolicyEvaluator, PolicyResult
+from zentinelle.services.evaluators.base import (BasePolicyEvaluator,
+                                                 PolicyResult)
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +53,7 @@ class AgentCapabilityEvaluator(BasePolicyEvaluator):
         # The "action" evaluated here is the agent action (e.g. "tool:search"),
         # passed in context["action"] when calling the policy engine, or falling
         # back to the top-level action parameter for direct use.
-        agent_action = context.get('action', action)
+        agent_action = action
 
         # 1. Explicit deny list
         denied_actions = config.get('denied_actions', [])
@@ -78,12 +77,9 @@ class AgentCapabilityEvaluator(BasePolicyEvaluator):
                             "Provide a valid approval_token to proceed."
                         ),
                     )
-                validation = self._validate_approval_token(
-                    token=approval_token,
-                    action=agent_action,
-                    user_id=user_id,
-                    policy_id=str(policy.id),
-                )
+                from zentinelle.services.approvals import \
+                    validate_policy_approval
+                validation = validate_policy_approval(policy, action, user_id, context)
                 if not validation.passed:
                     return validation
                 # Approval validated — fall through to allowlist check
@@ -104,76 +100,3 @@ class AgentCapabilityEvaluator(BasePolicyEvaluator):
             )
 
         return PolicyResult(passed=True)
-
-    def _validate_approval_token(
-        self,
-        token: str,
-        action: str,
-        user_id: Optional[str],
-        policy_id: str,
-    ) -> PolicyResult:
-        """
-        Validate an approval token using the same HMAC approach as
-        tool_permission.py (django.core.signing).
-
-        Expected token payload:
-        {
-            "action": "tool:database_write",
-            "policy": "policy_uuid",
-            "user": "user_id" (optional),
-            "granted_by": "approver_id",
-            "reason": "approval reason",
-        }
-        """
-        try:
-            payload = signing.loads(
-                token,
-                salt='agent-capability-approval',
-                max_age=APPROVAL_TOKEN_MAX_AGE,
-            )
-
-            if payload.get('action') != action:
-                return PolicyResult(
-                    passed=False,
-                    message=(
-                        f"Approval token is for action '{payload.get('action')}', "
-                        f"not '{action}'"
-                    ),
-                )
-
-            if 'policy' in payload and payload['policy'] != policy_id:
-                return PolicyResult(
-                    passed=False,
-                    message="Approval token was issued for a different policy",
-                )
-
-            if 'user' in payload and user_id and payload['user'] != user_id:
-                return PolicyResult(
-                    passed=False,
-                    message="Approval token was issued for a different user",
-                )
-
-            logger.info(
-                "Agent capability approval validated: action=%s, user=%s, granted_by=%s",
-                action,
-                user_id,
-                payload.get('granted_by'),
-            )
-            return PolicyResult(passed=True)
-
-        except signing.SignatureExpired:
-            return PolicyResult(
-                passed=False,
-                message="Approval token has expired. Please request new approval.",
-            )
-        except signing.BadSignature:
-            return PolicyResult(
-                passed=False,
-                message="Invalid approval token. Please request proper approval.",
-            )
-        except Exception as exc:
-            logger.error("Error validating agent capability approval token: %s", exc)
-            return PolicyResult(
-                passed=False,
-                message="Failed to validate approval token",
-            )

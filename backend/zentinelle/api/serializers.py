@@ -2,17 +2,13 @@
 DRF Serializers for Zentinelle API.
 """
 from rest_framework import serializers
-from zentinelle.models import (
-    AgentEndpoint,
-    Policy,
-    Event,
-    AuditLog,
-)
 
+from zentinelle.models import AgentEndpoint, AuditLog, Event, Policy
 
 # =============================================================================
 # Agent-Facing Serializers (used by SDK)
 # =============================================================================
+
 
 class RegisterRequestSerializer(serializers.Serializer):
     """Request to register a new agent."""
@@ -59,11 +55,11 @@ class SecretsResponseSerializer(serializers.Serializer):
 
 
 class EvaluateRequestSerializer(serializers.Serializer):
-    """Request to evaluate policies for an action."""
-    agent_id = serializers.CharField()
+    """Identity is derived from the authenticated key; an explicit ID must match."""
+    agent_id = serializers.CharField(required=False, allow_blank=True)
     action = serializers.CharField(max_length=50)
     user_id = serializers.CharField(max_length=255, required=False, allow_blank=True)
-    context = serializers.JSONField(default=dict)
+    context = serializers.DictField(default=dict)
 
 
 class EvaluateResponseSerializer(serializers.Serializer):

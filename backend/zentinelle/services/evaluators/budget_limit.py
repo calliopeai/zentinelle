@@ -1,10 +1,11 @@
 """
 Budget limit policy evaluator.
 """
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from zentinelle.models import Policy
-from zentinelle.services.evaluators.base import BasePolicyEvaluator, PolicyResult
+from zentinelle.services.evaluators.base import (BasePolicyEvaluator,
+                                                 PolicyResult)
 
 
 class BudgetLimitEvaluator(BasePolicyEvaluator):
@@ -30,7 +31,11 @@ class BudgetLimitEvaluator(BasePolicyEvaluator):
         config = policy.config
         warnings = []
 
-        monthly_budget = config.get('monthly_budget_usd')
+        from zentinelle.services.budgets import current_spend, monthly_limit
+        try:
+            monthly_budget = float(monthly_limit(policy))
+        except (ValueError, ArithmeticError):
+            return PolicyResult(passed=False, message='Invalid monthly budget configuration')
         alert_threshold = config.get('alert_threshold_percent', 80)
         hard_limit = config.get('hard_limit', True)
 
@@ -38,7 +43,7 @@ class BudgetLimitEvaluator(BasePolicyEvaluator):
             return PolicyResult(passed=True)
 
         # Get current spend from context
-        current_spend = context.get('current_month_spend_usd', 0)
+        current_spend = float(current_spend(policy))
         remaining = monthly_budget - current_spend
 
         # Calculate percentage used

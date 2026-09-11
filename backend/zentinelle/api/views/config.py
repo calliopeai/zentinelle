@@ -4,14 +4,15 @@ GET /api/zentinelle/v1/config/{agent_id}
 """
 import logging
 
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from django.core.cache import cache
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from zentinelle.api.auth import (ZentinelleAPIKeyAuthentication,
+                                 get_endpoint_from_request)
 from zentinelle.models import AgentEndpoint
-from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_endpoint_from_request
 
 logger = logging.getLogger(__name__)
 

@@ -17,6 +17,7 @@ export const SIMULATE_POLICY = gql`
       wouldBlock
       wouldWarn
       wouldPass
+      inconclusive
       impactPercent
       blockedSamples
       simulatedPolicyType
@@ -53,6 +54,7 @@ export type SimulatePolicyResult = {
     wouldBlock: number;
     wouldWarn: number;
     wouldPass: number;
+    inconclusive: number;
     impactPercent: number;
     blockedSamples: string[];
     simulatedPolicyType: string | null;

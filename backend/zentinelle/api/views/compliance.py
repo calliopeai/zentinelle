@@ -18,31 +18,37 @@ GET /api/zentinelle/v1/export/summary.json - Export JSON compliance summary
 import csv
 import io
 import logging
-from datetime import timedelta
 from collections import defaultdict
+from datetime import timedelta
 
 from django.http import StreamingHttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-
 from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from zentinelle.api.permissions import OpenOrAgentAuth, PORTAL_OR_AGENT_AUTH
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from zentinelle.models import (
-    ContentRule,
-    ContentScan,
-    ContentViolation,
-    ComplianceAlert,
-    ComplianceAssessment,
-    InteractionLog,
-)
-from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_endpoint_from_request, get_tenant_id_from_request
+from zentinelle.api.auth import (ZentinelleAgentUser,
+                                 ZentinelleAPIKeyAuthentication,
+                                 get_endpoint_from_request,
+                                 get_tenant_id_from_request)
+from zentinelle.api.permissions import (PORTAL_AUTH, PORTAL_OR_AGENT_AUTH,
+                                        OpenOrAgentAuth, PortalAccess)
+from zentinelle.models import (ComplianceAlert, ComplianceAssessment,
+                               ContentRule, ContentScan, ContentViolation,
+                               InteractionLog)
+from zentinelle.services.content_capture import record_interaction
 from zentinelle.services.content_scanner import ContentScanner
 
 logger = logging.getLogger(__name__)
+
+
+def evidence_scope(request, prefix=''):
+    filters = {prefix + 'tenant_id': get_tenant_id_from_request(request)}
+    if isinstance(request.user, ZentinelleAgentUser):
+        filters[prefix + 'endpoint_id'] = request.user.endpoint.pk
+    return filters
 
 
 class ScanContentView(APIView):
@@ -55,8 +61,8 @@ class ScanContentView(APIView):
     Returns immediately with scan results and action to take.
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = [ZentinelleAPIKeyAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         """
@@ -173,8 +179,8 @@ class AsyncScanView(APIView):
     analyzed after the fact (e.g., for AI responses).
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = [ZentinelleAPIKeyAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         """
@@ -240,13 +246,8 @@ class ScanResultView(APIView):
     permission_classes = [OpenOrAgentAuth]
 
     def get(self, request, scan_id):
-        endpoint = get_endpoint_from_request(request)
-
         try:
-            scan = ContentScan.objects.get(
-                id=scan_id,
-                tenant_id=endpoint.tenant_id
-            )
+            scan = ContentScan.objects.get(id=scan_id, **evidence_scope(request))
         except ContentScan.DoesNotExist:
             return Response(
                 {'error': 'Scan not found'},
@@ -309,11 +310,8 @@ class ViolationsListView(APIView):
     permission_classes = [OpenOrAgentAuth]
 
     def get(self, request):
-        endpoint = get_endpoint_from_request(request)
-
-        # Build query
         queryset = ContentViolation.objects.filter(
-            scan__tenant_id=endpoint.tenant_id
+            **evidence_scope(request, 'scan__')
         ).select_related('scan', 'rule')
 
         # Apply filters
@@ -385,11 +383,7 @@ class AlertsListView(APIView):
     permission_classes = [OpenOrAgentAuth]
 
     def get(self, request):
-        endpoint = get_endpoint_from_request(request)
-
-        queryset = ComplianceAlert.objects.filter(
-            tenant_id=endpoint.tenant_id
-        )
+        queryset = ComplianceAlert.objects.filter(**evidence_scope(request))
 
         # Apply filters
         alert_status = request.query_params.get('status')
@@ -441,16 +435,16 @@ class AcknowledgeAlertView(APIView):
     POST /api/zentinelle/v1/alerts/{alert_id}/acknowledge
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def post(self, request, alert_id):
-        endpoint = get_endpoint_from_request(request)
+        tenant_id = get_tenant_id_from_request(request)
 
         try:
             alert = ComplianceAlert.objects.get(
                 id=alert_id,
-                tenant_id=endpoint.tenant_id
+                tenant_id=tenant_id
             )
         except ComplianceAlert.DoesNotExist:
             return Response(
@@ -467,7 +461,7 @@ class AcknowledgeAlertView(APIView):
         from django.utils import timezone
         alert.status = ComplianceAlert.Status.ACKNOWLEDGED
         alert.acknowledged_at = timezone.now()
-        # Note: In real implementation, would get user from auth context
+        alert.acknowledged_by = str(request.user.pk)
         alert.save()
 
         return Response({
@@ -490,16 +484,16 @@ class ResolveAlertView(APIView):
     }
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def post(self, request, alert_id):
-        endpoint = get_endpoint_from_request(request)
+        tenant_id = get_tenant_id_from_request(request)
 
         try:
             alert = ComplianceAlert.objects.get(
                 id=alert_id,
-                tenant_id=endpoint.tenant_id
+                tenant_id=tenant_id
             )
         except ComplianceAlert.DoesNotExist:
             return Response(
@@ -519,6 +513,7 @@ class ResolveAlertView(APIView):
         alert.status = ComplianceAlert.Status.FALSE_POSITIVE if is_false_positive else ComplianceAlert.Status.RESOLVED
         alert.resolved_at = timezone.now()
         alert.resolution_notes = request.data.get('resolution_notes', '')
+        alert.user_id = str(request.user.pk)
         alert.save()
 
         return Response({
@@ -538,8 +533,8 @@ class LogInteractionView(APIView):
     the full request/response for audit and analysis.
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = [ZentinelleAPIKeyAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         """
@@ -575,7 +570,7 @@ class LogInteractionView(APIView):
         else:
             occurred_at = timezone.now()
 
-        interaction = InteractionLog.objects.create(
+        interaction = record_interaction(
             tenant_id=endpoint.tenant_id,
             endpoint=endpoint,
             deployment_id_ext=endpoint.deployment_id_ext,
@@ -664,8 +659,8 @@ class ExportViolationsCSVView(APIView):
         - rule_type: filter by rule type (optional)
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def perform_content_negotiation(self, request, force=False):
         from rest_framework.renderers import JSONRenderer
@@ -761,8 +756,8 @@ class ExportComplianceReportCSVView(APIView):
         - framework: filter by framework slug (optional)
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def perform_content_negotiation(self, request, force=False):
         from rest_framework.renderers import JSONRenderer
@@ -851,8 +846,8 @@ class ComplianceReportSummaryView(APIView):
         - end:   ISO8601 datetime (default: now)
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def get(self, request):
         tenant_id = get_tenant_id_from_request(request)

@@ -18,10 +18,10 @@ import queue
 import threading
 
 from django.http import JsonResponse, StreamingHttpResponse
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
+from rest_framework.permissions import BasePermission
 from rest_framework.views import APIView
+
+from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.auth.mode import is_open_mode
 
 logger = logging.getLogger(__name__)
@@ -29,13 +29,13 @@ logger = logging.getLogger(__name__)
 
 class IsAuthenticatedOrOpenMode(BasePermission):
     """Allow if authenticated OR if AUTH_MODE=open."""
+
     def has_permission(self, request, view):
         if is_open_mode():
             return True
         return bool(request.user and request.user.is_authenticated)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class AssistantExecuteToolView(APIView):
     """Deterministically execute a tool the user has approved.
 
@@ -46,8 +46,8 @@ class AssistantExecuteToolView(APIView):
     Returns the tool result so the frontend can inline it in the chat.
     """
 
-    permission_classes = [IsAuthenticatedOrOpenMode]
-    authentication_classes = []
+    permission_classes = [PortalAccess]
+    authentication_classes = PORTAL_AUTH
 
     def post(self, request):
         try:
@@ -61,9 +61,9 @@ class AssistantExecuteToolView(APIView):
         if not name:
             return JsonResponse({'error': 'name is required'}, status=400)
 
-        from zentinelle.services.llm_tools import (REQUIRES_CONFIRMATION,
-                                                    TOOL_DISPATCH, execute_tool,
-                                                    MUTATION_TOOLS)
+        from zentinelle.services.llm_tools import (MUTATION_TOOLS,
+                                                   REQUIRES_CONFIRMATION,
+                                                   TOOL_DISPATCH, execute_tool)
 
         if name not in TOOL_DISPATCH:
             return JsonResponse({'error': f'Unknown tool: {name}'}, status=400)
@@ -85,6 +85,16 @@ class AssistantExecuteToolView(APIView):
             else 'open-mode'
         )
 
+        from zentinelle.services.approvals import (consume_approvals,
+                                                   context_digest,
+                                                   find_approval)
+        approval = find_approval(
+            data.get('approval_token'), tenant_id=tenant_id, kind='assistant',
+            subject=actor, action=name, digest=context_digest(args),
+        )
+        if not approval or not consume_approvals([approval.pk], tenant_id=tenant_id):
+            return JsonResponse({'error': 'Confirmation is expired, used, or does not match this action'}, status=403)
+
         # Execute and audit
         result_str = execute_tool(name, args, tenant_id)
         try:
@@ -95,7 +105,8 @@ class AssistantExecuteToolView(APIView):
         if name in MUTATION_TOOLS:
             try:
                 from zentinelle.models import AuditLog
-                from zentinelle.services.llm_provider import _resource_id_from_args
+                from zentinelle.services.llm_provider import \
+                    _resource_id_from_args
                 res_type, res_id = _resource_id_from_args(name, args, result_obj)
                 AuditLog.log(
                     tenant_id=tenant_id,
@@ -118,12 +129,11 @@ class AssistantExecuteToolView(APIView):
         })
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class AssistantChatView(APIView):
     """Stream a GRC-aware AI assistant response."""
 
-    permission_classes = [IsAuthenticatedOrOpenMode]
-    authentication_classes = []
+    permission_classes = [PortalAccess]
+    authentication_classes = PORTAL_AUTH
 
     def post(self, request):
         try:
@@ -136,7 +146,7 @@ class AssistantChatView(APIView):
         page_context = data.get('page_context', '')
         model = data.get('model', '')
         provider = data.get('provider', '')
-        approved_actions = data.get('approved_actions', []) or []
+        approved_actions = []  # Confirmation is accepted only by execute-tool.
 
         if not message:
             return JsonResponse(
@@ -244,6 +254,9 @@ class AssistantChatView(APIView):
             elif kind == 'tool_result':
                 yield f"data: {json.dumps({'tool_result': ev['name'], 'result': ev.get('result', {})})}\n\n"
             elif kind == 'pending_action':
+                from zentinelle.services.approvals import issue_approval
+                ev['hash'] = issue_approval(tenant_id=tenant_id, kind='assistant', subject=actor,
+                                            action=ev['name'], context=ev.get('args', {}))
                 yield f"data: {json.dumps({'pending_action': ev['name'], 'args': ev.get('args', {}), 'hash': ev.get('hash', ''), 'preview': ev.get('preview', '')})}\n\n"
             elif kind == 'navigation':
                 yield f"data: {json.dumps({'navigation': {'path': ev.get('path', ''), 'label': ev.get('label', '')}})}\n\n"

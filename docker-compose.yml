@@ -14,8 +14,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.dev
-      - DEBUG=true
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-config.settings.dev}
+      - DEBUG=${DEBUG:-false}
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB:-zentinelle}
@@ -36,6 +36,7 @@ services:
       - ./backend:/app
     command: >
       sh -c "
+        python manage.py prepare_schemas &&
         python manage.py migrate --database default --no-input &&
         python manage.py migrate --database zentinelle --no-input &&
         python manage.py migrate --database analytics --no-input &&
@@ -53,7 +54,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.dev
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-config.settings.dev}
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB:-zentinelle}
@@ -78,7 +79,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.dev
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-config.settings.dev}
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB:-zentinelle}
@@ -105,7 +106,7 @@ services:
     environment:
       - ZENTINELLE_URL=http://backend:8000
       - GATEWAY_PORT=8742
-      - FAIL_OPEN=true
+      - FAIL_OPEN=false
     env_file:
       - .env
     depends_on:
@@ -119,9 +120,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
     environment:
-      - NEXT_PUBLIC_GQL_URL=http://localhost:8080/gql/zentinelle/
-      - NEXT_PUBLIC_API_URL=http://localhost:8080/api/zentinelle/v1
-      - NEXT_PUBLIC_AUTH_MODE=${AUTH_MODE:-open}
+      - NEXT_PUBLIC_GQL_URL=/gql/zentinelle/
+      - NEXT_PUBLIC_API_URL=/api/zentinelle/v1
+      - NEXT_PUBLIC_AUTH_MODE=${AUTH_MODE:-local}
       - INTERNAL_API_URL=http://backend:8000/api/zentinelle/v1
     volumes:
       - ./frontend:/app
@@ -139,7 +140,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
-      - "${POSTGRES_PORT_HOST:-55432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT_HOST:-55432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zentinelle}"]
       interval: 5s
@@ -152,7 +153,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "${REDIS_PORT_HOST:-56379}:6379"
+      - "127.0.0.1:${REDIS_PORT_HOST:-56379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -173,8 +174,8 @@ services:
       - clickhouse_data:/var/lib/clickhouse
       - ./backend/zentinelle/clickhouse/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
     ports:
-      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
-      - "${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
+      - "127.0.0.1:${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "127.0.0.1:${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
     ulimits:
       nofile:
         soft: 262144

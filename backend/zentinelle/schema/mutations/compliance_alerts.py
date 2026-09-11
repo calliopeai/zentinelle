@@ -3,11 +3,12 @@ Compliance Alert Mutations.
 
 GraphQL mutations for acknowledging, resolving, and dismissing compliance alerts.
 """
-import strawberry
 from typing import Optional
+
+import strawberry
+from django.utils import timezone
 from graphql import GraphQLError
 from graphql_relay import from_global_id
-from django.utils import timezone
 
 from zentinelle.models import ComplianceAlert
 from zentinelle.schema.auth_helpers import user_has_org_access

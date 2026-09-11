@@ -10,8 +10,9 @@ import os
 
 from django.core.management.base import BaseCommand, CommandError
 
+from zentinelle.management.commands.policy_apply import (_parse_policy_files,
+                                                         _validate_doc)
 from zentinelle.models.policy import Policy
-from zentinelle.management.commands.policy_apply import _parse_policy_files, _validate_doc
 
 
 class Command(BaseCommand):

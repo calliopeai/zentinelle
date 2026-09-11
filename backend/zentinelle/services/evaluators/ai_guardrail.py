@@ -3,12 +3,13 @@ AI guardrail policy evaluator.
 
 Enforces topic restrictions and blocked content patterns on agent inputs/outputs.
 """
-import re
 import logging
-from typing import Dict, Any, Optional
+import re
+from typing import Any, Dict, Optional
 
 from zentinelle.models import Policy
-from zentinelle.services.evaluators.base import BasePolicyEvaluator, PolicyResult
+from zentinelle.services.evaluators.base import (BasePolicyEvaluator,
+                                                 PolicyResult)
 
 logger = logging.getLogger(__name__)
 

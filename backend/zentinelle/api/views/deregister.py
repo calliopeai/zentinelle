@@ -7,10 +7,10 @@ and writes an audit event. Idempotent — safe to call more than once.
 """
 import logging
 
-from django.http import JsonResponse
-from django.views import View
 from django.core.cache import cache
+from django.http import JsonResponse
 from django.utils import timezone
+from django.views import View
 
 from zentinelle.auth.resolver import StandaloneTenantResolver
 from zentinelle.models import AgentEndpoint, Event

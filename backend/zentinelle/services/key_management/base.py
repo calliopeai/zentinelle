@@ -4,8 +4,8 @@ Base class for provider key management.
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

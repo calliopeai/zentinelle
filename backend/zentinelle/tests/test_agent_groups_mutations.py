@@ -12,11 +12,7 @@ from django.test import TestCase
 from zentinelle.models.agent_group import AgentGroup
 from zentinelle.models.endpoint import AgentEndpoint
 from zentinelle.schema import schema
-from zentinelle.tests._graphql_helpers import (
-    STANDALONE_TENANT,
-    admin_context,
-)
-
+from zentinelle.tests._graphql_helpers import STANDALONE_TENANT, admin_context
 
 CREATE_GROUP = """
 mutation Create($name: String!, $description: String!, $tier: String!, $color: String!) {

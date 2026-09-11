@@ -9,13 +9,11 @@ Supports three modes:
 For air-gapped deployments, licenses are signed with HMAC-SHA256.
 The signature ensures the license hasn't been tampered with.
 """
-import os
 import logging
-from typing import Optional, Dict, Any
-from datetime import datetime, timezone as dt_timezone
+import os
 from dataclasses import dataclass
-
-from django.utils import timezone
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +79,7 @@ class LicenseService:
             entitlements = entitlement_service.get_entitlements(tenant_id)
             return entitlements.entitled_tools or []
         except Exception as e:
-            logger.warning(f"Failed to get entitled tools for org {organization.id}: {e}")
+            logger.warning("Failed to get entitled tools for tenant %s: %s", tenant_id, e)
             return []
 
     def validate_online(self, license_key: str) -> LicenseValidationResult:
@@ -99,7 +97,8 @@ class LicenseService:
             LicenseValidationResult with validation status and grace period info
         """
         from zentinelle.models import License
-        from zentinelle.services.grace_period_service import get_grace_period_service
+        from zentinelle.services.grace_period_service import \
+            get_grace_period_service
 
         try:
             license_obj = License.get_by_key(license_key)
@@ -254,6 +253,8 @@ class LicenseService:
         )
 
 # Convenience functions
+
+
 def validate_license(
     license_key: Optional[str] = None,
     offline_token: Optional[str] = None

@@ -12,93 +12,72 @@ Deployment-level models (Deployment, JunoHubConfig, TerraformProvision, AI Keys)
 are in the `deployments` app.
 """
 
-# Agent-level models
-from zentinelle.models.endpoint import AgentEndpoint
-from zentinelle.models.policy import Policy, PolicyRevision, PolicyHistory
-from zentinelle.models.event import Event
-from zentinelle.models.audit import AuditChainHead, AuditLog
-from zentinelle.models.policy_document import PolicyDocument
-
-# Compliance & Monitoring
-from zentinelle.models.compliance import (
-    ContentRule,
-    ContentScan,
-    ContentViolation,
-    ComplianceAlert,
-    InteractionLog,
-    UsageSummary,
-    ComplianceAssessment,
-    ComplianceFrameworkConfig,
-)
-
-# Usage tracking (agent-level)
-from zentinelle.models.usage import (
-    UsageMetric,
-    UsageAggregate,
-    Subscription,
-    License,
-    LicensedUser,
-    LicensedTool,
-    MonthlyUserCount,
-    # License Compliance
-    LicenseComplianceReport,
-    LicenseComplianceViolation,
-)
-
-# Risk Management
-from zentinelle.models.risk import Risk, Incident, IncidentComment, NotificationConfig
-
-# Retention Policies
-from zentinelle.models.retention_policy import RetentionPolicy, LegalHold, DataArchive
-
-# AI Provider Registry (shared)
-from zentinelle.models.ai_provider import AIProvider, load_provider_fixtures
-
-# Model Registry (shared)
-from zentinelle.models.model_registry import (
-    AIModel,
-    OrganizationModelApproval,
-    ModelUsageLog,
-    load_model_fixtures,
-)
-
-# Platform API Keys (shared)
-from zentinelle.models.api_key import APIKey
-
-# System Prompt Library
-from zentinelle.models.system_prompt import (
-    PromptCategory,
-    PromptTag,
-    SystemPrompt,
-    PromptFavorite,
-    PromptRating,
-)
-
-# Zentinelle License & Agent Entitlements
-from zentinelle.models.license import ZentinelleLicense, AgentEntitlement
-
-# Compliance Report Export
-from zentinelle.models.reporting import Report
-
-# Notifications
-from zentinelle.models.notification import Notification, create_notification
-
-# Tenant configuration (org settings persistence)
-from zentinelle.models.tenant_config import TenantConfig
-from zentinelle.models.llm_provider_key import LLMProviderKey  # noqa: F401
-
 # Agent Groups
 from zentinelle.models.agent_group import AgentGroup
-
-# Client Cove Integration
-from zentinelle.models.integration import ClientCoveIntegration
-
+# AI Provider Registry (shared)
+from zentinelle.models.ai_provider import AIProvider, load_provider_fixtures
+# Platform API Keys (shared)
+from zentinelle.models.api_key import APIKey
+from zentinelle.models.astrolift import (  # noqa: E402,F401
+    AstroliftAuditDelivery, AstroliftIntegration)
+from zentinelle.models.audit import AuditChainHead, AuditLog
 # Bootstrap Tokens
 from zentinelle.models.bootstrap_token import BootstrapToken
+# Compliance & Monitoring
+from zentinelle.models.compliance import (ComplianceAlert,
+                                          ComplianceAssessment,
+                                          ComplianceFrameworkConfig,
+                                          ContentRule, ContentScan,
+                                          ContentViolation, InteractionLog,
+                                          UsageSummary)
+# Agent-level models
+from zentinelle.models.endpoint import AgentEndpoint
+from zentinelle.models.event import Event
+# Client Cove Integration
+from zentinelle.models.integration import ClientCoveIntegration
+# Zentinelle License & Agent Entitlements
+from zentinelle.models.license import AgentEntitlement, ZentinelleLicense
+from zentinelle.models.llm_provider_key import LLMProviderKey  # noqa: F401
+# Model Registry (shared)
+from zentinelle.models.model_registry import (AIModel, ModelUsageLog,
+                                              OrganizationModelApproval,
+                                              load_model_fixtures)
+# Notifications
+from zentinelle.models.notification import Notification, create_notification
+from zentinelle.models.policy import Policy, PolicyHistory, PolicyRevision
+from zentinelle.models.policy_document import PolicyDocument
+# Compliance Report Export
+from zentinelle.models.reporting import Report
+# Retention Policies
+from zentinelle.models.retention_policy import (DataArchive, LegalHold,
+                                                RetentionPolicy)
+# Risk Management
+from zentinelle.models.risk import (Incident, IncidentComment,
+                                    NotificationConfig, Risk)
+# System Prompt Library
+from zentinelle.models.system_prompt import (PromptCategory, PromptFavorite,
+                                             PromptRating, PromptTag,
+                                             SystemPrompt)
+# Tenant configuration (org settings persistence)
+from zentinelle.models.tenant_config import TenantConfig
+# Usage tracking (agent-level)
+from zentinelle.models.usage import License  # License Compliance
+from zentinelle.models.usage import (LicenseComplianceReport,
+                                     LicenseComplianceViolation, LicensedTool,
+                                     LicensedUser, MonthlyUserCount,
+                                     Subscription, UsageAggregate, UsageMetric)
+
+from .approval import ExecutionApproval
+from .audit import AuditRetentionProof
+from .budget import BudgetAccount, BudgetCharge
 
 __all__ = [
     # Agent-level
     'AgentEndpoint',
+    'ExecutionApproval',
+    'AuditRetentionProof',
+    'BudgetAccount',
+    'BudgetCharge',
     'Policy',
     'PolicyRevision',
     'PolicyHistory',
@@ -169,7 +148,3 @@ __all__ = [
     # Bootstrap Tokens
     'BootstrapToken',
 ]
-from zentinelle.models.astrolift import (  # noqa: E402,F401
-    AstroliftIntegration,
-    AstroliftAuditDelivery,
-)

@@ -7,19 +7,19 @@ Authentication:
 - Bootstrap tokens are issued per-tenant and are used to register new agents
 - After registration, agents use their API key for subsequent requests
 """
-import uuid
-import logging
 import hashlib
 import hmac
+import logging
+import uuid
 
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import BasePermission
 from django.utils.text import slugify
+from rest_framework import status
+from rest_framework.permissions import BasePermission
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from zentinelle.models import AgentEndpoint
 from zentinelle.api.serializers import RegisterRequestSerializer
+from zentinelle.models import AgentEndpoint
 
 logger = logging.getLogger(__name__)
 

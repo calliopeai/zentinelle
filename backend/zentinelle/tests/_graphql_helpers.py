@@ -11,7 +11,6 @@ from django.contrib.auth.models import Group, User
 
 from zentinelle.auth.roles import ensure_groups_exist
 
-
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 
 

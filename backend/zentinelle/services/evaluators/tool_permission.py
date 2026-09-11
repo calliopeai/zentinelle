@@ -2,13 +2,11 @@
 Tool permission (RBAC) policy evaluator.
 """
 import logging
-from typing import Dict, Any, Optional
-
-from django.core import signing
-from django.utils import timezone
+from typing import Any, Dict, Optional
 
 from zentinelle.models import Policy
-from zentinelle.services.evaluators.base import BasePolicyEvaluator, PolicyResult
+from zentinelle.services.evaluators.base import (BasePolicyEvaluator,
+                                                 PolicyResult)
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +48,7 @@ class ToolPermissionEvaluator(BasePolicyEvaluator):
 
         tool_name = context.get('tool_name') or context.get('tool')
         if not tool_name:
-            return PolicyResult(passed=True)
+            return PolicyResult(passed=False, message='Tool name is required')
 
         # Check denied tools first (explicit deny)
         denied_tools = config.get('denied_tools', [])
@@ -80,12 +78,8 @@ class ToolPermissionEvaluator(BasePolicyEvaluator):
                 )
 
             # Validate approval token
-            validation_result = self._validate_approval_token(
-                token=approval_token,
-                tool_name=tool_name,
-                user_id=user_id,
-                policy_id=str(policy.id),
-            )
+            from zentinelle.services.approvals import validate_policy_approval
+            validation_result = validate_policy_approval(policy, action, user_id, context)
             if not validation_result.passed:
                 return validation_result
 
@@ -177,79 +171,6 @@ class ToolPermissionEvaluator(BasePolicyEvaluator):
 
         return PolicyResult(passed=True)
 
-    def _validate_approval_token(
-        self,
-        token: str,
-        tool_name: str,
-        user_id: Optional[str],
-        policy_id: str,
-    ) -> PolicyResult:
-        """
-        Validate an approval token for tool execution.
-
-        Token payload structure:
-        {
-            "tool": "tool_name",
-            "policy": "policy_uuid",
-            "user": "user_id" (optional),
-            "granted_by": "approver_id",
-            "reason": "approval reason",
-            "granted_at": "iso timestamp"
-        }
-        """
-        try:
-            # Decode and verify token signature with expiry check
-            payload = signing.loads(
-                token,
-                salt='tool-approval',
-                max_age=APPROVAL_TOKEN_MAX_AGE
-            )
-
-            # Verify tool name matches
-            if payload.get('tool') != tool_name:
-                return PolicyResult(
-                    passed=False,
-                    message=f"Approval token is for tool '{payload.get('tool')}', not '{tool_name}'"
-                )
-
-            # Verify policy matches (if specified in token)
-            if 'policy' in payload and payload['policy'] != policy_id:
-                return PolicyResult(
-                    passed=False,
-                    message="Approval token was issued for a different policy"
-                )
-
-            # Verify user matches (if specified in token and user_id provided)
-            if 'user' in payload and user_id and payload['user'] != user_id:
-                return PolicyResult(
-                    passed=False,
-                    message="Approval token was issued for a different user"
-                )
-
-            logger.info(
-                f"Tool approval validated: tool={tool_name}, "
-                f"user={user_id}, granted_by={payload.get('granted_by')}"
-            )
-
-            return PolicyResult(passed=True)
-
-        except signing.SignatureExpired:
-            return PolicyResult(
-                passed=False,
-                message="Approval token has expired. Please request new approval."
-            )
-        except signing.BadSignature:
-            return PolicyResult(
-                passed=False,
-                message="Invalid approval token. Please request proper approval."
-            )
-        except Exception as e:
-            logger.error(f"Error validating approval token: {e}")
-            return PolicyResult(
-                passed=False,
-                message="Failed to validate approval token"
-            )
-
 
 def create_tool_approval_token(
     tool_name: str,
@@ -271,15 +192,4 @@ def create_tool_approval_token(
     Returns:
         Signed token string
     """
-    payload = {
-        'tool': tool_name,
-        'policy': policy_id,
-        'granted_by': granted_by,
-        'reason': reason,
-        'granted_at': timezone.now().isoformat(),
-    }
-
-    if user_id:
-        payload['user'] = user_id
-
-    return signing.dumps(payload, salt='tool-approval')
+    raise ValueError('Use the authenticated approvals endpoint to bind identity, arguments and policy versions')

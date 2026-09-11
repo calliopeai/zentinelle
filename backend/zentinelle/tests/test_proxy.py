@@ -2,10 +2,9 @@
 Tests for the LLM proxy view.
 """
 import json
+import unittest
 import uuid
 from unittest.mock import MagicMock, patch
-
-import unittest
 
 from django.test import RequestFactory
 
