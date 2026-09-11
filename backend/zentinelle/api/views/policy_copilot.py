@@ -256,7 +256,13 @@ class PolicyCopilotStageView(APIView):
         if scope_error:
             return JsonResponse({'error': scope_error}, status=403)
         draft = payload.get('draft')
-        if not isinstance(draft, dict) or draft.get('policy_type') not in {choice[0] for choice in Policy.PolicyType.choices}:
+        valid_types = {choice[0] for choice in Policy.PolicyType.choices}
+        valid_scopes = {choice[0] for choice in Policy.ScopeType.choices}
+        valid_enforcement = {choice[0] for choice in Policy.Enforcement.choices}
+        if (not isinstance(draft, dict) or draft.get('policy_type') not in valid_types or
+                draft.get('scope_type', Policy.ScopeType.ORGANIZATION) not in valid_scopes or
+                draft.get('enforcement', Policy.Enforcement.ENFORCE) not in valid_enforcement or
+                not isinstance(draft.get('config', {}), dict)):
             return JsonResponse({'error': 'A valid structured draft is required'}, status=400)
         actor = str(getattr(request.user, 'pk', '') or getattr(request.user, 'username', '') or 'operator')
         change = PolicyChangeSet.objects.create(

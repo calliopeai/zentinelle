@@ -104,6 +104,18 @@ class PolicyCopilotDiffAPITests(TestCase):
         self.assertEqual(change.status, PolicyChangeSet.Status.DRAFT)
         self.assertFalse(Policy.objects.filter(tenant_id='tenant-stage').exists())
 
+    def test_stage_rejects_malformed_config_before_queueing_change(self):
+        user = get_user_model().objects.create_user('copilot-stage-invalid')
+        assign_role(user, ROLE_OPERATOR)
+        TenantConfig.objects.create(tenant_id='tenant-stage-invalid', settings={'policy_copilot_enabled': True})
+        client = APIClient(); client.force_authenticate(user=user)
+        with patch('zentinelle.api.views.policy_copilot.get_request_tenant_id', return_value='tenant-stage-invalid'):
+            response = client.post('/api/zentinelle/v1/policy-copilot/stage', {
+                'draft': {'policy_type': 'tool_permission', 'config': []},
+            }, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(PolicyChangeSet.objects.filter(tenant_id='tenant-stage-invalid').exists())
+
     def test_copilot_rejects_explicit_cross_tenant_scope(self):
         user = get_user_model().objects.create_user('copilot-isolation')
         assign_role(user, ROLE_OPERATOR)
