@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import tempfile
+import secrets
 from contextlib import contextmanager
 from datetime import timedelta
 
@@ -11,6 +12,30 @@ from django.db.models import Q
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
+
+
+def _secure_delete_archive(path):
+    """Overwrite and fsync a local archive before unlinking it."""
+    try:
+        if os.path.islink(path) or not os.path.isfile(path):
+            raise ValueError('Archive expiry requires a regular file')
+        size = os.path.getsize(path)
+        with open(path, 'r+b', buffering=0) as archive:
+            remaining = size
+            while remaining:
+                chunk = min(1024 * 1024, remaining)
+                archive.write(secrets.token_bytes(chunk))
+                remaining -= chunk
+            archive.flush()
+            os.fsync(archive.fileno())
+            archive.truncate(0)
+            archive.flush()
+            os.fsync(archive.fileno())
+        os.unlink(path)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        raise ValueError('Archive cryptographic erasure failed') from exc
 
 
 def signed_retention_manifest(tenant_id, entity, action, record_count=0, destination='', subject_id=None, archive_checksum=None):
@@ -75,10 +100,7 @@ def expire_archive(manifest, tenant_id):
         destination = destination[7:]
     if '://' in destination or not os.path.isabs(destination):
         raise ValueError('Archive expiry requires an absolute local destination')
-    try:
-        os.unlink(destination)
-    except FileNotFoundError:
-        pass
+    _secure_delete_archive(destination)
     return {'tenant_id': str(tenant_id), 'destination': destination, 'expired': True}
 
 

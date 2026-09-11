@@ -38,3 +38,14 @@ class RetentionManifestTests(SimpleTestCase):
         self.assertTrue(verify_retention_manifest(manifest))
         manifest['subject_id'] = 'user-b'
         self.assertFalse(verify_retention_manifest(manifest))
+
+    def test_expiry_rejects_symlink_targets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'target'
+            link = Path(directory) / 'archive-link'
+            target.write_text('sensitive', encoding='utf-8')
+            link.symlink_to(target)
+            manifest = signed_retention_manifest('tenant-a', 'events', 'archive', 1, str(link))
+            with self.assertRaisesRegex(ValueError, 'regular file'):
+                expire_archive(manifest, 'tenant-a')
+            self.assertTrue(target.exists())
