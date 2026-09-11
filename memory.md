@@ -16,6 +16,8 @@ Follow-on work is filed as #333–#342 on Project 4: runtime coverage, unified a
 
 The portal support assistant now performs deterministic product-scope and tenant organization-policy preflight before provider access. MITRE ATLAS threat mappings are documented in `docs/atlas-guardrails.md`; #343 tracks the threat/evidence model and #344 tracks the broader input/output guardrail and evaluation work.
 
+The assistant slice is a first consumer of the broader functional policy guardrail model tracked in #345. That model must cover coding agents, workflow agents, model and retrieval boundaries, tool calls, workflow transitions, egress, and operator actions under one decision and evidence contract.
+
 ## Strategic Decisions
 
 ### Product + Business Model
