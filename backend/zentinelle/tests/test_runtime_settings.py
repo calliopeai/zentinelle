@@ -48,6 +48,22 @@ class RuntimeSettingsRevisionTests(TestCase):
         request = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'assistant_model': 'x' * 129}}), content_type='application/json')
         request.user = self.user
         self.assertEqual(RuntimeSettingsView.as_view()(request).status_code, 400)
+
+    @patch('zentinelle.api.views.runtime_settings._tenant_id', return_value='tenant-a')
+    def test_exposes_and_validates_model_operations_defaults(self, _tenant):
+        request = self.factory.get('/settings/runtime')
+        request.user = self.user
+        data = json.loads(RuntimeSettingsView.as_view()(request).content)
+        self.assertEqual(data['settings']['model_visibility'], 'enabled_only')
+        self.assertEqual(data['settings']['discovery_refresh_seconds'], 3600)
+
+        invalid = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'model_visibility': 'secret'}}), content_type='application/json')
+        invalid.user = self.user
+        self.assertEqual(RuntimeSettingsView.as_view()(invalid).status_code, 400)
+
+        valid = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'model_visibility': 'approved_only', 'discovery_refresh_seconds': 900, 'default_rate_limit_per_minute': 120, 'default_budget_cents': 5000}}), content_type='application/json')
+        valid.user = self.user
+        self.assertEqual(RuntimeSettingsView.as_view()(valid).status_code, 200)
         request = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'taxonomy_extensions': ['invalid']}}), content_type='application/json')
         request.user = self.user
         self.assertEqual(RuntimeSettingsView.as_view()(request).status_code, 400)
