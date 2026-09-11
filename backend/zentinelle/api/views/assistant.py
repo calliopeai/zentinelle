@@ -315,7 +315,7 @@ class AssistantChatView(APIView):
         from zentinelle.services.assistant_guardrails import \
             check_support_output
         complete_text = ''.join(buffered_text)
-        output_check = check_support_output(complete_text)
+        output_check = check_support_output(complete_text, tenant_id)
         if output_check.allowed:
             if complete_text:
                 yield f"data: {json.dumps({'content': complete_text})}\n\n"

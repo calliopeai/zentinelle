@@ -96,11 +96,11 @@ def check_support_message(tenant_id: str, message: str) -> GuardrailDecision:
     return GuardrailDecision(True, policy_ids=tuple(policy_ids))
 
 
-def check_support_output(text: str) -> GuardrailDecision:
+def check_support_output(text: str, tenant_id: str = None) -> GuardrailDecision:
     """Apply the product scope check to a completed model response."""
     if not isinstance(text, str) or not text.strip():
         return GuardrailDecision(False, 'The assistant returned no safe response')
-    if not _terms(text).intersection(_allowed_topic_terms()):
+    if not _terms(text).intersection(_allowed_topic_terms(tenant_id)):
         return GuardrailDecision(False, 'The generated response was outside the Zentinelle support scope')
     return GuardrailDecision(True)
 
