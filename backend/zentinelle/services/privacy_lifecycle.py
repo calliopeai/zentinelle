@@ -3,6 +3,7 @@ import os
 import hashlib
 import json
 import secrets
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -90,20 +91,21 @@ def restore_archive(manifest, tenant_id, *, actor='privacy-operator', commit=Fal
         raise ValueError('Archive contains unsupported model fields')
     restored = 0
     if commit:
-        for record in records:
-            record = dict(record)
-            pk = record.pop('id', None)
-            if pk is None or not model.objects.filter(pk=pk).exists():
-                if pk is not None:
-                    record['id'] = pk
-                model.objects.create(**record)
-                restored += 1
-        try:
-            AuditLog.log(tenant_id=tenant_id, action='privacy.archive_restored', resource_type=entity,
-                         resource_id=destination, ext_user_id=actor,
-                         changes={'records': restored, 'manifest_digest': manifest.get('digest')})
-        except Exception:
-            pass
+        with transaction.atomic():
+            for record in records:
+                record = dict(record)
+                pk = record.pop('id', None)
+                if pk is None or not model.objects.filter(pk=pk).exists():
+                    if pk is not None:
+                        record['id'] = pk
+                    model.objects.create(**record)
+                    restored += 1
+            try:
+                AuditLog.log(tenant_id=tenant_id, action='privacy.archive_restored', resource_type=entity,
+                             resource_id=destination, ext_user_id=actor,
+                             changes={'records': restored, 'manifest_digest': manifest.get('digest')})
+            except Exception:
+                pass
     return {'tenant_id': tenant_id, 'entity_type': entity, 'records': len(records),
             'restored': restored, 'dry_run': not commit, 'destination': destination}
 
