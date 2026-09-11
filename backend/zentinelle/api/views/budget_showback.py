@@ -16,7 +16,11 @@ class BudgetShowbackView(APIView):
 
     def get(self, request):
         tenant_id = get_request_tenant_id(request.user) or ''
-        rows = BudgetCharge.objects.filter(tenant_id=tenant_id).values('endpoint_id_ext').annotate(
+        requested = request.GET.get('group_by', 'endpoint')
+        dimensions = {'endpoint': 'endpoint_id_ext', 'team': 'team_id_ext', 'app': 'app_id_ext',
+                      'session': 'session_id_ext', 'task': 'task_id_ext'}
+        dimension = dimensions.get(requested, 'endpoint_id_ext')
+        rows = BudgetCharge.objects.filter(tenant_id=tenant_id).values(dimension).annotate(
             requests=Count('id'), committed=Sum('amount_usd'), actual=Sum('actual_usd'),
         ).order_by('-committed')
         entries = []
@@ -26,10 +30,12 @@ class BudgetShowbackView(APIView):
             unresolved = actual is None
             actual_value = actual or Decimal('0')
             entries.append({
-                'endpoint_id': str(row['endpoint_id_ext']), 'requests': row['requests'],
+                'dimension': requested, 'dimension_id': str(row[dimension] or ''),
+                'endpoint_id': str(row.get('endpoint_id_ext') or '') if dimension == 'endpoint_id_ext' else None,
+                'requests': row['requests'],
                 'committed_usd': float(committed), 'actual_usd': float(actual_value) if actual is not None else None,
                 'unreconciled_requests': BudgetCharge.objects.filter(tenant_id=tenant_id,
-                    endpoint_id_ext=row['endpoint_id_ext'], actual_usd__isnull=True).count(),
+                    **{dimension: row[dimension]}, actual_usd__isnull=True).count(),
                 'anomaly': bool(actual is not None and actual_value > committed),
                 'status': 'unreconciled' if unresolved else ('anomaly' if actual_value > committed else 'reconciled'),
             })

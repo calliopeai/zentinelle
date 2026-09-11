@@ -96,9 +96,13 @@ def admit(policies, endpoint, action, context):
                     accounts.append(account.pk)
                 from zentinelle.services.usage_tracking import \
                     MODEL_PRICING_VERSION
+                dimensions = {
+                    key: str(context.get(key, '') or '')[:255]
+                    for key in ('team_id_ext', 'app_id_ext', 'session_id_ext', 'task_id_ext')
+                }
                 charge = BudgetCharge.objects.create(tenant_id=endpoint.tenant_id, endpoint_id_ext=endpoint.pk,
                                                      request_id=request_id, amount_usd=amount, account_ids=accounts,
-                                                     pricing_version=MODEL_PRICING_VERSION)
+                                                     pricing_version=MODEL_PRICING_VERSION, **dimensions)
                 context['budget_reservation'] = {'id': str(charge.pk), 'committed_usd': str(amount),
                                                  'basis': 'conservative_upper_bound', 'refundable_by_telemetry': False}
             if not consume_approvals(context.get('_validated_approval_ids', []), tenant_id=endpoint.tenant_id):
