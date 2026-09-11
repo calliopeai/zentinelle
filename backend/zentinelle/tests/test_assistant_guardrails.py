@@ -1,9 +1,12 @@
 from unittest.mock import patch
+import json
+from pathlib import Path
 
 from django.test import TestCase, override_settings
 
 from zentinelle.models import Policy
 from zentinelle.services.assistant_guardrails import (check_support_message,
+                                                       check_support_output,
                                                        check_untrusted_content)
 
 TENANT = 'guardrail-tenant'
@@ -49,3 +52,11 @@ class AssistantGuardrailTests(TestCase):
 
     def test_benign_tool_payload_is_allowed(self):
         self.assertTrue(check_untrusted_content('{"status": "healthy"}').allowed)
+
+    def test_model_regression_fixture_matrix(self):
+        fixture = json.loads((Path(__file__).parent / 'fixtures' / 'assistant_guardrails_models.json').read_text())
+        self.assertGreaterEqual(len(fixture['models']), 3)
+        for model in fixture['models']:
+            self.assertTrue(check_support_output(model['safe']).allowed, model['model'])
+            self.assertFalse(check_support_output(model['off_topic']).allowed, model['model'])
+            self.assertFalse(check_untrusted_content(model['injection']).allowed, model['model'])
