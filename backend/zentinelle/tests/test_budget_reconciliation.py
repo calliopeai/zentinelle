@@ -31,3 +31,20 @@ class BudgetReconciliationTests(TestCase):
     def test_agent_telemetry_cannot_reconcile(self):
         with self.assertRaisesRegex(ValueError, 'authenticated provider'):
             reconcile_charge('not-used', tenant_id='tenant-a', provider_usage={}, source='agent-telemetry')
+
+    def test_provider_request_id_cannot_attach_usage_to_another_charge(self):
+        account = BudgetAccount.objects.create(
+            tenant_id='tenant-a', policy_id_ext='00000000-0000-0000-0000-000000000001',
+            period='2026-09-01', committed_usd=Decimal('1.00000000'),
+        )
+        charge = BudgetCharge.objects.create(
+            tenant_id='tenant-a', endpoint_id_ext='00000000-0000-0000-0000-000000000002',
+            request_id='reserved-1', amount_usd=Decimal('1.00000000'), account_ids=[account.id],
+        )
+        with self.assertRaisesRegex(ValueError, 'request_id'):
+            reconcile_charge(charge.id, tenant_id='tenant-a', provider_usage={
+                'request_id': 'different-request', 'model': 'gpt-4o-mini',
+                'input_tokens': 1, 'output_tokens': 1,
+            })
+        charge.refresh_from_db()
+        self.assertIsNone(charge.reconciled_at)

@@ -36,6 +36,9 @@ def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-a
         charge = BudgetCharge.objects.select_for_update().get(id=charge_id, tenant_id=tenant_id)
         if charge.reconciled_at:
             return charge
+        provider_request_id = provider_usage.get('request_id')
+        if provider_request_id is not None and str(provider_request_id) != str(charge.request_id):
+            raise ValueError('Provider usage request_id does not match the reserved charge')
         if charge.pricing_version and charge.pricing_version != MODEL_PRICING_VERSION:
             raise ValueError('Budget reservation uses a stale pricing source')
         reservation = charge.amount_usd
