@@ -125,7 +125,13 @@ def erase_tenant(tenant_id, *, actor='privacy-operator', subject_id=None):
                 adapter = _REMOTE_ERASURE_ADAPTERS.get(parsed.scheme.lower())
                 if not adapter:
                     raise RuntimeError('Remote archive requires an authenticated provider erasure adapter')
-                archive_plan.append((outcome, manifest, destination, adapter))
+                try:
+                    confirmed = adapter(tenant_id=tenant_id, subject_id=subject_id, manifest=dict(manifest))
+                except Exception as exc:
+                    raise RuntimeError('Remote archive erasure adapter failed') from exc
+                if confirmed is not True:
+                    raise RuntimeError('Remote archive erasure was not confirmed by provider')
+                archive_plan.append((outcome, manifest, destination, True))
             elif not os.path.isabs(destination):
                 raise RuntimeError('Archive destination must be absolute or a supported remote URI')
             else:
@@ -141,14 +147,7 @@ def erase_tenant(tenant_id, *, actor='privacy-operator', subject_id=None):
         # Remove only verified local archive files belonging to this tenant.
         archived = 0
         for outcome, manifest, destination, adapter in archive_plan:
-            if adapter:
-                try:
-                    confirmed = adapter(tenant_id=tenant_id, subject_id=subject_id, manifest=dict(manifest))
-                except Exception as exc:
-                    raise RuntimeError('Remote archive erasure adapter failed') from exc
-                if confirmed is not True:
-                    raise RuntimeError('Remote archive erasure was not confirmed by provider')
-            else:
+            if not adapter:
                 try:
                     os.unlink(destination)
                 except FileNotFoundError:
