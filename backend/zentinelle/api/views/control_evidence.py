@@ -1,5 +1,6 @@
 """Admin API for recording and reviewing control evidence."""
 from django.utils.dateparse import parse_datetime
+from django.db.models import Max
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -66,9 +67,10 @@ def runtime_coverage(tenant_id):
     avoids treating inventory metadata as runtime evidence.
     """
     endpoints = list(AgentEndpoint.objects.filter(tenant_id=tenant_id).values('id', 'agent_id', 'status'))
-    observed = set(Event.objects.filter(
+    observed_rows = Event.objects.filter(
         tenant_id=tenant_id, endpoint_id__isnull=False,
-    ).values_list('endpoint_id', flat=True))
+    ).values('endpoint_id').annotate(last_observed_at=Max('occurred_at'))
+    observed = {row['endpoint_id']: row['last_observed_at'] for row in observed_rows}
     rows = []
     for endpoint in endpoints:
         endpoint_id = endpoint['id']
@@ -77,10 +79,12 @@ def runtime_coverage(tenant_id):
             'endpoint_id': str(endpoint_id),
             'status': 'observed' if endpoint_id in observed else 'unknown',
             'registered_status': endpoint['status'],
+            'last_observed_at': observed.get(endpoint_id).isoformat() if observed.get(endpoint_id) else None,
         })
     return {
         'registered_workloads': len(endpoints),
         'observed_workloads': sum(item['status'] == 'observed' for item in rows),
         'unobserved_workloads': sum(item['status'] == 'unknown' for item in rows),
+        'coverage_as_of': max((item['last_observed_at'] for item in rows if item['last_observed_at']), default=None),
         'workloads': rows,
     }
