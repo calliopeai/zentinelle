@@ -72,6 +72,17 @@ def evaluate_boundary(*, endpoint, action, user_id='', context=None, dry_run=Fal
     try:
         normalized = canonical_action(action)
         contract = build_contract(endpoint=endpoint, action=normalized, user_id=user_id, context=supplied)
+        if normalized in {'tool_call', 'retrieval'}:
+            from zentinelle.services.assistant_guardrails import check_untrusted_content
+            for key in ('tool_outputs', 'tool_result', 'rag_context', 'retrieved_content', 'content'):
+                value = supplied.get(key)
+                if value is None:
+                    continue
+                decision = check_untrusted_content(value if isinstance(value, str) else str(value))
+                if not decision.allowed:
+                    return {**contract, 'trace_id': trace_id, 'decision': 'deny', 'allowed': False,
+                            'reason': decision.reason, 'coverage': {'status': 'enforced'},
+                            'warnings': ['untrusted context rejected before policy evaluation']}
         from zentinelle.services.policy_engine import PolicyEngine
         result = PolicyEngine().evaluate(endpoint=endpoint, action=normalized, user_id=user_id,
                                          context=supplied, dry_run=dry_run)
