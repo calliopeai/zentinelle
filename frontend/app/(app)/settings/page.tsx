@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -33,6 +33,9 @@ import {
   TerminalIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { authenticatedFetch } from "@/lib/auth/fetch";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
 
 import {
   useMyOrganization,
@@ -358,6 +361,15 @@ function SettingsForm({ organization }: { organization: OrganizationData }) {
   );
 }
 
+function RuntimeSettingsPanel() {
+  const [values, setValues] = useState({ assistant_model: "", assistant_provider: "", content_capture_mode: "metadata", assistant_allowed_topics: "", taxonomy_extensions: "", policy_copilot_enabled: false, control_approval_required: false });
+  const [revision, setRevision] = useState(0);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { authenticatedFetch(`${API_URL}/settings/runtime`).then((r) => r.json()).then((data) => { const s = data.settings ?? {}; setValues((v) => ({ ...v, ...s, assistant_allowed_topics: (s.assistant_allowed_topics ?? []).join(", "), taxonomy_extensions: (s.taxonomy_extensions ?? []).join(", ") })); setRevision(data.revision ?? 0); }).catch(() => undefined); }, []);
+  const save = async () => { setSaving(true); try { const response = await authenticatedFetch(`${API_URL}/settings/runtime`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expected_revision: revision, settings: { ...values, assistant_allowed_topics: values.assistant_allowed_topics.split(",").map((v) => v.trim()).filter(Boolean), taxonomy_extensions: values.taxonomy_extensions.split(",").map((v) => v.trim()).filter(Boolean) } }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error ?? "Unable to save runtime settings"); setRevision(data.revision); toast.success("Runtime settings saved"); } catch (error) { toast.error(error instanceof Error ? error.message : "Unable to save runtime settings"); } finally { setSaving(false); } };
+  return <Card><CardHeader><CardTitle className="text-base">Runtime globals</CardTitle><CardDescription>Tenant-scoped assistant, capture, taxonomy, and approval controls. Bootstrap secrets stay outside this surface.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="runtime-provider">Assistant provider</Label><Input id="runtime-provider" value={values.assistant_provider} onChange={(e) => setValues({ ...values, assistant_provider: e.target.value })} /></div><div className="space-y-2"><Label htmlFor="runtime-model">Assistant model</Label><Input id="runtime-model" value={values.assistant_model} onChange={(e) => setValues({ ...values, assistant_model: e.target.value })} /></div><div className="space-y-2"><Label htmlFor="runtime-capture">Content capture mode</Label><Select value={values.content_capture_mode} onValueChange={(value) => setValues({ ...values, content_capture_mode: value })}><SelectTrigger id="runtime-capture"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="metadata">Metadata only</SelectItem><SelectItem value="redacted">Redacted content</SelectItem><SelectItem value="full">Full content</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label htmlFor="runtime-topics">Allowed assistant topics</Label><Input id="runtime-topics" placeholder="governance, policies" value={values.assistant_allowed_topics} onChange={(e) => setValues({ ...values, assistant_allowed_topics: e.target.value })} /></div><div className="space-y-2 sm:col-span-2"><Label htmlFor="runtime-taxonomy">Taxonomy extensions</Label><Input id="runtime-taxonomy" placeholder="project:phoenix, client:acme" value={values.taxonomy_extensions} onChange={(e) => setValues({ ...values, taxonomy_extensions: e.target.value })} /></div></div><div className="flex items-center justify-between rounded-lg border p-3"><div><Label>Policy copilot</Label><p className="text-muted-foreground text-xs">Requires an active provider key.</p></div><Switch checked={values.policy_copilot_enabled} onCheckedChange={(checked) => setValues({ ...values, policy_copilot_enabled: checked })} /></div><div className="flex items-center justify-between rounded-lg border p-3"><div><Label>Require containment approval</Label><p className="text-muted-foreground text-xs">Require exact human approval for suspend, revoke, and tool containment.</p></div><Switch checked={values.control_approval_required} onCheckedChange={(checked) => setValues({ ...values, control_approval_required: checked })} /></div><div className="flex items-center justify-between"><span className="text-muted-foreground text-xs">Revision {revision}</span><Button size="sm" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save runtime settings"}</Button></div></CardContent></Card>;
+}
+
 export default function SettingsPage() {
   const { organization, loading } = useMyOrganization();
 
@@ -390,6 +402,8 @@ export default function SettingsPage() {
           organization={organization}
         />
       )}
+
+      <RuntimeSettingsPanel />
 
       <Card>
         <CardHeader>
