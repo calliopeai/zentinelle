@@ -361,6 +361,14 @@ function SettingsForm({ organization }: { organization: OrganizationData }) {
   );
 }
 
+function RuntimeProvenance() {
+  const [effective, setEffective] = useState<Record<string, { source?: string; changed_at?: string | null; changed_by?: { name?: string; id?: string } | null }>>({});
+  useEffect(() => { authenticatedFetch(`${API_URL}/settings/runtime`).then((response) => response.json()).then((data) => setEffective(data.effective ?? {})).catch(() => undefined); }, []);
+  const entries = Object.entries(effective);
+  if (!entries.length) return null;
+  return <Card><CardHeader><CardTitle className="text-base">Effective runtime provenance</CardTitle><CardDescription>Where each runtime value comes from and who last changed it.</CardDescription></CardHeader><CardContent><div className="grid gap-2 sm:grid-cols-2">{entries.map(([key, info]) => <div key={key} className="rounded-md border p-2 text-xs"><span className="font-medium">{key}</span><span className="text-muted-foreground"> · {info.source ?? "unknown"}{info.changed_by?.name ? ` · ${info.changed_by.name}` : ""}{info.changed_at ? ` · ${new Date(info.changed_at).toLocaleString()}` : ""}</span></div>)}</div></CardContent></Card>;
+}
+
 function RuntimeSettingsPanel() {
   const [values, setValues] = useState({ assistant_model: "", assistant_provider: "", content_capture_mode: "metadata", assistant_allowed_topics: "", taxonomy_extensions: "", policy_copilot_enabled: false, control_approval_required: false, discovery_refresh_seconds: 3600, model_visibility: "enabled_only", default_rate_limit_per_minute: 60, default_budget_cents: 0 });
   const [revision, setRevision] = useState(0);
@@ -409,6 +417,7 @@ export default function SettingsPage() {
       )}
 
       <RuntimeSettingsPanel />
+      <RuntimeProvenance />
 
       <Card>
         <CardHeader>
