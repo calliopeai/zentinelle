@@ -1,3 +1,8 @@
+import json
+import tempfile
+from io import StringIO
+
+from django.core.management import call_command
 from django.test import TestCase
 
 from zentinelle.models import ReleaseQualification
@@ -14,3 +19,12 @@ class ReleaseQualificationTests(TestCase):
     def test_missing_recovery_check_rejects(self):
         with self.assertRaisesRegex(ValueError, 'rollback'):
             qualify_release(release_id='rel-2', version='1.2.3', checks={'migrations': True})
+
+    def test_management_command_persists_ci_artifact(self):
+        checks = {name: True for name in ('migrations', 'auth', 'csrf', 'secret_rotation', 'dependency_scan', 'backup_restore', 'rollback')}
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json') as artifact:
+            json.dump({'checks': checks, 'rollback_evidence': {'run': 'ci'}}, artifact)
+            artifact.flush()
+            output = StringIO()
+            call_command('qualify_release', release_id='rel-ci', release_version='1.2.3', checks_file=artifact.name, stdout=output)
+        self.assertIn('qualified', output.getvalue())
