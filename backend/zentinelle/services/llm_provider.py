@@ -293,6 +293,7 @@ async def agentic_chat(
     max_tool_iterations: int = 6,
     approved_actions: Optional[list[str]] = None,
     actor: Optional[str] = None,
+    endpoint_id: Optional[str] = None,
 ) -> AsyncGenerator[dict, None]:
     """Tool-use loop for the assistant — streams progressively.
 
@@ -327,6 +328,7 @@ async def agentic_chat(
             messages, model, api_key, temperature, max_tokens,
             system_prompt, tenant_id, max_tool_iterations,
             approved, actor,
+            endpoint_id,
         ):
             yield ev
         return
@@ -336,6 +338,7 @@ async def agentic_chat(
             messages, model, provider, api_key,
             temperature, max_tokens, system_prompt, tenant_id,
             max_tool_iterations, approved, actor,
+            endpoint_id,
         ):
             yield ev
         return
@@ -345,6 +348,7 @@ async def agentic_chat(
             messages, model, api_key, temperature, max_tokens,
             system_prompt, tenant_id, max_tool_iterations,
             approved, actor,
+            endpoint_id,
         ):
             yield ev
         return
@@ -376,11 +380,12 @@ def _resource_id_from_args(name: str, args: dict, result_obj: dict) -> tuple[str
 
 
 async def _execute_tool_with_audit(name: str, args: dict, tenant_id: str,
-                                   actor: Optional[str]) -> str:
+                                   actor: Optional[str], endpoint_id: str = '') -> str:
     """Execute a tool and write an audit log entry for mutations."""
     from zentinelle.services.llm_tools import MUTATION_TOOLS, execute_tool
 
-    await asyncio.to_thread(_check_tool_route, name, args, tenant_id)
+    await asyncio.to_thread(_check_tool_route, name, args, tenant_id,
+                            endpoint_id=endpoint_id, user_id=actor or '')
     result_str = await asyncio.to_thread(execute_tool, name, args, tenant_id)
 
     if name in MUTATION_TOOLS:
@@ -412,7 +417,7 @@ async def _execute_tool_with_audit(name: str, args: dict, tenant_id: str,
 
 
 async def _process_tool_calls(content_blocks: list, tenant_id: str,
-                              approved: set, actor: Optional[str]):
+                              approved: set, actor: Optional[str], endpoint_id: str = ''):
     """Yield events for tool_use blocks. Returns list of tool_result blocks
     to send back to the model.
 
@@ -468,7 +473,7 @@ async def _process_tool_calls(content_blocks: list, tenant_id: str,
         }
 
         result_str = await _execute_tool_with_audit(
-            tool_name, tool_args, tenant_id, actor
+            tool_name, tool_args, tenant_id, actor, endpoint_id
         )
         try:
             result_obj = json.loads(result_str)
@@ -519,7 +524,7 @@ def _format_action_preview(name: str, args: dict) -> str:
 
 async def _anthropic_tool_loop(messages, model, api_key, temperature,
                                max_tokens, system_prompt, tenant_id,
-                               max_iter, approved, actor):
+                               max_iter, approved, actor, endpoint_id=''):
     from zentinelle.services.llm_tools import TOOL_SCHEMAS
 
     convo = list(messages)
@@ -615,7 +620,7 @@ async def _anthropic_tool_loop(messages, model, api_key, temperature,
         convo.append({'role': 'assistant', 'content': content_blocks})
 
         tool_results = []
-        async for ev in _process_tool_calls(content_blocks, tenant_id, approved, actor):
+        async for ev in _process_tool_calls(content_blocks, tenant_id, approved, actor, endpoint_id):
             if ev.get('type') == '__results__':
                 tool_results = ev['results']
             else:
@@ -658,7 +663,7 @@ def _openai_token_param(model: str) -> str:
 
 async def _openai_tool_loop(messages, model, provider, api_key, temperature,
                             max_tokens, system_prompt, tenant_id, max_iter,
-                            approved, actor):
+                            approved, actor, endpoint_id=''):
     """OpenAI-style function calling. Translates our schemas, accumulates
     tool_call deltas from the stream, dispatches, feeds back as tool messages.
     """
@@ -839,7 +844,7 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
 
             yield {'type': 'tool_call', 'name': name, 'args': args, 'hash': action_hash}
             result_str = await _execute_tool_with_audit(
-                name, args, tenant_id, actor
+            name, args, tenant_id, actor, endpoint_id
             )
             any_executed = True
             try:
@@ -907,7 +912,7 @@ def _sanitize_schema_for_gemini(schema):
 
 async def _gemini_tool_loop(messages, model, api_key, temperature,
                             max_tokens, system_prompt, tenant_id,
-                            max_iter, approved, actor):
+                            max_iter, approved, actor, endpoint_id=''):
     """Google Gemini function-calling loop.
 
     Gemini's envelope differs from Anthropic/OpenAI in three load-bearing
@@ -1076,7 +1081,7 @@ async def _gemini_tool_loop(messages, model, api_key, temperature,
                 'hash': action_hash,
             }
             result_str = await _execute_tool_with_audit(
-                name, args, tenant_id, actor
+                name, args, tenant_id, actor, endpoint_id
             )
             any_executed = True
             try:
