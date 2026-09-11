@@ -26,16 +26,22 @@ class AgentControlView(APIView):
             tenant_id=tenant_id, resource_id=str(endpoint.id),
         ).order_by('-timestamp')[:20]
         containment = (endpoint.metadata or {}).get('containment', {'denied_tools': []})
+        metadata = endpoint.metadata or {}
         return JsonResponse({
             'agent': {
                 'agent_id': endpoint.agent_id, 'name': endpoint.name,
                 'agent_type': endpoint.agent_type, 'status': endpoint.status,
                 'health': endpoint.health, 'last_heartbeat': endpoint.last_heartbeat.isoformat() if endpoint.last_heartbeat else None,
-                'owner_id': endpoint.metadata.get('owner_id', ''), 'taxonomy': endpoint.metadata.get('taxonomy', {}),
-                'capabilities': endpoint.capabilities, 'deployment_id': endpoint.deployment_id_ext,
+                'owner_id': metadata.get('owner_id', ''), 'identities': metadata.get('identities', []),
+                'taxonomy': metadata.get('taxonomy', {}), 'capabilities': endpoint.capabilities,
+                'tools': metadata.get('tools', metadata.get('capabilities', [])),
+                'model_routes': metadata.get('model_routes', []),
+                'data_access': metadata.get('data_access', []),
+                'budget': metadata.get('budget', {}),
+                'deployment_id': endpoint.deployment_id_ext,
                 'sub_organization_id': endpoint.sub_organization_id_ext,
                 'containment': containment,
-                'authority': (endpoint.metadata or {}).get('taxonomy', {}).get('supported', []),
+                'authority': metadata.get('authority', metadata.get('taxonomy', {}).get('supported', [])),
             },
             'policies': [{'id': str(policy.id), 'name': policy.name, 'type': policy.policy_type, 'version': policy.version, 'enforcement': policy.enforcement} for policy in policies],
             'incidents': [{'id': str(item.id), 'status': item.status, 'severity': item.severity, 'title': item.title} for item in incidents],
