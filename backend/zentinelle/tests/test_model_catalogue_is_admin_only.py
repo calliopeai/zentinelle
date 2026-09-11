@@ -93,3 +93,17 @@ class ModelCatalogueIsAdminOnlyTest(TestCase):
         self.assertEqual(response.status_code, 400)
         self.model.refresh_from_db()
         self.assertTrue(self.model.enabled_for_chat)
+
+    @override_settings(AUTH_MODE='local')
+    def test_bulk_update_applies_provider_set_as_one_operation(self):
+        AIModel.objects.create(provider=self.provider, model_id='gpt-4o-mini', name='GPT-4o mini', enabled_for_chat=True)
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse('zentinelle:assistant-models-bulk'),
+            data=json.dumps({'provider': 'openai', 'enabled_ids': ['gpt-4o']}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.model.refresh_from_db()
+        self.assertTrue(self.model.enabled_for_chat)
+        self.assertFalse(AIModel.objects.get(model_id='gpt-4o-mini').enabled_for_chat)

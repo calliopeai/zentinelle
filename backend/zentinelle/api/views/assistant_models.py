@@ -13,6 +13,7 @@ import logging
 import re
 
 from django.http import JsonResponse
+from django.db import transaction
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
@@ -219,12 +220,13 @@ class AssistantModelsBulkView(APIView):
             return JsonResponse({'error': 'enabled_ids contains unknown models', 'models': unknown_ids[:20]}, status=400)
 
         updated = 0
-        for m in qs:
-            target = m.model_id in enabled_set
-            if m.enabled_for_chat != target:
-                m.enabled_for_chat = target
-                m.save(update_fields=['enabled_for_chat', 'updated_at'])
-                updated += 1
+        with transaction.atomic():
+            for m in qs.select_for_update():
+                target = m.model_id in enabled_set
+                if m.enabled_for_chat != target:
+                    m.enabled_for_chat = target
+                    m.save(update_fields=['enabled_for_chat', 'updated_at'])
+                    updated += 1
 
         # Clear discovery cache so the picker refreshes
         clear_cache(provider_slug)
