@@ -201,8 +201,21 @@ class PolicyCopilotDiffView(APIView):
             return JsonResponse({'error': 'Policy not found'}, status=404)
         before = {'policy_type': current.policy_type, 'scope_type': current.scope_type,
                   'enforcement': current.enforcement, 'config': current.config} if current else {}
-        after = {'policy_type': draft.get('policy_type'), 'scope_type': draft.get('scope_type'),
-                 'enforcement': draft.get('enforcement'), 'config': draft.get('config', {})}
+        after = {'policy_type': draft.get('policy_type') or (current.policy_type if current else None),
+                 'scope_type': draft.get('scope_type') or (current.scope_type if current else Policy.ScopeType.ORGANIZATION),
+                 'enforcement': draft.get('enforcement') or (current.enforcement if current else Policy.Enforcement.ENFORCE),
+                 'config': draft.get('config', {})}
+        valid_types = {choice[0] for choice in Policy.PolicyType.choices}
+        valid_scopes = {choice[0] for choice in Policy.ScopeType.choices}
+        valid_enforcement = {choice[0] for choice in Policy.Enforcement.choices}
+        if (after['policy_type'] not in valid_types or after['scope_type'] not in valid_scopes or
+                after['enforcement'] not in valid_enforcement or not isinstance(after['config'], dict)):
+            return JsonResponse({'error': 'Invalid policy draft', 'fields': {
+                'policy_type': 'Unsupported policy type' if after['policy_type'] not in valid_types else None,
+                'scope_type': 'Unsupported policy scope' if after['scope_type'] not in valid_scopes else None,
+                'enforcement': 'Unsupported enforcement mode' if after['enforcement'] not in valid_enforcement else None,
+                'config': 'Policy config must be an object' if not isinstance(after['config'], dict) else None,
+            }}, status=400)
         changed = [key for key in after if after[key] != before.get(key)]
         from zentinelle.models import AgentEndpoint
         impacted_query = AgentEndpoint.objects.filter(tenant_id=tenant_id)

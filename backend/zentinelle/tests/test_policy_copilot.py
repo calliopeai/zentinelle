@@ -132,3 +132,15 @@ class PolicyCopilotDiffAPITests(TestCase):
             }, format='json')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['impacted_agent_count'], 1)
+
+    def test_diff_rejects_invalid_policy_shape_before_simulation(self):
+        user = get_user_model().objects.create_user('copilot-invalid-diff')
+        assign_role(user, ROLE_OPERATOR)
+        TenantConfig.objects.create(tenant_id='tenant-invalid-diff', settings={'policy_copilot_enabled': True})
+        api = APIClient(); api.force_authenticate(user=user)
+        with patch('zentinelle.api.views.policy_copilot.get_request_tenant_id', return_value='tenant-invalid-diff'):
+            response = api.post('/api/zentinelle/v1/policy-copilot/diff', {
+                'draft': {'policy_type': 'not-a-policy', 'config': []},
+            }, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('fields', response.json())
