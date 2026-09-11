@@ -21,6 +21,13 @@ class PolicyCopilotDraftInferenceTests(SimpleTestCase):
     def test_ambiguous_prompt_is_not_authorized(self):
         self.assertEqual(PolicyCopilotDraftView._infer_draft('do something useful'), (None, None))
 
+    def test_prompt_audit_metadata_is_digest_only(self):
+        from zentinelle.api.views.policy_copilot import _prompt_audit_metadata
+        metadata = _prompt_audit_metadata({'prompt': 'restrict model gpt-5'}, operation='draft')
+        self.assertIn('prompt_sha256', metadata)
+        self.assertNotIn('prompt', metadata)
+        self.assertEqual(metadata['prompt_length'], len('restrict model gpt-5'))
+
 
 class PolicyCopilotDiffAPITests(TestCase):
     def test_diff_is_tenant_scoped_and_non_mutating(self):

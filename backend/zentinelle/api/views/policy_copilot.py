@@ -1,4 +1,5 @@
 """Feature and entitlement status for the optional policy copilot."""
+import hashlib
 from django.http import JsonResponse
 from rest_framework.views import APIView
 
@@ -17,6 +18,16 @@ def _validate_scope(payload, tenant_id):
     if client_id is not None and (not isinstance(client_id, str) or not client_id.strip() or len(client_id) > 255):
         return 'client_id must be a non-empty bounded string'
     return None
+
+
+def _prompt_audit_metadata(payload, *, operation, outcome='accepted'):
+    """Return minimised copilot audit metadata without retaining prompt text."""
+    prompt = payload.get('prompt') if isinstance(payload, dict) else None
+    metadata = {'operation': operation, 'outcome': outcome}
+    if isinstance(prompt, str) and prompt:
+        metadata['prompt_sha256'] = hashlib.sha256(prompt.encode('utf-8')).hexdigest()
+        metadata['prompt_length'] = len(prompt)
+    return metadata
 
 
 class PolicyCopilotStatusView(APIView):
@@ -73,10 +84,12 @@ class PolicyCopilotDraftView(APIView):
             errors['config'] = 'Policy config must be an object'
         if errors:
             return JsonResponse({'error': 'Invalid policy draft', 'fields': errors}, status=400)
+        audit_metadata = _prompt_audit_metadata(payload, operation='draft')
+        audit_metadata['policy_type'] = policy_type
         AuditLog.objects.create(
             tenant_id=tenant_id, ext_user_id=str(request.user.pk), action=AuditLog.Action.ACCESS,
             resource_type='policy_copilot', resource_id=tenant_id,
-            metadata={'operation': 'draft', 'policy_type': policy_type},
+            metadata=audit_metadata,
         )
         draft = {
             'name': payload.get('name', ''),
