@@ -6,7 +6,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from zentinelle.api.auth import get_tenant_id_from_request
-from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
+from zentinelle.api.permissions import (PORTAL_AUTH, PORTAL_OR_AGENT_AUTH,
+                                        OpenOrAgentAuth, PortalAccess)
 from zentinelle.auth.roles import can_admin
 from zentinelle.models import PolicyChangeSet
 
@@ -115,3 +116,47 @@ class PolicyChangeSetTransitionView(APIView):
         except ValueError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
         return Response(_serialize(change))
+
+
+class PolicyChangeAcknowledgementView(APIView):
+    """Accept a workload or operator acknowledgement for a staged change."""
+
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [OpenOrAgentAuth]
+
+    def post(self, request, change_id):
+        from zentinelle.api.auth import ZentinelleAgentUser
+
+        tenant_id = get_tenant_id_from_request(request)
+        subject_type = 'portal'
+        subject_id = str(getattr(request.user, 'pk', '') or 'operator')
+        endpoint = getattr(request.user, 'endpoint', None)
+        if isinstance(request.user, ZentinelleAgentUser) and endpoint:
+            subject_type = 'endpoint'
+            subject_id = str(endpoint.id)
+        try:
+            data = json.loads(request.body or '{}')
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return Response({'detail': 'Invalid JSON.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            from zentinelle.services.policy_acknowledgement import \
+                acknowledge_change_set
+            acknowledgement = acknowledge_change_set(
+                change_id, tenant_id, subject_type, subject_id,
+                data.get('policy_version', {}), data.get('acknowledgement_digest', ''),
+                data.get('metadata', {}),
+            )
+        except PolicyChangeSet.DoesNotExist:
+            return Response({'detail': 'Policy change not found.'}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response({
+            'id': str(acknowledgement.id),
+            'change_set_id': str(acknowledgement.change_set_id),
+            'subject_type': acknowledgement.subject_type,
+            'subject_id': acknowledgement.subject_id,
+            'status': acknowledgement.status,
+            'policy_version': acknowledgement.policy_version,
+            'acknowledgement_digest': acknowledgement.acknowledgement_digest,
+            'acknowledged_at': acknowledgement.acknowledged_at.isoformat(),
+        }, status=status.HTTP_201_CREATED)

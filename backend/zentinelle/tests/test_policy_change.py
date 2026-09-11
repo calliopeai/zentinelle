@@ -6,7 +6,8 @@ from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory
 
-from zentinelle.models import Policy, PolicyChangeSet
+from zentinelle.models import (Policy, PolicyChangeAcknowledgement,
+                               PolicyChangeSet)
 
 
 class PolicyChangeSetTests(TestCase):
@@ -154,3 +155,25 @@ class PolicyChangeSetAPITests(TestCase):
         request.user = self.user
         response = PolicyChangeSetTransitionView.as_view()(request, change_id=uuid.UUID(str(change.id)))
         self.assertEqual(response.status_code, 403)
+
+    @patch('zentinelle.api.views.policy_change.get_tenant_id_from_request', return_value='tenant-a')
+    def test_authenticated_operator_acknowledges_staged_change(self, _tenant):
+        from zentinelle.api.views.policy_change import \
+            PolicyChangeAcknowledgementView
+
+        change = PolicyChangeSet.objects.create(
+            tenant_id='tenant-a', title='Staged', status=PolicyChangeSet.Status.STAGED,
+        )
+        request = self.factory.post(
+            '/policy-changes/acknowledge',
+            data=json.dumps({
+                'policy_version': {'policy-1': 4},
+                'acknowledgement_digest': 'sha256:policy-1-v4',
+            }),
+            content_type='application/json',
+        )
+        request.user = self.user
+        response = PolicyChangeAcknowledgementView.as_view()(request, change_id=uuid.UUID(str(change.id)))
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['status'], PolicyChangeAcknowledgement.Status.ACKNOWLEDGED)
+        self.assertTrue(PolicyChangeAcknowledgement.objects.filter(change_set=change).exists())
