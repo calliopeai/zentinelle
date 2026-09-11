@@ -736,8 +736,9 @@ class ContentViolation(Tracking):
     def save(self, *args, **kwargs):
         from zentinelle.services.content_capture import (capture_payload,
                                                          capture_text)
-        self.matched_text = capture_text(self.matched_text, self.tenant_id)
-        self.metadata = capture_payload(self.metadata, self.tenant_id)
+        tenant_id = self.scan.tenant_id if self.scan_id else None
+        self.matched_text = capture_text(self.matched_text, tenant_id)
+        self.metadata = capture_payload(self.metadata, tenant_id)
         return super().save(*args, **kwargs)
 
     class Meta:
