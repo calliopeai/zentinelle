@@ -18,6 +18,8 @@ The portal support assistant now performs deterministic product-scope and tenant
 
 The assistant slice is a first consumer of the broader functional policy guardrail model tracked in #345. That model must cover coding agents, workflow agents, model and retrieval boundaries, tool calls, workflow transitions, egress, and operator actions under one decision and evidence contract.
 
+The existing policy hierarchy is organization → sub-organization (OU/team) → deployment (workflow/environment) → endpoint (agent) → user. Policy type is the control category, rather than another scope level. Functional resolution should compose distinct controls, permit replacement only through explicit `override_group`, and preserve `non_overridable` denies at narrower scopes.
+
 ## Strategic Decisions
 
 ### Product + Business Model
