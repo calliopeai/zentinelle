@@ -1,4 +1,6 @@
 """Operator canary for the same model-route admission guard used at runtime."""
+import uuid
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -19,6 +21,7 @@ class ModelRouteCanaryView(APIView):
             return Response({'error': 'provider and model are required bounded strings'}, status=400)
         from zentinelle.models import ModelRouteCanary
         from zentinelle.services.llm_provider import _check_model_route
+        trace_id = str(uuid.uuid4())
         try:
             _check_model_route(model, provider, tenant_id)
             allowed = True
@@ -30,7 +33,7 @@ class ModelRouteCanaryView(APIView):
             tenant_id=tenant_id, provider=provider, model=model,
             status=ModelRouteCanary.Status.PASSED if allowed else ModelRouteCanary.Status.FAILED,
             reason=reason, baseline=payload.get('baseline', {}) if isinstance(payload.get('baseline', {}), dict) else {},
-            evidence={'side_effects': False}, actor_id=str(getattr(request.user, 'pk', '') or ''),
+            evidence={'side_effects': False, 'trace_id': trace_id}, actor_id=str(getattr(request.user, 'pk', '') or ''),
         )
         try:
             from zentinelle.models import AuditLog
@@ -38,12 +41,12 @@ class ModelRouteCanaryView(APIView):
                          resource_type='model_route', resource_id=f'{provider}/{model}',
                          ext_user_id=str(getattr(request.user, 'pk', '') or ''),
                          changes={'decision': 'allow' if allowed else 'deny'},
-                         metadata={'provider': provider, 'model': model, 'canary': True})
+                         metadata={'provider': provider, 'model': model, 'canary': True, 'trace_id': trace_id})
         except Exception:
             pass
         return Response({'id': str(record.id), 'provider': provider, 'model': model, 'allowed': allowed,
                          'decision': 'allow' if allowed else 'deny', 'reason': reason,
-                         'side_effects': False, 'rollback_required': not allowed})
+                         'side_effects': False, 'rollback_required': not allowed, 'trace_id': trace_id})
 
     def get(self, request):
         tenant_id = get_request_tenant_id(request.user) or ''

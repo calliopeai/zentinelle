@@ -18,6 +18,7 @@ class ModelRouteCanaryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['allowed'])
         self.assertFalse(response.json()['side_effects'])
+        self.assertTrue(response.json()['trace_id'])
         from zentinelle.models import ModelRouteCanary
         self.assertEqual(ModelRouteCanary.objects.filter(tenant_id='tenant-a').count(), 1)
         check.assert_called_once_with('gpt-4o', 'openai', 'tenant-a')
@@ -32,6 +33,7 @@ class ModelRouteCanaryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.json()['allowed'])
         self.assertEqual(response.json()['decision'], 'deny')
+        self.assertTrue(response.json()['trace_id'])
 
     def test_rollback_is_tenant_scoped_and_idempotency_is_explicit(self):
         user = User.objects.create_user('route-admin-rollback')
