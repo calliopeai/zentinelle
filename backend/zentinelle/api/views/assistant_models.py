@@ -10,6 +10,7 @@ out of the assistant chat picker (see assistant_providers.py).
 """
 import json
 import logging
+import re
 
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
@@ -22,6 +23,10 @@ from zentinelle.services.llm_model_discovery import (clear_cache,
                                                      fetch_live_models)
 
 logger = logging.getLogger(__name__)
+
+
+def _valid_provider_slug(value):
+    return isinstance(value, str) and bool(re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,63}', value.strip().lower()))
 
 
 def _refuse_unless_admin(request):
@@ -70,8 +75,9 @@ class AssistantModelsListView(APIView):
         from zentinelle.schema.auth_helpers import get_request_tenant_id
 
         provider_slug = request.GET.get('provider', '')
-        if not provider_slug:
-            return JsonResponse({'error': 'provider is required'}, status=400)
+        if not _valid_provider_slug(provider_slug):
+            return JsonResponse({'error': 'provider must be a bounded provider identifier'}, status=400)
+        provider_slug = provider_slug.strip().lower()
 
         tenant_id = get_request_tenant_id(request.user)
         if not tenant_id and is_open_mode():
@@ -136,6 +142,9 @@ class AssistantModelsToggleView(APIView):
             )
 
         provider_slug = data.get('provider')
+        if provider_slug is not None and not _valid_provider_slug(provider_slug):
+            return JsonResponse({'error': 'provider must be a bounded provider identifier'}, status=400)
+        provider_slug = provider_slug.strip().lower() if isinstance(provider_slug, str) else provider_slug
         qs = AIModel.objects.filter(model_id=model_id)
         if provider_slug:
             qs = qs.filter(provider__slug=provider_slug)
@@ -192,10 +201,11 @@ class AssistantModelsBulkView(APIView):
 
         provider_slug = data.get('provider')
         enabled_ids = data.get('enabled_ids')
-        if not provider_slug or enabled_ids is None:
+        if not _valid_provider_slug(provider_slug) or enabled_ids is None:
             return JsonResponse(
-                {'error': 'provider and enabled_ids are required'}, status=400
+                {'error': 'provider and enabled_ids are required bounded values'}, status=400
             )
+        provider_slug = provider_slug.strip().lower()
 
         if (not isinstance(enabled_ids, list) or len(enabled_ids) > 500 or
                 not all(isinstance(item, str) and 0 < len(item) <= 256 for item in enabled_ids)):
