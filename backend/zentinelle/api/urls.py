@@ -68,7 +68,8 @@ from zentinelle.api.views import (AcknowledgeAlertView, AgentControlView,
                                   ReportStatusView, ResolveAlertView,
                                   RetentionStatusView, RiskTrendView,
                                   ScanContentView, ScanResultView, SecretsView,
-                                  SystemPromptsView, ViolationsListView)
+                                  SystemPromptsView, TelemetryDeliveryHealthView,
+                                  ViolationsListView)
 from zentinelle.api.views.approvals import ApprovalIssueView
 from zentinelle.api.views.assistant import (AssistantChatView,
                                             AssistantExecuteToolView)
@@ -91,6 +92,7 @@ urlpatterns = [
     # Platform health (Kubernetes probes)
     path('health', HealthView.as_view(), name='health'),
     path('ready', ReadyView.as_view(), name='ready'),
+    path('telemetry/health', TelemetryDeliveryHealthView.as_view(), name='telemetry-health'),
 
     # Portal auth (session-based, httpOnly cookies)
     path('approvals', ApprovalIssueView.as_view(), name='approval-issue'),
