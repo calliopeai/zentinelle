@@ -13,7 +13,7 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
-def signed_retention_manifest(tenant_id, entity, action, record_count=0, destination='', subject_id=None):
+def signed_retention_manifest(tenant_id, entity, action, record_count=0, destination='', subject_id=None, archive_checksum=None):
     """Create a tamper-evident manifest for an archive/preservation outcome."""
     from django.conf import settings
     from django.core import signing
@@ -27,6 +27,8 @@ def signed_retention_manifest(tenant_id, entity, action, record_count=0, destina
     }
     if subject_id is not None:
         manifest['subject_id'] = str(subject_id)
+    if archive_checksum is not None:
+        manifest['archive_checksum'] = str(archive_checksum)
     signature = signing.dumps(manifest, key=settings.SECRET_KEY, salt='zentinelle-retention-v1')
     digest = hashlib.sha256(signature.encode()).hexdigest()
     return {**manifest, 'signature': signature, 'digest': digest}
@@ -50,8 +52,13 @@ def verify_retention_manifest(manifest):
     if not all(payload.get(key) == manifest.get(key) for key in required):
         return False
     if 'subject_id' in manifest:
-        return payload.get('subject_id') == manifest.get('subject_id')
-    return 'subject_id' not in payload
+        if payload.get('subject_id') != manifest.get('subject_id'):
+            return False
+    elif 'subject_id' in payload:
+        return False
+    if 'archive_checksum' in manifest:
+        return payload.get('archive_checksum') == manifest.get('archive_checksum')
+    return 'archive_checksum' not in payload
 
 
 def expire_archive(manifest, tenant_id):
@@ -216,8 +223,8 @@ def enforce_retention():
                             destination, checksum, archived_count = _archive_records(
                                 records, policy.archive_location, tenant, entity,
                             )
-                            manifest = signed_retention_manifest(tenant, entity, 'archive', archived_count, destination)
-                            manifest['archive_checksum'] = checksum
+                            manifest = signed_retention_manifest(tenant, entity, 'archive', archived_count, destination,
+                                                                 archive_checksum=checksum)
                             RetentionOutcome.objects.create(
                                 tenant_id=tenant, entity_type=entity,
                                 status=RetentionOutcome.Status.ARCHIVED,

@@ -82,13 +82,13 @@ class PrivacyLifecycleTests(TestCase):
                        'event_type': 'restored', 'event_category': 'telemetry', 'payload': {},
                        'status': 'processed', 'occurred_at': '2026-01-01T00:00:00+00:00'}
             raw = (json.dumps(payload) + '\n').encode(); archive.write(raw); archive.flush()
-            manifest = signed_retention_manifest('tenant-a', 'events', 'archive', 1, archive.name)
-            manifest['archive_checksum'] = hashlib.sha256(raw).hexdigest()
+            manifest = signed_retention_manifest('tenant-a', 'events', 'archive', 1, archive.name,
+                                                 archive_checksum=hashlib.sha256(raw).hexdigest())
             result = restore_archive(manifest, 'tenant-a')
             self.assertTrue(result['dry_run'])
             self.assertEqual(result['records'], 1)
             manifest['archive_checksum'] = '0' * 64
-            with self.assertRaisesRegex(ValueError, 'checksum'):
+            with self.assertRaisesRegex(ValueError, 'Invalid'):
                 restore_archive(manifest, 'tenant-a')
 
     @patch('zentinelle.services.clickhouse_service._get_clickhouse_url', return_value='')
