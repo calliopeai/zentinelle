@@ -160,6 +160,15 @@ class AssistantChatView(APIView):
         if not tenant_id:
             tenant_id = 'default'
 
+        from zentinelle.models import TenantConfig
+        tenant_settings = TenantConfig.objects.filter(tenant_id=tenant_id).values_list('settings', flat=True).first() or {}
+        model_override = tenant_settings.get('assistant_model', '')
+        provider_override = tenant_settings.get('assistant_provider', '')
+        if not model and model_override:
+            model = model_override
+        if not provider and provider_override:
+            provider = provider_override
+
         from zentinelle.services.assistant_guardrails import \
             check_support_message
         guardrail = check_support_message(tenant_id, message)
