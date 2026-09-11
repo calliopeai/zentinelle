@@ -2,6 +2,7 @@
 import os
 import hashlib
 import json
+import secrets
 from django.db.models import Q
 from django.utils import timezone
 
@@ -9,6 +10,28 @@ from zentinelle.services.retention import (held, tenant_retention_lock,
                                             verify_retention_manifest)
 
 _REMOTE_ERASURE_ADAPTERS = {}
+
+
+def _secure_delete_file(path):
+    """Best-effort cryptographic erasure for a local regular archive file."""
+    try:
+        size = os.path.getsize(path)
+        with open(path, 'r+b', buffering=0) as archive:
+            remaining = size
+            while remaining:
+                chunk = min(1024 * 1024, remaining)
+                archive.write(secrets.token_bytes(chunk))
+                remaining -= chunk
+            archive.flush()
+            os.fsync(archive.fileno())
+            archive.truncate(0)
+            archive.flush()
+            os.fsync(archive.fileno())
+        os.unlink(path)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        raise RuntimeError('Local archive cryptographic erasure failed') from exc
 
 
 def register_remote_erasure_adapter(scheme, callback):
@@ -149,9 +172,9 @@ def erase_tenant(tenant_id, *, actor='privacy-operator', subject_id=None):
         for outcome, manifest, destination, adapter in archive_plan:
             if not adapter:
                 try:
-                    os.unlink(destination)
-                except FileNotFoundError:
-                    pass
+                    _secure_delete_file(destination)
+                except RuntimeError:
+                    raise
             archived += 1
             outcome.status = RetentionOutcome.Status.DELETED
             outcome.destination = ''

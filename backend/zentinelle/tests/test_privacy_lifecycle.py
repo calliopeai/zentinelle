@@ -1,6 +1,7 @@
 from unittest.mock import patch
 import hashlib
 import json
+import os
 import tempfile
 
 from django.test import TestCase
@@ -89,3 +90,18 @@ class PrivacyLifecycleTests(TestCase):
             manifest['archive_checksum'] = '0' * 64
             with self.assertRaisesRegex(ValueError, 'checksum'):
                 restore_archive(manifest, 'tenant-a')
+
+    @patch('zentinelle.services.clickhouse_service._get_clickhouse_url', return_value='')
+    @patch('zentinelle.services.clickhouse_service.erase_tenant_analytics', return_value=False)
+    def test_local_archive_is_overwritten_and_removed_during_erasure(self, _analytics, _url):
+        from zentinelle.models import RetentionOutcome
+        from zentinelle.services.retention import signed_retention_manifest
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False) as archive:
+            path = archive.name
+            archive.write(b'sensitive archive payload')
+        manifest = signed_retention_manifest('tenant-a', 'events', 'archive', 1, path)
+        RetentionOutcome.objects.create(tenant_id='tenant-a', entity_type='events', status='archived', manifest=manifest, destination=path)
+        result = erase_tenant('tenant-a')
+        self.assertEqual(result['archives_deleted'], 1)
+        self.assertFalse(os.path.exists(path))
