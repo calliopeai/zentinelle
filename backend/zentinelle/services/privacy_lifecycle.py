@@ -6,6 +6,20 @@ from django.utils import timezone
 from zentinelle.services.retention import (held, tenant_retention_lock,
                                             verify_retention_manifest)
 
+_REMOTE_ERASURE_ADAPTERS = {}
+
+
+def register_remote_erasure_adapter(scheme, callback):
+    """Register an authenticated provider erasure callback for a URI scheme."""
+    scheme = str(scheme or '').lower().strip()
+    if not scheme or not callable(callback):
+        raise ValueError('remote erasure adapter requires a scheme and callable')
+    _REMOTE_ERASURE_ADAPTERS[scheme] = callback
+
+
+def clear_remote_erasure_adapters():
+    _REMOTE_ERASURE_ADAPTERS.clear()
+
 
 def _held_for_subject(tenant_id, subject_id):
     from zentinelle.models.retention_policy import LegalHold
@@ -58,13 +72,26 @@ def erase_tenant(tenant_id, *, actor='privacy-operator', subject_id=None):
             destination = str(manifest.get('destination') or '')
             if destination.startswith('file://'):
                 destination = destination[7:]
-            if '://' in destination or not os.path.isabs(destination):
-                raise RuntimeError('Remote archive requires an authenticated provider erasure adapter')
-            try:
-                os.unlink(destination)
-                archived += 1
-            except FileNotFoundError:
-                pass
+            if '://' in destination:
+                from urllib.parse import urlparse
+                parsed = urlparse(destination)
+                adapter = _REMOTE_ERASURE_ADAPTERS.get(parsed.scheme.lower())
+                if not adapter:
+                    raise RuntimeError('Remote archive requires an authenticated provider erasure adapter')
+                try:
+                    confirmed = adapter(tenant_id=tenant_id, subject_id=subject_id, manifest=dict(manifest))
+                except Exception as exc:
+                    raise RuntimeError('Remote archive erasure adapter failed') from exc
+                if confirmed is not True:
+                    raise RuntimeError('Remote archive erasure was not confirmed by provider')
+            elif not os.path.isabs(destination):
+                raise RuntimeError('Archive destination must be absolute or a supported remote URI')
+            else:
+                try:
+                    os.unlink(destination)
+                except FileNotFoundError:
+                    pass
+            archived += 1
             outcome.status = RetentionOutcome.Status.DELETED
             outcome.destination = ''
             outcome.save(update_fields=['status', 'destination'])

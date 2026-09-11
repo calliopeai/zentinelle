@@ -5,10 +5,15 @@ from django.utils import timezone
 
 from zentinelle.models import Event
 from zentinelle.models.retention_policy import LegalHold
-from zentinelle.services.privacy_lifecycle import erase_tenant
+from zentinelle.services.privacy_lifecycle import (clear_remote_erasure_adapters,
+                                                   erase_tenant,
+                                                   register_remote_erasure_adapter)
 
 
 class PrivacyLifecycleTests(TestCase):
+    def tearDown(self):
+        clear_remote_erasure_adapters()
+
     @patch('zentinelle.services.privacy_lifecycle.held', return_value=True)
     def test_active_hold_blocks_erasure(self, _held):
         with self.assertRaisesRegex(ValueError, 'legal hold'):
@@ -36,4 +41,29 @@ class PrivacyLifecycleTests(TestCase):
     def test_subject_erasure_honors_subject_legal_hold(self):
         LegalHold.objects.create(tenant_id='tenant-a', name='case', user_identifiers=['user-a'])
         with self.assertRaisesRegex(ValueError, 'this subject'):
+            erase_tenant('tenant-a', subject_id='user-a')
+
+    @patch('zentinelle.services.clickhouse_service._get_clickhouse_url', return_value='')
+    @patch('zentinelle.services.clickhouse_service.erase_tenant_analytics', return_value=False)
+    def test_subject_erasure_uses_authenticated_remote_adapter(self, _analytics, _url):
+        from zentinelle.models import RetentionOutcome
+        manifest = {'tenant_id': 'tenant-a', 'entity_type': 'user', 'action': 'archive',
+                    'subject_id': 'user-a', 'destination': 's3://bucket/user-a'}
+        from zentinelle.services.retention import signed_retention_manifest
+        manifest = signed_retention_manifest('tenant-a', 'user', 'archive', 1, 's3://bucket/user-a', subject_id='user-a')
+        RetentionOutcome.objects.create(tenant_id='tenant-a', entity_type='user', status='archived', manifest=manifest, destination=manifest['destination'])
+        calls = []
+        register_remote_erasure_adapter('s3', lambda **kwargs: calls.append(kwargs) or True)
+        result = erase_tenant('tenant-a', subject_id='user-a')
+        self.assertEqual(result['archives_deleted'], 1)
+        self.assertEqual(calls[0]['tenant_id'], 'tenant-a')
+
+    @patch('zentinelle.services.clickhouse_service._get_clickhouse_url', return_value='')
+    @patch('zentinelle.services.clickhouse_service.erase_tenant_analytics', return_value=False)
+    def test_unsupported_remote_archive_fails_closed(self, _analytics, _url):
+        from zentinelle.models import RetentionOutcome
+        from zentinelle.services.retention import signed_retention_manifest
+        manifest = signed_retention_manifest('tenant-a', 'user', 'archive', 1, 's3://bucket/user-a', subject_id='user-a')
+        RetentionOutcome.objects.create(tenant_id='tenant-a', entity_type='user', status='archived', manifest=manifest, destination=manifest['destination'])
+        with self.assertRaisesRegex(RuntimeError, 'authenticated provider'):
             erase_tenant('tenant-a', subject_id='user-a')
