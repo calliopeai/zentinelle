@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from zentinelle.api.permissions import PORTAL_AUTH, PortalAdminAccess
-from zentinelle.models import ControlEvidence
+from zentinelle.models import AgentEndpoint, ControlEvidence, Event
 from zentinelle.schema.auth_helpers import get_request_tenant_id
 
 
@@ -19,7 +19,9 @@ class ControlEvidenceView(APIView):
         coverage = {status.value: 0 for status in ControlEvidence.Status}
         for item in serialized:
             coverage[item['effective_status']] = coverage.get(item['effective_status'], 0) + 1
+        runtime = runtime_coverage(tenant_id)
         return Response({'evidence': serialized, 'coverage': coverage,
+                         'runtime_coverage': runtime,
                          'coverage_as_of': max((item['captured_at'] for item in serialized), default=None)})
 
     def post(self, request):
@@ -54,3 +56,31 @@ class ControlEvidenceView(APIView):
                 'scope': row.scope, 'evidence_links': row.evidence_links, 'test_results': row.test_results,
                 'captured_at': row.captured_at.isoformat(), 'expires_at': row.expires_at.isoformat() if row.expires_at else None,
                 'source': row.source, 'notes': row.notes}
+
+
+def runtime_coverage(tenant_id):
+    """Compare registered workloads with observed gateway events.
+
+    Absence of an event is surfaced as ``unknown`` rather than represented as
+    proof of enforcement. This makes onboarding gaps visible to operators and
+    avoids treating inventory metadata as runtime evidence.
+    """
+    endpoints = list(AgentEndpoint.objects.filter(tenant_id=tenant_id).values('id', 'agent_id', 'status'))
+    observed = set(Event.objects.filter(
+        tenant_id=tenant_id, endpoint_id__isnull=False,
+    ).values_list('endpoint_id', flat=True))
+    rows = []
+    for endpoint in endpoints:
+        endpoint_id = endpoint['id']
+        rows.append({
+            'agent_id': endpoint['agent_id'],
+            'endpoint_id': str(endpoint_id),
+            'status': 'observed' if endpoint_id in observed else 'unknown',
+            'registered_status': endpoint['status'],
+        })
+    return {
+        'registered_workloads': len(endpoints),
+        'observed_workloads': sum(item['status'] == 'observed' for item in rows),
+        'unobserved_workloads': sum(item['status'] == 'unknown' for item in rows),
+        'workloads': rows,
+    }
