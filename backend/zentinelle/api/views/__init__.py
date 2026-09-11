@@ -50,6 +50,7 @@ from zentinelle.api.views.runtime_settings import (RuntimeSettingsChangesView,
 from zentinelle.api.views.telemetry_health import TelemetryDeliveryHealthView
 from zentinelle.api.views.control_evidence import ControlEvidenceView
 from zentinelle.api.views.budget_showback import BudgetShowbackView
+from zentinelle.api.views.model_route_canary import ModelRouteCanaryView
 from zentinelle.api.views.brocs import BrocsControlMapView
 
 __all__ = [
@@ -110,5 +111,6 @@ __all__ = [
     'RuntimeSettingsChangeTransitionView',
     'ControlEvidenceView',
     'BudgetShowbackView',
+    'ModelRouteCanaryView',
     'BrocsControlMapView',
 ]
