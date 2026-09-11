@@ -103,6 +103,11 @@ class RegisterView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        from zentinelle.services.agent_taxonomy import validate_taxonomy
+        metadata = dict(data.get('metadata') or {})
+        taxonomy = validate_taxonomy(metadata.get('taxonomy', []))
+        metadata['taxonomy'] = taxonomy
+
         # Get tenant_id from the authenticated bootstrap token
         tenant_id = getattr(request, '_zentinelle_tenant_id', None)
         if not tenant_id:
@@ -140,7 +145,7 @@ class RegisterView(APIView):
             existing.api_key_hash = key_hash
             existing.api_key_prefix = key_prefix
             existing.capabilities = data.get('capabilities', existing.capabilities)
-            existing.metadata = data.get('metadata', existing.metadata)
+            existing.metadata = metadata
             existing.status = AgentEndpoint.Status.ACTIVE
             existing.health = AgentEndpoint.Health.UNKNOWN
             existing.save()
@@ -157,7 +162,7 @@ class RegisterView(APIView):
                 api_key_hash=key_hash,
                 api_key_prefix=key_prefix,
                 capabilities=data.get('capabilities', []),
-                metadata=data.get('metadata', {}),
+                metadata=metadata,
                 status=AgentEndpoint.Status.ACTIVE,
                 health=AgentEndpoint.Health.UNKNOWN,
                 config=self._get_default_config(),
