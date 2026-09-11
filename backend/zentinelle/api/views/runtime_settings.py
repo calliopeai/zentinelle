@@ -73,13 +73,15 @@ class RuntimeSettingsView(APIView):
         values = {key: stored.get(key, factory()) for key, factory in SETTING_DEFAULTS.items()}
         latest = RuntimeSettingsRevision.objects.filter(tenant_id=tenant_id).order_by('-revision').first()
         revisions = RuntimeSettingsRevision.objects.filter(tenant_id=tenant_id)[:20]
+        all_revisions = RuntimeSettingsRevision.objects.filter(tenant_id=tenant_id).order_by('-revision')
         effective = {}
         for key in SETTING_DEFAULTS:
+            changed = next((row for row in all_revisions if key in (row.settings or {})), None)
             effective[key] = {
                 'value': values[key],
                 'source': 'tenant' if key in stored else 'default',
-                'changed_at': latest.created_at.isoformat() if latest and key in (latest.settings or {}) else None,
-                'changed_by': {'id': latest.actor_id, 'name': latest.actor_name} if latest and key in (latest.settings or {}) else None,
+                'changed_at': changed.created_at.isoformat() if changed else None,
+                'changed_by': {'id': changed.actor_id, 'name': changed.actor_name} if changed else None,
             }
         pending = RuntimeSettingsChange.objects.filter(
             tenant_id=tenant_id,

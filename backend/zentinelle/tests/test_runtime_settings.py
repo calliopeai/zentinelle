@@ -73,6 +73,13 @@ class RuntimeSettingsRevisionTests(TestCase):
         effective = json.loads(RuntimeSettingsView.as_view()(refreshed).content)['effective']
         self.assertEqual(effective['model_visibility']['source'], 'tenant')
         self.assertEqual(effective['model_visibility']['changed_by']['name'], 'settings-admin')
+        later = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'default_budget_cents': 10}}), content_type='application/json')
+        later.user = self.user
+        self.assertEqual(RuntimeSettingsView.as_view()(later).status_code, 200)
+        refreshed = self.factory.get('/settings/runtime')
+        refreshed.user = self.user
+        effective = json.loads(RuntimeSettingsView.as_view()(refreshed).content)['effective']
+        self.assertEqual(effective['model_visibility']['changed_by']['name'], 'settings-admin')
 
     @patch('zentinelle.api.views.runtime_settings._tenant_id', return_value='tenant-a')
     def test_runtime_change_requires_explicit_approval_before_apply(self, _tenant):
