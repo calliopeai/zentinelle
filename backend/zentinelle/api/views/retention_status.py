@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 from zentinelle.api.auth import get_tenant_id_from_request
 from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.models import Policy, RetentionOutcome
+from zentinelle.services.retention import verify_retention_manifest
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ class RetentionStatusView(APIView):
             'id': str(outcome.id), 'entity_type': outcome.entity_type,
             'status': outcome.status, 'record_count': outcome.record_count,
             'destination': outcome.destination, 'manifest_digest': outcome.manifest_digest,
+            'manifest_verified': verify_retention_manifest(outcome.manifest),
             'created_at': outcome.created_at.isoformat(),
         } for outcome in outcomes]
         return Response({'policies': policies, 'outcomes': serialized, 'outcome_counts': outcome_counts})

@@ -27,6 +27,23 @@ def signed_retention_manifest(tenant_id, entity, action, record_count=0, destina
     return {**manifest, 'signature': signature, 'digest': digest}
 
 
+def verify_retention_manifest(manifest):
+    """Verify signature and digest before an archive is restored or expired."""
+    from django.conf import settings
+    from django.core import signing
+    if not isinstance(manifest, dict) or not manifest.get('signature'):
+        return False
+    signature = manifest['signature']
+    expected_digest = hashlib.sha256(signature.encode()).hexdigest()
+    if manifest.get('digest') != expected_digest:
+        return False
+    try:
+        payload = signing.loads(signature, key=settings.SECRET_KEY, salt='zentinelle-retention-v1')
+    except (signing.BadSignature, TypeError, ValueError):
+        return False
+    return all(payload.get(key) == manifest.get(key) for key in ('tenant_id', 'entity_type', 'action', 'record_count', 'destination', 'created_at'))
+
+
 @contextmanager
 def tenant_retention_lock(tenant_id):
     """Serialize hold changes with cleanup across the deployment's SQL schemas."""
