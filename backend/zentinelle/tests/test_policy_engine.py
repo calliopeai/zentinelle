@@ -47,6 +47,22 @@ class PolicyEngineTest(TestCase):
         self.assertEqual(len(policies), 1)
         self.assertEqual(policies[0].id, policy.id)
 
+    def test_taxonomy_selector_requires_all_labels(self):
+        selected = Policy.objects.create(
+            tenant_id=STANDALONE_TENANT, name='Support restriction',
+            policy_type=Policy.PolicyType.TOOL_PERMISSION,
+            config={'taxonomy_selectors': ['function:customer_service', 'data:regulated']},
+        )
+        Policy.objects.create(
+            tenant_id=STANDALONE_TENANT, name='Legal restriction',
+            policy_type=Policy.PolicyType.TOOL_PERMISSION,
+            config={'taxonomy_selectors': ['function:legal']},
+        )
+        self.endpoint.metadata = {'taxonomy': {'supported': ['function:customer_service', 'data:regulated']}}
+        self.endpoint.save(update_fields=['metadata'])
+        policies = self.engine.get_effective_policies(self.endpoint, use_cache=False)
+        self.assertEqual([policy.id for policy in policies], [selected.id])
+
     def test_policy_inheritance_more_specific_wins(self):
         """Test that more specific scope overrides broader scope."""
         Policy.objects.create(

@@ -78,7 +78,8 @@ class PolicyEngine:
 
         # Build versioned cache key — version bumps on policy changes
         version = cache.get(f"policies_version:{tenant_id}", 0)
-        cache_key = f"policies:v{version}:{tenant_id}:{endpoint.id}:{user_id}:{sub_organization_id}"
+        taxonomy_key = ','.join(sorted((endpoint.metadata or {}).get('taxonomy', {}).get('supported', [])))
+        cache_key = f"policies:v{version}:{tenant_id}:{endpoint.id}:{user_id}:{sub_organization_id}:{taxonomy_key}"
         if policy_types:
             cache_key += f":{','.join(sorted(policy_types))}"
 
@@ -131,6 +132,12 @@ class PolicyEngine:
             .order_by('priority')
         )
 
+        # Taxonomy selectors are additive: a policy with selectors applies only
+        # when every selector is present on the endpoint.  Unselected policies
+        # retain the existing hierarchy semantics.
+        endpoint_tags = set((endpoint.metadata or {}).get('taxonomy', {}).get('supported', []))
+        all_policies = [p for p in all_policies if self._taxonomy_matches(p, endpoint_tags)]
+
         # Group policies by scope for proper merging
         org_policies = []
         sub_org_policies = []
@@ -164,6 +171,16 @@ class PolicyEngine:
             cache.set(cache_key, result, timeout=POLICY_CACHE_TTL)
 
         return result
+
+    @staticmethod
+    def _taxonomy_matches(policy: Policy, endpoint_tags: set) -> bool:
+        selectors = policy.config.get('taxonomy_selectors', []) if isinstance(policy.config, dict) else []
+        if not selectors:
+            return True
+        if not isinstance(selectors, list) or not all(isinstance(item, str) for item in selectors):
+            logger.warning('Ignoring malformed taxonomy selectors on policy %s', policy.id)
+            return False
+        return set(selectors).issubset(endpoint_tags)
 
     def invalidate_cache(self, tenant_id: str) -> None:
         """
@@ -255,6 +272,8 @@ class PolicyEngine:
                 'type': policy.policy_type,
                 'result': 'pass' if result.passed else 'fail',
                 'message': result.message,
+                'matched_selectors': policy.config.get('taxonomy_selectors', [])
+                if isinstance(policy.config, dict) else [],
             })
 
             if not result.passed:
