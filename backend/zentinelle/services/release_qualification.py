@@ -16,6 +16,10 @@ def qualify_release(*, release_id, version, checks, rollback_evidence=None, sbom
         raise ValueError('environment must be ci, staging, or production')
     required = PRODUCTION_CHECKS if environment == 'production' else REQUIRED_CHECKS
     missing = [name for name in required if checks.get(name) is not True]
+    if missing:
+        raise ValueError(f'Release qualification failed; missing checks: {", ".join(missing)}')
+    if environment == 'production' and not str(signature).strip():
+        raise ValueError('production qualification requires signed provenance evidence')
     status = ReleaseQualification.Status.QUALIFIED if not missing else ReleaseQualification.Status.REJECTED
     record, _ = ReleaseQualification.objects.update_or_create(
         release_id=release_id,
@@ -25,8 +29,4 @@ def qualify_release(*, release_id, version, checks, rollback_evidence=None, sbom
             'sbom_digest': sbom_digest, 'signature': signature,
         },
     )
-    if missing:
-        raise ValueError(f'Release qualification failed; missing checks: {", ".join(missing)}')
-    if environment == 'production' and not str(signature).strip():
-        raise ValueError('production qualification requires signed provenance evidence')
     return record
