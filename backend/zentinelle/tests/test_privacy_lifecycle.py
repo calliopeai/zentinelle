@@ -91,6 +91,16 @@ class PrivacyLifecycleTests(TestCase):
             with self.assertRaisesRegex(ValueError, 'Invalid'):
                 restore_archive(manifest, 'tenant-a')
 
+    def test_restore_enforces_subject_scope(self):
+        from zentinelle.services.retention import signed_retention_manifest
+        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as archive:
+            path = archive.name
+            archive.write(json.dumps({'id': 'x', 'tenant_id': 'tenant-a', 'user_identifier': 'user-b', 'event_type': 'x'}) + '\n')
+        self.addCleanup(lambda: os.path.exists(path) and os.unlink(path))
+        manifest = signed_retention_manifest('tenant-a', 'events', 'archive', 1, path, subject_id='user-a')
+        with self.assertRaisesRegex(ValueError, 'subject scope'):
+            restore_archive(manifest, 'tenant-a')
+
     @patch('zentinelle.services.clickhouse_service._get_clickhouse_url', return_value='')
     @patch('zentinelle.services.clickhouse_service.erase_tenant_analytics', return_value=False)
     def test_local_archive_is_overwritten_and_removed_during_erasure(self, _analytics, _url):

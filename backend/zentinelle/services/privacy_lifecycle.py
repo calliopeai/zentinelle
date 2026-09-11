@@ -67,6 +67,8 @@ def restore_archive(manifest, tenant_id, *, actor='privacy-operator', commit=Fal
     from zentinelle.models.usage import UsageMetric
     models = {item.__name__: item for item in (Event, AuditLog, InteractionLog, ContentScan, UsageMetric)}
     model = models[entity]
+    manifest_subject = manifest.get('subject_id')
+    allowed_fields = {field.name for field in model._meta.concrete_fields}
     try:
         with open(destination, 'rb') as archive:
             raw = archive.read()
@@ -80,9 +82,16 @@ def restore_archive(manifest, tenant_id, *, actor='privacy-operator', commit=Fal
         raise ValueError('Archive record count verification failed')
     if any(str(record.get('tenant_id')) != tenant_id for record in records):
         raise ValueError('Archive contains a cross-tenant record')
+    if manifest_subject:
+        subject_field = 'ext_user_id' if entity == 'AuditLog' else 'user_identifier'
+        if any(str(record.get(subject_field, '')) != str(manifest_subject) for record in records):
+            raise ValueError('Archive contains a record outside the manifest subject scope')
+    if any(set(record) - allowed_fields for record in records):
+        raise ValueError('Archive contains unsupported model fields')
     restored = 0
     if commit:
         for record in records:
+            record = dict(record)
             pk = record.pop('id', None)
             if pk is None or not model.objects.filter(pk=pk).exists():
                 if pk is not None:
