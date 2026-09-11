@@ -18,10 +18,14 @@ class AgentControlView(APIView):
         endpoint = AgentEndpoint.objects.filter(tenant_id=tenant_id, agent_id=agent_id).first()
         if endpoint is None:
             return JsonResponse({'error': 'Agent not found'}, status=404)
-        from zentinelle.models import Incident
+        from zentinelle.models import AuditLog, Incident
         from zentinelle.services.policy_engine import PolicyEngine
         policies = PolicyEngine().get_effective_policies(endpoint, use_cache=False)
         incidents = Incident.objects.filter(tenant_id=tenant_id, endpoint=endpoint).order_by('-created_at')[:10]
+        recent_audits = AuditLog.objects.filter(
+            tenant_id=tenant_id, resource_id=str(endpoint.id),
+        ).order_by('-timestamp')[:20]
+        containment = (endpoint.metadata or {}).get('containment', {'denied_tools': []})
         return JsonResponse({
             'agent': {
                 'agent_id': endpoint.agent_id, 'name': endpoint.name,
@@ -30,9 +34,16 @@ class AgentControlView(APIView):
                 'owner_id': endpoint.metadata.get('owner_id', ''), 'taxonomy': endpoint.metadata.get('taxonomy', {}),
                 'capabilities': endpoint.capabilities, 'deployment_id': endpoint.deployment_id_ext,
                 'sub_organization_id': endpoint.sub_organization_id_ext,
+                'containment': containment,
+                'authority': (endpoint.metadata or {}).get('taxonomy', {}).get('supported', []),
             },
             'policies': [{'id': str(policy.id), 'name': policy.name, 'type': policy.policy_type, 'version': policy.version, 'enforcement': policy.enforcement} for policy in policies],
             'incidents': [{'id': str(item.id), 'status': item.status, 'severity': item.severity, 'title': item.title} for item in incidents],
+            'decision_traces': [
+                {'trace_id': (item.metadata or {}).get('trace_id', ''), 'action': item.action,
+                 'timestamp': item.timestamp.isoformat() if item.timestamp else None}
+                for item in recent_audits if (item.metadata or {}).get('trace_id')
+            ],
         })
 
     def post(self, request, agent_id):

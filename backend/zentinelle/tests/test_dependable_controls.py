@@ -82,6 +82,20 @@ class DependableControlsTests(TestCase):
         replay = self.client.post(url, {'action': 'contain_tools', 'denied_tools': ['shell'], 'approval_token': token}, format='json')
         self.assertEqual(replay.status_code, 403)
 
+    def test_agent_control_detail_exposes_containment_and_decision_traces(self):
+        from zentinelle.models import AuditLog
+        assign_role(self.user, ROLE_ADMIN)
+        self.endpoint.metadata = {'taxonomy': {'supported': ['authority:read_only']},
+                                  'containment': {'denied_tools': ['shell']}}
+        self.endpoint.save(update_fields=['metadata', 'updated_at'])
+        AuditLog.objects.create(tenant_id=TENANT, resource_id=str(self.endpoint.id), action='llm.invoke',
+                                metadata={'trace_id': 'trace-control'})
+        self.client.force_login(self.user)
+        response = self.client.get(API + f'agents/{self.endpoint.agent_id}/control')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['agent']['containment']['denied_tools'], ['shell'])
+        self.assertEqual(response.json()['decision_traces'][0]['trace_id'], 'trace-control')
+
     def test_login_requires_csrf_and_is_throttled(self):
         client = APIClient(enforce_csrf_checks=True)
         credentials = {'username': self.user.username, 'password': 'wrong'}
