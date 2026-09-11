@@ -223,6 +223,19 @@ class PolicyEngine:
         except (ValueError, TypeError) as exc:
             return EvaluationResult(allowed=False, reason=str(exc))
         context = {k: v for k, v in context.items() if not k.startswith('_')}
+        authority = dict(context.get('authority') or {})
+        claimed_tenant = authority.get('tenant_id')
+        if claimed_tenant is not None and claimed_tenant != str(endpoint.tenant_id):
+            return EvaluationResult(
+                allowed=False,
+                reason='authority tenant_id does not match authenticated endpoint',
+                context={'authority': authority},
+            )
+        # The endpoint credential is authoritative.  Callers may carry a
+        # workload/task identity, but cannot choose the tenant or endpoint.
+        authority['tenant_id'] = str(endpoint.tenant_id)
+        authority['endpoint_id'] = str(endpoint.id)
+        context['authority'] = authority
         from zentinelle.services.approvals import context_digest
         context['_approval_digest'] = context_digest(context)
         # Trusted workload identity always replaces caller-supplied values.

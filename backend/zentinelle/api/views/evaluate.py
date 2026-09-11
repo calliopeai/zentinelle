@@ -49,11 +49,14 @@ class EvaluateView(APIView):
         from zentinelle.services.policy_engine import PolicyEngine
 
         engine = PolicyEngine()
+        evaluation_context = dict(data.get('context', {}))
+        if data.get('authority'):
+            evaluation_context['authority'] = data['authority']
         result = engine.evaluate(
             endpoint=auth_endpoint,
             action=data['action'],
             user_id=data.get('user_id'),
-            context=data.get('context', {}),
+            context=evaluation_context,
         )
 
         # Log evaluation (async) and interaction (for monitoring)

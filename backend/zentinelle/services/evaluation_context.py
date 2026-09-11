@@ -2,11 +2,49 @@
 import json
 import math
 
+AUTHORITY_FIELDS = (
+    'tenant_id',
+    'workload_id',
+    'task_id',
+    'user_id',
+    'trace_id',
+    'run_id',
+    'policy_version',
+)
+
+
+def normalize_authority(value):
+    """Validate the optional workload authority carried with an evaluation.
+
+    The endpoint credential remains the trust anchor; these fields identify the
+    workload and execution trace that the caller wants evaluated.  Keeping a
+    closed, string-only shape gives gateway, SDK, and MCP clients one wire
+    contract while preventing arbitrary objects from entering policy context.
+    """
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError('authority must be an object')
+    unknown = set(value) - set(AUTHORITY_FIELDS)
+    if unknown:
+        raise ValueError(f'authority contains unsupported fields: {sorted(unknown)}')
+    normalized = {}
+    for key, item in value.items():
+        if item is None:
+            continue
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(f'authority.{key} must be a non-empty string')
+        if len(item) > 255:
+            raise ValueError(f'authority.{key} exceeds 255 characters')
+        normalized[key] = item
+    return normalized
+
 
 def normalize_context(value):
     if not isinstance(value, dict):
         raise ValueError('Evaluation context must be an object')
     context = dict(value)
+    context['authority'] = normalize_authority(context.get('authority'))
     if type(context.get("schema_version", 1)) is not int or context.get("schema_version", 1) != 1:
         raise ValueError("Unsupported evaluation context schema_version")
     for canonical, aliases in {

@@ -55,10 +55,11 @@ class SecretsResponseSerializer(serializers.Serializer):
 
 
 class EvaluateRequestSerializer(serializers.Serializer):
-    """Identity is derived from the authenticated key; an explicit ID must match."""
+    """Identity is derived from the authenticated key; authority is contextual."""
     agent_id = serializers.CharField(required=False, allow_blank=True)
     action = serializers.CharField(max_length=50)
     user_id = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    authority = serializers.DictField(required=False, default=dict)
     context = serializers.DictField(default=dict)
 
 
