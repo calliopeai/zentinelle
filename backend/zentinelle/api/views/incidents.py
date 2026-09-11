@@ -9,6 +9,7 @@ POST /api/zentinelle/v1/incidents/{id}/comments/ — add a comment
 """
 import logging
 
+from django.db import models
 from django.http import StreamingHttpResponse
 from django.utils import timezone
 from rest_framework import status
@@ -192,12 +193,28 @@ class IncidentEvidenceView(APIView):
             incident = Incident.objects.get(pk=incident_id, tenant_id=tenant_id)
         except (Incident.DoesNotExist, ValueError):
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
-        from zentinelle.models import AuditLog
+        from zentinelle.models import AuditLog, Event
         refs = [str(incident.id)] + ([incident.source_ref] if incident.source_ref else [])
-        records = AuditLog.objects.filter(tenant_id=tenant_id, resource_id__in=refs).order_by('chain_sequence')
+        correlation_ids = set()
+        if incident.source_ref:
+            source_event = Event.objects.filter(tenant_id=tenant_id, id=incident.source_ref).first()
+            if source_event and source_event.correlation_id:
+                correlation_ids.add(str(source_event.correlation_id))
+        # Include the originating event's correlation chain so request,
+        # workload, tool and decision audit records are exported together.
+        audit_filter = models.Q(resource_id__in=refs)
+        if correlation_ids:
+            audit_filter |= models.Q(metadata__correlation_id__in=list(correlation_ids))
+        records = AuditLog.objects.filter(tenant_id=tenant_id).filter(audit_filter).order_by('chain_sequence')
+        selection = {
+            'incident_id': str(incident.id), 'source_refs': refs,
+            'correlation_ids': sorted(correlation_ids),
+            'endpoint_id': str(incident.endpoint_id) if incident.endpoint_id else '',
+            'assignee_id': incident.assignee_id,
+        }
         from zentinelle.services.audit_chain import stream_evidence_bundle
         response = StreamingHttpResponse(
-            stream_evidence_bundle(records, tenant_id, {'incident_id': str(incident.id), 'source_refs': refs}),
+            stream_evidence_bundle(records, tenant_id, selection),
             content_type='application/x-ndjson',
         )
         response['Content-Disposition'] = f'attachment; filename="incident-{incident.id}-evidence.ndjson"'

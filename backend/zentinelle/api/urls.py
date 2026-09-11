@@ -186,9 +186,9 @@ urlpatterns = [
 
     # Incident management
     path('incidents/', IncidentListView.as_view(), name='incident-list'),
-    path('incidents/<int:incident_id>/', IncidentDetailView.as_view(), name='incident-detail'),
-    path('incidents/<int:incident_id>/evidence/', IncidentEvidenceView.as_view(), name='incident-evidence'),
-    path('incidents/<int:incident_id>/comments/', IncidentCommentView.as_view(), name='incident-comments'),
+    path('incidents/<uuid:incident_id>/', IncidentDetailView.as_view(), name='incident-detail'),
+    path('incidents/<uuid:incident_id>/evidence/', IncidentEvidenceView.as_view(), name='incident-evidence'),
+    path('incidents/<uuid:incident_id>/comments/', IncidentCommentView.as_view(), name='incident-comments'),
 
     # Compliance report export
     path('reports/', ReportCreateView.as_view(), name='report-create'),

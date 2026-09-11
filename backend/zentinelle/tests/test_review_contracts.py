@@ -57,6 +57,30 @@ class ReviewContractTests(TestCase):
             self.assertFalse(verify_evidence_bundle(damaged, TENANT)['valid'])
         self.assertFalse(verify_evidence_bundle(bundle, 'another-tenant')['valid'])
 
+    def test_incident_evidence_includes_originating_correlation_chain(self):
+        from zentinelle.models import Event, Incident
+        from django.utils import timezone
+        event = Event.objects.create(
+            tenant_id=TENANT, endpoint=self.endpoint, event_type='tool_call',
+            event_category='audit', status='processed', correlation_id='corr-incident', occurred_at=timezone.now(),
+        )
+        AuditLog.objects.create(
+            tenant_id=TENANT, action='tool.call', resource_id=str(event.id),
+            metadata={'correlation_id': 'corr-incident'},
+        )
+        incident = Incident.objects.create(
+            tenant_id=TENANT, title='Correlated incident', description='',
+            source='anomaly', source_ref=str(event.id), endpoint=self.endpoint,
+            occurred_at=event.occurred_at,
+        )
+        self.client.force_login(self.user)
+        assign_role(self.user, ROLE_VIEWER)
+        response = self.client.get(API + f'incidents/{incident.id}/evidence/')
+        self.assertEqual(response.status_code, 200)
+        verified = verify_evidence_bundle(list(response.streaming_content), TENANT)
+        self.assertTrue(verified['valid'])
+        self.assertEqual(verified['manifest']['selection']['correlation_ids'], ['corr-incident'])
+
     def test_assistant_confirmation_is_actor_argument_bound_and_single_use(self):
         from zentinelle.services.approvals import issue_approval
         from zentinelle.services.llm_tools import MUTATION_TOOLS, TOOL_DISPATCH
