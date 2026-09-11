@@ -18,6 +18,7 @@ SETTING_DEFAULTS = {
     'assistant_provider': lambda: getattr(settings, 'ASSISTANT_PROVIDER', ''),
     'taxonomy_extensions': lambda: [],
     'policy_copilot_enabled': lambda: False,
+    'control_approval_required': lambda: False,
 }
 
 
@@ -63,6 +64,8 @@ class RuntimeSettingsView(APIView):
                 return JsonResponse({'error': 'taxonomy_extensions must be a list of strings'}, status=400)
         if 'policy_copilot_enabled' in updates and not isinstance(updates['policy_copilot_enabled'], bool):
             return JsonResponse({'error': 'policy_copilot_enabled must be boolean'}, status=400)
+        if 'control_approval_required' in updates and not isinstance(updates['control_approval_required'], bool):
+            return JsonResponse({'error': 'control_approval_required must be boolean'}, status=400)
         tenant_id = _tenant_id(request)
         expected = payload.get('expected_revision')
         actor = getattr(request, 'user', None)

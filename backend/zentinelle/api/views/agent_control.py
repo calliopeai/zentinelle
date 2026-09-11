@@ -45,6 +45,18 @@ class AgentControlView(APIView):
         except (TypeError, ValueError, json.JSONDecodeError):
             return JsonResponse({'error': 'Invalid JSON'}, status=400)
         action = payload.get('action')
+        if action not in ('suspend', 'revoke', 'contain_tools'):
+            return JsonResponse({'error': 'action must be suspend, revoke, or contain_tools'}, status=400)
+        from zentinelle.models import TenantConfig
+        config = TenantConfig.objects.filter(tenant_id=tenant_id).values_list('settings', flat=True).first() or {}
+        if config.get('control_approval_required', False):
+            from zentinelle.services.approvals import consume_approvals, context_digest, find_approval
+            actor = str(request.user.pk)
+            approval_context = {'agent_id': agent_id, 'action': action, 'denied_tools': payload.get('denied_tools', [])}
+            approval = find_approval(payload.get('approval_token'), tenant_id=tenant_id, kind='assistant', subject=actor,
+                                     action=f'agent_control:{action}', digest=context_digest(approval_context))
+            if not approval or not consume_approvals([approval.pk], tenant_id=tenant_id):
+                return JsonResponse({'error': 'Current human approval for this exact control action is required'}, status=403)
         if action == 'suspend':
             endpoint.status = AgentEndpoint.Status.SUSPENDED
             endpoint.save(update_fields=['status', 'updated_at'])
@@ -59,8 +71,6 @@ class AgentControlView(APIView):
             metadata = {**(endpoint.metadata or {}), 'containment': {'denied_tools': sorted(set(tools))}}
             endpoint.metadata = metadata
             endpoint.save(update_fields=['metadata', 'updated_at'])
-        else:
-            return JsonResponse({'error': 'action must be suspend, revoke, or contain_tools'}, status=400)
         AuditLog.objects.create(
             tenant_id=tenant_id, ext_user_id=str(request.user.pk), action=AuditLog.Action.SUSPEND if action == 'suspend' else AuditLog.Action.UPDATE,
             resource_type='agent_endpoint', resource_id=str(endpoint.id), resource_name=endpoint.name,
