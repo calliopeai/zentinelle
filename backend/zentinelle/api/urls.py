@@ -73,7 +73,7 @@ from zentinelle.api.views import (AcknowledgeAlertView, AgentControlView,
                                   PolicyHistoryListView, RegisterView,
                                   ReportCreateView, ReportDownloadView,
                                   ReportStatusView, ResolveAlertView,
-                                  RetentionStatusView, PrivacyEraseView, RiskTrendView,
+                                  RetentionStatusView, PrivacyEraseView, PrivacyRestoreView, RiskTrendView,
                                   ScanContentView, ScanResultView, SecretsView,
                                   SystemPromptsView, TelemetryDeliveryHealthView,
                                   ViolationsListView)
