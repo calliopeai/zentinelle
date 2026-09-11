@@ -58,6 +58,9 @@ class AssistantExecuteToolView(APIView):
 
         name = data.get('name', '')
         args = data.get('args', {}) or {}
+        endpoint_id = str(data.get('endpoint_id', '') or '').strip()
+        if len(endpoint_id) > 128:
+            return JsonResponse({'error': 'endpoint_id is a bounded identifier'}, status=400)
 
         if not name:
             return JsonResponse({'error': 'name is required'}, status=400)
@@ -112,7 +115,8 @@ class AssistantExecuteToolView(APIView):
         # exact argument digest never overrides a newer deny policy.
         try:
             from zentinelle.services.llm_provider import _check_tool_route
-            _check_tool_route(name, args, tenant_id, approval_token=data.get('approval_token', ''), user_id=actor)
+            _check_tool_route(name, args, tenant_id, approval_token=data.get('approval_token', ''),
+                              user_id=actor, endpoint_id=endpoint_id)
         except RuntimeError as exc:
             return JsonResponse({'error': 'tool_policy_denied', 'detail': str(exc)}, status=403)
 
