@@ -18,20 +18,32 @@ def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-a
     if not isinstance(provider_usage, dict):
         raise ValueError('provider_usage must be an object')
     model = provider_usage.get('model')
+    billed_usd = provider_usage.get('billed_usd')
     input_tokens = provider_usage.get('input_tokens')
     output_tokens = provider_usage.get('output_tokens')
-    if not isinstance(model, str) or not isinstance(input_tokens, int) or not isinstance(output_tokens, int):
-        raise ValueError('Provider usage requires model and integer token counts')
-    if min(input_tokens, output_tokens) < 0:
-        raise ValueError('Provider token counts cannot be negative')
+    if billed_usd is not None:
+        try:
+            actual = Decimal(str(billed_usd)).quantize(Decimal('0.00000001'), rounding=ROUND_UP)
+        except Exception as exc:
+            raise ValueError('Provider billed_usd must be a non-negative decimal') from exc
+        if actual < 0:
+            raise ValueError('Provider billed_usd cannot be negative')
+    else:
+        if (not isinstance(model, str) or not model or
+                not isinstance(input_tokens, int) or isinstance(input_tokens, bool) or
+                not isinstance(output_tokens, int) or isinstance(output_tokens, bool)):
+            raise ValueError('Provider usage requires model and integer token counts, or billed_usd')
+        if min(input_tokens, output_tokens) < 0:
+            raise ValueError('Provider token counts cannot be negative')
     from zentinelle.services.usage_tracking import (MODEL_PRICING,
                                                     MODEL_PRICING_VERSION)
-    pricing = MODEL_PRICING.get(model)
-    if not pricing:
-        raise ValueError('No current pricing source for provider model')
-    actual = ((Decimal(input_tokens) * Decimal(str(pricing['input'])) +
-               Decimal(output_tokens) * Decimal(str(pricing['output']))) / Decimal(1000000)).quantize(
-                   Decimal('0.00000001'), rounding=ROUND_UP)
+    if billed_usd is None:
+        pricing = MODEL_PRICING.get(model)
+        if not pricing:
+            raise ValueError('No current pricing source for provider model')
+        actual = ((Decimal(input_tokens) * Decimal(str(pricing['input'])) +
+                   Decimal(output_tokens) * Decimal(str(pricing['output']))) / Decimal(1000000)).quantize(
+                       Decimal('0.00000001'), rounding=ROUND_UP)
     with transaction.atomic():
         charge = BudgetCharge.objects.select_for_update().get(id=charge_id, tenant_id=tenant_id)
         if charge.reconciled_at:

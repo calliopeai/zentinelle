@@ -48,3 +48,10 @@ class BudgetReconciliationTests(TestCase):
             })
         charge.refresh_from_db()
         self.assertIsNone(charge.reconciled_at)
+
+    def test_provider_billed_amount_supports_cache_and_hosted_tool_charges(self):
+        account = BudgetAccount.objects.create(tenant_id='tenant-a', policy_id_ext='00000000-0000-0000-0000-000000000001', period='2026-09-01', committed_usd=Decimal('1.00'))
+        charge = BudgetCharge.objects.create(tenant_id='tenant-a', endpoint_id_ext='00000000-0000-0000-0000-000000000002', request_id='req-billed', amount_usd=Decimal('1.00'), account_ids=[account.id])
+        result = reconcile_charge(charge.id, tenant_id='tenant-a', provider_usage={'request_id': 'req-billed', 'billed_usd': '0.12500000'})
+        self.assertEqual(result.actual_usd, Decimal('0.12500000'))
+        self.assertEqual(BudgetAccount.objects.get(id=account.id).committed_usd, Decimal('0.12500000'))
