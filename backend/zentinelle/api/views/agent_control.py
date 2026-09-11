@@ -1,6 +1,7 @@
 """Role-protected agent suspension, revocation and tool containment."""
 import json
 
+from django.db import transaction
 from django.http import JsonResponse
 from rest_framework.views import APIView
 
@@ -74,21 +75,27 @@ class AgentControlView(APIView):
                                      action=f'agent_control:{action}', digest=context_digest(approval_context))
             if not approval or not consume_approvals([approval.pk], tenant_id=tenant_id):
                 return JsonResponse({'error': 'Current human approval for this exact control action is required'}, status=403)
-        if action == 'suspend':
-            endpoint.status = AgentEndpoint.Status.SUSPENDED
-            endpoint.save(update_fields=['status', 'updated_at'])
-        elif action in ('revoke', 'emergency_stop'):
-            endpoint.status = AgentEndpoint.Status.TERMINATED
-            endpoint.api_key_hash = ''
-            endpoint.save(update_fields=['status', 'api_key_hash', 'updated_at'])
-        elif action == 'contain_tools':
-            tools = payload.get('denied_tools')
-            if (not isinstance(tools, list) or len(tools) > 200 or
-                    not all(isinstance(item, str) and 0 < len(item) <= 128 for item in tools)):
-                return JsonResponse({'error': 'denied_tools must be a bounded list of strings'}, status=400)
-            metadata = {**(endpoint.metadata or {}), 'containment': {'denied_tools': sorted(set(tools))}}
-            endpoint.metadata = metadata
-            endpoint.save(update_fields=['metadata', 'updated_at'])
+        with transaction.atomic():
+            endpoint = AgentEndpoint.objects.select_for_update().filter(
+                tenant_id=tenant_id, agent_id=agent_id,
+            ).first()
+            if endpoint is None:
+                return JsonResponse({'error': 'Agent not found'}, status=404)
+            if action == 'suspend':
+                endpoint.status = AgentEndpoint.Status.SUSPENDED
+                endpoint.save(update_fields=['status', 'updated_at'])
+            elif action in ('revoke', 'emergency_stop'):
+                endpoint.status = AgentEndpoint.Status.TERMINATED
+                endpoint.api_key_hash = ''
+                endpoint.save(update_fields=['status', 'api_key_hash', 'updated_at'])
+            elif action == 'contain_tools':
+                tools = payload.get('denied_tools')
+                if (not isinstance(tools, list) or len(tools) > 200 or
+                        not all(isinstance(item, str) and 0 < len(item) <= 128 for item in tools)):
+                    return JsonResponse({'error': 'denied_tools must be a bounded list of strings'}, status=400)
+                metadata = {**(endpoint.metadata or {}), 'containment': {'denied_tools': sorted(set(tools))}}
+                endpoint.metadata = metadata
+                endpoint.save(update_fields=['metadata', 'updated_at'])
         AuditLog.objects.create(
             tenant_id=tenant_id, ext_user_id=str(request.user.pk), action=AuditLog.Action.SUSPEND if action == 'suspend' else AuditLog.Action.UPDATE,
             resource_type='agent_endpoint', resource_id=str(endpoint.id), resource_name=endpoint.name,
