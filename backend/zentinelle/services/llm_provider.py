@@ -244,23 +244,36 @@ def _check_model_route(model: str, provider: str, tenant_id: str = None):
 
 
 def _check_tool_route(tool_name: str, tool_args: dict, tenant_id: str,
-                      *, approval_token: str = '', user_id: str = ''):
+                      *, approval_token: str = '', user_id: str = '', endpoint_id: str = ''):
     """Authorize tool and exact arguments before any tool side effect."""
     if not tenant_id:
         raise RuntimeError('Tool execution requires a tenant')
     from zentinelle.models import Policy
     from zentinelle.services.evaluators.tool_permission import ToolPermissionEvaluator
-    policies = Policy.objects.filter(
-        tenant_id=tenant_id, policy_type=Policy.PolicyType.TOOL_PERMISSION,
-        enabled=True, enforcement=Policy.Enforcement.ENFORCE,
-        scope_type=Policy.ScopeType.ORGANIZATION,
-    ).order_by('-priority', 'id')
+    policies = None
+    if endpoint_id:
+        from zentinelle.models import AgentEndpoint
+        endpoint = AgentEndpoint.objects.filter(tenant_id=tenant_id, id=endpoint_id).first()
+        if endpoint is None:
+            raise RuntimeError('Tool execution endpoint is not registered in this tenant')
+        from zentinelle.services.policy_engine import PolicyEngine
+        policies = PolicyEngine().get_effective_policies(endpoint, user_id=user_id or None, use_cache=False)
+        policies = [policy for policy in policies
+                    if policy.policy_type == Policy.PolicyType.TOOL_PERMISSION and
+                    policy.enforcement == Policy.Enforcement.ENFORCE and policy.enabled]
+    else:
+        policies = Policy.objects.filter(
+            tenant_id=tenant_id, policy_type=Policy.PolicyType.TOOL_PERMISSION,
+            enabled=True, enforcement=Policy.Enforcement.ENFORCE,
+            scope_type=Policy.ScopeType.ORGANIZATION,
+        ).order_by('-priority', 'id')
     for policy in policies:
         try:
             result = ToolPermissionEvaluator().evaluate(
                 policy, 'tool_call', user_id or None,
                 {'tool_name': tool_name, 'tool_args': dict(tool_args or {}),
-                 'approval_token': approval_token},
+                 'approval_token': approval_token, '_tenant_id': tenant_id,
+                 '_endpoint_id': endpoint_id},
             )
         except Exception as exc:
             _deny_model_route(f'Tool policy evaluation failed: {policy.id}', tenant_id=tenant_id, provider='tool', model=tool_name, policy=policy)
