@@ -45,7 +45,7 @@ The gateway tier scales independently from the Django backend:
 2. Gateway extracts agent key and request metadata (provider, model, tokens)
 3. Gateway calls Zentinelle /api/zentinelle/v1/evaluate (policy check)
    - Timeout: 2 seconds (configurable)
-   - On timeout: fail-open or fail-closed (configurable)
+   - On timeout or non-success response: fail-closed; unsafe `FAIL_OPEN=true` is rejected at startup
 4. If denied: return 403 with policy reason
 5. Gateway looks up real provider API key from config
 6. Gateway swaps auth header and forwards to provider
