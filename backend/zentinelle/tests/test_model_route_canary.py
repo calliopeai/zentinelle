@@ -35,6 +35,17 @@ class ModelRouteCanaryTests(TestCase):
         self.assertEqual(response.json()['decision'], 'deny')
         self.assertTrue(response.json()['trace_id'])
 
+    def test_canary_rejects_unbounded_baseline_before_guard(self):
+        user = User.objects.create_user('route-admin-baseline')
+        assign_role(user, ROLE_ADMIN)
+        client = APIClient(); client.force_authenticate(user=user)
+        with patch('zentinelle.api.views.model_route_canary.get_request_tenant_id', return_value='tenant-a'), \
+             patch('zentinelle.services.llm_provider._check_model_route') as check:
+            response = client.post('/api/zentinelle/v1/models/route-canary',
+                                   {'provider': 'openai', 'model': 'gpt-4o', 'baseline': {'blob': 'x' * 17000}}, format='json')
+        self.assertEqual(response.status_code, 400)
+        check.assert_not_called()
+
     def test_rollback_is_tenant_scoped_and_idempotency_is_explicit(self):
         user = User.objects.create_user('route-admin-rollback')
         assign_role(user, ROLE_ADMIN)

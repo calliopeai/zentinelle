@@ -1,4 +1,5 @@
 """Operator canary for the same model-route admission guard used at runtime."""
+import json
 import uuid
 
 from django.db import transaction
@@ -18,6 +19,9 @@ class ModelRouteCanaryView(APIView):
         payload = request.data if isinstance(request.data, dict) else {}
         provider = str(payload.get('provider', '')).strip().lower()
         model = str(payload.get('model', '')).strip()
+        baseline = payload.get('baseline', {})
+        if not isinstance(baseline, dict) or len(json.dumps(baseline, default=str)) > 16384:
+            return Response({'error': 'baseline must be a bounded object'}, status=400)
         if not provider or not model or len(provider) > 64 or len(model) > 128:
             return Response({'error': 'provider and model are required bounded strings'}, status=400)
         from zentinelle.models import ModelRouteCanary
@@ -33,7 +37,7 @@ class ModelRouteCanaryView(APIView):
         record = ModelRouteCanary.objects.create(
             tenant_id=tenant_id, provider=provider, model=model,
             status=ModelRouteCanary.Status.PASSED if allowed else ModelRouteCanary.Status.FAILED,
-            reason=reason, baseline=payload.get('baseline', {}) if isinstance(payload.get('baseline', {}), dict) else {},
+            reason=reason, baseline=baseline,
             evidence={'side_effects': False, 'trace_id': trace_id}, actor_id=str(getattr(request.user, 'pk', '') or ''),
         )
         try:
