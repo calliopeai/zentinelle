@@ -26,7 +26,9 @@ class ReleaseQualificationTests(TestCase):
         with self.assertRaisesRegex(ValueError, 'tls'):
             qualify_release(release_id='rel-prod', version='1.2.3', checks=checks, environment='production')
         checks.update({'tls': True, 'oidc': True, 'load_slo': True, 'incident_drill': True})
-        record = qualify_release(release_id='rel-prod-ok', version='1.2.3', checks=checks, environment='production')
+        with self.assertRaisesRegex(ValueError, 'signed provenance'):
+            qualify_release(release_id='rel-prod-no-signature', version='1.2.3', checks=checks, environment='production')
+        record = qualify_release(release_id='rel-prod-ok', version='1.2.3', checks=checks, environment='production', signature='attestation://release/rel-prod-ok')
         self.assertEqual(record.status, ReleaseQualification.Status.QUALIFIED)
 
     def test_invalid_sbom_digest_rejects(self):

@@ -27,4 +27,6 @@ def qualify_release(*, release_id, version, checks, rollback_evidence=None, sbom
     )
     if missing:
         raise ValueError(f'Release qualification failed; missing checks: {", ".join(missing)}')
+    if environment == 'production' and not str(signature).strip():
+        raise ValueError('production qualification requires signed provenance evidence')
     return record
