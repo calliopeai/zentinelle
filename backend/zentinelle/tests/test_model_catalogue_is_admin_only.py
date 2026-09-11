@@ -81,3 +81,15 @@ class ModelCatalogueIsAdminOnlyTest(TestCase):
         self.assertEqual(response.status_code, 400)
         self.model.refresh_from_db()
         self.assertTrue(self.model.enabled_for_chat)
+
+    @override_settings(AUTH_MODE='local')
+    def test_toggle_rejects_string_boolean(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse('zentinelle:assistant-models-toggle'),
+            data=json.dumps({'model_id': 'gpt-4o', 'enabled': 'false'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.model.refresh_from_db()
+        self.assertTrue(self.model.enabled_for_chat)

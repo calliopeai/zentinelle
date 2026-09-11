@@ -136,9 +136,9 @@ class AssistantModelsToggleView(APIView):
 
         model_id = data.get('model_id')
         enabled = data.get('enabled')
-        if not model_id or enabled is None:
+        if not model_id or not isinstance(enabled, bool):
             return JsonResponse(
-                {'error': 'model_id and enabled are required'}, status=400
+                {'error': 'model_id is required and enabled must be boolean'}, status=400
             )
 
         provider_slug = data.get('provider')
