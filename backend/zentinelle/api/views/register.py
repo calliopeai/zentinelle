@@ -19,7 +19,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from zentinelle.api.serializers import RegisterRequestSerializer
-from zentinelle.models import AgentEndpoint
+from zentinelle.models import AgentEndpoint, TenantConfig
 
 logger = logging.getLogger(__name__)
 
@@ -103,11 +103,6 @@ class RegisterView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        from zentinelle.services.agent_taxonomy import validate_taxonomy
-        metadata = dict(data.get('metadata') or {})
-        taxonomy = validate_taxonomy(metadata.get('taxonomy', []))
-        metadata['taxonomy'] = taxonomy
-
         # Get tenant_id from the authenticated bootstrap token
         tenant_id = getattr(request, '_zentinelle_tenant_id', None)
         if not tenant_id:
@@ -115,6 +110,13 @@ class RegisterView(APIView):
                 {'error': 'Invalid bootstrap token'},
                 status=status.HTTP_403_FORBIDDEN
             )
+
+        from zentinelle.services.agent_taxonomy import validate_taxonomy
+        metadata = dict(data.get('metadata') or {})
+        tenant_config = TenantConfig.objects.filter(tenant_id=tenant_id).first()
+        extensions = (tenant_config.settings or {}).get('taxonomy_extensions', []) if tenant_config else []
+        taxonomy = validate_taxonomy(metadata.get('taxonomy', []), tenant_extensions=extensions)
+        metadata['taxonomy'] = taxonomy
 
         # Generate agent_id if not provided
         agent_id = data.get('agent_id')

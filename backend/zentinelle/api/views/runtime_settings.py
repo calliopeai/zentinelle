@@ -15,6 +15,7 @@ SETTING_DEFAULTS = {
     'content_capture_mode': lambda: getattr(settings, 'CONTENT_CAPTURE_MODE', 'metadata'),
     'assistant_model': lambda: getattr(settings, 'ASSISTANT_MODEL', ''),
     'assistant_provider': lambda: getattr(settings, 'ASSISTANT_PROVIDER', ''),
+    'taxonomy_extensions': lambda: [],
 }
 
 
@@ -51,6 +52,9 @@ class RuntimeSettingsView(APIView):
             return JsonResponse({'error': 'content_capture_mode must be metadata or full'}, status=400)
         if 'assistant_allowed_topics' in updates and not isinstance(updates['assistant_allowed_topics'], list):
             return JsonResponse({'error': 'assistant_allowed_topics must be a list'}, status=400)
+        if 'taxonomy_extensions' in updates:
+            if not isinstance(updates['taxonomy_extensions'], list) or not all(isinstance(item, str) for item in updates['taxonomy_extensions']):
+                return JsonResponse({'error': 'taxonomy_extensions must be a list of strings'}, status=400)
         tenant_id = _tenant_id(request)
         config, _ = TenantConfig.objects.get_or_create(tenant_id=tenant_id)
         config.settings = {**config.settings, **updates}
