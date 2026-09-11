@@ -154,6 +154,32 @@ class IncidentDetailView(APIView):
 
         return Response(_serialize_incident(incident, include_comments=True), status=status.HTTP_200_OK)
 
+    def patch(self, request, incident_id):
+        incident = self._get_incident(request, incident_id)
+        if incident is None:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data
+        update_fields = ['updated_at']
+        new_status = data.get('status')
+        if new_status is not None:
+            if new_status not in _VALID_STATUSES:
+                return Response(
+                    {'detail': f'Invalid status. Valid values: {sorted(_VALID_STATUSES)}'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            incident.status = new_status
+            update_fields.append('status')
+            if new_status in (Incident.Status.RESOLVED, Incident.Status.CLOSED) and not incident.resolved_at:
+                incident.resolved_at = timezone.now()
+                update_fields.append('resolved_at')
+        new_assignee = data.get('assignee_id')
+        if new_assignee is not None:
+            incident.assignee_id = new_assignee
+            update_fields.append('assignee_id')
+        incident.save(update_fields=update_fields)
+        return Response(_serialize_incident(incident, include_comments=True), status=status.HTTP_200_OK)
+
 
 class IncidentEvidenceView(APIView):
     """Stream a tenant-scoped, signed audit evidence bundle for an incident."""
@@ -176,39 +202,6 @@ class IncidentEvidenceView(APIView):
         )
         response['Content-Disposition'] = f'attachment; filename="incident-{incident.id}-evidence.ndjson"'
         return response
-
-    def patch(self, request, incident_id):
-        incident = self._get_incident(request, incident_id)
-        if incident is None:
-            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        data = request.data
-        update_fields = ['updated_at']
-
-        new_status = data.get('status')
-        if new_status is not None:
-            if new_status not in _VALID_STATUSES:
-                return Response(
-                    {'detail': f'Invalid status. Valid values: {sorted(_VALID_STATUSES)}'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            incident.status = new_status
-            update_fields.append('status')
-
-            # Auto-set resolved_at when transitioning to resolved/closed
-            if new_status in (Incident.Status.RESOLVED, Incident.Status.CLOSED):
-                if not incident.resolved_at:
-                    incident.resolved_at = timezone.now()
-                    update_fields.append('resolved_at')
-
-        new_assignee = data.get('assignee_id')
-        if new_assignee is not None:
-            incident.assignee_id = new_assignee
-            update_fields.append('assignee_id')
-
-        incident.save(update_fields=update_fields)
-
-        return Response(_serialize_incident(incident, include_comments=True), status=status.HTTP_200_OK)
 
 
 class IncidentCommentView(APIView):
