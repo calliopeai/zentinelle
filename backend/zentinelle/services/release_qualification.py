@@ -1,4 +1,5 @@
 """Release qualification gate with durable evidence."""
+import json
 import re
 from zentinelle.models import ReleaseQualification
 
@@ -13,6 +14,9 @@ def qualify_release(*, release_id, version, checks, rollback_evidence=None, sbom
         raise ValueError('release_id and version must be bounded strings')
     if not isinstance(checks, dict) or len(checks) > 64 or not all(isinstance(value, bool) for value in checks.values()):
         raise ValueError('checks must be a bounded object of boolean values')
+    if rollback_evidence is not None and (not isinstance(rollback_evidence, dict) or
+                                          len(json.dumps(rollback_evidence, default=str)) > 16384):
+        raise ValueError('rollback_evidence must be a bounded object')
     if sbom_digest and not re.fullmatch(r'sha256:[0-9a-f]{64}', str(sbom_digest)):
         raise ValueError('sbom_digest must be a sha256 digest')
     if signature and not isinstance(signature, str):

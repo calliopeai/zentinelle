@@ -56,6 +56,12 @@ class ReleaseQualificationTests(TestCase):
         with self.assertRaisesRegex(ValueError, 'boolean values'):
             qualify_release(release_id='rel-bad-checks', version='1.2.3', checks={'migrations': 'true'})
 
+    def test_rollback_evidence_is_bounded_object(self):
+        with self.assertRaisesRegex(ValueError, 'rollback_evidence'):
+            qualify_release(release_id='rel-bad-evidence', version='1.2.3', checks={}, rollback_evidence=['x'])
+        with self.assertRaisesRegex(ValueError, 'rollback_evidence'):
+            qualify_release(release_id='rel-large-evidence', version='1.2.3', checks={}, rollback_evidence={'log': 'x' * 17000})
+
     def test_invalid_sbom_digest_rejects(self):
         checks = {name: True for name in ('migrations', 'auth', 'csrf', 'secret_rotation', 'dependency_scan', 'backup_restore', 'rollback')}
         with self.assertRaisesRegex(ValueError, 'sha256 digest'):
