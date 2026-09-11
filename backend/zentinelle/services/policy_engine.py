@@ -245,6 +245,10 @@ class PolicyEngine:
         # Trusted workload identity always replaces caller-supplied values.
         context['_tenant_id'] = endpoint.tenant_id
         context['_endpoint_id'] = str(endpoint.id)
+        # Preserve the complete taxonomy decision context in traces and
+        # incident evidence. Unsupported labels remain visible to operators;
+        # only canonical/tenant-approved labels participate in selection.
+        context['taxonomy'] = (endpoint.metadata or {}).get('taxonomy', {'supported': [], 'unsupported': []})
 
         policies = self.get_effective_policies(
             endpoint, user_id, policy_types=['output_filter'] if action == 'llm:response' else None,
