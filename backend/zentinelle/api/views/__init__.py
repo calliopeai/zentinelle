@@ -41,7 +41,7 @@ from zentinelle.api.views.policy_history import (PolicyDiffView,
 from zentinelle.api.views.register import RegisterView
 from zentinelle.api.views.reports import (ReportCreateView, ReportDownloadView,
                                           ReportStatusView)
-from zentinelle.api.views.retention_status import RetentionStatusView
+from zentinelle.api.views.retention_status import PrivacyEraseView, RetentionStatusView
 from zentinelle.api.views.risks_trend import RiskTrendView
 from zentinelle.api.views.secrets import SecretsView
 from zentinelle.api.views.runtime_settings import (RuntimeSettingsChangesView,
@@ -81,6 +81,7 @@ __all__ = [
     'AuditExportView',
     # Retention
     'RetentionStatusView',
+    'PrivacyEraseView',
     # Risk
     'RiskTrendView',
     # Policy History

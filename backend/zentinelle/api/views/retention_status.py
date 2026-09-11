@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from zentinelle.api.auth import get_tenant_id_from_request
-from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
+from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess, PortalAdminAccess
 from zentinelle.models import Policy, RetentionOutcome
 from zentinelle.services.retention import verify_retention_manifest
 
@@ -79,3 +79,22 @@ class RetentionStatusView(APIView):
             'created_at': outcome.created_at.isoformat(),
         } for outcome in outcomes]
         return Response({'policies': policies, 'outcomes': serialized, 'outcome_counts': outcome_counts})
+
+
+class PrivacyEraseView(APIView):
+    """Explicit, hold-aware tenant erasure endpoint."""
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAdminAccess]
+
+    def post(self, request):
+        tenant_id = get_tenant_id_from_request(request)
+        if not tenant_id:
+            return Response({'error': 'Could not resolve tenant'}, status=401)
+        from zentinelle.services.privacy_lifecycle import erase_tenant
+        try:
+            result = erase_tenant(tenant_id, actor=str(getattr(request.user, 'pk', '') or 'operator'))
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=409)
+        except RuntimeError as exc:
+            return Response({'error': str(exc)}, status=503)
+        return Response(result)

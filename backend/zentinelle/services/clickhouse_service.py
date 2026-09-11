@@ -480,3 +480,21 @@ def retain_analytics(client, tenant_id, cutoff):
             parameters={'tenant': tenant_id, 'cutoff': cutoff.strftime('%Y-%m-%d %H:%M:%S')},
             settings={'mutations_sync': 2},
         )
+
+
+def erase_tenant_analytics(tenant_id, client=None):
+    """Synchronously erase all tenant analytics rows when an authenticated
+    ClickHouse client is available. Returns ``False`` when analytics are not
+    configured so callers can report an incomplete privacy operation.
+    """
+    import uuid
+    client = client or _get_client()
+    if client is None:
+        return False
+    tenant_uuid = str(uuid.UUID(str(tenant_id)))
+    for table in RETENTION_TABLES:
+        client.command(
+            f'ALTER TABLE {table} DELETE WHERE organization_id = {{tenant:UUID}}',
+            parameters={'tenant': tenant_uuid}, settings={'mutations_sync': 2},
+        )
+    return True

@@ -72,7 +72,7 @@ from zentinelle.api.views import (AcknowledgeAlertView, AgentControlView,
                                   PolicyHistoryListView, RegisterView,
                                   ReportCreateView, ReportDownloadView,
                                   ReportStatusView, ResolveAlertView,
-                                  RetentionStatusView, RiskTrendView,
+                                  RetentionStatusView, PrivacyEraseView, RiskTrendView,
                                   ScanContentView, ScanResultView, SecretsView,
                                   SystemPromptsView, TelemetryDeliveryHealthView,
                                   ViolationsListView)
@@ -180,6 +180,7 @@ urlpatterns = [
 
     # Retention status
     path('retention/status/', RetentionStatusView.as_view(), name='retention-status'),
+    path('retention/erase', PrivacyEraseView.as_view(), name='retention-erase'),
 
     # Risk register trend
     path('risks/trend', RiskTrendView.as_view(), name='risks-trend'),
