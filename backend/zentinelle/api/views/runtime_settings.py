@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from zentinelle.api.permissions import PORTAL_AUTH, PortalAdminAccess
 from zentinelle.auth.mode import is_open_mode
-from zentinelle.models import RuntimeSettingsRevision, TenantConfig
+from zentinelle.models import RuntimeSettingsChange, RuntimeSettingsRevision, TenantConfig
 from zentinelle.schema.auth_helpers import get_request_tenant_id
 
 SETTING_DEFAULTS = {
@@ -128,3 +128,68 @@ class RuntimeSettingsRollbackView(RuntimeSettingsView):
         request._request._body = body
         request._request._stream = None
         return super().patch(request)
+
+
+class RuntimeSettingsChangesView(APIView):
+    """Create/list reviewable runtime settings proposals."""
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAdminAccess]
+
+    def get(self, request):
+        tenant_id = _tenant_id(request)
+        rows = RuntimeSettingsChange.objects.filter(tenant_id=tenant_id)[:30]
+        return JsonResponse({'results': [_serialize_change(row) for row in rows]})
+
+    def post(self, request):
+        try:
+            payload = json.loads(request.body or '{}')
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        updates = payload.get('settings')
+        if not isinstance(updates, dict) or not updates:
+            return JsonResponse({'error': 'settings object is required'}, status=400)
+        unknown = sorted(set(updates) - set(SETTING_DEFAULTS))
+        if unknown:
+            return JsonResponse({'error': 'Unknown or unsafe settings', 'keys': unknown}, status=400)
+        tenant_id = _tenant_id(request)
+        latest = RuntimeSettingsRevision.objects.filter(tenant_id=tenant_id).order_by('-revision').first()
+        actor = str(getattr(request.user, 'pk', '') or getattr(request.user, 'username', '') or 'operator')
+        row = RuntimeSettingsChange.objects.create(tenant_id=tenant_id, settings=updates,
+            base_revision=latest.revision if latest else 0, created_by=actor)
+        row.transition(RuntimeSettingsChange.Status.STAGED, actor=actor)
+        return JsonResponse(_serialize_change(row), status=201)
+
+
+def _serialize_change(row):
+    return {'id': str(row.id), 'tenant_id': row.tenant_id, 'status': row.status,
+            'settings': row.settings, 'base_revision': row.base_revision,
+            'created_by': row.created_by, 'approved_by': row.approved_by,
+            'applied_revision': row.applied_revision,
+            'created_at': row.created_at.isoformat(), 'updated_at': row.updated_at.isoformat()}
+
+
+class RuntimeSettingsChangeTransitionView(APIView):
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAdminAccess]
+
+    def post(self, request, change_id):
+        tenant_id = _tenant_id(request)
+        try:
+            row = RuntimeSettingsChange.objects.get(id=change_id, tenant_id=tenant_id)
+        except RuntimeSettingsChange.DoesNotExist:
+            return JsonResponse({'error': 'Runtime settings change not found'}, status=404)
+        try:
+            payload = json.loads(request.body or '{}')
+            next_status = payload.get('status')
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        actor = str(getattr(request.user, 'pk', '') or getattr(request.user, 'username', '') or 'operator')
+        try:
+            if next_status == RuntimeSettingsChange.Status.APPLIED:
+                from zentinelle.services.runtime_settings_changes import apply_change
+                row = apply_change(row.id, tenant_id, actor=actor)
+            else:
+                row.transition(next_status, actor=actor)
+        except ValueError as exc:
+            return JsonResponse({'error': str(exc)}, status=409)
+        return JsonResponse(_serialize_change(row))

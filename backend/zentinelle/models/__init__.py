@@ -56,6 +56,7 @@ from zentinelle.models.release_qualification import ReleaseQualification
 from zentinelle.models.reporting import Report
 from zentinelle.models.retention_outcome import RetentionOutcome
 from zentinelle.models.runtime_settings_revision import RuntimeSettingsRevision
+from zentinelle.models.runtime_settings_change import RuntimeSettingsChange
 # Retention Policies
 from zentinelle.models.retention_policy import (DataArchive, LegalHold,
                                                 RetentionPolicy)
@@ -92,6 +93,7 @@ __all__ = [
     'ControlEvidence',
     'RetentionOutcome',
     'RuntimeSettingsRevision',
+    'RuntimeSettingsChange',
     'ReleaseQualification',
     'PolicyChangeAcknowledgement',
     'PolicyHistory',

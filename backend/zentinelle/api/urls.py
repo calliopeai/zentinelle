@@ -89,7 +89,10 @@ from zentinelle.api.views.auth import (CSRFTokenView, LoginView, LogoutView,
 from zentinelle.api.views.health import HealthView, ReadyView
 from zentinelle.api.views.llm_provider_keys import (LLMProviderKeyDeleteView,
                                                     LLMProviderKeysView)
-from zentinelle.api.views.runtime_settings import RuntimeSettingsRollbackView, RuntimeSettingsView
+from zentinelle.api.views.runtime_settings import (RuntimeSettingsChangesView,
+                                                    RuntimeSettingsChangeTransitionView,
+                                                    RuntimeSettingsRollbackView,
+                                                    RuntimeSettingsView)
 from zentinelle.auth.oidc import OIDCCallbackView, OIDCLoginView
 
 app_name = 'zentinelle'
@@ -122,6 +125,8 @@ urlpatterns = [
     path('settings/llm-providers/<str:provider>', LLMProviderKeyDeleteView.as_view(), name='llm-provider-key-delete'),
     path('settings/runtime', RuntimeSettingsView.as_view(), name='runtime-settings'),
     path('settings/runtime/rollback', RuntimeSettingsRollbackView.as_view(), name='runtime-settings-rollback'),
+    path('settings/runtime/changes', RuntimeSettingsChangesView.as_view(), name='runtime-settings-changes'),
+    path('settings/runtime/changes/<uuid:change_id>/transition', RuntimeSettingsChangeTransitionView.as_view(), name='runtime-settings-change-transition'),
     path('policy-copilot/status', PolicyCopilotStatusView.as_view(), name='policy-copilot-status'),
     path('policy-copilot/draft', PolicyCopilotDraftView.as_view(), name='policy-copilot-draft'),
     path('policy-copilot/explain', PolicyCopilotExplainView.as_view(), name='policy-copilot-explain'),

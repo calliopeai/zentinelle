@@ -5,8 +5,10 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory
 
-from zentinelle.api.views.runtime_settings import RuntimeSettingsRollbackView, RuntimeSettingsView
-from zentinelle.models import RuntimeSettingsRevision, TenantConfig
+from zentinelle.api.views.runtime_settings import (RuntimeSettingsChangesView,
+                                                    RuntimeSettingsChangeTransitionView,
+                                                    RuntimeSettingsRollbackView, RuntimeSettingsView)
+from zentinelle.models import RuntimeSettingsChange, RuntimeSettingsRevision, TenantConfig
 
 
 class RuntimeSettingsRevisionTests(TestCase):
@@ -64,6 +66,25 @@ class RuntimeSettingsRevisionTests(TestCase):
         valid = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'model_visibility': 'approved_only', 'discovery_refresh_seconds': 900, 'default_rate_limit_per_minute': 120, 'default_budget_cents': 5000}}), content_type='application/json')
         valid.user = self.user
         self.assertEqual(RuntimeSettingsView.as_view()(valid).status_code, 200)
+
+    @patch('zentinelle.api.views.runtime_settings._tenant_id', return_value='tenant-a')
+    def test_runtime_change_requires_explicit_approval_before_apply(self, _tenant):
+        request = self.factory.post('/settings/runtime/changes', data=json.dumps({'settings': {'assistant_model': 'gpt-5'}}), content_type='application/json')
+        request.user = self.user
+        created = RuntimeSettingsChangesView.as_view()(request)
+        self.assertEqual(created.status_code, 201)
+        change_id = json.loads(created.content)['id']
+        apply = self.factory.post('/settings/runtime/changes/%s/transition' % change_id, data=json.dumps({'status': 'applied'}), content_type='application/json')
+        apply.user = self.user
+        self.assertEqual(RuntimeSettingsChangeTransitionView.as_view()(apply, change_id=change_id).status_code, 409)
+        stage_to_approved = self.factory.post('/settings/runtime/changes/%s/transition' % change_id, data=json.dumps({'status': 'approved'}), content_type='application/json')
+        stage_to_approved.user = self.user
+        # A staged proposal can be approved by an administrator.
+        self.assertEqual(RuntimeSettingsChangeTransitionView.as_view()(stage_to_approved, change_id=change_id).status_code, 200)
+        apply = self.factory.post('/settings/runtime/changes/%s/transition' % change_id, data=json.dumps({'status': 'applied'}), content_type='application/json')
+        apply.user = self.user
+        self.assertEqual(RuntimeSettingsChangeTransitionView.as_view()(apply, change_id=change_id).status_code, 200)
+        self.assertEqual(TenantConfig.objects.get(tenant_id='tenant-a').settings['assistant_model'], 'gpt-5')
         request = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'taxonomy_extensions': ['invalid']}}), content_type='application/json')
         request.user = self.user
         self.assertEqual(RuntimeSettingsView.as_view()(request).status_code, 400)
