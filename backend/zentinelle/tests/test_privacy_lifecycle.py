@@ -101,6 +101,18 @@ class PrivacyLifecycleTests(TestCase):
         with self.assertRaisesRegex(ValueError, 'subject scope'):
             restore_archive(manifest, 'tenant-a')
 
+    def test_restore_rejects_oversized_record_count_before_parsing(self):
+        from zentinelle.services.retention import signed_retention_manifest
+        with tempfile.NamedTemporaryFile(mode='wb') as archive:
+            raw = b'not-json\n'
+            archive.write(raw)
+            archive.flush()
+            manifest = signed_retention_manifest(
+                'tenant-a', 'events', 'archive', 100_001, archive.name,
+                archive_checksum=hashlib.sha256(raw).hexdigest())
+            with self.assertRaisesRegex(ValueError, 'supported bound'):
+                restore_archive(manifest, 'tenant-a')
+
     @patch('zentinelle.services.clickhouse_service._get_clickhouse_url', return_value='')
     @patch('zentinelle.services.clickhouse_service.erase_tenant_analytics', return_value=False)
     def test_local_archive_is_overwritten_and_removed_during_erasure(self, _analytics, _url):

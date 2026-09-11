@@ -78,8 +78,14 @@ def restore_archive(manifest, tenant_id, *, actor='privacy-operator', commit=Fal
     expected_checksum = manifest.get('archive_checksum')
     if expected_checksum and hashlib.sha256(raw).hexdigest() != expected_checksum:
         raise ValueError('Archive checksum verification failed')
+    try:
+        expected_count = int(manifest.get('record_count', -1))
+    except (TypeError, ValueError):
+        raise ValueError('Archive record count verification failed')
+    if expected_count < 0 or expected_count > 100_000:
+        raise ValueError('Archive record count exceeds the supported bound')
     records = [json.loads(line) for line in raw.splitlines() if line.strip()]
-    if len(records) != int(manifest.get('record_count', -1)):
+    if len(records) != expected_count:
         raise ValueError('Archive record count verification failed')
     if any(str(record.get('tenant_id')) != tenant_id for record in records):
         raise ValueError('Archive contains a cross-tenant record')
