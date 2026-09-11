@@ -38,3 +38,12 @@ class RuntimeSettingsRevisionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(json.loads(response.content)['revision'], 3)
         self.assertEqual(TenantConfig.objects.get(tenant_id='tenant-a').settings['assistant_model'], 'first')
+
+    @patch('zentinelle.api.views.runtime_settings._tenant_id', return_value='tenant-a')
+    def test_patch_rejects_unbounded_or_malformed_values(self, _tenant):
+        request = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'assistant_model': 'x' * 129}}), content_type='application/json')
+        request.user = self.user
+        self.assertEqual(RuntimeSettingsView.as_view()(request).status_code, 400)
+        request = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'taxonomy_extensions': ['invalid']}}), content_type='application/json')
+        request.user = self.user
+        self.assertEqual(RuntimeSettingsView.as_view()(request).status_code, 400)

@@ -59,8 +59,16 @@ class RuntimeSettingsView(APIView):
             return JsonResponse({'error': 'content_capture_mode must be metadata or full'}, status=400)
         if 'assistant_allowed_topics' in updates and not isinstance(updates['assistant_allowed_topics'], list):
             return JsonResponse({'error': 'assistant_allowed_topics must be a list'}, status=400)
+        if 'assistant_allowed_topics' in updates and (len(updates['assistant_allowed_topics']) > 100 or
+                not all(isinstance(item, str) and 0 < len(item) <= 128 for item in updates['assistant_allowed_topics'])):
+            return JsonResponse({'error': 'assistant_allowed_topics must contain at most 100 bounded strings'}, status=400)
+        for key in ('assistant_model', 'assistant_provider'):
+            if key in updates and (not isinstance(updates[key], str) or len(updates[key]) > 128):
+                return JsonResponse({'error': f'{key} must be a bounded string'}, status=400)
         if 'taxonomy_extensions' in updates:
-            if not isinstance(updates['taxonomy_extensions'], list) or not all(isinstance(item, str) for item in updates['taxonomy_extensions']):
+            if (not isinstance(updates['taxonomy_extensions'], list) or len(updates['taxonomy_extensions']) > 200 or
+                    not all(isinstance(item, str) and 1 <= len(item) <= 128 and item.count(':') == 1
+                            for item in updates['taxonomy_extensions'])):
                 return JsonResponse({'error': 'taxonomy_extensions must be a list of strings'}, status=400)
         if 'policy_copilot_enabled' in updates and not isinstance(updates['policy_copilot_enabled'], bool):
             return JsonResponse({'error': 'policy_copilot_enabled must be boolean'}, status=400)
