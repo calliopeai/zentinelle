@@ -63,6 +63,17 @@ class PolicyEngineTest(TestCase):
         policies = self.engine.get_effective_policies(self.endpoint, use_cache=False)
         self.assertEqual([policy.id for policy in policies], [selected.id])
 
+    def test_malformed_enforced_taxonomy_selector_denies_closed(self):
+        Policy.objects.bulk_create([Policy(
+            tenant_id=STANDALONE_TENANT, name='Corrupt selector',
+            policy_type=Policy.PolicyType.TOOL_PERMISSION,
+            config={'taxonomy_selectors': ['function:legal', 42]},
+            enforcement=Policy.Enforcement.ENFORCE,
+        )])
+        result = self.engine.evaluate(self.endpoint, 'tool_call', context={'tool_name': 'search'})
+        self.assertFalse(result.allowed)
+        self.assertIn('malformed taxonomy', result.reason)
+
     def test_policy_inheritance_more_specific_wins(self):
         """Test that more specific scope overrides broader scope."""
         Policy.objects.create(

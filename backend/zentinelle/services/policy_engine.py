@@ -179,8 +179,8 @@ class PolicyEngine:
         if not selectors:
             return True
         if not isinstance(selectors, list) or not all(isinstance(item, str) for item in selectors):
-            logger.warning('Ignoring malformed taxonomy selectors on policy %s', policy.id)
-            return False
+            logger.warning('Malformed taxonomy selectors on policy %s; retaining for fail-closed evaluation', policy.id)
+            return True
         return set(selectors).issubset(endpoint_tags)
 
     def invalidate_cache(self, tenant_id: str) -> None:
@@ -263,6 +263,21 @@ class PolicyEngine:
 
         for policy in policies:
             if policy.enforcement == Policy.Enforcement.DISABLED:
+                continue
+
+            selectors = policy.config.get('taxonomy_selectors') if isinstance(policy.config, dict) else None
+            if selectors is not None and (not isinstance(selectors, list) or
+                                           not all(isinstance(item, str) and ':' in item for item in selectors)):
+                message = f"Policy {policy.name} has malformed taxonomy selectors"
+                results.append({'id': str(policy.id), 'version': policy.version, 'name': policy.name,
+                                'type': policy.policy_type, 'result': 'fail', 'message': message,
+                                'matched_selectors': selectors if isinstance(selectors, list) else [],
+                                'coverage': 'enforced' if policy.enforcement == Policy.Enforcement.ENFORCE else 'observation_only'})
+                if policy.enforcement == Policy.Enforcement.ENFORCE and not dry_run:
+                    allowed = False
+                    denial_reason = message
+                else:
+                    warnings.append(message)
                 continue
 
             evaluator = self._get_evaluator(policy.policy_type)
