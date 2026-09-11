@@ -107,6 +107,14 @@ class AssistantExecuteToolView(APIView):
         if not approval or not consume_approvals([approval.pk], tenant_id=tenant_id):
             return JsonResponse({'error': 'Confirmation is expired, used, or does not match this action'}, status=403)
 
+        # Re-evaluate tenant tool authority at execution time. Approval of an
+        # exact argument digest never overrides a newer deny policy.
+        try:
+            from zentinelle.services.llm_provider import _check_tool_route
+            _check_tool_route(name, args, tenant_id)
+        except RuntimeError as exc:
+            return JsonResponse({'error': 'tool_policy_denied', 'detail': str(exc)}, status=403)
+
         # Execute and audit
         result_str = execute_tool(name, args, tenant_id)
         try:

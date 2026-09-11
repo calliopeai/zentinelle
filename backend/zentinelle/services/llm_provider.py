@@ -226,6 +226,30 @@ def _check_model_route(model: str, provider: str, tenant_id: str = None):
                 _deny_model_route(f'Model route denied by policy {policy.id}: {result.message}', tenant_id=tenant_id, provider=provider, model=model, policy=policy)
 
 
+def _check_tool_route(tool_name: str, tool_args: dict, tenant_id: str):
+    """Authorize tool and exact arguments before any tool side effect."""
+    if not tenant_id:
+        raise RuntimeError('Tool execution requires a tenant')
+    from zentinelle.models import Policy
+    from zentinelle.services.evaluators.tool_permission import ToolPermissionEvaluator
+    policies = Policy.objects.filter(
+        tenant_id=tenant_id, policy_type=Policy.PolicyType.TOOL_PERMISSION,
+        enabled=True, enforcement=Policy.Enforcement.ENFORCE,
+        scope_type=Policy.ScopeType.ORGANIZATION,
+    ).order_by('-priority', 'id')
+    for policy in policies:
+        try:
+            result = ToolPermissionEvaluator().evaluate(
+                policy, 'tool_call', None,
+                {'tool_name': tool_name, 'tool_args': dict(tool_args or {})},
+            )
+        except Exception as exc:
+            _deny_model_route(f'Tool policy evaluation failed: {policy.id}', tenant_id=tenant_id, provider='tool', model=tool_name, policy=policy)
+            raise exc
+        if not result.passed:
+            _deny_model_route(f'Tool {tool_name} denied by policy {policy.id}: {result.message}', tenant_id=tenant_id, provider='tool', model=tool_name, policy=policy)
+
+
 async def agentic_chat(
     messages: list[dict],
     model: str,
@@ -324,6 +348,7 @@ async def _execute_tool_with_audit(name: str, args: dict, tenant_id: str,
     """Execute a tool and write an audit log entry for mutations."""
     from zentinelle.services.llm_tools import MUTATION_TOOLS, execute_tool
 
+    await asyncio.to_thread(_check_tool_route, name, args, tenant_id)
     result_str = await asyncio.to_thread(execute_tool, name, args, tenant_id)
 
     if name in MUTATION_TOOLS:
