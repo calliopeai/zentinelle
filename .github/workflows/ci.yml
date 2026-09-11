@@ -89,6 +89,7 @@ jobs:
         run: |
           python manage.py migrate --no-input
           python -m pytest -q zentinelle/tests/test_graphql_auth_profile.py
+          python -m pytest -q zentinelle/tests/test_models.py -k rotate_api_key
           pip check
           # Exercise a real migration rollback/re-apply on the CI database.
           python manage.py migrate zentinelle 0049 --no-input
@@ -100,7 +101,7 @@ jobs:
           pip freeze --all | sort > /tmp/zentinelle-sbom.txt
           sbom_digest="sha256:$(sha256sum /tmp/zentinelle-sbom.txt | cut -d' ' -f1)"
           cat > /tmp/zentinelle-release-checks.json <<JSON
-          {"checks":{"migrations":true,"auth":true,"csrf":true,"secret_rotation":true,"dependency_scan":true,"backup_restore":true,"rollback":true},"evidence":{"auth_profile":"test_graphql_auth_profile.py","dependency_scan":"pip check","backup_restore":"pg_dump+pg_restore fresh database","rollback":"migrate 0049 then latest"},"rollback_evidence":{"source":"ci","commit":"${GITHUB_SHA}"}}
+          {"checks":{"migrations":true,"auth":true,"csrf":true,"secret_rotation":true,"dependency_scan":true,"backup_restore":true,"rollback":true},"evidence":{"auth_profile":"test_graphql_auth_profile.py","secret_rotation":"test_models.py -k rotate_api_key","dependency_scan":"pip check","backup_restore":"pg_dump+pg_restore fresh database","rollback":"migrate 0049 then latest"},"rollback_evidence":{"source":"ci","commit":"${GITHUB_SHA}"}}
           JSON
           python manage.py qualify_release \
             --release-id "ci-${GITHUB_RUN_ID}" \
