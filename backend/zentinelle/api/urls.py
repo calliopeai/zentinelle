@@ -79,6 +79,7 @@ from zentinelle.api.views.auth import (CSRFTokenView, LoginView, LogoutView,
 from zentinelle.api.views.health import HealthView, ReadyView
 from zentinelle.api.views.llm_provider_keys import (LLMProviderKeyDeleteView,
                                                     LLMProviderKeysView)
+from zentinelle.api.views.runtime_settings import RuntimeSettingsView
 from zentinelle.auth.oidc import OIDCCallbackView, OIDCLoginView
 
 app_name = 'zentinelle'
@@ -108,6 +109,7 @@ urlpatterns = [
     # LLM provider key management (encrypted at rest, per-tenant)
     path('settings/llm-providers', LLMProviderKeysView.as_view(), name='llm-provider-keys'),
     path('settings/llm-providers/<str:provider>', LLMProviderKeyDeleteView.as_view(), name='llm-provider-key-delete'),
+    path('settings/runtime', RuntimeSettingsView.as_view(), name='runtime-settings'),
 
     # Agent-facing endpoints
     path('register', RegisterView.as_view(), name='register'),
