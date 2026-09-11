@@ -377,12 +377,13 @@ class DeadLetterQueue:
         """Move event to dead letter queue."""
         from zentinelle.models import Event
 
+        original_status = event.status
         event.status = Event.Status.FAILED
         event.error_message = error
         event.payload['dlq'] = {
             'moved_at': timezone.now().isoformat(),
             'reason': error,
-            'original_status': event.status,
+            'original_status': original_status,
         }
         event.save()
 
