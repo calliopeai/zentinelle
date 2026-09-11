@@ -56,7 +56,8 @@ from zentinelle.api.views import (AcknowledgeAlertView, AgentSummaryView,
                                   ExportComplianceReportCSVView,
                                   ExportViolationsCSVView, HeartbeatView,
                                   IncidentCommentView, IncidentDetailView,
-                                  IncidentListView, LogInteractionView,
+                                  IncidentEvidenceView, IncidentListView,
+                                  LogInteractionView,
                                   PolicyChangeAcknowledgementView,
                                   PolicyChangeSetListView,
                                   PolicyChangeSetTransitionView,
@@ -169,6 +170,7 @@ urlpatterns = [
     # Incident management
     path('incidents/', IncidentListView.as_view(), name='incident-list'),
     path('incidents/<int:incident_id>/', IncidentDetailView.as_view(), name='incident-detail'),
+    path('incidents/<int:incident_id>/evidence/', IncidentEvidenceView.as_view(), name='incident-evidence'),
     path('incidents/<int:incident_id>/comments/', IncidentCommentView.as_view(), name='incident-comments'),
 
     # Compliance report export

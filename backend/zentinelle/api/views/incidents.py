@@ -9,6 +9,7 @@ POST /api/zentinelle/v1/incidents/{id}/comments/ — add a comment
 """
 import logging
 
+from django.http import StreamingHttpResponse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -152,6 +153,29 @@ class IncidentDetailView(APIView):
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(_serialize_incident(incident, include_comments=True), status=status.HTTP_200_OK)
+
+
+class IncidentEvidenceView(APIView):
+    """Stream a tenant-scoped, signed audit evidence bundle for an incident."""
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
+
+    def get(self, request, incident_id):
+        tenant_id = get_tenant_id_from_request(request)
+        try:
+            incident = Incident.objects.get(pk=incident_id, tenant_id=tenant_id)
+        except (Incident.DoesNotExist, ValueError):
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        from zentinelle.models import AuditLog
+        refs = [str(incident.id)] + ([incident.source_ref] if incident.source_ref else [])
+        records = AuditLog.objects.filter(tenant_id=tenant_id, resource_id__in=refs).order_by('chain_sequence')
+        from zentinelle.services.audit_chain import stream_evidence_bundle
+        response = StreamingHttpResponse(
+            stream_evidence_bundle(records, tenant_id, {'incident_id': str(incident.id), 'source_refs': refs}),
+            content_type='application/x-ndjson',
+        )
+        response['Content-Disposition'] = f'attachment; filename="incident-{incident.id}-evidence.ndjson"'
+        return response
 
     def patch(self, request, incident_id):
         incident = self._get_incident(request, incident_id)

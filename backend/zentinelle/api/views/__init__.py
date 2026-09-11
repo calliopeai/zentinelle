@@ -24,6 +24,7 @@ from zentinelle.api.views.events import EventsView
 from zentinelle.api.views.heartbeat import HeartbeatView
 from zentinelle.api.views.incidents import (IncidentCommentView,
                                             IncidentDetailView,
+                                            IncidentEvidenceView,
                                             IncidentListView)
 from zentinelle.api.views.policy import EffectivePolicyView, SystemPromptsView
 from zentinelle.api.views.policy_change import (
@@ -77,6 +78,7 @@ __all__ = [
     # Incidents
     'IncidentListView',
     'IncidentDetailView',
+    'IncidentEvidenceView',
     'IncidentCommentView',
     # Reports
     'ReportCreateView',
