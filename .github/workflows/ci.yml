@@ -132,6 +132,32 @@ jobs:
         working-directory: gateway
         run: go test -race ./...
 
+  sdk:
+    name: SDK contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Java SDK tests
+        working-directory: sdk/java
+        run: mvn -B test
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: C# SDK tests
+        working-directory: sdk/csharp
+        run: dotnet test --configuration Release --no-restore
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
