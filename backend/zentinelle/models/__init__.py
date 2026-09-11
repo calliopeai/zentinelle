@@ -52,6 +52,7 @@ from zentinelle.models.policy_change import PolicyChangeSet
 from zentinelle.models.policy_document import PolicyDocument
 # Compliance Report Export
 from zentinelle.models.reporting import Report
+from zentinelle.models.retention_outcome import RetentionOutcome
 # Retention Policies
 from zentinelle.models.retention_policy import (DataArchive, LegalHold,
                                                 RetentionPolicy)
@@ -86,6 +87,7 @@ __all__ = [
     'PolicyRevision',
     'PolicyChangeSet',
     'ControlEvidence',
+    'RetentionOutcome',
     'PolicyChangeAcknowledgement',
     'PolicyHistory',
     'PolicyDocument',

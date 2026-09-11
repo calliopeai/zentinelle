@@ -63,6 +63,7 @@ def enforce_retention():
     tenants = retention_tenants(analytics)
     for model, *_ in models:
         tenants.update(model.objects.order_by().values_list('tenant_id', flat=True).distinct())
+    from zentinelle.models import RetentionOutcome
     result = {'events_deleted': 0, 'audit_logs_deleted': 0, 'interactions_deleted': 0,
               'scans_deleted': 0, 'usage_data_deleted': 0, 'tenants_failed': 0, 'tenants_held': 0, 'preserved_for_review': []}
     for tenant in sorted(tenants):
@@ -70,11 +71,17 @@ def enforce_retention():
             with tenant_retention_lock(tenant):
                 if held(tenant):
                     result['tenants_held'] += 1
+                    RetentionOutcome.objects.create(tenant_id=tenant, entity_type='all', status=RetentionOutcome.Status.HELD)
                     continue
                 for model, entity, date_field, default in models:
                     days, action = retention_decision(tenant, entity, default)
                     if action != 'delete':
                         result['preserved_for_review'].append({'tenant_id': tenant, 'entity': entity})
+                        RetentionOutcome.objects.create(
+                            tenant_id=tenant, entity_type=entity,
+                            status=RetentionOutcome.Status.PRESERVED,
+                            manifest={'reason': 'retention_action_requires_external_preservation', 'action': action},
+                        )
                         continue
                     cutoff = timezone.now() - timedelta(days=days)
                     if model is AuditLog:
@@ -89,6 +96,10 @@ def enforce_retention():
                             qs = qs.exclude(event_category='audit') | qs.filter(event_category='audit', occurred_at__lt=audit_cutoff) if audit_action == 'delete' else qs.exclude(event_category='audit')
                         deleted, _ = qs.delete()
                     result[entity + '_deleted'] += deleted
+                    RetentionOutcome.objects.create(
+                        tenant_id=tenant, entity_type=entity,
+                        status=RetentionOutcome.Status.DELETED, record_count=deleted,
+                    )
                 if analytics is not None:
                     event_days, event_action = retention_decision(tenant, 'events', 90)
                     audit_days, audit_action = retention_decision(tenant, 'audit_logs', 365)
