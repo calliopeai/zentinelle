@@ -46,6 +46,7 @@ from zentinelle.api.views.runtime_settings import RuntimeSettingsRollbackView
 from zentinelle.api.views.telemetry_health import TelemetryDeliveryHealthView
 from zentinelle.api.views.control_evidence import ControlEvidenceView
 from zentinelle.api.views.budget_showback import BudgetShowbackView
+from zentinelle.api.views.brocs import BrocsControlMapView
 
 __all__ = [
     'RegisterView',
@@ -100,4 +101,5 @@ __all__ = [
     'RuntimeSettingsRollbackView',
     'ControlEvidenceView',
     'BudgetShowbackView',
+    'BrocsControlMapView',
 ]

@@ -1,0 +1,13 @@
+{
+  "framework": "BROCS 1.3",
+  "source_url": "https://brocs.fyi/",
+  "source_revision": "1.3",
+  "disclaimer": "Diagnostic control mapping only; not BROCS certification or a maturity score.",
+  "domains": [
+    {"id": "build", "owner": "customer/developer platform", "control": "SDK registration and conformance fixtures", "evidence_test": "test_sdk_contract.py", "customer_responsibility": "Run supported SDK and gateway integration checks."},
+    {"id": "run", "owner": "customer/runtime operator", "control": "Workload identity, policy admission and model/tool routing", "evidence_test": "test_dependable_controls.py", "customer_responsibility": "Protect deployment identity and egress boundaries."},
+    {"id": "observe", "owner": "Zentinelle platform", "control": "Correlated events, traces, delivery health and incidents", "evidence_test": "test_event_outbox_dispatch.py", "customer_responsibility": "Connect paging and retain external checkpoints."},
+    {"id": "control", "owner": "Zentinelle governance", "control": "Staged policy changes, approvals, containment and rollback", "evidence_test": "test_policy_change.py", "customer_responsibility": "Assign approvers and acknowledge production rollouts."},
+    {"id": "secure", "owner": "Zentinelle security", "control": "Guardrails, model restrictions, secrets, budgets, retention and audit", "evidence_test": "test_assistant_guardrails.py", "customer_responsibility": "Configure risk tolerances, legal holds and provider boundaries."}
+  ]
+}
