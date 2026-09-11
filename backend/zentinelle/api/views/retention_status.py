@@ -91,8 +91,11 @@ class PrivacyEraseView(APIView):
         if not tenant_id:
             return Response({'error': 'Could not resolve tenant'}, status=401)
         from zentinelle.services.privacy_lifecycle import erase_tenant
+        subject_id = request.data.get('subject_id') if isinstance(request.data, dict) else None
+        if subject_id is not None and (not isinstance(subject_id, str) or not subject_id.strip() or len(subject_id) > 255):
+            return Response({'error': 'subject_id must be a non-empty bounded string'}, status=400)
         try:
-            result = erase_tenant(tenant_id, actor=str(getattr(request.user, 'pk', '') or 'operator'))
+            result = erase_tenant(tenant_id, actor=str(getattr(request.user, 'pk', '') or 'operator'), subject_id=subject_id.strip() if subject_id else None)
         except ValueError as exc:
             return Response({'error': str(exc)}, status=409)
         except RuntimeError as exc:
