@@ -47,6 +47,9 @@ class PolicyCopilotDraftView(APIView):
         payload = request.data if isinstance(request.data, dict) else {}
         policy_type = payload.get('policy_type')
         draft_config = payload.get('config')
+        natural_language = str(payload.get('prompt', '')).strip()
+        if natural_language and (not policy_type or not isinstance(draft_config, dict)):
+            policy_type, draft_config = self._infer_draft(natural_language)
         valid_types = {choice[0] for choice in Policy.PolicyType.choices}
         errors = {}
         if policy_type not in valid_types:
@@ -72,6 +75,20 @@ class PolicyCopilotDraftView(APIView):
             'mutated': False,
             'next_step': 'Submit through the staged policy change workflow for validation and approval',
         })
+
+    @staticmethod
+    def _infer_draft(prompt):
+        """Map only reviewed intents; ambiguous language stays unsupported."""
+        text = prompt.lower()
+        if 'model' in text and any(word in text for word in ('restrict', 'allow', 'block')):
+            models = [token.strip('.,') for token in text.split() if token.startswith(('gpt-', 'claude-', 'gemini-'))]
+            return 'model_restriction', {'allowed_models': models} if models else {'allowed_models': [], 'review_required': True}
+        if 'tool' in text and any(word in text for word in ('block', 'deny', 'restrict')):
+            tools = [token.strip('.,') for token in text.split() if '_' in token]
+            return 'tool_permission', {'denied_tools': tools, 'review_required': True}
+        if 'retention' in text or 'delete' in text:
+            return 'data_retention', {'review_required': True}
+        return None, None
 
 
 class PolicyCopilotExplainView(APIView):
