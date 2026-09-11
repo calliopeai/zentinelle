@@ -46,6 +46,7 @@ class EvaluateView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        trace_id = str(uuid.uuid4())
         # Evaluate policies
         from zentinelle.services.policy_engine import PolicyEngine
 
@@ -56,14 +57,20 @@ class EvaluateView(APIView):
             user_id=data.get('user_id'),
             context=data.get('context', {}),
         )
-        trace_id = str(uuid.uuid4())
-
         # Log evaluation (async) and interaction (for monitoring)
-        self._log_evaluation(auth_endpoint, data, result)
+        self._log_evaluation(auth_endpoint, data, result, trace_id)
         self._log_interaction(auth_endpoint, data, result)
 
         response_data = {
+            'contract_version': '1',
             'trace_id': trace_id,
+            'subject': {'tenant_id': auth_endpoint.tenant_id,
+                        'user_id': data.get('user_id') or '',
+                        'endpoint_id': str(auth_endpoint.id),
+                        'agent_id': auth_endpoint.agent_id},
+            'action': data['action'],
+            'resource': {'type': data.get('context', {}).get('resource_type', ''),
+                         'id': data.get('context', {}).get('resource_id', '')},
             'decision': 'allow' if result.allowed else 'deny',
             'allowed': result.allowed,
             'reason': result.reason,
@@ -108,7 +115,7 @@ class EvaluateView(APIView):
             enabled=True,
         ).exists()
 
-    def _log_evaluation(self, endpoint: AgentEndpoint, request_data: dict, result):
+    def _log_evaluation(self, endpoint: AgentEndpoint, request_data: dict, result, trace_id: str = ''):
         """Log the policy evaluation as an audit event."""
         from django.utils import timezone
 
@@ -137,6 +144,7 @@ class EvaluateView(APIView):
                     'reason': result.reason,
                     'policies_evaluated': result.policies_evaluated,
                 },
+                'trace_id': trace_id,
             },
             occurred_at=timezone.now(),
             status=Event.Status.PENDING,
