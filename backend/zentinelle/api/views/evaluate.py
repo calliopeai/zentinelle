@@ -16,6 +16,7 @@ from zentinelle.api.serializers import EvaluateRequestSerializer
 from zentinelle.models import AgentEndpoint, Event
 from zentinelle.models.compliance import InteractionLog
 from zentinelle.services.content_capture import record_interaction
+from zentinelle.services.boundary_contract import build_contract
 
 logger = logging.getLogger(__name__)
 
@@ -68,15 +69,8 @@ class EvaluateView(APIView):
         self._log_interaction(auth_endpoint, data, result)
 
         response_data = {
-            'contract_version': '1',
+            **build_contract(endpoint=auth_endpoint, action=data['action'], user_id=data.get('user_id'), context=context),
             'trace_id': trace_id,
-            'subject': {'tenant_id': auth_endpoint.tenant_id,
-                        'user_id': data.get('user_id') or '',
-                        'endpoint_id': str(auth_endpoint.id),
-                        'agent_id': auth_endpoint.agent_id},
-            'action': data['action'],
-            'resource': {'type': context.get('resource_type', ''),
-                         'id': context.get('resource_id', '')},
             'decision': 'allow' if result.allowed else 'deny',
             'allowed': result.allowed,
             'reason': result.reason,
