@@ -82,6 +82,16 @@ class BudgetReconciliationTests(TestCase):
         self.assertEqual(result.actual_usd, Decimal('0.12500000'))
         self.assertEqual(BudgetAccount.objects.get(id=account.id).committed_usd, Decimal('0.12500000'))
 
+    def test_provider_usage_above_reservation_is_anomaly_and_keeps_commitment(self):
+        account = BudgetAccount.objects.create(tenant_id='tenant-a', policy_id_ext=uuid.uuid4(), period=date.today(), committed_usd=Decimal('1.00'))
+        charge = BudgetCharge.objects.create(tenant_id='tenant-a', endpoint_id_ext=uuid.uuid4(), request_id='req-over', amount_usd=Decimal('1.00'), account_ids=[account.id])
+        with self.assertRaisesRegex(ValueError, 'exceeds the reserved budget'):
+            reconcile_charge(charge.id, tenant_id='tenant-a', provider_usage={'provider': 'fixture', 'request_id': 'req-over', 'attestation': 'trusted', 'billed_usd': '1.01'})
+        charge.refresh_from_db()
+        account.refresh_from_db()
+        self.assertIsNone(charge.reconciled_at)
+        self.assertEqual(account.committed_usd, Decimal('1.00'))
+
     def test_provider_cancellation_releases_reservation_once(self):
         account = BudgetAccount.objects.create(tenant_id='tenant-a', policy_id_ext='00000000-0000-0000-0000-000000000001', period='2026-09-01', committed_usd=Decimal('1.00'))
         charge = BudgetCharge.objects.create(tenant_id='tenant-a', endpoint_id_ext='00000000-0000-0000-0000-000000000002', request_id='req-cancel', amount_usd=Decimal('1.00'), account_ids=[account.id])

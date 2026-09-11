@@ -82,6 +82,11 @@ def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-a
         if charge.pricing_version and charge.pricing_version != MODEL_PRICING_VERSION:
             raise ValueError('Budget reservation uses a stale pricing source')
         reservation = charge.amount_usd
+        if actual > reservation:
+            # A provider bill above the conservative reservation is an
+            # anomaly. Do not partially release or mark it reconciled; keep
+            # the reservation intact for operator review.
+            raise ValueError('Provider usage exceeds the reserved budget')
         release = max(Decimal('0'), reservation - actual)
         for account_id in charge.account_ids:
             account = BudgetAccount.objects.select_for_update().get(id=account_id, tenant_id=tenant_id)
