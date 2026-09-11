@@ -78,6 +78,17 @@ class PolicyCopilotDraftView(APIView):
         policy_type = payload.get('policy_type')
         draft_config = payload.get('config')
         natural_language = str(payload.get('prompt', '')).strip()
+        if natural_language:
+            from zentinelle.services.assistant_guardrails import check_untrusted_content
+            prompt_check = check_untrusted_content(natural_language)
+            if not prompt_check.allowed:
+                AuditLog.objects.create(
+                    tenant_id=tenant_id, ext_user_id=str(request.user.pk), action=AuditLog.Action.ACCESS,
+                    resource_type='policy_copilot', resource_id=tenant_id,
+                    metadata={**_prompt_audit_metadata(payload, operation='draft', outcome='denied'),
+                              'reason': 'untrusted_prompt'},
+                )
+                return JsonResponse({'error': 'policy_copilot_prompt_denied'}, status=422)
         if natural_language and (not policy_type or not isinstance(draft_config, dict)):
             policy_type, draft_config = self._infer_draft(natural_language)
         valid_types = {choice[0] for choice in Policy.PolicyType.choices}
