@@ -129,11 +129,13 @@ jobs:
             backend/release-sbom-*.txt
 
       - name: Attest release SBOM
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: backend/release-sbom-*.txt
 
       - name: Attest release qualification evidence
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: backend/release-qualification-*.json
