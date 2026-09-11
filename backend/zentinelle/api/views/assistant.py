@@ -79,6 +79,18 @@ class AssistantExecuteToolView(APIView):
         if not tenant_id:
             return JsonResponse({'error': 'Tenant required'}, status=403)
 
+        # Tool arguments are model supplied and remain untrusted even after a
+        # human approves the exact argument digest. Reject instruction-shaped
+        # payloads before looking up or consuming the approval.
+        from zentinelle.services.assistant_guardrails import check_untrusted_content
+        argument_check = check_untrusted_content(json.dumps(args, default=str))
+        if not argument_check.allowed:
+            try:
+                AssistantChatView._audit_guardrail_denial(tenant_id, 'tool_args', argument_check.reason, argument_check.policy_ids)
+            except Exception:
+                logger.warning('Failed to audit tool argument guardrail denial', exc_info=True)
+            return JsonResponse({'error': 'assistant_guardrail_denied'}, status=422)
+
         actor = (
             str(request.user.id)
             if request.user.is_authenticated and hasattr(request.user, 'id')
