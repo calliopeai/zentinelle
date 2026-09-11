@@ -15,6 +15,11 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
 jobs:
   backend:
     name: Backend
@@ -122,6 +127,16 @@ jobs:
           path: |
             backend/release-qualification-*.json
             backend/release-sbom-*.txt
+
+      - name: Attest release SBOM
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: backend/release-sbom-*.txt
+
+      - name: Attest release qualification evidence
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: backend/release-qualification-*.json
 
 
       - name: Backend lint
