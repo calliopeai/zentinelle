@@ -96,6 +96,7 @@ const sections: NavSection[] = [
       { title: "Effective Policy", url: "/policies/effective", icon: <SearchIcon /> },
       { title: "Policy Simulator", url: "/policies/simulator", icon: <PlayIcon /> },
       { title: "Policy Analyzer", url: "/policies/analyzer", icon: <SearchCheckIcon /> },
+      { title: "Policy Copilot", url: "/policies/copilot", icon: <SparklesIcon /> },
       { title: "Policy Import", url: "/policies/import", icon: <UploadIcon /> },
       { title: "Content Rules", url: "/content-rules", icon: <ScanLineIcon /> },
       { title: "Scanner Dashboard", url: "/content-rules/scanner", icon: <ScanSearchIcon /> },
