@@ -156,3 +156,19 @@ class PolicyCopilotDiffAPITests(TestCase):
             }, format='json')
         self.assertEqual(response.status_code, 400)
         self.assertIn('fields', response.json())
+
+    def test_diff_redacts_secret_like_config_fields(self):
+        user = get_user_model().objects.create_user('copilot-redaction')
+        assign_role(user, ROLE_OPERATOR)
+        TenantConfig.objects.create(tenant_id='tenant-redaction', settings={'policy_copilot_enabled': True})
+        policy = Policy.objects.create(tenant_id='tenant-redaction', name='Secret-bearing',
+                                       policy_type='tool_permission', config={'api_key': 'do-not-return', 'denied_tools': []})
+        api = APIClient(); api.force_authenticate(user=user)
+        with patch('zentinelle.api.views.policy_copilot.get_request_tenant_id', return_value='tenant-redaction'):
+            response = api.post('/api/zentinelle/v1/policy-copilot/diff', {
+                'policy_id': str(policy.id),
+                'draft': {'policy_type': 'tool_permission', 'config': {'api_key': 'new-secret', 'denied_tools': ['shell']}},
+            }, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['before']['config']['api_key'], '[redacted]')
+        self.assertEqual(response.json()['after']['config']['api_key'], '[redacted]')

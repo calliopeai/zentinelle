@@ -1,5 +1,6 @@
 """Feature and entitlement status for the optional policy copilot."""
 import hashlib
+import re
 from django.http import JsonResponse
 from rest_framework.views import APIView
 
@@ -7,6 +8,20 @@ from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.models import (AuditLog, ControlEvidence, LLMProviderKey, Policy,
                                PolicyChangeSet, TenantConfig)
 from zentinelle.schema.auth_helpers import get_request_tenant_id
+
+_SENSITIVE_CONFIG_KEY = re.compile(r'(?:secret|token|password|credential|api[_-]?key)', re.I)
+
+
+def _redact_config(value, depth=0):
+    """Redact secret-like policy fields before returning copilot previews."""
+    if depth > 8:
+        return '[redacted-depth]'
+    if isinstance(value, dict):
+        return {str(key): ('[redacted]' if _SENSITIVE_CONFIG_KEY.search(str(key))
+                           else _redact_config(item, depth + 1)) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact_config(item, depth + 1) for item in value[:500]]
+    return value
 
 
 def _validate_scope(payload, tenant_id):
@@ -232,7 +247,9 @@ class PolicyCopilotDiffView(APIView):
                                 resource_type='policy_copilot', resource_id=tenant_id,
                                 metadata={'operation': 'diff', 'policy_id': policy_id, 'changed': changed,
                                           'simulation': {key: simulation.get(key) for key in ('total_events', 'would_block', 'would_warn', 'inconclusive') if key in simulation}})
-        return JsonResponse({'policy_id': policy_id or None, 'before': before, 'after': after,
+        safe_before = {**before, 'config': _redact_config(before.get('config', {}))}
+        safe_after = {**after, 'config': _redact_config(after.get('config', {}))}
+        return JsonResponse({'policy_id': policy_id or None, 'before': safe_before, 'after': safe_after,
                              'changed_fields': changed, 'impacted_agent_count': impacted,
                              'simulation': simulation,
                              'rollback': {'available_after_promotion': True,
