@@ -41,6 +41,7 @@ from zentinelle.api.views.reports import (ReportCreateView, ReportDownloadView,
 from zentinelle.api.views.retention_status import RetentionStatusView
 from zentinelle.api.views.risks_trend import RiskTrendView
 from zentinelle.api.views.secrets import SecretsView
+from zentinelle.api.views.runtime_settings import RuntimeSettingsRollbackView
 from zentinelle.api.views.telemetry_health import TelemetryDeliveryHealthView
 
 __all__ = [
@@ -92,4 +93,5 @@ __all__ = [
     'ReportStatusView',
     'ReportDownloadView',
     'TelemetryDeliveryHealthView',
+    'RuntimeSettingsRollbackView',
 ]
