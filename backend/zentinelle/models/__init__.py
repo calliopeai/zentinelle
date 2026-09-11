@@ -51,6 +51,7 @@ from zentinelle.models.policy_acknowledgement import \
     PolicyChangeAcknowledgement
 from zentinelle.models.policy_change import PolicyChangeSet
 from zentinelle.models.policy_document import PolicyDocument
+from zentinelle.models.release_qualification import ReleaseQualification
 # Compliance Report Export
 from zentinelle.models.reporting import Report
 from zentinelle.models.retention_outcome import RetentionOutcome
@@ -89,6 +90,7 @@ __all__ = [
     'PolicyChangeSet',
     'ControlEvidence',
     'RetentionOutcome',
+    'ReleaseQualification',
     'PolicyChangeAcknowledgement',
     'PolicyHistory',
     'PolicyDocument',
