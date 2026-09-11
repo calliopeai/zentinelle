@@ -1,5 +1,7 @@
 """Explicit tenant privacy erasure with hold-aware cross-store accounting."""
 import os
+import hashlib
+import json
 from django.db.models import Q
 from django.utils import timezone
 
@@ -19,6 +21,57 @@ def register_remote_erasure_adapter(scheme, callback):
 
 def clear_remote_erasure_adapters():
     _REMOTE_ERASURE_ADAPTERS.clear()
+
+
+def restore_archive(manifest, tenant_id, *, actor='privacy-operator', commit=False):
+    """Preview or restore a verified local archive into its known model."""
+    tenant_id = str(tenant_id)
+    if not verify_retention_manifest(manifest) or str(manifest.get('tenant_id')) != tenant_id:
+        raise ValueError('Invalid or cross-tenant retention manifest')
+    destination = str(manifest.get('destination') or '')
+    if destination.startswith('file://'):
+        destination = destination[7:]
+    if '://' in destination or not os.path.isabs(destination):
+        raise ValueError('Archive restore requires an absolute local destination')
+    entities = {'events': 'Event', 'audit_logs': 'AuditLog', 'interactions': 'InteractionLog', 'scans': 'ContentScan', 'usage_data': 'UsageMetric'}
+    entity = entities.get(str(manifest.get('entity_type')))
+    if not entity:
+        raise ValueError('Archive entity type is not restorable')
+    from zentinelle.models import AuditLog, Event
+    from zentinelle.models.compliance import ContentScan, InteractionLog
+    from zentinelle.models.usage import UsageMetric
+    models = {item.__name__: item for item in (Event, AuditLog, InteractionLog, ContentScan, UsageMetric)}
+    model = models[entity]
+    try:
+        with open(destination, 'rb') as archive:
+            raw = archive.read()
+    except OSError as exc:
+        raise ValueError('Archive file is unavailable') from exc
+    expected_checksum = manifest.get('archive_checksum')
+    if expected_checksum and hashlib.sha256(raw).hexdigest() != expected_checksum:
+        raise ValueError('Archive checksum verification failed')
+    records = [json.loads(line) for line in raw.splitlines() if line.strip()]
+    if len(records) != int(manifest.get('record_count', -1)):
+        raise ValueError('Archive record count verification failed')
+    if any(str(record.get('tenant_id')) != tenant_id for record in records):
+        raise ValueError('Archive contains a cross-tenant record')
+    restored = 0
+    if commit:
+        for record in records:
+            pk = record.pop('id', None)
+            if pk is None or not model.objects.filter(pk=pk).exists():
+                if pk is not None:
+                    record['id'] = pk
+                model.objects.create(**record)
+                restored += 1
+        try:
+            AuditLog.log(tenant_id=tenant_id, action='privacy.archive_restored', resource_type=entity,
+                         resource_id=destination, ext_user_id=actor,
+                         changes={'records': restored, 'manifest_digest': manifest.get('digest')})
+        except Exception:
+            pass
+    return {'tenant_id': tenant_id, 'entity_type': entity, 'records': len(records),
+            'restored': restored, 'dry_run': not commit, 'destination': destination}
 
 
 def _held_for_subject(tenant_id, subject_id):

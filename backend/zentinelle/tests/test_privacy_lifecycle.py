@@ -1,4 +1,7 @@
 from unittest.mock import patch
+import hashlib
+import json
+import tempfile
 
 from django.test import TestCase
 from django.utils import timezone
@@ -6,8 +9,9 @@ from django.utils import timezone
 from zentinelle.models import Event
 from zentinelle.models.retention_policy import LegalHold
 from zentinelle.services.privacy_lifecycle import (clear_remote_erasure_adapters,
-                                                   erase_tenant,
-                                                   register_remote_erasure_adapter)
+                                                    erase_tenant,
+                                                   register_remote_erasure_adapter,
+                                                   restore_archive)
 
 
 class PrivacyLifecycleTests(TestCase):
@@ -67,3 +71,19 @@ class PrivacyLifecycleTests(TestCase):
         RetentionOutcome.objects.create(tenant_id='tenant-a', entity_type='user', status='archived', manifest=manifest, destination=manifest['destination'])
         with self.assertRaisesRegex(RuntimeError, 'authenticated provider'):
             erase_tenant('tenant-a', subject_id='user-a')
+
+    def test_restore_verifies_checksum_and_defaults_to_preview(self):
+        from zentinelle.services.retention import signed_retention_manifest
+        with tempfile.NamedTemporaryFile(mode='wb') as archive:
+            payload = {'id': '00000000-0000-0000-0000-000000000099', 'tenant_id': 'tenant-a',
+                       'event_type': 'restored', 'event_category': 'telemetry', 'payload': {},
+                       'status': 'processed', 'occurred_at': '2026-01-01T00:00:00+00:00'}
+            raw = (json.dumps(payload) + '\n').encode(); archive.write(raw); archive.flush()
+            manifest = signed_retention_manifest('tenant-a', 'events', 'archive', 1, archive.name)
+            manifest['archive_checksum'] = hashlib.sha256(raw).hexdigest()
+            result = restore_archive(manifest, 'tenant-a')
+            self.assertTrue(result['dry_run'])
+            self.assertEqual(result['records'], 1)
+            manifest['archive_checksum'] = '0' * 64
+            with self.assertRaisesRegex(ValueError, 'checksum'):
+                restore_archive(manifest, 'tenant-a')

@@ -101,3 +101,24 @@ class PrivacyEraseView(APIView):
         except RuntimeError as exc:
             return Response({'error': str(exc)}, status=503)
         return Response(result)
+
+
+class PrivacyRestoreView(APIView):
+    """Preview or commit a verified local archive restore."""
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAdminAccess]
+
+    def post(self, request):
+        tenant_id = get_tenant_id_from_request(request)
+        payload = request.data if isinstance(request.data, dict) else {}
+        manifest = payload.get('manifest')
+        if not isinstance(manifest, dict):
+            return Response({'error': 'manifest is required'}, status=400)
+        from zentinelle.services.privacy_lifecycle import restore_archive
+        try:
+            result = restore_archive(manifest, tenant_id,
+                                     actor=str(getattr(request.user, 'pk', '') or 'operator'),
+                                     commit=payload.get('commit') is True)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=400)
+        return Response(result)

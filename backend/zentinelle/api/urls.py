@@ -183,6 +183,7 @@ urlpatterns = [
     # Retention status
     path('retention/status/', RetentionStatusView.as_view(), name='retention-status'),
     path('retention/erase', PrivacyEraseView.as_view(), name='retention-erase'),
+    path('retention/restore', PrivacyRestoreView.as_view(), name='retention-restore'),
 
     # Risk register trend
     path('risks/trend', RiskTrendView.as_view(), name='risks-trend'),
