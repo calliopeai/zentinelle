@@ -56,3 +56,32 @@ class PolicyCopilotDiffAPITests(TestCase):
         change = PolicyChangeSet.objects.get(id=response.json()['change_id'])
         self.assertEqual(change.status, PolicyChangeSet.Status.DRAFT)
         self.assertFalse(Policy.objects.filter(tenant_id='tenant-stage').exists())
+
+    def test_copilot_rejects_explicit_cross_tenant_scope(self):
+        user = get_user_model().objects.create_user('copilot-isolation')
+        assign_role(user, ROLE_OPERATOR)
+        TenantConfig.objects.create(tenant_id='tenant-a', settings={'policy_copilot_enabled': True})
+        client = APIClient(); client.force_authenticate(user=user)
+        with patch('zentinelle.api.views.policy_copilot.get_request_tenant_id', return_value='tenant-a'):
+            response = client.post('/api/zentinelle/v1/policy-copilot/diff', {
+                'tenant_id': 'tenant-b', 'draft': {'policy_type': 'tool_permission', 'config': {}},
+            }, format='json')
+        self.assertEqual(response.status_code, 403)
+
+    def test_diff_limits_impact_to_requested_client(self):
+        user = get_user_model().objects.create_user('copilot-client')
+        assign_role(user, ROLE_OPERATOR)
+        TenantConfig.objects.create(tenant_id='tenant-client', settings={'policy_copilot_enabled': True})
+        from zentinelle.models import AgentEndpoint
+        for client_id in ('client-a', 'client-b'):
+            key, key_hash, prefix = AgentEndpoint.generate_api_key()
+            AgentEndpoint.objects.create(tenant_id='tenant-client', agent_id=client_id, name=client_id,
+                                         api_key_hash=key_hash, api_key_prefix=prefix,
+                                         metadata={'client_id': client_id})
+        api = APIClient(); api.force_authenticate(user=user)
+        with patch('zentinelle.api.views.policy_copilot.get_request_tenant_id', return_value='tenant-client'):
+            response = api.post('/api/zentinelle/v1/policy-copilot/diff', {
+                'client_id': 'client-a', 'draft': {'policy_type': 'tool_permission', 'config': {}},
+            }, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['impacted_agent_count'], 1)

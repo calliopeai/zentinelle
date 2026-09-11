@@ -8,6 +8,17 @@ from zentinelle.models import (AuditLog, ControlEvidence, LLMProviderKey, Policy
 from zentinelle.schema.auth_helpers import get_request_tenant_id
 
 
+def _validate_scope(payload, tenant_id):
+    """Reject ambiguous or cross-tenant copilot scopes before any preview."""
+    requested_tenant = payload.get('tenant_id')
+    if requested_tenant is not None and str(requested_tenant) != str(tenant_id):
+        return 'Requested tenant scope does not match the authenticated tenant'
+    client_id = payload.get('client_id')
+    if client_id is not None and (not isinstance(client_id, str) or not client_id.strip() or len(client_id) > 255):
+        return 'client_id must be a non-empty bounded string'
+    return None
+
+
 class PolicyCopilotStatusView(APIView):
     authentication_classes = PORTAL_AUTH
     permission_classes = [PortalAccess]
@@ -46,6 +57,9 @@ class PolicyCopilotDraftView(APIView):
         if not LLMProviderKey.objects.filter(tenant_id=tenant_id, is_active=True, enabled_for_assistant=True).exists():
             return JsonResponse({'error': 'Configure an active provider key before using the copilot'}, status=503)
         payload = request.data if isinstance(request.data, dict) else {}
+        scope_error = _validate_scope(payload, tenant_id)
+        if scope_error:
+            return JsonResponse({'error': scope_error}, status=403)
         policy_type = payload.get('policy_type')
         draft_config = payload.get('config')
         natural_language = str(payload.get('prompt', '')).strip()
@@ -70,6 +84,7 @@ class PolicyCopilotDraftView(APIView):
             'config': draft_config,
             'scope_type': payload.get('scope_type', Policy.ScopeType.ORGANIZATION),
             'enforcement': payload.get('enforcement', Policy.Enforcement.ENFORCE),
+            'client_id': payload.get('client_id'),
         }
         return JsonResponse({
             'draft': draft,
@@ -103,6 +118,9 @@ class PolicyCopilotExplainView(APIView):
         if not (config and (config.settings or {}).get('policy_copilot_enabled', False)):
             return JsonResponse({'error': 'Policy copilot is disabled'}, status=403)
         payload = request.data if isinstance(request.data, dict) else {}
+        scope_error = _validate_scope(payload, tenant_id)
+        if scope_error:
+            return JsonResponse({'error': scope_error}, status=403)
         agent_id = str(payload.get('agent_id', '')).strip()
         from zentinelle.models import AgentEndpoint
         endpoint = AgentEndpoint.objects.filter(tenant_id=tenant_id, agent_id=agent_id).first()
@@ -145,6 +163,9 @@ class PolicyCopilotDiffView(APIView):
         if not (config and (config.settings or {}).get('policy_copilot_enabled', False)):
             return JsonResponse({'error': 'Policy copilot is disabled'}, status=403)
         payload = request.data if isinstance(request.data, dict) else {}
+        scope_error = _validate_scope(payload, tenant_id)
+        if scope_error:
+            return JsonResponse({'error': scope_error}, status=403)
         policy_id = str(payload.get('policy_id', '')).strip()
         draft = payload.get('draft') if isinstance(payload.get('draft'), dict) else payload
         current = Policy.objects.filter(tenant_id=tenant_id, id=policy_id).first() if policy_id else None
@@ -156,7 +177,11 @@ class PolicyCopilotDiffView(APIView):
                  'enforcement': draft.get('enforcement'), 'config': draft.get('config', {})}
         changed = [key for key in after if after[key] != before.get(key)]
         from zentinelle.models import AgentEndpoint
-        impacted = AgentEndpoint.objects.filter(tenant_id=tenant_id).count()
+        impacted_query = AgentEndpoint.objects.filter(tenant_id=tenant_id)
+        client_id = draft.get('client_id') or payload.get('client_id')
+        if client_id:
+            impacted_query = impacted_query.filter(metadata__client_id=client_id)
+        impacted = impacted_query.count()
         try:
             from zentinelle.services.policy_simulator import simulate_policy
             simulation = simulate_policy(tenant_id, after, lookback_days=7, max_events=1000)
@@ -186,6 +211,9 @@ class PolicyCopilotStageView(APIView):
         if not (config and (config.settings or {}).get('policy_copilot_enabled', False)):
             return JsonResponse({'error': 'Policy copilot is disabled'}, status=403)
         payload = request.data if isinstance(request.data, dict) else {}
+        scope_error = _validate_scope(payload, tenant_id)
+        if scope_error:
+            return JsonResponse({'error': scope_error}, status=403)
         draft = payload.get('draft')
         if not isinstance(draft, dict) or draft.get('policy_type') not in {choice[0] for choice in Policy.PolicyType.choices}:
             return JsonResponse({'error': 'A valid structured draft is required'}, status=400)
@@ -194,7 +222,8 @@ class PolicyCopilotStageView(APIView):
             tenant_id=tenant_id, title=str(payload.get('title') or 'Policy copilot draft')[:255],
             description='Created by policy copilot; requires normal validation and approval.',
             changes=[draft], created_by=actor,
-            target_selectors=draft.get('target_selectors', {}) if isinstance(draft.get('target_selectors', {}), dict) else {},
+            target_selectors={**(draft.get('target_selectors', {}) if isinstance(draft.get('target_selectors', {}), dict) else {}),
+                             **({'client_id': draft.get('client_id')} if draft.get('client_id') else {})},
         )
         AuditLog.objects.create(tenant_id=tenant_id, ext_user_id=actor, action=AuditLog.Action.ACCESS,
                                 resource_type='policy_copilot', resource_id=str(change.id),
