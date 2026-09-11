@@ -187,7 +187,9 @@ jobs:
 
       - name: C# SDK tests
         working-directory: sdk/csharp
-        run: dotnet test --configuration Release --no-restore
+        # Restore on clean runners; the repository intentionally does not
+        # commit generated obj/project.assets.json files.
+        run: dotnet test --configuration Release
 
   frontend:
     name: Frontend
