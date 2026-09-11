@@ -47,11 +47,20 @@ def _terms(message: str) -> set[str]:
     return set(re.findall(r"[a-z][a-z0-9_-]{2,}", message.lower()))
 
 
-def _allowed_topic_terms() -> set[str]:
+def _allowed_topic_terms(tenant_id: str = None) -> set[str]:
     configured = getattr(settings, 'ASSISTANT_ALLOWED_TOPICS', ())
     terms = set(DEFAULT_TOPIC_TERMS)
     for topic in configured:
         terms.update(_terms(str(topic)))
+    if tenant_id:
+        try:
+            from zentinelle.models import TenantConfig
+            config = TenantConfig.objects.filter(tenant_id=tenant_id).first()
+            for topic in (config.settings or {}).get('assistant_allowed_topics', []) if config else []:
+                terms.update(_terms(str(topic)))
+        except Exception:
+            # Guardrails retain the conservative built-in scope on config errors.
+            pass
     return terms
 
 
@@ -78,7 +87,7 @@ def check_support_message(tenant_id: str, message: str) -> GuardrailDecision:
             return GuardrailDecision(False, result.message or 'Support guardrail denied this message', tuple(policy_ids))
 
     terms = _terms(message)
-    if not terms.intersection(_allowed_topic_terms()):
+    if not terms.intersection(_allowed_topic_terms(tenant_id)):
         return GuardrailDecision(
             False,
             'I can help with Zentinelle governance, agents, policies, security, compliance, risk, audit, and operations. Please ask a question in that scope.',
