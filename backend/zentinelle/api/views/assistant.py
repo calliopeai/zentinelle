@@ -160,6 +160,16 @@ class AssistantChatView(APIView):
         if not tenant_id:
             tenant_id = 'default'
 
+        from zentinelle.services.assistant_guardrails import \
+            check_support_message
+        guardrail = check_support_message(tenant_id, message)
+        if not guardrail.allowed:
+            return JsonResponse({
+                'error': 'assistant_guardrail_denied',
+                'detail': guardrail.reason,
+                'policies_evaluated': list(guardrail.policy_ids),
+            }, status=422)
+
         system_prompt = self._build_system_prompt(request, page_context)
 
         messages = []

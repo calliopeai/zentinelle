@@ -14,6 +14,8 @@ The separate production Compose profile uses HTTPS at Caddy and private service 
 
 Follow-on work is filed as #333–#342 on Project 4: runtime coverage, unified agent operations, staged policy change, incident containment, BROCS evidence, trusted budget reconciliation, model/tool authority, durable telemetry, archival/privacy lifecycle, and release/recovery assurance.
 
+The portal support assistant now performs deterministic product-scope and tenant organization-policy preflight before provider access. MITRE ATLAS threat mappings are documented in `docs/atlas-guardrails.md`; #343 tracks the threat/evidence model and #344 tracks the broader input/output guardrail and evaluation work.
+
 ## Strategic Decisions
 
 ### Product + Business Model

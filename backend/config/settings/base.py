@@ -419,3 +419,11 @@ BILLING_MODE = os.environ.get("BILLING_MODE", "governance_only")
 # Metadata-only by default; full prompt capture requires an explicit operator choice.
 CONTENT_CAPTURE_MODE = os.environ.get("CONTENT_CAPTURE_MODE", "metadata").lower()
 AUDIT_CHECKPOINT_SIGNING_KEY = os.environ.get("AUDIT_CHECKPOINT_SIGNING_KEY", SECRET_KEY)
+
+# The portal assistant is a Zentinelle support surface, not a general-purpose
+# chatbot. Product-level scope is enforced before a provider call; tenants can
+# add terms through their ai_guardrail policy without weakening injection checks.
+ASSISTANT_ALLOWED_TOPICS = tuple(
+    term.strip() for term in os.environ.get('ASSISTANT_ALLOWED_TOPICS', '').split(',')
+    if term.strip()
+)
