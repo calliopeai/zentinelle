@@ -39,6 +39,10 @@ class RuntimeSettingsRevisionTests(TestCase):
         self.assertEqual(json.loads(response.content)['revision'], 3)
         self.assertEqual(TenantConfig.objects.get(tenant_id='tenant-a').settings['assistant_model'], 'first')
 
+        stale = self.factory.post('/settings/runtime/rollback', data=json.dumps({'revision': 2, 'expected_revision': 0}), content_type='application/json')
+        stale.user = self.user
+        self.assertEqual(RuntimeSettingsRollbackView.as_view()(stale).status_code, 409)
+
     @patch('zentinelle.api.views.runtime_settings._tenant_id', return_value='tenant-a')
     def test_patch_rejects_unbounded_or_malformed_values(self, _tenant):
         request = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'assistant_model': 'x' * 129}}), content_type='application/json')

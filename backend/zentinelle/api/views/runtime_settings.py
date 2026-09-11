@@ -111,7 +111,7 @@ class RuntimeSettingsRollbackView(RuntimeSettingsView):
         source = RuntimeSettingsRevision.objects.filter(tenant_id=tenant_id, revision=target).first()
         if source is None:
             return JsonResponse({'error': 'revision not found'}, status=404)
-        body = json.dumps({'settings': source.settings}).encode()
+        body = json.dumps({'settings': source.settings, 'expected_revision': payload.get('expected_revision')}).encode()
         request._request._body = body
         request._request._stream = None
         return super().patch(request)
