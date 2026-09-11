@@ -59,6 +59,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The backend support-matrix contract verifies the pinned SDK tree;
+          # initialize it here so the test matches the clean CI checkout.
+          submodules: recursive
 
       - uses: actions/setup-python@v5
         with:
