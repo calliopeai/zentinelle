@@ -220,6 +220,20 @@ class EvaluateViewTest(ZentinelleAPITestMixin, TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    @patch('zentinelle.services.policy_engine.PolicyEngine.evaluate', side_effect=RuntimeError('evaluator down'))
+    def test_evaluate_fails_closed_when_policy_service_is_unavailable(self, _mock_evaluate):
+        self.authenticate()
+        response = self.client.post(
+            reverse('zentinelle:evaluate'),
+            data={'agent_id': self.endpoint.agent_id, 'action': 'spawn'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 503)
+        data = response.json()
+        self.assertFalse(data['allowed'])
+        self.assertEqual(data['decision'], 'deny')
+        self.assertTrue(data['trace_id'])
+
     @patch('zentinelle.services.policy_engine.PolicyEngine.evaluate')
     def test_evaluate_policy_allowed(self, mock_evaluate):
         """Test evaluation when policy allows action."""

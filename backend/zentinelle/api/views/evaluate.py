@@ -63,12 +63,26 @@ class EvaluateView(APIView):
         from zentinelle.services.policy_engine import PolicyEngine
 
         engine = PolicyEngine()
-        result = engine.evaluate(
-            endpoint=auth_endpoint,
-            action=action,
-            user_id=data.get('user_id'),
-            context=context,
-        )
+        try:
+            result = engine.evaluate(
+                endpoint=auth_endpoint,
+                action=action,
+                user_id=data.get('user_id'),
+                context=context,
+            )
+        except Exception:
+            # A policy outage must never turn into an implicit allow or an
+            # unstructured 500 that leaves adapters guessing what to do.
+            logger.exception('Policy evaluation unavailable for trace %s', trace_id)
+            return Response({
+                **build_contract(endpoint=auth_endpoint, action=action,
+                                 user_id=data.get('user_id'), context=context),
+                'trace_id': trace_id,
+                'decision': 'deny', 'allowed': False,
+                'reason': 'Policy evaluation unavailable',
+                'coverage': {'status': 'unknown'},
+                'warnings': ['retry after policy service recovery'],
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         # Log evaluation (async) and interaction (for monitoring)
         normalized_data = {**data, 'action': action}
         self._log_evaluation(auth_endpoint, normalized_data, result, trace_id)
