@@ -11,6 +11,7 @@ in context.
 Uses SSE (Server-Sent Events) for streaming.
 """
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -199,6 +200,9 @@ class AssistantChatView(APIView):
                 'detail': guardrail.reason,
                 'policies_evaluated': list(guardrail.policy_ids),
             }, status=422)
+        # Keep an audit trail for accepted prompts as well as refusals, while
+        # retaining only a digest and bounded metadata rather than user text.
+        self._audit_guardrail_acceptance(tenant_id, message, guardrail.policy_ids)
 
         system_prompt = self._build_system_prompt(request, page_context)
 
@@ -327,6 +331,19 @@ class AssistantChatView(APIView):
                                   'policy_ids': list(policy_ids)})
         except Exception:
             logger.warning('Unable to audit assistant guardrail denial', exc_info=True)
+
+    @staticmethod
+    def _audit_guardrail_acceptance(tenant_id, message, policy_ids):
+        try:
+            from zentinelle.models import AuditLog
+            AuditLog.log(tenant_id=tenant_id, action='assistant.guardrail_checked',
+                         resource_type='assistant', resource_id='input',
+                         changes={'boundary': 'input', 'outcome': 'accepted',
+                                  'policy_ids': list(policy_ids)},
+                         metadata={'prompt_sha256': hashlib.sha256(message.encode('utf-8')).hexdigest(),
+                                   'prompt_length': len(message)})
+        except Exception:
+            logger.warning('Unable to audit assistant guardrail acceptance', exc_info=True)
 
     def _build_system_prompt(self, request, page_context):
         """Build a system prompt enriched with the tenant's actual GRC data.
