@@ -272,6 +272,7 @@ class PolicyEngine:
 
             results.append({
                 'id': str(policy.id),
+                'version': policy.version,
                 'name': policy.name,
                 'type': policy.policy_type,
                 'result': 'pass' if result.passed else 'fail',

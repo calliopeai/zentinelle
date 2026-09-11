@@ -3,6 +3,7 @@ Policy evaluation endpoint.
 POST /api/zentinelle/v1/evaluate
 """
 import logging
+import uuid
 
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -55,12 +56,15 @@ class EvaluateView(APIView):
             user_id=data.get('user_id'),
             context=data.get('context', {}),
         )
+        trace_id = str(uuid.uuid4())
 
         # Log evaluation (async) and interaction (for monitoring)
         self._log_evaluation(auth_endpoint, data, result)
         self._log_interaction(auth_endpoint, data, result)
 
         response_data = {
+            'trace_id': trace_id,
+            'decision': 'allow' if result.allowed else 'deny',
             'allowed': result.allowed,
             'reason': result.reason,
             'policies_evaluated': result.policies_evaluated,
