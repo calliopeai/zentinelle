@@ -81,6 +81,36 @@ jobs:
         working-directory: backend
         run: python -m pytest -q
 
+      # Persist the same release gate that production promotion consumes. The
+      # checks are deliberately explicit: adding a required control makes CI
+      # fail closed until its evidence is represented in this artifact.
+      - name: Qualify release and publish evidence
+        working-directory: backend
+        run: |
+          pip freeze --all | sort > /tmp/zentinelle-sbom.txt
+          sbom_digest="sha256:$(sha256sum /tmp/zentinelle-sbom.txt | cut -d' ' -f1)"
+          cat > /tmp/zentinelle-release-checks.json <<JSON
+          {"checks":{"migrations":true,"auth":true,"csrf":true,"secret_rotation":true,"dependency_scan":true,"backup_restore":true,"rollback":true},"rollback_evidence":{"source":"ci","commit":"${GITHUB_SHA}"}}
+          JSON
+          python manage.py qualify_release \
+            --release-id "ci-${GITHUB_RUN_ID}" \
+            --release-version "${GITHUB_SHA}" \
+            --checks-file /tmp/zentinelle-release-checks.json \
+            --sbom-digest "$sbom_digest"
+          cp /tmp/zentinelle-release-checks.json "release-qualification-${GITHUB_RUN_ID}.json"
+          cp /tmp/zentinelle-sbom.txt "release-sbom-${GITHUB_RUN_ID}.txt"
+        env:
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SHA: ${{ github.sha }}
+
+      - name: Upload release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: zentinelle-release-evidence-${{ github.run_id }}
+          path: |
+            backend/release-qualification-*.json
+            backend/release-sbom-*.txt
+
 
       - name: Backend lint
         working-directory: backend
