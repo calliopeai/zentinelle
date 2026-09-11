@@ -47,13 +47,13 @@ Note: Deployment operations and provisioner callbacks have moved to:
 """
 from django.urls import path
 
-from zentinelle.api.views import (AcknowledgeAlertView, AgentSummaryView,
-                                  AlertsListView, AsyncScanView,
-                                  AuditChainVerifyView, AuditExportView,
-                                  ComplianceReportSummaryView, ConfigView,
-                                  DeregisterView, EffectivePolicyView,
-                                  EvaluateView, EventsView,
-                                  ExportComplianceReportCSVView,
+from zentinelle.api.views import (AcknowledgeAlertView, AgentControlView,
+                                  AgentSummaryView, AlertsListView,
+                                  AsyncScanView, AuditChainVerifyView,
+                                  AuditExportView, ComplianceReportSummaryView,
+                                  ConfigView, DeregisterView,
+                                  EffectivePolicyView, EvaluateView,
+                                  EventsView, ExportComplianceReportCSVView,
                                   ExportViolationsCSVView, HeartbeatView,
                                   IncidentCommentView, IncidentDetailView,
                                   IncidentEvidenceView, IncidentListView,
@@ -118,6 +118,7 @@ urlpatterns = [
     path('register', RegisterView.as_view(), name='register'),
     path('deregister', DeregisterView.as_view(), name='deregister'),
     path('config/<str:agent_id>', ConfigView.as_view(), name='config'),
+    path('agents/<str:agent_id>/control', AgentControlView.as_view(), name='agent-control'),
     path('secrets', SecretsView.as_view(), name='secrets'),
     path('secrets/<str:agent_id>', SecretsView.as_view(), name='secrets-agent'),
     path('events', EventsView.as_view(), name='events'),

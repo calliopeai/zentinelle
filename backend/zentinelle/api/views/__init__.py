@@ -4,6 +4,7 @@ Zentinelle API Views.
 Agent governance and compliance views. Deployment operations have
 moved to deployments.api.views.
 """
+from zentinelle.api.views.agent_control import AgentControlView
 from zentinelle.api.views.agent_summary import \
     AgentSummaryView  # noqa: E402,F401
 from zentinelle.api.views.audit import AuditChainVerifyView
@@ -42,6 +43,7 @@ from zentinelle.api.views.secrets import SecretsView
 __all__ = [
     'RegisterView',
     'ConfigView',
+    'AgentControlView',
     'SecretsView',
     'EventsView',
     'HeartbeatView',
