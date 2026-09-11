@@ -35,6 +35,33 @@ def _tenant_id(request):
     return tenant_id or ''
 
 
+def _validate_updates(updates):
+    """Return a bounded validation error for a proposed settings payload."""
+    unknown = sorted(set(updates) - set(SETTING_DEFAULTS))
+    if unknown:
+        return 'Unknown or unsafe settings'
+    if 'model_visibility' in updates and updates['model_visibility'] not in {'enabled_only', 'all_registered', 'approved_only'}:
+        return 'model_visibility must be enabled_only, all_registered, or approved_only'
+    if 'discovery_refresh_seconds' in updates and (not isinstance(updates['discovery_refresh_seconds'], int) or isinstance(updates['discovery_refresh_seconds'], bool) or not 300 <= updates['discovery_refresh_seconds'] <= 86400):
+        return 'discovery_refresh_seconds must be an integer from 300 to 86400'
+    for key, low, high in (('default_rate_limit_per_minute', 1, 100000), ('default_budget_cents', 0, 100000000)):
+        if key in updates and (not isinstance(updates[key], int) or isinstance(updates[key], bool) or not low <= updates[key] <= high):
+            return f'{key} must be an integer from {low} to {high}'
+    if 'content_capture_mode' in updates and updates['content_capture_mode'] not in {'metadata', 'redacted', 'full'}:
+        return 'content_capture_mode must be metadata, redacted, or full'
+    if 'assistant_allowed_topics' in updates and (not isinstance(updates['assistant_allowed_topics'], list) or len(updates['assistant_allowed_topics']) > 100 or not all(isinstance(item, str) and 0 < len(item) <= 128 for item in updates['assistant_allowed_topics'])):
+        return 'assistant_allowed_topics must contain at most 100 bounded strings'
+    for key in ('assistant_model', 'assistant_provider'):
+        if key in updates and (not isinstance(updates[key], str) or len(updates[key]) > 128):
+            return f'{key} must be a bounded string'
+    if 'taxonomy_extensions' in updates and (not isinstance(updates['taxonomy_extensions'], list) or len(updates['taxonomy_extensions']) > 200 or not all(isinstance(item, str) and 1 <= len(item) <= 128 and item.count(':') == 1 for item in updates['taxonomy_extensions'])):
+        return 'taxonomy_extensions must be a list of strings'
+    for key in ('policy_copilot_enabled', 'control_approval_required'):
+        if key in updates and not isinstance(updates[key], bool):
+            return f'{key} must be boolean'
+    return None
+
+
 class RuntimeSettingsView(APIView):
     authentication_classes = PORTAL_AUTH
     permission_classes = [PortalAdminAccess]
@@ -58,6 +85,9 @@ class RuntimeSettingsView(APIView):
         updates = payload.get('settings')
         if not isinstance(updates, dict) or not updates:
             return JsonResponse({'error': 'settings object is required'}, status=400)
+        validation_error = _validate_updates(updates)
+        if validation_error:
+            return JsonResponse({'error': validation_error}, status=400)
         unknown = sorted(set(updates) - set(SETTING_DEFAULTS))
         if unknown:
             return JsonResponse({'error': 'Unknown or unsafe settings', 'keys': unknown}, status=400)
@@ -148,6 +178,9 @@ class RuntimeSettingsChangesView(APIView):
         updates = payload.get('settings')
         if not isinstance(updates, dict) or not updates:
             return JsonResponse({'error': 'settings object is required'}, status=400)
+        validation_error = _validate_updates(updates)
+        if validation_error:
+            return JsonResponse({'error': validation_error}, status=400)
         unknown = sorted(set(updates) - set(SETTING_DEFAULTS))
         if unknown:
             return JsonResponse({'error': 'Unknown or unsafe settings', 'keys': unknown}, status=400)

@@ -88,3 +88,11 @@ class RuntimeSettingsRevisionTests(TestCase):
         request = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'taxonomy_extensions': ['invalid']}}), content_type='application/json')
         request.user = self.user
         self.assertEqual(RuntimeSettingsView.as_view()(request).status_code, 400)
+
+    @patch('zentinelle.api.views.runtime_settings._tenant_id', return_value='tenant-a')
+    def test_staged_change_rejects_values_that_direct_patch_rejects(self, _tenant):
+        for settings in ({'content_capture_mode': 'unsafe'}, {'assistant_allowed_topics': 'support'},
+                         {'taxonomy_extensions': ['invalid']}, {'control_approval_required': 'yes'}):
+            request = self.factory.post('/settings/runtime/changes', data=json.dumps({'settings': settings}), content_type='application/json')
+            request.user = self.user
+            self.assertEqual(RuntimeSettingsChangesView.as_view()(request).status_code, 400)
