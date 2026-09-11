@@ -267,6 +267,10 @@ CELERY_TASK_ALWAYS_EAGER = False
 # high-volume and stateless, and a durable-execution engine is the wrong tool
 # for a message queue.
 CELERY_BEAT_SCHEDULE = {
+    'zentinelle-dispatch-event-outbox': {
+        'task': 'zentinelle.tasks.events.dispatch_event_outbox',
+        'schedule': timedelta(minutes=1),
+    },
     # Retention and registry
     'zentinelle-enforce-retention-policies': {
         'task': 'zentinelle.enforce_retention_policies',

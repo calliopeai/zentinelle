@@ -16,7 +16,8 @@ from zentinelle.tasks.compliance_monitoring import (check_compliance_drift,
                                                     check_policy_health,
                                                     detect_usage_anomalies,
                                                     monitor_violation_rates)
-from zentinelle.tasks.events import (process_alert_event, process_audit_event,
+from zentinelle.tasks.events import (dispatch_event_outbox,
+                                     process_alert_event, process_audit_event,
                                      process_event_batch,
                                      process_telemetry_event)
 # License compliance
@@ -34,6 +35,7 @@ __all__ = [
     'process_telemetry_event',
     'process_audit_event',
     'process_alert_event',
+    'dispatch_event_outbox',
     # Scheduled tasks
     'check_endpoint_health',
     'cleanup_old_events',
