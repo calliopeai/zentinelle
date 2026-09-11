@@ -54,6 +54,8 @@ class EvaluateView(APIView):
 
         trace_id = str(uuid.uuid4())
         context = dict(data.get('context', {}) or {})
+        if data.get('authority'):
+            context['authority'] = data['authority']
         context.setdefault('resource_type', self._resource_type_for_action(action))
         # A boundary without an explicit resource ID is still represented as
         # a resource, so downstream traces cannot collapse retrieval/workflow

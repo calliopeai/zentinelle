@@ -59,6 +59,7 @@ class EvaluateRequestSerializer(serializers.Serializer):
     agent_id = serializers.CharField(required=False, allow_blank=True)
     action = serializers.CharField(max_length=50)
     user_id = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    authority = serializers.DictField(required=False, default=dict)
     context = serializers.DictField(default=dict)
 
 
