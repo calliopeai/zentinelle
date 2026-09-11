@@ -46,6 +46,7 @@ class DependableControlsTests(TestCase):
             self.assertEqual(contract['action'], 'llm:invoke')
             self.assertEqual(contract['subject']['agent_id'], self.endpoint.agent_id)
             self.assertEqual(contract['resource'], {'type': '', 'id': ''})
+            self.assertEqual(contract['coverage']['status'], 'unknown')
             response = self.client.post(API + 'evaluate', {'agent_id': 'someone-else', 'action': 'llm:invoke'}, format='json')
             self.assertEqual(response.status_code, 403)
 

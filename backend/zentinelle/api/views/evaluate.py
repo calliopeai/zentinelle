@@ -75,6 +75,7 @@ class EvaluateView(APIView):
             'allowed': result.allowed,
             'reason': result.reason,
             'policies_evaluated': result.policies_evaluated,
+            'coverage': result.coverage,
             'warnings': result.warnings,
             'context': {k: v for k, v in result.context.items() if not k.startswith('_') and k != 'request_body'},
             # Whether this tenant has an output filter that a caller proxying
