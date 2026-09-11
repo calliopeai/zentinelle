@@ -8,6 +8,9 @@ PROVENANCE_REFERENCE = re.compile(r'^(?:attestation|https?)://[A-Za-z0-9][A-Za-z
 
 
 def qualify_release(*, release_id, version, checks, rollback_evidence=None, sbom_digest='', signature='', environment='ci'):
+    if (not isinstance(release_id, str) or not release_id.strip() or len(release_id) > 255 or
+            not isinstance(version, str) or not version.strip() or len(version) > 255):
+        raise ValueError('release_id and version must be bounded strings')
     checks = checks or {}
     if sbom_digest and not re.fullmatch(r'sha256:[0-9a-f]{64}', str(sbom_digest)):
         raise ValueError('sbom_digest must be a sha256 digest')
