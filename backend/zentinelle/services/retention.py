@@ -152,6 +152,17 @@ def enforce_retention():
     for model, *_ in models:
         tenants.update(model.objects.order_by().values_list('tenant_id', flat=True).distinct())
     from zentinelle.models import RetentionOutcome
+    def alert_failure(tenant_id, entity, error):
+        """Emit a minimal operator alert without copying retained content."""
+        try:
+            Event.objects.create(
+                tenant_id=tenant_id, event_type='retention_failure',
+                event_category=Event.Category.ALERT, status=Event.Status.PENDING,
+                payload={'entity_type': entity, 'reason': str(error)[:255]},
+                occurred_at=timezone.now(),
+            )
+        except Exception:
+            logger.warning('Unable to emit retention failure alert for %s/%s', tenant_id, entity, exc_info=True)
     result = {'events_deleted': 0, 'audit_logs_deleted': 0, 'interactions_deleted': 0,
               'scans_deleted': 0, 'usage_data_deleted': 0, 'tenants_failed': 0, 'tenants_held': 0, 'preserved_for_review': []}
     for tenant in sorted(tenants):
@@ -193,6 +204,7 @@ def enforce_retention():
                                 tenant_id=tenant, entity_type=entity,
                                 status=RetentionOutcome.Status.FAILED, error=str(exc),
                             )
+                            alert_failure(tenant, entity, exc)
                             result['tenants_failed'] += 1
                             continue
                     if action != 'delete':
@@ -229,5 +241,6 @@ def enforce_retention():
                         retain_analytics(analytics, tenant, timezone.now() - timedelta(days=max(event_days, audit_days)))
         except Exception:
             logger.exception('Retention failed for tenant %s; remaining records preserved', tenant)
+            alert_failure(tenant, 'all', 'retention enforcement failed')
             result['tenants_failed'] += 1
     return result

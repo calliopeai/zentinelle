@@ -149,6 +149,7 @@ class TestEnforceRetentionTask(TestCase):
         self.assertTrue(RetentionOutcome.objects.filter(
             tenant_id='tenant1', entity_type='events', status=RetentionOutcome.Status.FAILED,
         ).exists())
+        self.assertTrue(Event.objects.filter(tenant_id='tenant1', event_type='retention_failure').exists())
 
     def test_one_tenant_failure_does_not_delete_its_data(self):
         from zentinelle.models import Event
