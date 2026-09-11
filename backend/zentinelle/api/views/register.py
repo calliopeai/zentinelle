@@ -111,11 +111,20 @@ class RegisterView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        from zentinelle.services.agent_taxonomy import validate_taxonomy
+        from zentinelle.services.agent_taxonomy import inherit_taxonomy, validate_taxonomy
         metadata = dict(data.get('metadata') or {})
         tenant_config = TenantConfig.objects.filter(tenant_id=tenant_id).first()
         extensions = (tenant_config.settings or {}).get('taxonomy_extensions', []) if tenant_config else []
         taxonomy = validate_taxonomy(metadata.get('taxonomy', []), tenant_extensions=extensions)
+        parent_id = metadata.get('parent_agent_id')
+        if parent_id:
+            parent = AgentEndpoint.objects.filter(tenant_id=tenant_id, agent_id=str(parent_id)).first()
+            if parent is None:
+                return Response({'error': 'parent_agent_id is not registered in this tenant'}, status=400)
+            try:
+                taxonomy = inherit_taxonomy(parent.metadata.get('taxonomy', {}), taxonomy)
+            except ValueError as exc:
+                return Response({'error': str(exc)}, status=400)
         metadata['taxonomy'] = taxonomy
 
         # Generate agent_id if not provided

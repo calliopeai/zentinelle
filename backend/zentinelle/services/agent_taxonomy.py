@@ -9,6 +9,7 @@ CANONICAL_TAGS = {
     'service': {'customer_service', 'legal', 'coding', 'research', 'operations'},
     'service_subcategory': {'billing', 'technical_support', 'claims', 'contracts'},
 }
+AUTHORITY_ORDER = {'read_only': 0, 'write': 1, 'external_egress': 2, 'destructive': 3, 'privileged': 4}
 
 
 def validate_taxonomy(tags, *, tenant_extensions=None):
@@ -35,3 +36,15 @@ def validate_taxonomy(tags, *, tenant_extensions=None):
         else:
             unsupported.append(normalized)
     return {'supported': sorted(set(supported)), 'unsupported': sorted(set(unsupported), key=str)}
+
+
+def inherit_taxonomy(parent, child):
+    """Inherit swarm/workflow tags without allowing a child to widen authority."""
+    parent_supported = set((parent or {}).get('supported', []))
+    child_supported = set((child or {}).get('supported', []))
+    parent_authority = max((AUTHORITY_ORDER.get(tag.split(':', 1)[1], 0) for tag in parent_supported if tag.startswith('authority:')), default=0)
+    child_authority = max((AUTHORITY_ORDER.get(tag.split(':', 1)[1], 0) for tag in child_supported if tag.startswith('authority:')), default=0)
+    if child_authority > parent_authority:
+        raise ValueError('child taxonomy cannot widen parent authority')
+    return {'supported': sorted(parent_supported | child_supported),
+            'unsupported': sorted(set((parent or {}).get('unsupported', [])) | set((child or {}).get('unsupported', [])), key=str)}

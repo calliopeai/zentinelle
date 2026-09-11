@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from zentinelle.services.agent_taxonomy import validate_taxonomy
+from zentinelle.services.agent_taxonomy import inherit_taxonomy, validate_taxonomy
 
 
 class AgentTaxonomyTests(SimpleTestCase):
@@ -15,3 +15,9 @@ class AgentTaxonomyTests(SimpleTestCase):
         result = validate_taxonomy(['project:acme'], tenant_extensions={'project:acme'})
         self.assertEqual(result['supported'], ['project:acme'])
         self.assertEqual(result['unsupported'], [])
+
+    def test_child_cannot_widen_parent_authority(self):
+        parent = validate_taxonomy(['authority:read_only'])
+        child = validate_taxonomy(['authority:destructive'])
+        with self.assertRaisesRegex(ValueError, 'widen'):
+            inherit_taxonomy(parent, child)
