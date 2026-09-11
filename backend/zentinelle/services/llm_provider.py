@@ -733,6 +733,14 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
                 })
                 continue
 
+            # Treat model-supplied tool arguments as untrusted content too;
+            # reject instruction-shaped payloads before invoking any tool.
+            from zentinelle.services.assistant_guardrails import check_untrusted_content
+            argument_check = check_untrusted_content(json.dumps(args, default=str))
+            if not argument_check.allowed:
+                yield {'type': 'error', 'message': 'assistant_guardrail_denied'}
+                return
+
             yield {'type': 'tool_call', 'name': name, 'args': args, 'hash': action_hash}
             result_str = await _execute_tool_with_audit(
                 name, args, tenant_id, actor
@@ -742,8 +750,6 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
                 result_obj = json.loads(result_str)
             except json.JSONDecodeError:
                 result_obj = {'raw': result_str}
-            from zentinelle.services.assistant_guardrails import \
-                check_untrusted_content
             indirect_check = check_untrusted_content(result_str)
             if not indirect_check.allowed:
                 yield {'type': 'error', 'message': 'assistant_guardrail_denied'}
@@ -962,6 +968,11 @@ async def _gemini_tool_loop(messages, model, api_key, temperature,
                 })
                 continue
 
+            from zentinelle.services.assistant_guardrails import check_untrusted_content
+            argument_check = check_untrusted_content(json.dumps(args, default=str))
+            if not argument_check.allowed:
+                yield {'type': 'error', 'message': 'assistant_guardrail_denied'}
+                return
             yield {
                 'type': 'tool_call',
                 'name': name,
@@ -976,8 +987,6 @@ async def _gemini_tool_loop(messages, model, api_key, temperature,
                 result_obj = json.loads(result_str)
             except json.JSONDecodeError:
                 result_obj = {'raw': result_str}
-            from zentinelle.services.assistant_guardrails import \
-                check_untrusted_content
             indirect_check = check_untrusted_content(result_str)
             if not indirect_check.allowed:
                 yield {'type': 'error', 'message': 'assistant_guardrail_denied'}
