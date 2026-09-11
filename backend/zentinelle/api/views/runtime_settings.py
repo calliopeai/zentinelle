@@ -1,5 +1,6 @@
 """Tenant-scoped, allowlisted runtime settings for administrators."""
 import json
+import re
 
 from django.conf import settings
 from django.db import transaction
@@ -37,6 +38,14 @@ BOOTSTRAP_ONLY_SETTINGS = [
 ]
 
 
+def _valid_taxonomy_extension(value):
+    if not isinstance(value, str) or not 3 <= len(value) <= 128 or value.count(':') != 1:
+        return False
+    dimension, label = (part.strip().lower() for part in value.split(':', 1))
+    return bool(re.fullmatch(r'[a-z][a-z0-9_]*', dimension) and
+                re.fullmatch(r'[a-z0-9][a-z0-9_.-]*', label))
+
+
 def _tenant_id(request):
     tenant_id = get_request_tenant_id(request.user)
     if not tenant_id and is_open_mode():
@@ -63,7 +72,7 @@ def _validate_updates(updates):
     for key in ('assistant_model', 'assistant_provider'):
         if key in updates and (not isinstance(updates[key], str) or len(updates[key]) > 128):
             return f'{key} must be a bounded string'
-    if 'taxonomy_extensions' in updates and (not isinstance(updates['taxonomy_extensions'], list) or len(updates['taxonomy_extensions']) > 200 or not all(isinstance(item, str) and 1 <= len(item) <= 128 and item.count(':') == 1 for item in updates['taxonomy_extensions'])):
+    if 'taxonomy_extensions' in updates and (not isinstance(updates['taxonomy_extensions'], list) or len(updates['taxonomy_extensions']) > 200 or not all(_valid_taxonomy_extension(item) for item in updates['taxonomy_extensions'])):
         return 'taxonomy_extensions must be a list of strings'
     for key in ('policy_copilot_enabled', 'control_approval_required'):
         if key in updates and not isinstance(updates[key], bool):
@@ -138,8 +147,7 @@ class RuntimeSettingsView(APIView):
                 return JsonResponse({'error': f'{key} must be a bounded string'}, status=400)
         if 'taxonomy_extensions' in updates:
             if (not isinstance(updates['taxonomy_extensions'], list) or len(updates['taxonomy_extensions']) > 200 or
-                    not all(isinstance(item, str) and 1 <= len(item) <= 128 and item.count(':') == 1
-                            for item in updates['taxonomy_extensions'])):
+                    not all(_valid_taxonomy_extension(item) for item in updates['taxonomy_extensions'])):
                 return JsonResponse({'error': 'taxonomy_extensions must be a list of strings'}, status=400)
         if 'policy_copilot_enabled' in updates and not isinstance(updates['policy_copilot_enabled'], bool):
             return JsonResponse({'error': 'policy_copilot_enabled must be boolean'}, status=400)

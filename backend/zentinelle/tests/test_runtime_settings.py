@@ -113,3 +113,10 @@ class RuntimeSettingsRevisionTests(TestCase):
             request = self.factory.post('/settings/runtime/changes', data=json.dumps({'settings': settings}), content_type='application/json')
             request.user = self.user
             self.assertEqual(RuntimeSettingsChangesView.as_view()(request).status_code, 400)
+
+    @patch('zentinelle.api.views.runtime_settings._tenant_id', return_value='tenant-a')
+    def test_taxonomy_extensions_require_stable_identifier_grammar(self, _tenant):
+        for value in ('project:Bad Value', 'project:../escape', ':missing', 'project:ok:extra'):
+            request = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'taxonomy_extensions': [value]}}), content_type='application/json')
+            request.user = self.user
+            self.assertEqual(RuntimeSettingsView.as_view()(request).status_code, 400)
