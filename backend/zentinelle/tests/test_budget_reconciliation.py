@@ -1,4 +1,6 @@
 from decimal import Decimal
+import uuid
+from datetime import date
 
 from django.test import TestCase
 
@@ -48,6 +50,14 @@ class BudgetReconciliationTests(TestCase):
             })
         charge.refresh_from_db()
         self.assertIsNone(charge.reconciled_at)
+
+    def test_non_finite_billing_and_unbounded_tokens_are_rejected(self):
+        account = BudgetAccount.objects.create(tenant_id='tenant-a', policy_id_ext=uuid.uuid4(), period=date.today())
+        charge = BudgetCharge.objects.create(tenant_id='tenant-a', endpoint_id_ext='00000000-0000-0000-0000-000000000002', request_id='req-bad', amount_usd=Decimal('1.00'), account_ids=[account.id])
+        with self.assertRaises(ValueError):
+            reconcile_charge(charge.id, tenant_id='tenant-a', provider_usage={'request_id': 'req-bad', 'billed_usd': 'NaN'})
+        with self.assertRaisesRegex(ValueError, 'supported bound'):
+            reconcile_charge(charge.id, tenant_id='tenant-a', provider_usage={'request_id': 'req-bad', 'model': 'gpt-4o-mini', 'input_tokens': 10_000_000_001, 'output_tokens': 0})
 
     def test_provider_billed_amount_supports_cache_and_hosted_tool_charges(self):
         account = BudgetAccount.objects.create(tenant_id='tenant-a', policy_id_ext='00000000-0000-0000-0000-000000000001', period='2026-09-01', committed_usd=Decimal('1.00'))

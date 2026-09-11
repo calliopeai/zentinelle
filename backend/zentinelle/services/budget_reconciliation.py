@@ -26,7 +26,7 @@ def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-a
             actual = Decimal(str(billed_usd)).quantize(Decimal('0.00000001'), rounding=ROUND_UP)
         except Exception as exc:
             raise ValueError('Provider billed_usd must be a non-negative decimal') from exc
-        if actual < 0:
+        if not actual.is_finite() or actual < 0:
             raise ValueError('Provider billed_usd cannot be negative')
     else:
         if (not isinstance(model, str) or not model or
@@ -35,6 +35,8 @@ def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-a
             raise ValueError('Provider usage requires model and integer token counts, or billed_usd')
         if min(input_tokens, output_tokens) < 0:
             raise ValueError('Provider token counts cannot be negative')
+        if max(input_tokens, output_tokens) > 10_000_000_000:
+            raise ValueError('Provider token counts exceed the supported bound')
     from zentinelle.services.usage_tracking import (MODEL_PRICING,
                                                     MODEL_PRICING_VERSION)
     if billed_usd is None:
