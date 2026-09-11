@@ -105,6 +105,10 @@ class AssistantProvidersView(View):
         if not tenant_id:
             tenant_id = 'default'
 
+        from zentinelle.models import TenantConfig
+        runtime = TenantConfig.objects.filter(tenant_id=tenant_id).values_list('settings', flat=True).first() or {}
+        model_visibility = runtime.get('model_visibility', 'enabled_only')
+
         skip_live = request.GET.get('live', 'true').lower() == 'false'
         require_tools = request.GET.get('require_tools', '').lower() == 'true'
         include_deprecated = request.GET.get('all', '').lower() == 'true'
@@ -112,9 +116,14 @@ class AssistantProvidersView(View):
         # Query the AIModel registry — chat-capable models, available, sorted by recency
         qs = AIModel.objects.filter(
             is_available=True,
-            enabled_for_chat=True,
             model_type__in=['llm', 'multimodal', 'reasoning'],
         ).select_related('provider')
+
+        if model_visibility == 'enabled_only':
+            qs = qs.filter(enabled_for_chat=True)
+        elif model_visibility == 'approved_only':
+            qs = qs.filter(org_approvals__tenant_id=tenant_id,
+                           org_approvals__status='approved')
 
         if not include_deprecated:
             qs = qs.filter(deprecated=False)
@@ -171,12 +180,13 @@ class AssistantProvidersView(View):
 
             # Intersect live results with the user-controlled enable list:
             # any model_id explicitly disabled in AIModel registry is filtered out.
-            disabled_ids = set(
-                AIModel.objects.filter(
-                    provider__slug=slug,
-                    enabled_for_chat=False,
-                ).values_list('model_id', flat=True)
-            )
+            disabled_ids = set()
+            if model_visibility == 'enabled_only':
+                disabled_ids = set(AIModel.objects.filter(provider__slug=slug, enabled_for_chat=False).values_list('model_id', flat=True))
+            elif model_visibility == 'approved_only':
+                approved = set(AIModel.objects.filter(provider__slug=slug, org_approvals__tenant_id=tenant_id, org_approvals__status='approved').values_list('model_id', flat=True))
+                # Live discovery is intersected with the tenant's explicit approvals.
+                disabled_ids = {m.get('value') for m in (live_models or []) if m.get('value') not in approved}
 
             if live_models:
                 models = [m for m in live_models if m.get('value') not in disabled_ids]
@@ -198,7 +208,7 @@ class AssistantProvidersView(View):
                 }
                 continue
 
-            if slug in FALLBACK_PROVIDERS:
+            if slug in FALLBACK_PROVIDERS and model_visibility != 'approved_only':
                 models = FALLBACK_PROVIDERS[slug]
                 if require_tools:
                     models = [m for m in models if m.get('supportsTools')]
