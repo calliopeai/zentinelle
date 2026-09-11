@@ -12,8 +12,10 @@ import (
 
 // PolicyResult holds the outcome of a policy evaluation.
 type PolicyResult struct {
-	Allowed bool   `json:"allowed"`
-	Reason  string `json:"reason"`
+	Allowed  bool   `json:"allowed"`
+	Reason   string `json:"reason"`
+	TraceID  string `json:"trace_id"`
+	Decision string `json:"decision"`
 
 	// OutputFilterRequired reports that this tenant has an enabled output
 	// filter, so the response must be examined before the caller sees it.
