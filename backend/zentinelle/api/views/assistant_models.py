@@ -162,6 +162,8 @@ class AssistantModelsToggleView(APIView):
             from zentinelle.models import AuditLog
             from zentinelle.schema.auth_helpers import get_request_tenant_id
             audit_tenant = get_request_tenant_id(request.user)
+            if not audit_tenant and is_open_mode():
+                audit_tenant = '00000000-0000-0000-0000-000000000001'
             if audit_tenant:
                 AuditLog.log(tenant_id=audit_tenant, action='model_catalogue.changed',
                              resource_type='ai_model', resource_id=str(obj.id),
@@ -235,6 +237,8 @@ class AssistantModelsBulkView(APIView):
             from zentinelle.models import AuditLog
             from zentinelle.schema.auth_helpers import get_request_tenant_id
             audit_tenant = get_request_tenant_id(request.user)
+            if not audit_tenant and is_open_mode():
+                audit_tenant = '00000000-0000-0000-0000-000000000001'
             if audit_tenant:
                 AuditLog.log(tenant_id=audit_tenant, action='model_catalogue.bulk_changed',
                              resource_type='ai_provider', resource_id=provider_slug,
