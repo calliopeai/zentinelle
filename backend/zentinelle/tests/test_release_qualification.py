@@ -50,6 +50,12 @@ class ReleaseQualificationTests(TestCase):
         with self.assertRaisesRegex(ValueError, 'bounded strings'):
             qualify_release(release_id='rel', version={'value': '1.2.3'}, checks={})
 
+    def test_checks_must_be_bounded_boolean_object(self):
+        with self.assertRaisesRegex(ValueError, 'boolean values'):
+            qualify_release(release_id='rel-bad-checks', version='1.2.3', checks=['migrations'])
+        with self.assertRaisesRegex(ValueError, 'boolean values'):
+            qualify_release(release_id='rel-bad-checks', version='1.2.3', checks={'migrations': 'true'})
+
     def test_invalid_sbom_digest_rejects(self):
         checks = {name: True for name in ('migrations', 'auth', 'csrf', 'secret_rotation', 'dependency_scan', 'backup_restore', 'rollback')}
         with self.assertRaisesRegex(ValueError, 'sha256 digest'):
