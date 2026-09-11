@@ -11,7 +11,9 @@ def qualify_release(*, release_id, version, checks, rollback_evidence=None, sbom
     checks = checks or {}
     if sbom_digest and not re.fullmatch(r'sha256:[0-9a-f]{64}', str(sbom_digest)):
         raise ValueError('sbom_digest must be a sha256 digest')
-    if signature and len(str(signature)) > 8192:
+    if signature and not isinstance(signature, str):
+        raise ValueError('release signature must be a string reference')
+    if signature and len(signature) > 8192:
         raise ValueError('release signature is too large')
     if environment not in {'ci', 'staging', 'production'}:
         raise ValueError('environment must be ci, staging, or production')

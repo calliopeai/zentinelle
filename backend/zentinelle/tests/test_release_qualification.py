@@ -40,6 +40,10 @@ class ReleaseQualificationTests(TestCase):
         record = qualify_release(release_id='rel-prod-ok', version='1.2.3', checks=checks, environment='production', signature='attestation://release/rel-prod-ok')
         self.assertEqual(record.status, ReleaseQualification.Status.QUALIFIED)
 
+    def test_non_string_signature_is_rejected_at_boundary(self):
+        with self.assertRaisesRegex(ValueError, 'must be a string'):
+            qualify_release(release_id='rel-bad-type', version='1.2.3', checks={}, signature={'ref': 'x'})
+
     def test_invalid_sbom_digest_rejects(self):
         checks = {name: True for name in ('migrations', 'auth', 'csrf', 'secret_rotation', 'dependency_scan', 'backup_restore', 'rollback')}
         with self.assertRaisesRegex(ValueError, 'sha256 digest'):
