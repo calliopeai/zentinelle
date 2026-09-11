@@ -267,6 +267,7 @@ class PolicyEngine:
         except (ValueError, TypeError) as exc:
             return EvaluationResult(allowed=False, reason=str(exc))
         from zentinelle.services.authority import normalize_authority
+        authority_supplied = 'authority' in context
         try:
             authority = normalize_authority(context.get('authority'))
         except (ValueError, TypeError) as exc:
@@ -278,9 +279,10 @@ class PolicyEngine:
                 reason='authority tenant_id does not match authenticated endpoint',
                 context={'authority': authority},
             )
-        authority['tenant_id'] = str(endpoint.tenant_id)
-        authority['endpoint_id'] = str(endpoint.id)
-        context['authority'] = authority
+        if authority_supplied:
+            authority['tenant_id'] = str(endpoint.tenant_id)
+            authority['endpoint_id'] = str(endpoint.id)
+            context['authority'] = authority
         context = {k: v for k, v in context.items() if not k.startswith('_')}
         from zentinelle.services.approvals import context_digest
         context['_approval_digest'] = context_digest(context)
