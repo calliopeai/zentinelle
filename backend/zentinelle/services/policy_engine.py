@@ -39,6 +39,7 @@ class EvaluationResult:
     dry_run: bool = False
     risk_score: int = 0
     risk_factors: List[Dict] = field(default_factory=list)
+    coverage: Dict[str, Any] = field(default_factory=dict)
 
 
 class PolicyEngine:
@@ -258,12 +259,21 @@ class PolicyEngine:
         allowed = True
         denial_reason = None
         warnings = []
+        coverage_counts = {'enforced': 0, 'observation_only': 0, 'unsupported': 0}
 
         for policy in policies:
             if policy.enforcement == Policy.Enforcement.DISABLED:
                 continue
 
             evaluator = self._get_evaluator(policy.policy_type)
+            # Tests and embedding callers may replace _get_evaluator; in that
+            # case the returned evaluator itself is the authority for support.
+            supported = (True if self._evaluator_cache is None else
+                         policy.policy_type in self._evaluator_cache)
+            coverage_status = ('unsupported' if not supported else
+                               'enforced' if policy.enforcement == Policy.Enforcement.ENFORCE else
+                               'observation_only')
+            coverage_counts[coverage_status] += 1
             try:
                 result = evaluator.evaluate(policy, action, user_id, context, dry_run=dry_run)
             except Exception as exc:
@@ -279,6 +289,7 @@ class PolicyEngine:
                 'message': result.message,
                 'matched_selectors': policy.config.get('taxonomy_selectors', [])
                 if isinstance(policy.config, dict) else [],
+                'coverage': coverage_status,
             })
 
             if not result.passed:
@@ -319,6 +330,12 @@ class PolicyEngine:
             dry_run=dry_run,
             risk_score=risk_score,
             risk_factors=risk_factors,
+            coverage={
+                'status': ('unsupported' if coverage_counts['unsupported'] else
+                           'enforced' if coverage_counts['enforced'] else
+                           'observation_only' if coverage_counts['observation_only'] else 'unknown'),
+                'counts': coverage_counts,
+            },
         )
 
         # Auto-create incidents for policy violations (skipped in dry_run mode)
