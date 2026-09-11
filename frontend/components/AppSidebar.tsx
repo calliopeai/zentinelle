@@ -104,6 +104,7 @@ const sections: NavSection[] = [
       { title: "Scanner Dashboard", url: "/content-rules/scanner", icon: <ScanSearchIcon /> },
       { title: "Models", url: "/models", icon: <CpuIcon /> },
       { title: "Model Compare", url: "/models/compare", icon: <BarChart3Icon /> },
+      { title: "Route Canary", url: "/models/route-canary", icon: <ShieldCheckIcon /> },
       { title: "Budget Showback", url: "/budgets/showback", icon: <CoinsIcon /> },
       { title: "ATLAS Controls", url: "/threats/atlas", icon: <ShieldCheckIcon /> },
     ],
