@@ -23,6 +23,8 @@ def qualify_release(*, release_id, version, checks, rollback_evidence=None, sbom
         raise ValueError('production qualification requires signed provenance evidence')
     if environment == 'production' and not PROVENANCE_REFERENCE.fullmatch(str(signature).strip()):
         raise ValueError('production qualification requires a verifiable provenance reference')
+    if environment == 'production' and str(release_id) not in str(signature):
+        raise ValueError('production provenance reference must identify the qualified release')
     status = ReleaseQualification.Status.QUALIFIED if not missing else ReleaseQualification.Status.REJECTED
     record, _ = ReleaseQualification.objects.update_or_create(
         release_id=release_id,
