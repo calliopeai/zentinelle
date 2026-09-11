@@ -151,9 +151,6 @@ class EventStore:
                 status=Event.Status.PENDING,
             )
 
-            # Update sequence cache
-            self._update_sequence(aggregate_type, aggregate_id, sequence_number)
-
             logger.debug(
                 f"Appended event {event_id} to stream {aggregate_type}:{aggregate_id}"
             )
@@ -327,15 +324,13 @@ class EventStore:
         logger.info(f"Registered projection: {name}")
 
     def _next_sequence(self, aggregate_type: str, aggregate_id: str) -> int:
-        """Get next sequence number for aggregate stream."""
+        """Atomically get the next sequence number for an aggregate stream."""
         key = f"{self.SEQUENCE_KEY_PREFIX}{aggregate_type}:{aggregate_id}"
-        seq = cache.get(key, 0)
-        return seq + 1
-
-    def _update_sequence(self, aggregate_type: str, aggregate_id: str, seq: int):
-        """Update cached sequence number."""
-        key = f"{self.SEQUENCE_KEY_PREFIX}{aggregate_type}:{aggregate_id}"
-        cache.set(key, seq, timeout=86400 * 30)  # 30 days
+        # ``add`` initializes only the first writer; ``incr`` is atomic on the
+        # Redis cache used in production, avoiding duplicate sequence numbers
+        # when concurrent requests append to the same aggregate.
+        cache.add(key, 0, timeout=86400 * 30)
+        return cache.incr(key)
 
     def _apply_projections_async(self, envelope: EventEnvelope, event):
         """Queue projection updates for async processing."""

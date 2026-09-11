@@ -17,3 +17,18 @@ class DeadLetterQueueTests(SimpleTestCase):
         self.assertEqual(event.payload['dlq']['original_status'], 'processing')
         self.assertEqual(event.payload['dlq']['reason'], 'projection unavailable')
         event.save.assert_called_once_with()
+
+
+class EventSequenceTests(SimpleTestCase):
+    @patch('zentinelle.services.event_store.cache')
+    def test_sequence_uses_atomic_increment_after_initialization(self, cache):
+        cache.incr.return_value = 7
+        from zentinelle.services.event_store import EventStore
+
+        sequence = EventStore()._next_sequence('policy', 'policy-1')
+
+        cache.add.assert_called_once_with(
+            'eventstore:seq:policy:policy-1', 0, timeout=86400 * 30,
+        )
+        cache.incr.assert_called_once_with('eventstore:seq:policy:policy-1')
+        self.assertEqual(sequence, 7)
