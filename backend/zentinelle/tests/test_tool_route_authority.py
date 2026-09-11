@@ -29,3 +29,7 @@ class ToolRouteAuthorityTests(TestCase):
                               scope_sub_organization_id_ext='team-a', enforcement='enforce', enabled=True)
         with self.assertRaisesRegex(RuntimeError, 'denied'):
             _check_tool_route('send_email', {}, 'tenant-a', endpoint_id=str(endpoint.id))
+
+    def test_malformed_tool_arguments_fail_closed(self):
+        with self.assertRaisesRegex(RuntimeError, 'arguments must be an object'):
+            _check_tool_route('send_email', ['to', 'user@example.test'], 'tenant-a')

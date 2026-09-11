@@ -248,6 +248,8 @@ def _check_tool_route(tool_name: str, tool_args: dict, tenant_id: str,
     """Authorize tool and exact arguments before any tool side effect."""
     if not tenant_id:
         raise RuntimeError('Tool execution requires a tenant')
+    if not isinstance(tool_args, dict):
+        raise RuntimeError('Tool execution arguments must be an object')
     from zentinelle.models import Policy
     from zentinelle.services.evaluators.tool_permission import ToolPermissionEvaluator
     policies = None
