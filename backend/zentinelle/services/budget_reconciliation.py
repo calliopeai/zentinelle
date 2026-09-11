@@ -7,6 +7,26 @@ from django.utils import timezone
 from zentinelle.models import BudgetAccount, BudgetCharge
 
 
+_PROVIDER_USAGE_VERIFIERS = {}
+
+
+def register_provider_usage_verifier(provider, verifier):
+    """Register an integration-owned verifier for provider billing evidence.
+
+    ``verifier`` receives ``(usage, tenant_id, request_id)`` and must return
+    ``True`` only after authenticating the provider response (for example with
+    a signed webhook or provider API lookup). The reconciler never treats a
+    source string as authentication.
+    """
+    if not isinstance(provider, str) or not provider.strip() or not callable(verifier):
+        raise ValueError('provider and callable verifier are required')
+    _PROVIDER_USAGE_VERIFIERS[provider.strip().lower()] = verifier
+
+
+def clear_provider_usage_verifiers():
+    _PROVIDER_USAGE_VERIFIERS.clear()
+
+
 def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-api'):
     """Apply authenticated provider usage once and release only the difference.
 
@@ -17,6 +37,9 @@ def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-a
         raise ValueError('Budget reconciliation requires authenticated provider usage')
     if not isinstance(provider_usage, dict):
         raise ValueError('provider_usage must be an object')
+    provider = provider_usage.get('provider')
+    if not isinstance(provider, str) or not provider.strip():
+        raise ValueError('Provider usage requires an authenticated provider name')
     model = provider_usage.get('model')
     billed_usd = provider_usage.get('billed_usd')
     input_tokens = provider_usage.get('input_tokens')
@@ -53,6 +76,9 @@ def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-a
         provider_request_id = provider_usage.get('request_id')
         if provider_request_id is not None and str(provider_request_id) != str(charge.request_id):
             raise ValueError('Provider usage request_id does not match the reserved charge')
+        verifier = _PROVIDER_USAGE_VERIFIERS.get(provider.strip().lower())
+        if verifier is None or not verifier(provider_usage, tenant_id, str(charge.request_id)):
+            raise ValueError('Provider usage failed authenticated verification')
         if charge.pricing_version and charge.pricing_version != MODEL_PRICING_VERSION:
             raise ValueError('Budget reservation uses a stale pricing source')
         reservation = charge.amount_usd
@@ -63,19 +89,19 @@ def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-a
             account.save(update_fields=['committed_usd'])
         charge.actual_usd = actual
         charge.reconciled_at = timezone.now()
-        charge.reconciliation_source = source
+        charge.reconciliation_source = f'{source}:{provider.strip().lower()}'[:64]
         charge.save(update_fields=['actual_usd', 'reconciled_at', 'reconciliation_source'])
         return charge
 
 
-def cancel_charge(charge_id, *, tenant_id, provider_request_id, source='provider-api'):
+def cancel_charge(charge_id, *, tenant_id, provider_request_id, provider='', attestation=None, source='provider-api'):
     """Release a reservation after an authenticated provider cancellation.
 
     Cancellation is deliberately separate from telemetry: callers must supply
     the provider request ID that matches the reservation, and the operation is
     idempotent under the same row lock as usage reconciliation.
     """
-    if source != 'provider-api' or not provider_request_id:
+    if source != 'provider-api' or not provider_request_id or not isinstance(provider, str) or not provider.strip():
         raise ValueError('Budget cancellation requires authenticated provider confirmation')
     with transaction.atomic():
         charge = BudgetCharge.objects.select_for_update().get(id=charge_id, tenant_id=tenant_id)
@@ -83,12 +109,17 @@ def cancel_charge(charge_id, *, tenant_id, provider_request_id, source='provider
             return charge
         if str(provider_request_id) != str(charge.request_id):
             raise ValueError('Provider request_id does not match the reserved charge')
+        verifier = _PROVIDER_USAGE_VERIFIERS.get(provider.strip().lower())
+        if verifier is None or not verifier({'provider': provider, 'request_id': provider_request_id,
+                                             'attestation': attestation, 'operation': 'cancellation'},
+                                            tenant_id, str(charge.request_id)):
+            raise ValueError('Provider cancellation failed authenticated verification')
         for account_id in charge.account_ids:
             account = BudgetAccount.objects.select_for_update().get(id=account_id, tenant_id=tenant_id)
             account.committed_usd = max(Decimal('0'), account.committed_usd - charge.amount_usd)
             account.save(update_fields=['committed_usd'])
         charge.actual_usd = Decimal('0')
         charge.reconciled_at = timezone.now()
-        charge.reconciliation_source = 'provider-api:cancellation'
+        charge.reconciliation_source = f'provider-api:cancellation:{provider.strip().lower()}'[:64]
         charge.save(update_fields=['actual_usd', 'reconciled_at', 'reconciliation_source'])
         return charge
