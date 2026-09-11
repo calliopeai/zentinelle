@@ -25,6 +25,19 @@ _CACHE: dict = {}
 _CACHE_TTL_SECONDS = 3600  # 1 hour
 
 
+def _cache_ttl_seconds(tenant_id: str) -> int:
+    """Resolve the tenant's bounded discovery interval, failing safe to 1h."""
+    try:
+        from zentinelle.models import TenantConfig
+        value = (TenantConfig.objects.filter(tenant_id=str(tenant_id))
+                 .values_list('settings', flat=True).first() or {}).get('discovery_refresh_seconds')
+        if isinstance(value, int) and not isinstance(value, bool) and 300 <= value <= 86400:
+            return value
+    except Exception:
+        logger.debug('Unable to load discovery refresh setting', exc_info=True)
+    return _CACHE_TTL_SECONDS
+
+
 def _classify_model_type(model_id: str) -> str:
     """Best-effort classification into AIModel.ModelType values.
 
@@ -314,7 +327,7 @@ def fetch_live_models(provider: str, tenant_id: str) -> Optional[list]:
     now = time.time()
 
     cached = _CACHE.get(cache_key)
-    if cached and (now - cached[0]) < _CACHE_TTL_SECONDS:
+    if cached and (now - cached[0]) < _cache_ttl_seconds(tenant_id):
         return cached[1]
 
     if provider == 'ollama':
