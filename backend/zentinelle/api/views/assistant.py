@@ -111,7 +111,7 @@ class AssistantExecuteToolView(APIView):
         # exact argument digest never overrides a newer deny policy.
         try:
             from zentinelle.services.llm_provider import _check_tool_route
-            _check_tool_route(name, args, tenant_id)
+            _check_tool_route(name, args, tenant_id, approval_token=data.get('approval_token', ''), user_id=actor)
         except RuntimeError as exc:
             return JsonResponse({'error': 'tool_policy_denied', 'detail': str(exc)}, status=403)
 

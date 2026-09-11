@@ -226,7 +226,8 @@ def _check_model_route(model: str, provider: str, tenant_id: str = None):
                 _deny_model_route(f'Model route denied by policy {policy.id}: {result.message}', tenant_id=tenant_id, provider=provider, model=model, policy=policy)
 
 
-def _check_tool_route(tool_name: str, tool_args: dict, tenant_id: str):
+def _check_tool_route(tool_name: str, tool_args: dict, tenant_id: str,
+                      *, approval_token: str = '', user_id: str = ''):
     """Authorize tool and exact arguments before any tool side effect."""
     if not tenant_id:
         raise RuntimeError('Tool execution requires a tenant')
@@ -240,8 +241,9 @@ def _check_tool_route(tool_name: str, tool_args: dict, tenant_id: str):
     for policy in policies:
         try:
             result = ToolPermissionEvaluator().evaluate(
-                policy, 'tool_call', None,
-                {'tool_name': tool_name, 'tool_args': dict(tool_args or {})},
+                policy, 'tool_call', user_id or None,
+                {'tool_name': tool_name, 'tool_args': dict(tool_args or {}),
+                 'approval_token': approval_token},
             )
         except Exception as exc:
             _deny_model_route(f'Tool policy evaluation failed: {policy.id}', tenant_id=tenant_id, provider='tool', model=tool_name, policy=policy)
