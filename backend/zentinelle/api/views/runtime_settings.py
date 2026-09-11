@@ -71,9 +71,23 @@ class RuntimeSettingsView(APIView):
         config = TenantConfig.objects.filter(tenant_id=tenant_id).first()
         stored = config.settings if config else {}
         values = {key: stored.get(key, factory()) for key, factory in SETTING_DEFAULTS.items()}
-        latest = RuntimeSettingsRevision.objects.filter(tenant_id=tenant_id).first()
+        latest = RuntimeSettingsRevision.objects.filter(tenant_id=tenant_id).order_by('-revision').first()
         revisions = RuntimeSettingsRevision.objects.filter(tenant_id=tenant_id)[:20]
+        effective = {}
+        for key in SETTING_DEFAULTS:
+            effective[key] = {
+                'value': values[key],
+                'source': 'tenant' if key in stored else 'default',
+                'changed_at': latest.created_at.isoformat() if latest and key in (latest.settings or {}) else None,
+                'changed_by': {'id': latest.actor_id, 'name': latest.actor_name} if latest and key in (latest.settings or {}) else None,
+            }
+        pending = RuntimeSettingsChange.objects.filter(
+            tenant_id=tenant_id,
+            status__in=[RuntimeSettingsChange.Status.STAGED, RuntimeSettingsChange.Status.APPROVED],
+        )[:20]
         return JsonResponse({'settings': values, 'allowedKeys': list(SETTING_DEFAULTS), 'revision': latest.revision if latest else 0,
+                             'effective': effective,
+                             'pending': [_serialize_change(row) for row in pending],
                              'revisions': [{'revision': row.revision, 'actor_id': row.actor_id, 'actor_name': row.actor_name,
                                             'created_at': row.created_at.isoformat()} for row in revisions]})
 

@@ -58,6 +58,8 @@ class RuntimeSettingsRevisionTests(TestCase):
         data = json.loads(RuntimeSettingsView.as_view()(request).content)
         self.assertEqual(data['settings']['model_visibility'], 'enabled_only')
         self.assertEqual(data['settings']['discovery_refresh_seconds'], 3600)
+        self.assertEqual(data['effective']['model_visibility']['source'], 'default')
+        self.assertIsNone(data['effective']['model_visibility']['changed_at'])
 
         invalid = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'model_visibility': 'secret'}}), content_type='application/json')
         invalid.user = self.user
@@ -66,6 +68,11 @@ class RuntimeSettingsRevisionTests(TestCase):
         valid = self.factory.patch('/settings/runtime', data=json.dumps({'settings': {'model_visibility': 'approved_only', 'discovery_refresh_seconds': 900, 'default_rate_limit_per_minute': 120, 'default_budget_cents': 5000}}), content_type='application/json')
         valid.user = self.user
         self.assertEqual(RuntimeSettingsView.as_view()(valid).status_code, 200)
+        refreshed = self.factory.get('/settings/runtime')
+        refreshed.user = self.user
+        effective = json.loads(RuntimeSettingsView.as_view()(refreshed).content)['effective']
+        self.assertEqual(effective['model_visibility']['source'], 'tenant')
+        self.assertEqual(effective['model_visibility']['changed_by']['name'], 'settings-admin')
 
     @patch('zentinelle.api.views.runtime_settings._tenant_id', return_value='tenant-a')
     def test_runtime_change_requires_explicit_approval_before_apply(self, _tenant):
