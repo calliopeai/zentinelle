@@ -65,6 +65,12 @@ class AgentControlView(APIView):
         action = payload.get('action')
         if action not in ('suspend', 'revoke', 'emergency_stop', 'contain_tools'):
             return JsonResponse({'error': 'action must be suspend, revoke, emergency_stop, or contain_tools'}, status=400)
+        containment_tools = None
+        if action == 'contain_tools':
+            containment_tools = payload.get('denied_tools')
+            if (not isinstance(containment_tools, list) or len(containment_tools) > 200 or
+                    not all(isinstance(item, str) and 0 < len(item) <= 128 for item in containment_tools)):
+                return JsonResponse({'error': 'denied_tools must be a bounded list of strings'}, status=400)
         from zentinelle.models import TenantConfig
         config = TenantConfig.objects.filter(tenant_id=tenant_id).values_list('settings', flat=True).first() or {}
         if config.get('control_approval_required', False):
@@ -89,11 +95,7 @@ class AgentControlView(APIView):
                 endpoint.api_key_hash = ''
                 endpoint.save(update_fields=['status', 'api_key_hash', 'updated_at'])
             elif action == 'contain_tools':
-                tools = payload.get('denied_tools')
-                if (not isinstance(tools, list) or len(tools) > 200 or
-                        not all(isinstance(item, str) and 0 < len(item) <= 128 for item in tools)):
-                    return JsonResponse({'error': 'denied_tools must be a bounded list of strings'}, status=400)
-                metadata = {**(endpoint.metadata or {}), 'containment': {'denied_tools': sorted(set(tools))}}
+                metadata = {**(endpoint.metadata or {}), 'containment': {'denied_tools': sorted(set(containment_tools))}}
                 endpoint.metadata = metadata
                 endpoint.save(update_fields=['metadata', 'updated_at'])
         AuditLog.objects.create(
