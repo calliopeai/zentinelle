@@ -6,7 +6,7 @@ from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory
 
-from zentinelle.models import PolicyChangeSet
+from zentinelle.models import Policy, PolicyChangeSet
 
 
 class PolicyChangeSetTests(TestCase):
@@ -48,6 +48,35 @@ class PolicyChangeSetTests(TestCase):
             self.change.transition(state, actor='operator')
         self.change.transition(PolicyChangeSet.Status.ROLLED_BACK)
         self.assertEqual(self.change.status, PolicyChangeSet.Status.ROLLED_BACK)
+
+    def test_promotion_rejects_stale_base_version(self):
+        policy = Policy.objects.create(
+            tenant_id='tenant-a', name='Models', policy_type='model_restriction', config={}
+        )
+        self.change.changes = [{'policy_id': str(policy.id), 'config': {'allowed_models': ['gpt-5']}}]
+        self.change.base_versions = {str(policy.id): policy.version - 1}
+        self.change.status = PolicyChangeSet.Status.APPROVED
+        self.change.save(update_fields=['changes', 'base_versions', 'status', 'updated_at'])
+
+        from zentinelle.services.policy_rollout import promote_change_set
+        with self.assertRaisesRegex(ValueError, 'changed since this draft'):
+            promote_change_set(self.change.id, 'tenant-a', actor='operator')
+
+    def test_promotion_updates_policy_and_records_rollback_snapshot(self):
+        policy = Policy.objects.create(
+            tenant_id='tenant-a', name='Models', policy_type='model_restriction', config={'allowed_models': ['gpt-4']}
+        )
+        self.change.changes = [{'policy_id': str(policy.id), 'config': {'allowed_models': ['gpt-5']}}]
+        self.change.base_versions = {str(policy.id): policy.version}
+        self.change.status = PolicyChangeSet.Status.APPROVED
+        self.change.save(update_fields=['changes', 'base_versions', 'status', 'updated_at'])
+
+        from zentinelle.services.policy_rollout import promote_change_set
+        promoted = promote_change_set(self.change.id, 'tenant-a', actor='operator')
+        policy.refresh_from_db()
+        self.assertEqual(promoted.status, PolicyChangeSet.Status.PROMOTED)
+        self.assertEqual(policy.config, {'allowed_models': ['gpt-5']})
+        self.assertEqual(promoted.applied_snapshots[0]['snapshot']['version'], 1)
 
 
 class PolicyChangeSetAPITests(TestCase):

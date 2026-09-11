@@ -20,6 +20,7 @@ def _serialize(change):
         'changes': change.changes,
         'base_versions': change.base_versions,
         'validation': change.validation,
+        'applied_snapshots': change.applied_snapshots,
         'target_selectors': change.target_selectors,
         'created_by': change.created_by,
         'reviewed_by': change.reviewed_by,
@@ -91,7 +92,12 @@ class PolicyChangeSetTransitionView(APIView):
             return Response({'detail': 'Unknown policy change status.'}, status=status.HTTP_400_BAD_REQUEST)
         actor = str(getattr(request.user, 'pk', '') or getattr(request.user, 'username', '') or 'operator')
         try:
-            change.transition(next_status, actor=actor, validation=data.get('validation'))
+            if next_status == PolicyChangeSet.Status.PROMOTED:
+                from zentinelle.services.policy_rollout import \
+                    promote_change_set
+                change = promote_change_set(change.id, tenant_id, actor=actor)
+            else:
+                change.transition(next_status, actor=actor, validation=data.get('validation'))
         except ValueError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
         return Response(_serialize(change))

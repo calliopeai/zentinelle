@@ -28,6 +28,8 @@ class PolicyChangeSet(models.Model):
     base_versions = models.JSONField(default=dict)
     # Structured validation/simulation/replay evidence captured before promotion.
     validation = models.JSONField(default=dict)
+    # Snapshots captured immediately before promotion for rollback/review.
+    applied_snapshots = models.JSONField(default=list)
     # Scope/tag selectors used to identify affected workloads.
     target_selectors = models.JSONField(default=dict)
     created_by = models.CharField(max_length=255, default='system')
