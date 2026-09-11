@@ -215,6 +215,8 @@ class PolicyEngine:
         - The final result always has allowed=True
         - The result has dry_run=True so callers can distinguish
         """
+        if context is not None and not isinstance(context, dict):
+            return EvaluationResult(allowed=False, reason='evaluation context must be an object')
         context = dict(context or {})
         from zentinelle.services.authority import normalize_authority
         try:
