@@ -62,6 +62,7 @@ import {
   SparklesIcon,
   LayersIcon,
   UploadIcon,
+  ShieldCheckIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -100,6 +101,7 @@ const sections: NavSection[] = [
       { title: "Scanner Dashboard", url: "/content-rules/scanner", icon: <ScanSearchIcon /> },
       { title: "Models", url: "/models", icon: <CpuIcon /> },
       { title: "Model Compare", url: "/models/compare", icon: <BarChart3Icon /> },
+      { title: "ATLAS Controls", url: "/threats/atlas", icon: <ShieldCheckIcon /> },
     ],
   },
   {
