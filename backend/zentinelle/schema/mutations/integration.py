@@ -5,15 +5,13 @@ Allows standalone Zentinelle tenants to connect to Calliope AI Client Cove
 for delegated auth. Credentials are stored in DB and the connection is
 tested before saving.
 """
-import strawberry
 import httpx
+import strawberry
 
-from zentinelle.schema.types import (
-    TestClientCoveConnectionPayload,
-    SaveClientCoveConfigPayload,
-    DisconnectClientCovePayload,
-    TestWebhookPayload,
-)
+from zentinelle.schema.types import (DisconnectClientCovePayload,
+                                     SaveClientCoveConfigPayload,
+                                     TestClientCoveConnectionPayload,
+                                     TestWebhookPayload)
 
 
 def _test_connection(base_url: str, api_key: str) -> tuple[bool, str]:
@@ -55,9 +53,10 @@ def test_client_cove_connection(info: strawberry.types.Info, url: str, api_key: 
 
 
 def save_client_cove_config(info: strawberry.types.Info, url: str, api_key: str) -> SaveClientCoveConfigPayload:
-    from zentinelle.models.integration import ClientCoveIntegration
-    from zentinelle.schema.auth_helpers import get_request_tenant_id, require_request_tenant_id
     from django.utils import timezone
+
+    from zentinelle.models.integration import ClientCoveIntegration
+    from zentinelle.schema.auth_helpers import require_request_tenant_id
 
     tenant_id = require_request_tenant_id(info.context.request.user)
     base_url = url.rstrip('/')
@@ -106,7 +105,7 @@ def test_webhook(info: strawberry.types.Info, url: str) -> TestWebhookPayload:
 
 def disconnect_client_cove(info: strawberry.types.Info) -> DisconnectClientCovePayload:
     from zentinelle.models.integration import ClientCoveIntegration
-    from zentinelle.schema.auth_helpers import get_request_tenant_id
+    from zentinelle.schema.auth_helpers import require_request_tenant_id
 
     tenant_id = require_request_tenant_id(info.context.request.user)
     ClientCoveIntegration.objects.filter(tenant_id=tenant_id).delete()

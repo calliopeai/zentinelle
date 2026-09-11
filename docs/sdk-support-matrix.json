@@ -1,0 +1,24 @@
+{
+  "contract_version": "1",
+  "server_commit": "main",
+  "sdk_repository_revision": "404c20aec637004dc6bf81bd9fff727641caedf9",
+  "generated_at": "2026-09-11",
+  "fixtures": {
+    "registration": "backend/zentinelle/tests/test_sdk_contract.py",
+    "identity_impersonation_rejection": "backend/zentinelle/tests/test_dependable_controls.py",
+    "policy_allow_deny_trace": "backend/zentinelle/tests/test_e2e_pipeline.py",
+    "revoked_key": "backend/zentinelle/tests/test_api_views.py",
+    "streaming_tools": "backend/zentinelle/tests/test_proxy.py",
+    "agent_taxonomy": "tests/contracts/agent-taxonomy.json",
+    "browser_agent_taxonomy": "tests/contracts/agent-taxonomy-browser.json"
+  },
+  "implementations": [
+    {"name": "python", "path": "python/zentinelle", "status": "contract-tested", "limitations": ["framework callback enforcement varies by adapter"]},
+    {"name": "typescript", "path": "typescript/src", "status": "contract-tested", "limitations": ["direct provider calls outside proxy are deployment responsibility"]},
+    {"name": "go", "path": "go/zentinelle", "status": "contract-tested", "limitations": ["provider route coverage is explicit, not generic"]},
+    {"name": "java", "path": "java/src/main/java/ai/zentinelle", "status": "sdk-contract-tested", "limitations": ["clean-checkout runtime fixture is CI-only; direct provider bypass remains deployment responsibility"]},
+    {"name": "csharp", "path": "csharp/src/Zentinelle", "status": "sdk-contract-tested", "limitations": ["clean-checkout runtime fixture is CI-only; direct provider bypass remains deployment responsibility"]},
+    {"name": "gateway", "path": "gateway", "status": "gateway-contract-tested", "limitations": ["direct provider bypass remains outside gateway boundary"]},
+    {"name": "browser", "path": "frontend", "status": "browser-contract-tested", "limitations": ["browser cannot enforce unmanaged agent paths"]}
+  ]
+}

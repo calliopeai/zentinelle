@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -33,6 +33,9 @@ import {
   TerminalIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { authenticatedFetch } from "@/lib/auth/fetch";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
 
 import {
   useMyOrganization,
@@ -358,6 +361,28 @@ function SettingsForm({ organization }: { organization: OrganizationData }) {
   );
 }
 
+function RuntimeProvenance() {
+  const [effective, setEffective] = useState<Record<string, { source?: string; changed_at?: string | null; changed_by?: { name?: string; id?: string } | null }>>({});
+  useEffect(() => { authenticatedFetch(`${API_URL}/settings/runtime`).then((response) => response.json()).then((data) => setEffective(data.effective ?? {})).catch(() => undefined); }, []);
+  const entries = Object.entries(effective);
+  if (!entries.length) return null;
+  return <Card><CardHeader><CardTitle className="text-base">Effective runtime provenance</CardTitle><CardDescription>Where each runtime value comes from and who last changed it.</CardDescription></CardHeader><CardContent><div className="grid gap-2 sm:grid-cols-2">{entries.map(([key, info]) => <div key={key} className="rounded-md border p-2 text-xs"><span className="font-medium">{key}</span><span className="text-muted-foreground"> · {info.source ?? "unknown"}{info.changed_by?.name ? ` · ${info.changed_by.name}` : ""}{info.changed_at ? ` · ${new Date(info.changed_at).toLocaleString()}` : ""}</span></div>)}</div></CardContent></Card>;
+}
+
+function RuntimeSettingsPanel() {
+  const [values, setValues] = useState({ assistant_model: "", assistant_provider: "", content_capture_mode: "metadata", assistant_allowed_topics: "", taxonomy_extensions: "", policy_copilot_enabled: false, control_approval_required: false, discovery_refresh_seconds: 3600, model_visibility: "enabled_only", default_rate_limit_per_minute: 60, default_budget_cents: 0 });
+  const [revision, setRevision] = useState(0);
+  const [revisions, setRevisions] = useState<Array<{ revision: number; actor_name?: string; actor_id?: string; created_at: string }>>([]);
+  const [pendingChange, setPendingChange] = useState<{ id: string; status: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const load = () => authenticatedFetch(`${API_URL}/settings/runtime`).then((r) => r.json()).then((data) => { const s = data.settings ?? {}; setValues((v) => ({ ...v, ...s, assistant_allowed_topics: (s.assistant_allowed_topics ?? []).join(", "), taxonomy_extensions: (s.taxonomy_extensions ?? []).join(", ") })); setRevision(data.revision ?? 0); setRevisions(data.revisions ?? []); }).catch(() => undefined);
+  useEffect(() => { load(); }, []);
+  const save = async () => { setSaving(true); try { const response = await authenticatedFetch(`${API_URL}/settings/runtime/changes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ settings: { ...values, assistant_allowed_topics: values.assistant_allowed_topics.split(",").map((v) => v.trim()).filter(Boolean), taxonomy_extensions: values.taxonomy_extensions.split(",").map((v) => v.trim()).filter(Boolean) } }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error ?? "Unable to stage runtime settings"); setPendingChange({ id: data.id, status: data.status }); toast.success("Runtime settings staged for approval"); } catch (error) { toast.error(error instanceof Error ? error.message : "Unable to stage runtime settings"); } finally { setSaving(false); } };
+  const transition = async (status: "approved" | "applied") => { if (!pendingChange) return; setSaving(true); try { const response = await authenticatedFetch(`${API_URL}/settings/runtime/changes/${pendingChange.id}/transition`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error ?? `Unable to ${status} runtime settings`); setPendingChange({ id: data.id, status: data.status }); if (status === "applied") await load(); toast.success(`Runtime settings ${status}`); } catch (error) { toast.error(error instanceof Error ? error.message : `Unable to ${status} runtime settings`); } finally { setSaving(false); } };
+  const rollback = async (targetRevision: number) => { setSaving(true); try { const response = await authenticatedFetch(`${API_URL}/settings/runtime/rollback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ revision: targetRevision, expected_revision: revision }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error ?? "Unable to roll back runtime settings"); await load(); toast.success(`Rolled back to revision ${targetRevision}`); } catch (error) { toast.error(error instanceof Error ? error.message : "Unable to roll back runtime settings"); } finally { setSaving(false); } };
+  return <Card><CardHeader><CardTitle className="text-base">Runtime globals</CardTitle><CardDescription>Tenant-scoped assistant, model discovery, capture, taxonomy, rate, budget, and approval controls. Bootstrap secrets stay outside this surface.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="runtime-provider">Assistant provider</Label><Input id="runtime-provider" value={values.assistant_provider} onChange={(e) => setValues({ ...values, assistant_provider: e.target.value })} /></div><div className="space-y-2"><Label htmlFor="runtime-model">Assistant model</Label><Input id="runtime-model" value={values.assistant_model} onChange={(e) => setValues({ ...values, assistant_model: e.target.value })} /></div><div className="space-y-2"><Label htmlFor="runtime-capture">Content capture mode</Label><Select value={values.content_capture_mode} onValueChange={(value) => setValues({ ...values, content_capture_mode: value })}><SelectTrigger id="runtime-capture"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="metadata">Metadata only</SelectItem><SelectItem value="redacted">Redacted content</SelectItem><SelectItem value="full">Full content</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label htmlFor="runtime-visibility">Model visibility</Label><Select value={values.model_visibility} onValueChange={(value) => setValues({ ...values, model_visibility: value })}><SelectTrigger id="runtime-visibility"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="enabled_only">Enabled models</SelectItem><SelectItem value="all_registered">All registered</SelectItem><SelectItem value="approved_only">Approved by policy</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label htmlFor="runtime-refresh">Discovery refresh (seconds)</Label><Input id="runtime-refresh" type="number" min={300} max={86400} value={values.discovery_refresh_seconds} onChange={(e) => setValues({ ...values, discovery_refresh_seconds: Number(e.target.value) })} /></div><div className="space-y-2"><Label htmlFor="runtime-rate">Default rate limit/minute</Label><Input id="runtime-rate" type="number" min={1} max={100000} value={values.default_rate_limit_per_minute} onChange={(e) => setValues({ ...values, default_rate_limit_per_minute: Number(e.target.value) })} /></div><div className="space-y-2"><Label htmlFor="runtime-budget">Default budget (cents)</Label><Input id="runtime-budget" type="number" min={0} max={100000000} value={values.default_budget_cents} onChange={(e) => setValues({ ...values, default_budget_cents: Number(e.target.value) })} /></div><div className="space-y-2"><Label htmlFor="runtime-topics">Allowed assistant topics</Label><Input id="runtime-topics" placeholder="governance, policies" value={values.assistant_allowed_topics} onChange={(e) => setValues({ ...values, assistant_allowed_topics: e.target.value })} /></div><div className="space-y-2 sm:col-span-2"><Label htmlFor="runtime-taxonomy">Taxonomy extensions</Label><Input id="runtime-taxonomy" placeholder="project:phoenix, client:acme" value={values.taxonomy_extensions} onChange={(e) => setValues({ ...values, taxonomy_extensions: e.target.value })} /></div></div><div className="flex items-center justify-between rounded-lg border p-3"><div><Label>Policy copilot</Label><p className="text-muted-foreground text-xs">Requires an active provider key.</p></div><Switch checked={values.policy_copilot_enabled} onCheckedChange={(checked) => setValues({ ...values, policy_copilot_enabled: checked })} /></div><div className="flex items-center justify-between rounded-lg border p-3"><div><Label>Require containment approval</Label><p className="text-muted-foreground text-xs">Require exact human approval for suspend, revoke, and tool containment.</p></div><Switch checked={values.control_approval_required} onCheckedChange={(checked) => setValues({ ...values, control_approval_required: checked })} /></div><div className="flex items-center justify-between"><span className="text-muted-foreground text-xs">Revision {revision}</span><Button size="sm" onClick={save} disabled={saving}>{saving ? "Staging…" : "Stage runtime settings"}</Button></div>{pendingChange && <div className="rounded-md border p-3 text-sm"><p>Pending change <code>{pendingChange.id}</code>: <strong>{pendingChange.status}</strong></p>{pendingChange.status === "staged" && <Button size="sm" onClick={() => transition("approved")} disabled={saving}>Approve</Button>}{pendingChange.status === "approved" && <Button size="sm" onClick={() => transition("applied")} disabled={saving}>Apply</Button>}</div>}{revisions.length > 0 && <div className="border-t pt-3"><Label>Recent revisions</Label><div className="mt-2 space-y-2">{revisions.map((entry) => <div key={entry.revision} className="flex items-center justify-between text-xs"><span>Revision {entry.revision} · {entry.actor_name || entry.actor_id || "system"} · {new Date(entry.created_at).toLocaleString()}</span>{entry.revision !== revision && <Button variant="outline" size="sm" onClick={() => rollback(entry.revision)} disabled={saving}>Rollback</Button>}</div>)}</div></div>}</CardContent></Card>;
+}
+
 export default function SettingsPage() {
   const { organization, loading } = useMyOrganization();
 
@@ -390,6 +415,9 @@ export default function SettingsPage() {
           organization={organization}
         />
       )}
+
+      <RuntimeSettingsPanel />
+      <RuntimeProvenance />
 
       <Card>
         <CardHeader>

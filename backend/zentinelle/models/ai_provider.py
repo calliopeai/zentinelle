@@ -8,7 +8,9 @@ Each provider has different capabilities:
 - Admin API: Full admin API for key lifecycle management?
 """
 import uuid
+
 from django.db import models
+
 from zentinelle.models.base import Tracking
 
 

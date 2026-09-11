@@ -14,6 +14,7 @@ try:
 except ImportError:
     class Features:
         ZENTINELLE_COMPLIANCE_CHECKS = 'zentinelle_compliance_checks'
+
     def require_feature_for_mutation(feature):
         def decorator(fn):
             return fn
@@ -126,7 +127,7 @@ def toggle_framework(info: strawberry.types.Info, framework_id: strawberry.ID, e
         return ToggleFrameworkPayload(framework=None, errors=['Authentication required'])
 
     from zentinelle.models import ComplianceFrameworkConfig
-    from zentinelle.schema.auth_helpers import get_request_tenant_id, require_request_tenant_id
+    from zentinelle.schema.auth_helpers import require_request_tenant_id
     tenant_id = require_request_tenant_id(info.context.request.user)
 
     config, _ = ComplianceFrameworkConfig.objects.update_or_create(

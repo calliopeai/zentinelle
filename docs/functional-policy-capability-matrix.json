@@ -1,0 +1,14 @@
+{
+  "contract_version": "1",
+  "purpose": "Evidence map for functional policy enforcement across managed agent boundaries.",
+  "disclaimer": "Operational coverage map; deployment controls and unmanaged direct-provider paths remain customer responsibilities.",
+  "boundaries": [
+    {"id": "ingress", "actions": ["request", "identity"], "resource": "action", "mode": "enforce", "evidence": "backend/zentinelle/tests/test_sdk_contract.py", "brocs_domain": "run", "atlas": []},
+    {"id": "model", "actions": ["llm:invoke", "llm:response"], "resource": "model", "mode": "enforce", "evidence": "backend/zentinelle/tests/test_model_route_guard.py", "brocs_domain": "secure", "atlas": ["AML.T0051", "AML.T0057"]},
+    {"id": "retrieval", "actions": ["retrieval", "rag.retrieve", "data_access"], "resource": "retrieval", "mode": "enforce_or_unsupported", "evidence": "backend/zentinelle/tests/test_evaluator_suite.py", "brocs_domain": "run", "atlas": ["AML.T0080", "AML.T0057"]},
+    {"id": "tool", "actions": ["tool_call", "mcp.tool_call"], "resource": "tool", "mode": "enforce", "evidence": "backend/zentinelle/tests/test_tool_route_authority.py", "brocs_domain": "secure", "atlas": ["AML.T0053", "AML.T0086"]},
+    {"id": "workflow", "actions": ["workflow.transition", "workflow"], "resource": "workflow", "mode": "enforce_or_unsupported", "evidence": "backend/zentinelle/tests/test_policy_engine.py", "brocs_domain": "control", "atlas": ["AML.T0081"]},
+    {"id": "egress", "actions": ["egress", "network.egress"], "resource": "egress", "mode": "enforce_or_deployment", "evidence": "gateway/backend_contract_test.go", "brocs_domain": "secure", "atlas": ["AML.T0086"]},
+    {"id": "operator", "actions": ["policy_mutation", "agent_control", "runtime_settings"], "resource": "action", "mode": "staged_and_audited", "evidence": "backend/zentinelle/tests/test_policy_change.py", "brocs_domain": "control", "atlas": ["AML.T0081"]}
+  ]
+}

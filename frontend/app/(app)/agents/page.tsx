@@ -1,5 +1,7 @@
 "use client";
 
+import { PermissionGuard } from "@/components/PermissionGuard";
+
 import { useMemo, useState } from "react";
 import { useMutation } from "@apollo/client/react";
 import { type ColumnDef } from "@tanstack/react-table";
@@ -180,6 +182,7 @@ function ActionsCell({
   };
 
   return (
+    <PermissionGuard permission="mutate">
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -203,6 +206,7 @@ function ActionsCell({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </PermissionGuard>
   );
 }
 
@@ -548,10 +552,10 @@ export default function AgentsPage() {
             Manage registered agent endpoints and their status
           </p>
         </div>
-        <Button size="sm" onClick={() => setRegisterOpen(true)}>
+        <PermissionGuard permission="mutate"><Button size="sm" onClick={() => setRegisterOpen(true)}>
           <PlusIcon className="mr-1.5 h-4 w-4" />
           Register Agent
-        </Button>
+        </Button></PermissionGuard>
       </div>
 
       {/* Health summary cards */}

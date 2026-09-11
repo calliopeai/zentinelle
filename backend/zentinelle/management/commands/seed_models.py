@@ -18,7 +18,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         from zentinelle.models import AIProvider
-        from zentinelle.models.model_registry import AIModel, MODEL_FIXTURES
+        from zentinelle.models.model_registry import MODEL_FIXTURES, AIModel
 
         force = options.get('force', False)
         created = 0

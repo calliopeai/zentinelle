@@ -3,7 +3,8 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from zentinelle.models import Policy
-from zentinelle.services.evaluators.base import BasePolicyEvaluator, PolicyResult
+from zentinelle.services.evaluators.base import (BasePolicyEvaluator,
+                                                 PolicyResult)
 
 logger = logging.getLogger(__name__)
 
@@ -98,12 +99,12 @@ class SessionQuotaEvaluator(BasePolicyEvaluator):
         # Map: counter_name → (config_key, limit, human_label)
         # ----------------------------------------------------------------
         checks = [
-            ('bytes_read',      'max_bytes_read',      'bytes read'),
-            ('bytes_written',   'max_bytes_written',   'bytes written'),
-            ('outbound_calls',  'max_outbound_calls',  'outbound calls'),
-            ('pii_accesses',    'max_pii_accesses',    'PII accesses'),
-            ('tool_calls',      'max_tool_calls',      'tool calls'),
-            ('session_tokens',  'max_session_tokens',  'session tokens'),
+            ('bytes_read', 'max_bytes_read', 'bytes read'),
+            ('bytes_written', 'max_bytes_written', 'bytes written'),
+            ('outbound_calls', 'max_outbound_calls', 'outbound calls'),
+            ('pii_accesses', 'max_pii_accesses', 'PII accesses'),
+            ('tool_calls', 'max_tool_calls', 'tool calls'),
+            ('session_tokens', 'max_session_tokens', 'session tokens'),
         ]
 
         for counter, config_key, label in checks:

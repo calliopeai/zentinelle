@@ -19,9 +19,12 @@ Optional:
     OIDC_ROLE_CLAIM     — claim that maps to role (default: "role")
     OIDC_POST_LOGIN_URL — where to redirect after login (default: "/")
 """
+import base64
+import hashlib
 import logging
 import os
 import secrets
+import time
 from urllib.parse import urlencode
 
 import httpx
@@ -46,31 +49,28 @@ def _get_config():
         'scopes': os.environ.get('OIDC_SCOPES', 'openid email profile'),
         'tenant_claim': os.environ.get('OIDC_TENANT_CLAIM', 'org_id'),
         'role_claim': os.environ.get('OIDC_ROLE_CLAIM', 'role'),
+        'expected_tenant': os.environ.get('OIDC_EXPECTED_TENANT', ''),
         'post_login_url': os.environ.get('OIDC_POST_LOGIN_URL', '/'),
     }
 
 
+def _cached_document(url: str, refresh: bool = False) -> dict:
+    cached = _discovery_cache.get(url)
+    if not refresh and cached and cached[0] > time.monotonic():
+        return cached[1]
+    response = httpx.get(url, timeout=10.0)
+    response.raise_for_status()
+    data = response.json()
+    _discovery_cache[url] = (time.monotonic() + 300, data)
+    return data
+
+
 def _discover(discovery_url: str) -> dict:
-    if discovery_url in _discovery_cache:
-        return _discovery_cache[discovery_url]
-
-    resp = httpx.get(discovery_url, timeout=10.0)
-    resp.raise_for_status()
-    data = resp.json()
-    _discovery_cache[discovery_url] = data
-    return data
+    return _cached_document(discovery_url)
 
 
-def _get_jwks(jwks_uri: str) -> dict:
-    cache_key = f'jwks:{jwks_uri}'
-    if cache_key in _discovery_cache:
-        return _discovery_cache[cache_key]
-
-    resp = httpx.get(jwks_uri, timeout=10.0)
-    resp.raise_for_status()
-    data = resp.json()
-    _discovery_cache[cache_key] = data
-    return data
+def _get_jwks(jwks_uri: str, refresh: bool = False) -> dict:
+    return _cached_document(jwks_uri, refresh=refresh)
 
 
 class OIDCLoginView(View):
@@ -84,6 +84,9 @@ class OIDCLoginView(View):
         discovery = _discover(config['discovery_url'])
         state = secrets.token_urlsafe(32)
         nonce = secrets.token_urlsafe(32)
+        verifier = secrets.token_urlsafe(64)
+        request.session['oidc_verifier'] = verifier
+        request.session['oidc_started_at'] = time.time()
 
         request.session['oidc_state'] = state
         request.session['oidc_nonce'] = nonce
@@ -95,6 +98,8 @@ class OIDCLoginView(View):
             'scope': config['scopes'],
             'state': state,
             'nonce': nonce,
+            'code_challenge_method': 'S256',
+            'code_challenge': base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode(),
         }
 
         auth_url = f"{discovery['authorization_endpoint']}?{urlencode(params)}"
@@ -113,7 +118,13 @@ class OIDCCallbackView(View):
         code = request.GET.get('code', '')
         state = request.GET.get('state', '')
 
-        if not code or state != request.session.get('oidc_state'):
+        expected_state = request.session.pop('oidc_state', '')
+        expected_nonce = request.session.pop('oidc_nonce', '')
+        verifier = request.session.pop('oidc_verifier', '')
+        started = request.session.pop('oidc_started_at', 0)
+        if (not code or not state or not expected_state or not verifier
+                or not secrets.compare_digest(state, expected_state)
+                or time.time() - started > 600):
             return JsonResponse({'error': 'Invalid state parameter'}, status=400)
 
         discovery = _discover(config['discovery_url'])
@@ -123,6 +134,7 @@ class OIDCCallbackView(View):
             data={
                 'grant_type': 'authorization_code',
                 'code': code,
+                'code_verifier': verifier,
                 'redirect_uri': config['redirect_uri'],
                 'client_id': config['client_id'],
                 'client_secret': config['client_secret'],
@@ -131,7 +143,7 @@ class OIDCCallbackView(View):
         )
 
         if token_resp.status_code != 200:
-            logger.warning('OIDC token exchange failed: %s', token_resp.text[:500])
+            logger.warning('OIDC token exchange failed with status %s', token_resp.status_code)
             return JsonResponse({'error': 'Token exchange failed'}, status=400)
 
         tokens = token_resp.json()
@@ -144,10 +156,15 @@ class OIDCCallbackView(View):
             return JsonResponse({'error': 'Token validation failed'}, status=400)
 
         nonce = claims.get('nonce', '')
-        if nonce != request.session.get('oidc_nonce'):
+        if not expected_nonce or not isinstance(nonce, str) or not secrets.compare_digest(nonce, expected_nonce):
             return JsonResponse({'error': 'Nonce mismatch'}, status=400)
 
-        user = self._provision_user(claims, config)
+        try:
+            user = self._provision_user(claims, config)
+        except ValueError:
+            return JsonResponse({'error': 'Identity is not authorized for this deployment'}, status=403)
+        if not user.is_active:
+            return JsonResponse({'error': 'Account is disabled'}, status=403)
         login(request, user)
 
         request.session.pop('oidc_state', None)
@@ -168,15 +185,27 @@ class OIDCCallbackView(View):
                 break
 
         if key is None:
+            for k in _get_jwks(discovery['jwks_uri'], refresh=True).get('keys', []):
+                if k.get('kid') == kid:
+                    key = jwt.algorithms.RSAAlgorithm.from_jwk(k)
+                    break
+        if key is None:
             raise ValueError(f'No matching JWK for kid={kid}')
 
-        return jwt.decode(
+        claims = jwt.decode(
             id_token,
             key=key,
             algorithms=['RS256'],
             audience=config['client_id'],
-            issuer=discovery.get('issuer'),
+            issuer=discovery['issuer'],
+            options={'require': ['iss', 'sub', 'aud', 'exp', 'iat', 'nonce']},
         )
+        if isinstance(claims['aud'], list) and len(claims['aud']) > 1:
+            if claims.get('azp') != config['client_id']:
+                raise ValueError('Invalid authorized party')
+        if not isinstance(claims['sub'], str) or not claims['sub']:
+            raise ValueError('Missing subject')
+        return claims
 
     def _provision_user(self, claims: dict, config: dict):
         from zentinelle.auth.roles import (ROLE_ADMIN, ROLE_OPERATOR,
@@ -188,10 +217,20 @@ class OIDCCallbackView(View):
         # Extract tenant and role from claims using configured claim names
         tenant_id = claims.get(config['tenant_claim'], '')
         role = claims.get(config['role_claim'], '')
+        if not isinstance(role, str):
+            role = ''
 
+        issuer = claims.get('iss', '')
+        if not issuer or not sub:
+            raise ValueError('Issuer and subject are required')
+        if tenant_id and not config.get('expected_tenant'):
+            raise ValueError('Configure OIDC_EXPECTED_TENANT before accepting tenant-bearing identities')
+        if config.get('expected_tenant') and tenant_id != config['expected_tenant']:
+            raise ValueError('Tenant is not authorized')
         is_admin = role == 'admin'
 
-        username = email or sub
+        # Email is a profile attribute, never an account-linking credential.
+        username = 'oidc_' + hashlib.sha256((issuer + '\0' + sub).encode()).hexdigest()
         user, created = User.objects.get_or_create(
             username=username,
             defaults={
@@ -208,12 +247,15 @@ class OIDCCallbackView(View):
             user.first_name = claims.get('given_name', user.first_name)
             user.last_name = claims.get('family_name', user.last_name)
             user.is_staff = is_admin
-            user.save(update_fields=['email', 'first_name', 'last_name', 'is_staff'])
+            user.is_superuser = False
+            user.save(update_fields=['email', 'first_name', 'last_name', 'is_staff', 'is_superuser'])
 
         # Assign Zentinelle RBAC role based on OIDC claim
         role_map = {'admin': ROLE_ADMIN, 'operator': ROLE_OPERATOR, 'viewer': ROLE_VIEWER}
-        if role in role_map:
-            assign_role(user, role_map[role])
+        assign_role(user, role_map.get(role, ROLE_VIEWER))
+        if created:
+            user.set_unusable_password()
+            user.save(update_fields=['password'])
 
         if created:
             logger.info('OIDC: provisioned new user %s (tenant=%s, role=%s)', username, tenant_id, role)

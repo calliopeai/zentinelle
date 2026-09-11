@@ -13,9 +13,10 @@ Policy config example:
 }
 """
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from zentinelle.models import Policy
+
 from .base import BasePolicyEvaluator, PolicyResult
 
 logger = logging.getLogger(__name__)

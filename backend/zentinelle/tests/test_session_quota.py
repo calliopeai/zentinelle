@@ -1,6 +1,7 @@
 """Unit tests for SessionQuotaEvaluator."""
-import sys
+import importlib.util as _ilu
 import os
+import sys
 import types
 import unittest
 from typing import Dict
@@ -9,6 +10,8 @@ from unittest.mock import MagicMock, patch
 # ---------------------------------------------------------------------------
 # Stub out Django modules BEFORE any zentinelle imports.
 # ---------------------------------------------------------------------------
+
+
 def _stub_django():
     for mod_name in [
         'django',
@@ -59,8 +62,10 @@ if 'zentinelle.models' not in sys.modules:
     class _PolicyStub:
         class PolicyType:
             pass
+
         class ScopeType:
             ORGANIZATION = 'organization'
+
         class Enforcement:
             ENFORCE = 'enforce'
             AUDIT = 'audit'
@@ -74,7 +79,6 @@ if 'zentinelle.models' not in sys.modules:
 # Stub zentinelle.services.evaluators.base (inline, no Django)
 # ---------------------------------------------------------------------------
 _base_path = os.path.join(os.path.dirname(__file__), '..', 'services', 'evaluators', 'base.py')
-import importlib.util as _ilu
 
 _base_spec = _ilu.spec_from_file_location(
     'zentinelle.services.evaluators.base', os.path.abspath(_base_path)
@@ -238,11 +242,11 @@ class TestSessionQuotaEvaluator(unittest.TestCase):
     def test_multiple_counters_checked(self):
         """Each counter type should be independently enforced."""
         counters_and_context = [
-            ('max_bytes_written', {'bytes_written': 1},        'bytes written'),
+            ('max_bytes_written', {'bytes_written': 1}, 'bytes written'),
             ('max_outbound_calls', {'is_outbound_call': True}, 'outbound calls'),
-            ('max_pii_accesses',  {'is_pii_access': True},     'PII accesses'),
-            ('max_tool_calls',    {'tool_call_count': 1},      'tool calls'),
-            ('max_session_tokens', {'tokens_used': 1},         'session tokens'),
+            ('max_pii_accesses', {'is_pii_access': True}, 'PII accesses'),
+            ('max_tool_calls', {'tool_call_count': 1}, 'tool calls'),
+            ('max_session_tokens', {'tokens_used': 1}, 'session tokens'),
         ]
         for config_key, extra_ctx, label in counters_and_context:
             with self.subTest(counter=config_key):

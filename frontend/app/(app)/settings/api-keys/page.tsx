@@ -1,5 +1,7 @@
 "use client";
 
+import { withPermissionAuthenticationRequired } from "@/components/PermissionGuard";
+
 import { useState } from "react";
 import {
   Card,
@@ -45,7 +47,7 @@ const SCOPES = [
   { value: "*", label: "Full Access (Admin)" },
 ];
 
-export default function ApiKeysPage() {
+function ApiKeysPage() {
   const { keys, loading } = useApiKeys();
   const [createKey] = useCreatePlatformApiKey();
   const [revokeKey] = useRevokeApiKey();
@@ -341,3 +343,5 @@ export default function ApiKeysPage() {
     </div>
   );
 }
+
+export default withPermissionAuthenticationRequired(ApiKeysPage, "admin");

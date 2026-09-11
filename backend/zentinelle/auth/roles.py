@@ -29,12 +29,14 @@ def ensure_groups_exist():
 
 def get_role(user) -> str:
     """Return the user's highest Zentinelle role, or 'viewer' as default."""
-    if not user or not getattr(user, 'is_authenticated', False):
+    if not user or not getattr(user, 'is_authenticated', False) or not getattr(user, 'is_active', True):
         return ''
 
     if getattr(user, 'is_superuser', False):
         return ROLE_ADMIN
 
+    if not hasattr(user, 'groups'):
+        return ''  # Workload credentials never acquire a human portal role.
     group_names = set(user.groups.values_list('name', flat=True))
 
     if ROLE_ADMIN in group_names:

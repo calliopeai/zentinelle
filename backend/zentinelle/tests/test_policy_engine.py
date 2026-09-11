@@ -1,17 +1,12 @@
 """
 Tests for the Policy Engine service.
 """
-from django.test import TestCase
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from zentinelle.models import (
-    AgentEndpoint,
-    Policy,
-)
-from zentinelle.services.policy_engine import (
-    PolicyEngine,
-    PolicyResult,
-)
+from django.test import TestCase
+
+from zentinelle.models import AgentEndpoint, Policy
+from zentinelle.services.policy_engine import PolicyEngine, PolicyResult
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 
@@ -52,10 +47,38 @@ class PolicyEngineTest(TestCase):
         self.assertEqual(len(policies), 1)
         self.assertEqual(policies[0].id, policy.id)
 
+    def test_taxonomy_selector_requires_all_labels(self):
+        selected = Policy.objects.create(
+            tenant_id=STANDALONE_TENANT, name='Support restriction',
+            policy_type=Policy.PolicyType.TOOL_PERMISSION,
+            config={'taxonomy_selectors': ['function:customer_service', 'data:regulated']},
+        )
+        Policy.objects.create(
+            tenant_id=STANDALONE_TENANT, name='Legal restriction',
+            policy_type=Policy.PolicyType.TOOL_PERMISSION,
+            config={'taxonomy_selectors': ['function:legal']},
+        )
+        self.endpoint.metadata = {'taxonomy': {'supported': ['function:customer_service', 'data:regulated']}}
+        self.endpoint.save(update_fields=['metadata'])
+        policies = self.engine.get_effective_policies(self.endpoint, use_cache=False)
+        self.assertEqual([policy.id for policy in policies], [selected.id])
+
+    def test_malformed_enforced_taxonomy_selector_denies_closed(self):
+        Policy.objects.bulk_create([Policy(
+            tenant_id=STANDALONE_TENANT, name='Corrupt selector',
+            policy_type=Policy.PolicyType.TOOL_PERMISSION,
+            config={'taxonomy_selectors': ['function:legal', 42]},
+            enforcement=Policy.Enforcement.ENFORCE,
+        )])
+        result = self.engine.evaluate(self.endpoint, 'tool_call', context={'tool_name': 'search'})
+        self.assertFalse(result.allowed)
+        self.assertIn('malformed taxonomy', result.reason)
+
     def test_policy_inheritance_more_specific_wins(self):
         """Test that more specific scope overrides broader scope."""
-        org_policy = Policy.objects.create(
+        Policy.objects.create(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Org Rate Limit',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -65,6 +88,7 @@ class PolicyEngineTest(TestCase):
 
         endpoint_policy = Policy.objects.create(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Endpoint Rate Limit',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ENDPOINT,
@@ -87,6 +111,7 @@ class PolicyEngineTest(TestCase):
 
         Policy.objects.create(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Org Resource Quota',
             policy_type=Policy.PolicyType.RESOURCE_QUOTA,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -95,6 +120,7 @@ class PolicyEngineTest(TestCase):
 
         deploy_policy = Policy.objects.create(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Deploy Resource Quota',
             policy_type=Policy.PolicyType.RESOURCE_QUOTA,
             scope_type=Policy.ScopeType.DEPLOYMENT,
@@ -192,6 +218,7 @@ class PolicyEngineTest(TestCase):
         """Test that higher priority policies win within same scope."""
         Policy.objects.create(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Low Priority',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -200,6 +227,7 @@ class PolicyEngineTest(TestCase):
         )
         high_priority = Policy.objects.create(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='High Priority',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -399,6 +427,7 @@ class PolicyMergingTest(TestCase):
         """Test that later layers override earlier ones."""
         org_policy = Policy(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Org Policy',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ORGANIZATION,
@@ -408,6 +437,7 @@ class PolicyMergingTest(TestCase):
 
         endpoint_policy = Policy(
             tenant_id=STANDALONE_TENANT,
+            override_group='test-inheritance',
             name='Endpoint Policy',
             policy_type=Policy.PolicyType.RATE_LIMIT,
             scope_type=Policy.ScopeType.ENDPOINT,

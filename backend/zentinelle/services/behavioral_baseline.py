@@ -22,7 +22,7 @@ Stats stored:
 import json
 import logging
 import math
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from django.core.cache import cache
 
@@ -89,8 +89,10 @@ def recompute_baseline(
     Called by the Celery beat task. Returns the computed stats dict or None if
     insufficient data.
     """
-    from django.utils import timezone
     from datetime import timedelta
+
+    from django.utils import timezone
+
     from zentinelle.models import Event
 
     since = timezone.now() - timedelta(days=window_days)

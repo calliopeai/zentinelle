@@ -4,16 +4,12 @@ OpenAI Admin API key management.
 Docs: https://platform.openai.com/docs/api-reference/api-keys
 """
 import logging
-import httpx
 from datetime import datetime
 
-from .base import (
-    BaseKeyManager,
-    ProviderKeyInfo,
-    KeyCreationError,
-    KeyRevocationError,
-    KeyManagerError,
-)
+import httpx
+
+from .base import (BaseKeyManager, KeyCreationError, KeyManagerError,
+                   KeyRevocationError, ProviderKeyInfo)
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +91,7 @@ class OpenAIKeyManager(BaseKeyManager):
                 key_value=key_data['key'],  # Only available on creation!
                 name=key_data.get('name', name),
                 created_at=datetime.fromisoformat(key_data['created_at'].replace('Z', '+00:00'))
-                    if 'created_at' in key_data else None,
+                if 'created_at' in key_data else None,
                 project_id=project_id,
             )
 

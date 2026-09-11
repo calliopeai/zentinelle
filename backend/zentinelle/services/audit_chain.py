@@ -38,9 +38,7 @@ def _compute_entry_hash(record) -> str:
     verification immediately.
     """
     def _get(obj, attr, default=''):
-        if isinstance(obj, dict):
-            return obj.get(attr, default)
-        value = getattr(obj, attr, default)
+        value = obj.get(attr, default) if isinstance(obj, dict) else getattr(obj, attr, default)
         return default if value is None else value
 
     timestamp = _get(record, 'timestamp')
@@ -48,6 +46,18 @@ def _compute_entry_hash(record) -> str:
         timestamp_str = timestamp.isoformat()
     else:
         timestamp_str = str(timestamp) if timestamp else ''
+
+    if int(_get(record, 'hash_version', 1)) == 2:
+        fields = ('id', 'tenant_id', 'action', 'ext_user_id', 'api_key_prefix',
+                  'ip_address', 'user_agent', 'resource_type', 'resource_id', 'resource_name')
+        content = {field: str(_get(record, field)) for field in fields}
+        content.update(timestamp=timestamp_str, hash_version=2,
+                       chain_sequence=int(_get(record, 'chain_sequence', 0)),
+                       changes=_get(record, 'changes', {}) or {}, metadata=_get(record, 'metadata', {}) or {})
+        return hashlib.sha256(json.dumps(content, sort_keys=True, separators=(',', ':'),
+                                         ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+    if int(_get(record, 'hash_version', 1)) != 1:
+        raise ValueError('Unsupported audit hash version')
 
     metadata = _get(record, 'metadata', {}) or {}
     try:
@@ -73,157 +83,226 @@ def compute_chain_hash(prev_chain_hash: str, entry_hash: str) -> str:
     return hashlib.sha256(((prev_chain_hash or GENESIS) + entry_hash).encode()).hexdigest()
 
 
-def verify_chain(
-    tenant_id: str,
-    from_sequence: int = 1,
-    to_sequence: Optional[int] = None,
-) -> dict:
-    """
-    Verify the audit chain for a tenant between from_sequence and to_sequence.
+def serialize_record(record):
+    """Lossless, independently verifiable NDJSON representation."""
+    fields = ('id', 'tenant_id', 'ext_user_id', 'api_key_prefix', 'ip_address', 'user_agent',
+              'action', 'resource_type', 'resource_id', 'resource_name', 'changes', 'metadata',
+              'timestamp', 'entry_hash', 'chain_hash', 'chain_sequence', 'hash_version')
+    result = {field: getattr(record, field) for field in fields}
+    result['id'] = str(result['id'])
+    result['timestamp'] = result['timestamp'].isoformat()
+    return result
 
-    Fetches records in order, recomputes entry_hash for each, and verifies
-    chain_hash linkage across all records.
 
-    Records that pre-date the chain being written at all (entry_hash == '')
-    cannot be checked. They are reported in `unverifiable_records` and are
-    never counted in `records_checked`: a count that included them would say
-    more rows had been verified than had been, and `valid` would be a claim
-    about rows nothing could vouch for.
+def _checkpoint_key():
+    from django.conf import settings
+    return getattr(settings, 'AUDIT_CHECKPOINT_SIGNING_KEY', settings.SECRET_KEY)
 
-    Returns:
-        {
-            'valid': bool,
-            'records_checked': int,
-            'broken_at_sequence': int | None,
-            'root_hash': str,           # chain_hash of the last record checked
-        }
-    """
+
+def checkpoint(tenant_id):
+    """An operator can retain this signed head outside the application database."""
+    from django.core import signing
+
+    from zentinelle.models.audit import AuditChainHead
+    head = AuditChainHead.objects.filter(tenant_id=tenant_id).first()
+    payload = {'tenant_id': tenant_id, 'sequence': head.last_sequence if head else 0,
+               'chain_hash': head.last_chain_hash if head else '',
+               'archived_sequence': head.archived_sequence if head else 0,
+               'archived_chain_hash': head.archived_chain_hash if head else ''}
+    return signing.dumps(payload, key=_checkpoint_key(), salt='audit-checkpoint-v1')
+
+
+def verify_chain(tenant_id: str, from_sequence: int = 1,
+                 to_sequence: Optional[int] = None, expected_checkpoint=None) -> dict:
+    from django.db import router, transaction
+
+    from zentinelle.models.audit import AuditChainHead
+    with transaction.atomic(using=router.db_for_write(AuditChainHead)):
+        AuditChainHead.objects.select_for_update().filter(tenant_id=tenant_id).first()
+        return _verify_chain(tenant_id, from_sequence, to_sequence, expected_checkpoint)
+
+
+def _verify_chain(tenant_id: str, from_sequence: int = 1,
+                  to_sequence: Optional[int] = None, expected_checkpoint=None) -> dict:
+    from django.core import signing
+
     from zentinelle.models import AuditLog
+    from zentinelle.models.audit import AuditChainHead
+    head = AuditChainHead.objects.filter(tenant_id=tenant_id).first()
+    archived = head.archived_sequence if head else 0
+    start = max(from_sequence, archived + 1, 1)
+    end = to_sequence if to_sequence is not None else (head.last_sequence if head else 0)
+    result = {'valid': True, 'records_checked': 0,
+              'unverifiable_records': AuditLog.objects.filter(tenant_id=tenant_id, entry_hash='', chain_hash='').count(),
+              'broken_at_sequence': None, 'root_hash': '', 'archived_through_sequence': archived}
 
-    qs = AuditLog.objects.filter(
-        tenant_id=tenant_id,
-        chain_sequence__gte=from_sequence,
-    ).order_by('chain_sequence')
+    def broken(sequence):
+        result.update(valid=False, broken_at_sequence=sequence)
+        return result
 
-    if to_sequence is not None:
-        qs = qs.filter(chain_sequence__lte=to_sequence)
+    if archived and head.archived_checkpoint:
+        try:
+            boundary = signing.loads(head.archived_checkpoint, key=_checkpoint_key(), salt='audit-retention-v1')
+            if boundary != {'tenant_id': tenant_id, 'sequence': archived, 'chain_hash': head.archived_chain_hash}:
+                return broken(archived)
+        except signing.BadSignature:
+            return broken(archived)
+    elif archived:
+        return broken(archived)
 
-    records = list(qs)
-
-    if not records:
-        return {
-            'valid': True,
-            'records_checked': 0,
-            'unverifiable_records': 0,
-            'broken_at_sequence': None,
-            'root_hash': '',
-        }
-
-    records_checked = 0
-    unverifiable = 0
-    root_hash = ''
-
-    # Seed prev_chain: 'genesis' if starting from sequence 1, otherwise
-    # use the previous record's chain_hash so tail-only verification works.
-    if from_sequence > 1:
-        prev_record = AuditLog.objects.filter(
-            tenant_id=tenant_id,
-            chain_sequence=from_sequence - 1,
-        ).first()
-        if prev_record and prev_record.chain_hash:
-            prev_chain = prev_record.chain_hash
-        else:
-            # No predecessor available — can't verify tail-only, fall back to genesis
-            prev_chain = 'genesis'
+    if start == archived + 1:
+        prev = head.archived_chain_hash if archived else GENESIS
     else:
-        prev_chain = 'genesis'
+        predecessor = AuditLog.objects.filter(tenant_id=tenant_id, chain_sequence=start - 1).first()
+        if predecessor is None:
+            return broken(start - 1)
+        prev = predecessor.chain_hash
+    next_sequence = start
+    records = AuditLog.objects.filter(tenant_id=tenant_id, chain_sequence__gte=start)
+    if to_sequence is not None:
+        records = records.filter(chain_sequence__lte=to_sequence)
+    for record in records.order_by('chain_sequence').iterator(chunk_size=500):
+        result['records_checked'] += 1
+        if record.chain_sequence != next_sequence:
+            return broken(next_sequence)
+        try:
+            if _compute_entry_hash(record) != record.entry_hash or compute_chain_hash(prev, record.entry_hash) != record.chain_hash:
+                return broken(record.chain_sequence)
+        except (ValueError, TypeError):
+            return broken(record.chain_sequence)
+        prev = record.chain_hash
+        result['root_hash'] = prev
+        next_sequence += 1
+    if next_sequence != end + 1 and end >= start:
+        return broken(next_sequence)
+    if not head and result['records_checked']:
+        return broken(0)
+    if to_sequence is None and head:
+        if next_sequence - 1 != head.last_sequence or (prev if prev != GENESIS else '') != head.last_chain_hash:
+            return broken(next_sequence)
+    if expected_checkpoint:
+        try:
+            pinned = signing.loads(expected_checkpoint, key=_checkpoint_key(), salt='audit-checkpoint-v1')
+            if pinned['tenant_id'] != tenant_id or not head or pinned['sequence'] > head.last_sequence:
+                return broken(pinned.get('sequence', 0))
+            if pinned['sequence'] > archived:
+                record = AuditLog.objects.filter(tenant_id=tenant_id, chain_sequence=pinned['sequence']).first()
+                if not record or record.chain_hash != pinned['chain_hash']:
+                    return broken(pinned['sequence'])
+            elif pinned['sequence'] < archived:
+                from zentinelle.models.audit import AuditRetentionProof
+                proof = AuditRetentionProof.objects.filter(tenant_id=tenant_id, first_sequence__lte=pinned['sequence'],
+                                                           last_sequence__gte=pinned['sequence']).first()
+                if not proof:
+                    return broken(pinned['sequence'])
+                witness = signing.loads(proof.proof, key=_checkpoint_key(), salt='audit-retention-proof-v1')
+                index = pinned['sequence'] - witness['first_sequence']
+                if witness['tenant_id'] != tenant_id or witness['chain_hashes'][index] != pinned['chain_hash']:
+                    return broken(pinned['sequence'])
+            elif pinned['sequence'] == archived and pinned['chain_hash'] != head.archived_chain_hash:
+                return broken(archived)
+        except (signing.BadSignature, KeyError, TypeError, IndexError):
+            return broken(0)
+    return result
 
-    for record in records:
-        # Records written before the chain was ever computed (#281) carry no
-        # hashes. They are counted separately and never counted as verified:
-        # they cannot be checked, and reporting them as valid would state an
-        # integrity guarantee that did not exist when they were written.
-        #
-        # They are not back-filled either. Hashing them now would make
-        # unverified history indistinguishable from verified history, which is
-        # the one outcome worse than admitting the gap.
-        if not record.entry_hash and not record.chain_hash:
-            unverifiable += 1
-            continue
 
-        records_checked += 1
+def prune_audit_prefix(tenant_id, cutoff):
+    """Delete only an expired contiguous prefix, retaining its signed boundary."""
+    from django.core import signing
+    from django.db import router, transaction
 
-        # Recompute entry hash
-        expected_entry_hash = _compute_entry_hash(record)
-        if expected_entry_hash != record.entry_hash:
-            logger.warning(
-                "Audit chain broken: entry_hash mismatch at sequence %d for tenant %s",
-                record.chain_sequence,
-                tenant_id,
-            )
-            return {
-                'valid': False,
-                'records_checked': records_checked,
-                'unverifiable_records': unverifiable,
-                'broken_at_sequence': record.chain_sequence,
-                'root_hash': root_hash,
-            }
-
-        # Verify chain linkage
-        expected_chain_hash = hashlib.sha256(
-            (prev_chain + record.entry_hash).encode()
-        ).hexdigest()
-        if expected_chain_hash != record.chain_hash:
-            logger.warning(
-                "Audit chain broken: chain_hash mismatch at sequence %d for tenant %s",
-                record.chain_sequence,
-                tenant_id,
-            )
-            return {
-                'valid': False,
-                'records_checked': records_checked,
-                'unverifiable_records': unverifiable,
-                'broken_at_sequence': record.chain_sequence,
-                'root_hash': root_hash,
-            }
-
-        prev_chain = record.chain_hash
-        root_hash = record.chain_hash
-
-    return {
-        'valid': True,
-        'records_checked': records_checked,
-        'unverifiable_records': unverifiable,
-        'broken_at_sequence': None,
-        'root_hash': root_hash,
-    }
+    from zentinelle.models import AuditLog
+    from zentinelle.models.audit import AuditChainHead, AuditRetentionProof
+    from zentinelle.services.retention import held
+    with transaction.atomic(using=router.db_for_write(AuditChainHead)):
+        if held(tenant_id):
+            return 0
+        head = AuditChainHead.objects.select_for_update().filter(tenant_id=tenant_id).first()
+        if not head:
+            return 0
+        if not verify_chain(tenant_id)['valid']:
+            raise ValueError('Refusing retention on a broken audit chain')
+        boundary = None
+        chain_hashes = []
+        first_sequence = head.archived_sequence + 1
+        for record in AuditLog.objects.filter(tenant_id=tenant_id, chain_sequence__gt=head.archived_sequence).order_by('chain_sequence').iterator():
+            if record.timestamp >= cutoff:
+                break
+            boundary = record
+            chain_hashes.append(record.chain_hash)
+        if boundary is None:
+            return 0
+        for offset in range(0, len(chain_hashes), 1000):
+            hashes = chain_hashes[offset:offset + 1000]
+            start = first_sequence + offset
+            proof = {'tenant_id': tenant_id, 'first_sequence': start, 'chain_hashes': hashes}
+            AuditRetentionProof.objects.create(tenant_id=tenant_id, first_sequence=start,
+                                               last_sequence=start + len(hashes) - 1,
+                                               proof=signing.dumps(proof, key=_checkpoint_key(), salt='audit-retention-proof-v1', compress=True))
+        head.archived_sequence = boundary.chain_sequence
+        head.archived_chain_hash = boundary.chain_hash
+        head.archived_checkpoint = signing.dumps(
+            {'tenant_id': tenant_id, 'sequence': boundary.chain_sequence, 'chain_hash': boundary.chain_hash},
+            key=_checkpoint_key(), salt='audit-retention-v1',
+        )
+        head.save(update_fields=['archived_sequence', 'archived_chain_hash', 'archived_checkpoint', 'updated_at'])
+        deleted, _ = AuditLog.objects.filter(tenant_id=tenant_id, chain_sequence__gt=0,
+                                             chain_sequence__lte=boundary.chain_sequence).delete()
+        return deleted
 
 
 def verify_recent(tenant_id: str, limit: int = 100) -> dict:
+    from zentinelle.models.audit import AuditChainHead
+    head = AuditChainHead.objects.filter(tenant_id=tenant_id).first()
+    start = max(1, (head.last_sequence if head else 0) - max(1, min(limit, 10000)) + 1)
+    return verify_chain(tenant_id, from_sequence=start)
+
+
+def stream_evidence_bundle(queryset, tenant_id, selection):
+    """Stream lossless records followed by a signed completeness manifest.
+
+    Consumers must require the last line: interrupted downloads have no valid
+    manifest. The signature needs an independently retained operator key.
     """
-    Verify the most recent N audit records for a tenant.
+    from django.core import signing
+    digest = hashlib.sha256()
+    count = 0
+    for record in queryset.iterator(chunk_size=500):
+        payload = serialize_record(record)
+        if record.entry_hash and _compute_entry_hash(payload) != record.entry_hash:
+            raise ValueError('Refusing to export an invalid audit record')
+        line = json.dumps(payload, sort_keys=True, separators=(',', ':'), ensure_ascii=False) + '\n'
+        digest.update(line.encode())
+        count += 1
+        yield line
+    manifest = {'tenant_id': tenant_id, 'count': count, 'sha256': digest.hexdigest(),
+                'selection': selection, 'checkpoint': checkpoint(tenant_id)}
+    yield json.dumps({'_manifest': signing.dumps(manifest, key=_checkpoint_key(), salt='audit-export-v1')}) + '\n'
 
-    Convenience wrapper around verify_chain that operates on the
-    tail of the chain rather than requiring explicit sequence numbers.
 
-    Returns the same dict as verify_chain.
-    """
-    from zentinelle.models import AuditLog
-
-    # Find the highest sequence number for this tenant
-    last = (
-        AuditLog.objects.filter(tenant_id=tenant_id)
-        .order_by('-chain_sequence')
-        .values_list('chain_sequence', flat=True)
-        .first()
-    )
-    if last is None:
-        return {
-            'valid': True,
-            'records_checked': 0,
-            'broken_at_sequence': None,
-            'root_hash': '',
-        }
-
-    from_sequence = max(1, last - limit + 1)
-    return verify_chain(tenant_id=tenant_id, from_sequence=from_sequence, to_sequence=last)
+def verify_evidence_bundle(lines, tenant_id):
+    """Verify a downloaded bundle without reading the database."""
+    from django.core import signing
+    digest = hashlib.sha256()
+    count = 0
+    manifest = None
+    try:
+        for line in lines:
+            line = line.decode() if isinstance(line, bytes) else line
+            record = json.loads(line)
+            if manifest is not None:
+                return {'valid': False, 'reason': 'Data follows manifest'}
+            if '_manifest' in record:
+                manifest = signing.loads(record['_manifest'], key=_checkpoint_key(), salt='audit-export-v1')
+                continue
+            if record['tenant_id'] != tenant_id:
+                return {'valid': False, 'reason': 'Tenant mismatch'}
+            if record['entry_hash'] and _compute_entry_hash(record) != record['entry_hash']:
+                return {'valid': False, 'reason': 'Record hash mismatch'}
+            digest.update(line.encode())
+            count += 1
+        valid = bool(manifest and manifest['tenant_id'] == tenant_id and
+                     manifest['count'] == count and manifest['sha256'] == digest.hexdigest())
+        return {'valid': valid, 'records_checked': count, 'manifest': manifest}
+    except (ValueError, TypeError, KeyError, signing.BadSignature):
+        return {'valid': False, 'reason': 'Invalid bundle'}

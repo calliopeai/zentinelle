@@ -1,0 +1,13 @@
+{
+  "contract_version": "1",
+  "registration": {
+    "metadata": {
+      "taxonomy": ["function:customer_service", "mode:workflow", "authority:read_only"]
+    }
+  },
+  "expected": {
+    "supported": ["authority:read_only", "function:customer_service", "mode:workflow"],
+    "unsupported": []
+  },
+  "security_invariant": "A child workload may not register an authority tag stronger than its parent."
+}

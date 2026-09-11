@@ -5,7 +5,9 @@ Stores uploaded PDF/DOCX files containing company policies,
 extracts text, and generates system prompts using LLM.
 """
 import uuid
+
 from django.db import models
+
 from zentinelle.models.base import Tracking
 
 

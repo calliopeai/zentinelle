@@ -4,14 +4,18 @@ Tests for event retention TTL enforcement and SIEM export (issue #35).
 All tests use unittest.TestCase + unittest.mock only — no database required.
 """
 import json
+import tempfile
 import unittest
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime
+from datetime import timezone as dt_timezone
 from unittest.mock import MagicMock, patch
 
+from django.test import TestCase
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_policy(
     tenant_id='tenant1',
@@ -53,6 +57,14 @@ def _make_audit_record(
     r.resource_id = resource_id
     r.chain_sequence = chain_sequence
     r.entry_hash = entry_hash
+    r.hash_version = 2
+    r.chain_hash = 'chain-hash'
+    r.api_key_prefix = ''
+    r.ip_address = None
+    r.user_agent = ''
+    r.resource_name = ''
+    r.changes = {}
+    r.metadata = {}
     return r
 
 
@@ -60,236 +72,100 @@ def _make_audit_record(
 # Task: enforce_retention_policies
 # ---------------------------------------------------------------------------
 
-class TestEnforceRetentionTask(unittest.TestCase):
-    """Tests for zentinelle.tasks.scheduled.enforce_retention_policies."""
+class TestEnforceRetentionTask(TestCase):
+    def setUp(self):
+        from datetime import timedelta
 
-    def _run_task(
-        self,
-        policies,
-        mock_policy_qs,
-        mock_event_qs,
-        mock_audit_qs,
-        mock_event_delete_result=(3, {}),
-        mock_audit_delete_result=(5, {}),
-        tenants_on_legal_hold=(),
-    ):
-        """
-        Patch the ORM and run the task, returning its result dict.
+        from django.utils import timezone
 
-        patches:
-            Policy.objects.filter  -> mock_policy_qs (iterable of policy mocks)
-            Event.objects.filter   -> mock_event_qs
-            AuditLog.objects.filter -> mock_audit_qs
-            AuditLog.objects.create -> MagicMock()
-        """
-        from zentinelle.tasks.scheduled import enforce_retention_policies
+        from zentinelle.models import AuditLog, Event
+        self.old = timezone.now() - timedelta(days=800)
+        self.audit = AuditLog.objects.create(tenant_id='tenant1', action='update', resource_type='policy', resource_id='p', timestamp=self.old)
+        self.event = Event.objects.create(tenant_id='tenant1', event_type='usage', event_category='telemetry', status='processed', occurred_at=self.old)
 
-        policy_filter_mock = MagicMock(return_value=iter(policies))
-        event_filter_mock = MagicMock()
-        audit_filter_mock = MagicMock()
+    def test_both_cleanup_paths_respect_holds_then_delete_expired_data(self):
+        from zentinelle.models import AuditLog, Event
+        from zentinelle.models.retention_policy import LegalHold
+        from zentinelle.tasks.scheduled import (cleanup_old_events,
+                                                enforce_retention_policies)
+        hold = LegalHold.objects.create(tenant_id='tenant1', name='Hold', applies_to_all=True)
+        for task in (cleanup_old_events, enforce_retention_policies):
+            self.assertEqual(task()['tenants_failed'], 0)
+            self.assertTrue(Event.objects.filter(pk=self.event.pk).exists())
+            self.assertTrue(AuditLog.objects.filter(pk=self.audit.pk).exists())
+        hold.release()
+        result = cleanup_old_events()
+        self.assertEqual(result['tenants_failed'], 0)
+        self.assertFalse(Event.objects.filter(pk=self.event.pk).exists())
+        self.assertFalse(AuditLog.objects.filter(pk=self.audit.pk).exists())
 
-        event_delete_chain = MagicMock()
-        event_delete_chain.delete.return_value = mock_event_delete_result
+    def test_minimum_retention_and_archive_intent_preserve_data(self):
+        from zentinelle.models import Event
+        from zentinelle.models.retention_policy import RetentionPolicy
+        from zentinelle.tasks.scheduled import cleanup_old_events
+        policy = RetentionPolicy.objects.create(tenant_id='tenant1', name='Long retention', entity_type='events', retention_days=30, minimum_retention_days=1000)
+        cleanup_old_events()
+        self.assertTrue(Event.objects.filter(pk=self.event.pk).exists())
+        policy.minimum_retention_days = None
+        policy.expiration_action = 'archive'
+        policy.save()
+        result = cleanup_old_events()
+        self.assertTrue(Event.objects.filter(pk=self.event.pk).exists())
+        self.assertTrue(result['preserved_for_review'])
 
-        audit_delete_chain = MagicMock()
-        audit_delete_chain.delete.return_value = mock_audit_delete_result
+    def test_archive_writes_verified_payload_before_deleting_expired_records(self):
+        from zentinelle.models import Event, RetentionOutcome
+        from zentinelle.models.retention_policy import RetentionPolicy
+        from zentinelle.services.retention import verify_retention_manifest
+        from zentinelle.tasks.scheduled import cleanup_old_events
 
-        event_filter_mock.return_value = event_delete_chain
-        audit_filter_mock.return_value = audit_delete_chain
+        with tempfile.TemporaryDirectory() as archive_dir:
+            RetentionPolicy.objects.create(
+                tenant_id='tenant1', name='Archive events', entity_type='events',
+                retention_days=30, expiration_action='archive', archive_location=archive_dir,
+            )
+            result = cleanup_old_events()
+            self.assertEqual(result['tenants_failed'], 0)
+            self.assertFalse(Event.objects.filter(pk=self.event.pk).exists())
+            outcome = RetentionOutcome.objects.get(tenant_id='tenant1', entity_type='events')
+            self.assertEqual(outcome.status, RetentionOutcome.Status.ARCHIVED)
+            self.assertTrue(verify_retention_manifest(outcome.manifest))
+            with open(outcome.destination, encoding='utf-8') as archived:
+                payload = json.loads(archived.readline())
+            self.assertEqual(payload['id'], str(self.event.id))
 
-        # LegalHold is patched too. The task grew a legal-hold check after
-        # these tests were written — it reads every tenant with an active hold
-        # before deleting anything — and nothing here replaced it, so the task
-        # reached the real database and pytest-django refused it with
-        # "Database access not allowed". The tests were not wrong about the
-        # behaviour they assert; they were simply one model behind.
-        legal_hold_qs = MagicMock()
-        legal_hold_qs.values_list.return_value = list(tenants_on_legal_hold)
+    def test_archive_rejects_unconfigured_remote_transport_and_preserves_source(self):
+        from zentinelle.models import Event, RetentionOutcome
+        from zentinelle.models.retention_policy import RetentionPolicy
+        from zentinelle.tasks.scheduled import cleanup_old_events
 
-        with patch('zentinelle.models.Policy') as MockPolicy, \
-             patch('zentinelle.models.AuditLog') as MockAuditLog, \
-             patch('zentinelle.models.Event') as MockEvent, \
-             patch('zentinelle.models.retention_policy.LegalHold') as MockLegalHold:
-
-            MockLegalHold.objects.filter.return_value = legal_hold_qs
-
-            MockPolicy.objects.filter.return_value = iter(policies)
-            MockPolicy.PolicyType.DATA_RETENTION = 'data_retention'
-            MockPolicy.Enforcement.ENFORCE = 'enforce'
-
-            MockEvent.objects.filter.return_value = event_delete_chain
-            MockAuditLog.objects.filter.return_value = audit_delete_chain
-            MockAuditLog.Action.DELETE = 'delete'
-            MockAuditLog.objects.create.return_value = MagicMock()
-
-            result = enforce_retention_policies()
-
-        return result, MockEvent, MockAuditLog
-
-    # -----------------------------------------------------------------------
-    # Test: task deletes old Event records
-    # -----------------------------------------------------------------------
-    def test_deletes_old_event_records(self):
-        """Task calls delete() on the Event queryset filtered by tenant and cutoff."""
-        policy = _make_policy(event_retention_days=30, audit_log_retention_days=365)
-
-        from zentinelle.tasks.scheduled import enforce_retention_policies
-
-        event_qs_mock = MagicMock()
-        event_qs_mock.delete.return_value = (7, {})
-
-        audit_qs_mock = MagicMock()
-        audit_qs_mock.delete.return_value = (0, {})
-
-        with patch('zentinelle.models.Policy') as MockPolicy, \
-             patch('zentinelle.models.AuditLog') as MockAuditLog, \
-             patch('zentinelle.models.Event') as MockEvent, \
-             patch('zentinelle.models.retention_policy.LegalHold') as MockLegalHold:
-
-            # No tenant is on legal hold. Without this the task reaches the
-            # real database on its first line and pytest-django refuses it.
-            MockLegalHold.objects.filter.return_value.values_list.return_value = []
-
-            MockPolicy.objects.filter.return_value = [policy]
-            MockPolicy.PolicyType.DATA_RETENTION = 'data_retention'
-            MockPolicy.Enforcement.ENFORCE = 'enforce'
-
-            MockEvent.objects.filter.return_value = event_qs_mock
-            MockAuditLog.objects.filter.return_value = audit_qs_mock
-            MockAuditLog.Action.DELETE = 'delete'
-            MockAuditLog.objects.create.return_value = MagicMock()
-
-            result = enforce_retention_policies()
-
-        MockEvent.objects.filter.assert_called_once()
-        call_kwargs = MockEvent.objects.filter.call_args
-        self.assertEqual(call_kwargs.kwargs['tenant_id'], 'tenant1')
-        self.assertIn('occurred_at__lt', call_kwargs.kwargs)
-
-        event_qs_mock.delete.assert_called_once()
-        self.assertEqual(result['events_deleted'], 7)
-
-    # -----------------------------------------------------------------------
-    # Test: task deletes old AuditLog records
-    # -----------------------------------------------------------------------
-    def test_deletes_old_audit_log_records(self):
-        """Task calls delete() on the AuditLog queryset filtered by tenant and cutoff."""
-        policy = _make_policy(event_retention_days=90, audit_log_retention_days=180)
-
-        from zentinelle.tasks.scheduled import enforce_retention_policies
-
-        event_qs_mock = MagicMock()
-        event_qs_mock.delete.return_value = (0, {})
-
-        audit_qs_mock = MagicMock()
-        audit_qs_mock.delete.return_value = (11, {})
-
-        with patch('zentinelle.models.Policy') as MockPolicy, \
-             patch('zentinelle.models.AuditLog') as MockAuditLog, \
-             patch('zentinelle.models.Event') as MockEvent, \
-             patch('zentinelle.models.retention_policy.LegalHold') as MockLegalHold:
-
-            # No tenant is on legal hold. Without this the task reaches the
-            # real database on its first line and pytest-django refuses it.
-            MockLegalHold.objects.filter.return_value.values_list.return_value = []
-
-            MockPolicy.objects.filter.return_value = [policy]
-            MockPolicy.PolicyType.DATA_RETENTION = 'data_retention'
-            MockPolicy.Enforcement.ENFORCE = 'enforce'
-
-            MockEvent.objects.filter.return_value = event_qs_mock
-            MockAuditLog.objects.filter.return_value = audit_qs_mock
-            MockAuditLog.Action.DELETE = 'delete'
-            MockAuditLog.objects.create.return_value = MagicMock()
-
-            result = enforce_retention_policies()
-
-        # AuditLog.objects.filter was called at least once for deletion
-        filter_calls = MockAuditLog.objects.filter.call_args_list
-        deletion_calls = [c for c in filter_calls if 'timestamp__lt' in c.kwargs]
-        self.assertTrue(len(deletion_calls) >= 1, "Expected at least one deletion filter call on AuditLog")
-        self.assertEqual(deletion_calls[0].kwargs['tenant_id'], 'tenant1')
-
-        audit_qs_mock.delete.assert_called()
-        self.assertEqual(result['audit_logs_deleted'], 11)
-
-    # -----------------------------------------------------------------------
-    # Test: per-tenant failure isolation
-    # -----------------------------------------------------------------------
-    def test_a_tenant_under_legal_hold_is_not_swept(self):
-        """A legal hold stops retention deleting that tenant's records.
-
-        The task grew this check after the rest of these tests were written,
-        and nothing exercised it — the only sign it existed was that every test
-        here started failing on a database it was not allowed to touch. A legal
-        hold is the one thing that must outrank a retention policy: it is the
-        instruction not to destroy evidence.
-        """
-        held = _make_policy(tenant_id='tenant-held', event_retention_days=30)
-        result, MockEvent, MockAuditLog = self._run_task(
-            [held], MagicMock(), MagicMock(), MagicMock(),
-            tenants_on_legal_hold=['tenant-held'],
+        RetentionPolicy.objects.create(
+            tenant_id='tenant1', name='Remote archive', entity_type='events',
+            retention_days=30, expiration_action='archive', archive_location='s3://bucket/tenant1',
         )
+        result = cleanup_old_events()
+        self.assertGreaterEqual(result['tenants_failed'], 1)
+        self.assertTrue(Event.objects.filter(pk=self.event.pk).exists())
+        self.assertTrue(RetentionOutcome.objects.filter(
+            tenant_id='tenant1', entity_type='events', status=RetentionOutcome.Status.FAILED,
+        ).exists())
+        self.assertTrue(Event.objects.filter(tenant_id='tenant1', event_type='retention_failure').exists())
 
-        MockEvent.objects.filter.assert_not_called()
-        MockAuditLog.objects.filter.assert_not_called()
-        self.assertEqual(result['events_deleted'], 0)
-        self.assertEqual(result['audit_logs_deleted'], 0)
-
-    def test_skips_tenant_gracefully_on_exception(self):
-        """A per-tenant exception increments tenants_failed but does not abort the task."""
-        good_policy = _make_policy(tenant_id='tenant-good', event_retention_days=30, audit_log_retention_days=365)
-        bad_policy = _make_policy(tenant_id='tenant-bad', event_retention_days=30, audit_log_retention_days=365)
-
-        from zentinelle.tasks.scheduled import enforce_retention_policies
-
-        good_qs = MagicMock()
-        good_qs.delete.return_value = (2, {})
-
-        bad_qs = MagicMock()
-        bad_qs.delete.side_effect = RuntimeError("DB exploded")
-
-        audit_good_qs = MagicMock()
-        audit_good_qs.delete.return_value = (3, {})
-
-        def event_filter_side_effect(**kwargs):
-            if kwargs.get('tenant_id') == 'tenant-bad':
-                raise RuntimeError("DB exploded")
-            return good_qs
-
-        def audit_filter_side_effect(**kwargs):
-            if kwargs.get('tenant_id') == 'tenant-bad':
-                return bad_qs
-            return audit_good_qs
-
-        with patch('zentinelle.models.Policy') as MockPolicy, \
-             patch('zentinelle.models.AuditLog') as MockAuditLog, \
-             patch('zentinelle.models.Event') as MockEvent, \
-             patch('zentinelle.models.retention_policy.LegalHold') as MockLegalHold:
-
-            MockLegalHold.objects.filter.return_value.values_list.return_value = []
-
-            MockPolicy.objects.filter.return_value = [good_policy, bad_policy]
-            MockPolicy.PolicyType.DATA_RETENTION = 'data_retention'
-            MockPolicy.Enforcement.ENFORCE = 'enforce'
-
-            MockEvent.objects.filter.side_effect = event_filter_side_effect
-            MockAuditLog.objects.filter.side_effect = audit_filter_side_effect
-            MockAuditLog.Action.DELETE = 'delete'
-            MockAuditLog.objects.create.return_value = MagicMock()
-
-            result = enforce_retention_policies()
-
+    def test_one_tenant_failure_does_not_delete_its_data(self):
+        from zentinelle.models import Event
+        from zentinelle.tasks.scheduled import cleanup_old_events
+        with patch('zentinelle.services.retention.retention_decision', side_effect=ValueError('Invalid retention')):
+            result = cleanup_old_events()
         self.assertEqual(result['tenants_failed'], 1)
-        # Good tenant's events were still deleted
-        self.assertGreater(result['events_deleted'], 0)
+        self.assertTrue(Event.objects.filter(pk=self.event.pk).exists())
 
-
-# ---------------------------------------------------------------------------
-# View: AuditExportView
-# ---------------------------------------------------------------------------
 
 class TestAuditExportView(unittest.TestCase):
+    def setUp(self):
+        patcher = patch('zentinelle.services.audit_chain.checkpoint', return_value='signed-test-checkpoint')
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     """Tests for zentinelle.api.views.audit_export.AuditExportView."""
 
     def _make_request(self, params=None, key='sk_agent_testkey'):
@@ -360,7 +236,7 @@ class TestAuditExportView(unittest.TestCase):
         mock_audit_log.objects.filter.return_value = mock_qs
 
         with patch('zentinelle.api.views.audit_export.get_tenant_id_from_request', return_value='tenant1'), \
-             patch('zentinelle.api.views.audit_export.AuditLog', mock_audit_log):
+                patch('zentinelle.api.views.audit_export.AuditLog', mock_audit_log):
 
             req = self._make_request(params={
                 'from': '2026-01-01',
@@ -373,7 +249,7 @@ class TestAuditExportView(unittest.TestCase):
 
         # Consume the streaming content
         content = b''.join(response.streaming_content).decode()
-        lines = [l for l in content.splitlines() if l.strip()]
+        lines = [line for line in content.splitlines() if line.strip()]
         self.assertEqual(len(lines), 1)
 
         obj = json.loads(lines[0])
@@ -401,7 +277,7 @@ class TestAuditExportView(unittest.TestCase):
         mock_audit_log.objects.filter.return_value = mock_qs
 
         with patch('zentinelle.api.views.audit_export.get_tenant_id_from_request', return_value='tenant1'), \
-             patch('zentinelle.api.views.audit_export.AuditLog', mock_audit_log):
+                patch('zentinelle.api.views.audit_export.AuditLog', mock_audit_log):
 
             req = self._make_request(params={
                 'from': '2026-01-01',
@@ -413,7 +289,7 @@ class TestAuditExportView(unittest.TestCase):
         self.assertIn('text/csv', response['Content-Type'])
 
         content = b''.join(response.streaming_content).decode()
-        lines = [l for l in content.splitlines() if l.strip()]
+        lines = [line for line in content.splitlines() if line.strip()]
         # First line is header
         self.assertGreaterEqual(len(lines), 2)
         self.assertIn('tenant_id', lines[0])
@@ -464,7 +340,7 @@ class TestRetentionStatusView(unittest.TestCase):
         req = self._make_request()
 
         with patch('zentinelle.api.views.retention_status.get_tenant_id_from_request', return_value='tenant1'), \
-             patch('zentinelle.api.views.retention_status.Policy', MockPolicy):
+                patch('zentinelle.api.views.retention_status.Policy', MockPolicy):
 
             response = view.get(req)
 
@@ -546,7 +422,7 @@ class TestStreamingHelpers(unittest.TestCase):
 
         chunks = list(_stream_csv(mock_qs))
         full = ''.join(chunks)
-        lines = [l for l in full.splitlines() if l.strip()]
+        lines = [line for line in full.splitlines() if line.strip()]
 
         self.assertGreaterEqual(len(lines), 3)  # header + 2 data rows
         header = lines[0]

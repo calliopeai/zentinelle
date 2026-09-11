@@ -12,37 +12,14 @@ import strawberry_django
 from strawberry import auto
 from strawberry.scalars import JSON
 
+from zentinelle.models import (  # AI Provider Registry; Platform API Keys; Model Registry; Compliance & Monitoring; Risk Management; Retention; License Compliance
+    AgentEndpoint, AIModel, AIProvider, APIKey, AuditLog, ComplianceAlert,
+    ContentRule, ContentScan, ContentViolation, Event, Incident,
+    InteractionLog, LegalHold, LicenseComplianceReport,
+    LicenseComplianceViolation, OrganizationModelApproval, Policy,
+    PolicyRevision, RetentionPolicy, Risk)
 # Agent-level models (from zentinelle)
 from zentinelle.models.agent_group import AgentGroup
-from zentinelle.models import (
-    AgentEndpoint,
-    Policy,
-    PolicyRevision,
-    Event,
-    AuditLog,
-    # AI Provider Registry
-    AIProvider,
-    # Platform API Keys
-    APIKey,
-    # Model Registry
-    AIModel,
-    OrganizationModelApproval,
-    # Compliance & Monitoring
-    ContentRule,
-    ContentScan,
-    ContentViolation,
-    ComplianceAlert,
-    InteractionLog,
-    # Risk Management
-    Risk,
-    Incident,
-    # Retention
-    RetentionPolicy,
-    LegalHold,
-    # License Compliance
-    LicenseComplianceReport,
-    LicenseComplianceViolation,
-)
 
 
 @strawberry_django.type(AgentGroup)
@@ -70,6 +47,7 @@ class AgentGroupConnection:
 
 @strawberry_django.type(AgentEndpoint)
 class AgentEndpointType:
+    sub_organization_id_ext: auto
     """GraphQL type for AgentEndpoint."""
     id: auto
     agent_id: auto
@@ -96,6 +74,8 @@ class AgentEndpointType:
 
 @strawberry_django.type(Policy)
 class PolicyType:
+    override_group: auto
+    non_overridable: auto
     """GraphQL type for Policy."""
     id: auto
     name: auto

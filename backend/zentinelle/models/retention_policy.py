@@ -8,8 +8,10 @@ Provides comprehensive data lifecycle management:
 - Compliance-driven retention requirements
 """
 import uuid
+
 from django.db import models
 from django.utils import timezone
+
 from zentinelle.models.base import Tracking
 
 
@@ -269,6 +271,15 @@ class LegalHold(Tracking):
             models.Index(fields=['tenant_id', 'status']),
             models.Index(fields=['hold_type', 'status']),
         ]
+
+    def save(self, *args, **kwargs):
+        from zentinelle.services.retention import tenant_retention_lock
+        with tenant_retention_lock(self.tenant_id):
+            if self.status == self.HoldStatus.ACTIVE:
+                from zentinelle.services.clickhouse_service import \
+                    disable_automatic_retention
+                disable_automatic_retention()
+            return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.name} ({self.get_status_display()})"

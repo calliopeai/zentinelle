@@ -12,12 +12,8 @@ from django.test import TestCase
 
 from zentinelle.models import Policy
 from zentinelle.schema import schema
-from zentinelle.tests._graphql_helpers import (
-    STANDALONE_TENANT,
-    admin_context,
-    anon_context,
-)
-
+from zentinelle.tests._graphql_helpers import (STANDALONE_TENANT,
+                                               admin_context, anon_context)
 
 LIST_PACKS = """
 mutation { listCompliancePacks { success packs { name displayName version policyCount } } }
@@ -67,10 +63,8 @@ class ListCompliancePacksTests(TestCase):
 
     def test_list_unauthenticated_returns_empty(self):
         result = _exec(LIST_PACKS, context=anon_context())
-        self.assertIsNone(result.errors)
-        payload = result.data['listCompliancePacks']
-        self.assertFalse(payload['success'])
-        self.assertEqual(payload['packs'], [])
+        self.assertTrue(result.errors)
+        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
 
 
 class ActivateCompliancePackTests(TestCase):
@@ -118,11 +112,8 @@ class ActivateCompliancePackTests(TestCase):
 
     def test_activate_unauthenticated_rejected(self):
         result = _exec(ACTIVATE_PACK, {'packId': 'hipaa'}, context=anon_context())
-        self.assertIsNone(result.errors)
-        payload = result.data['activateCompliancePack']
-        self.assertFalse(payload['success'])
-        self.assertEqual(payload['error'], 'Authentication required')
-        self.assertEqual(Policy.objects.count(), 0)
+        self.assertTrue(result.errors)
+        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
 
     def test_activate_scopes_policies_to_request_tenant(self):
         # Pack policies must be created under the *requesting user's* tenant_id,

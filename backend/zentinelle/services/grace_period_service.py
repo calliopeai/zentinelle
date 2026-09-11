@@ -16,9 +16,10 @@ Grace Period Durations:
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from django.utils import timezone
+
 from zentinelle.services.notification_service import get_notification_service
 
 if TYPE_CHECKING:
@@ -162,7 +163,7 @@ class GracePeriodService:
                 should_hard_block=False,
             )
 
-        now = timezone.now()
+        timezone.now()
 
         # Grace period has expired - should hard block
         if license_obj.grace_period_expired:

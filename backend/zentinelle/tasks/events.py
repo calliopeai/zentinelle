@@ -2,13 +2,14 @@
 Celery tasks for processing Zentinelle events.
 """
 import logging
-from celery import shared_task
+from datetime import timedelta
 
-from zentinelle.services.event_store import (
-    EventEnvelope,
-    event_store,
-    dead_letter_queue,
-)
+from celery import shared_task
+from django.db.models import F
+from django.utils import timezone
+
+from zentinelle.services.event_store import (EventEnvelope, dead_letter_queue,
+                                             event_store)
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ def process_event_batch(self, event_ids: list[str], category: str):
 
 def _process_single_event(event):
     """Process a single event based on its type."""
-    from zentinelle.models import Event, AgentEndpoint
+    from zentinelle.models import AgentEndpoint, Event
 
     event_type = event.event_type
 
@@ -233,7 +234,7 @@ def process_alert_event(event_id: str):
     retry_backoff=True,
     max_retries=3,
 )
-def apply_event_projections(self, event_id: str, envelope_data: dict):
+def apply_event_projections(self, event_id: str, envelope_data: dict, outbox_id: str = None):
     """
     Apply registered projections to an event.
 
@@ -252,9 +253,52 @@ def apply_event_projections(self, event_id: str, envelope_data: dict):
                 logger.error(f"Projection {name} failed for event {event_id}: {e}")
                 # Continue with other projections
 
+        if outbox_id:
+            from zentinelle.models import EventDeliveryOutbox
+            EventDeliveryOutbox.objects.filter(id=outbox_id).update(
+                status=EventDeliveryOutbox.Status.DELIVERED,
+                delivered_at=timezone.now(), attempts=F('attempts') + 1,
+            )
     except Exception as e:
+        if outbox_id:
+            from zentinelle.models import EventDeliveryOutbox
+            row = EventDeliveryOutbox.objects.filter(id=outbox_id).first()
+            if row:
+                row.attempts += 1
+                row.last_error = str(e)
+                if row.attempts >= 5:
+                    row.status = EventDeliveryOutbox.Status.DEAD_LETTER
+                else:
+                    row.status = EventDeliveryOutbox.Status.PENDING
+                    row.next_attempt_at = timezone.now() + timedelta(minutes=min(60, 2 ** row.attempts))
+                row.save(update_fields=['status', 'attempts', 'last_error', 'next_attempt_at'])
         logger.error(f"Failed to apply projections for event {event_id}: {e}")
         raise
+
+
+@shared_task
+def dispatch_event_outbox(limit: int = 100):
+    """Requeue due durable projection deliveries after broker interruptions."""
+    from zentinelle.models import EventDeliveryOutbox
+    now = timezone.now()
+    rows = list(EventDeliveryOutbox.objects.filter(
+        status__in=(EventDeliveryOutbox.Status.PENDING, EventDeliveryOutbox.Status.QUEUED),
+        next_attempt_at__lte=now, attempts__lt=5,
+    ).order_by('created_at')[:max(1, min(int(limit), 500))])
+    dispatched = 0
+    for row in rows:
+        try:
+            row.attempts += 1
+            row.status = EventDeliveryOutbox.Status.QUEUED
+            row.next_attempt_at = now + timedelta(minutes=min(60, 2 ** row.attempts))
+            row.save(update_fields=['attempts', 'status', 'next_attempt_at'])
+            apply_event_projections.apply_async(args=[str(row.event_id), row.envelope, str(row.id)])
+            dispatched += 1
+        except Exception as exc:
+            row.status = EventDeliveryOutbox.Status.PENDING
+            row.last_error = str(exc)
+            row.save(update_fields=['status', 'last_error'])
+    return {'dispatched': dispatched, 'scanned': len(rows)}
 
 
 @shared_task

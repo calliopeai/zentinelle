@@ -3,10 +3,13 @@ Usage tracking service for AI token usage and costs.
 """
 import logging
 from decimal import Decimal
+
 from django.utils import timezone
+
 from zentinelle.models.usage import UsageMetric
 
 logger = logging.getLogger(__name__)
+MODEL_PRICING_VERSION = 'catalog-2026-09-11'
 
 # Model pricing in USD per 1M tokens
 # Source: frontend/src/components/zentinelle/PolicyOverheadDashboard.tsx
@@ -21,6 +24,7 @@ MODEL_PRICING = {
     'gemini-1.5-flash': {'input': 0.075, 'output': 0.30},
 }
 
+
 class UsageTrackingService:
     @staticmethod
     def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> tuple[Decimal, Decimal]:
@@ -32,13 +36,13 @@ class UsageTrackingService:
                 if key in model or model in key:
                     pricing = val
                     break
-        
+
         if not pricing:
             return Decimal('0.0'), Decimal('0.0')
-        
+
         input_cost = (Decimal(input_tokens) / Decimal('1000000')) * Decimal(str(pricing['input']))
         output_cost = (Decimal(output_tokens) / Decimal('1000000')) * Decimal(str(pricing['output']))
-        
+
         return input_cost, output_cost
 
     @classmethod
@@ -58,10 +62,10 @@ class UsageTrackingService:
     ):
         """Record AI usage and calculate costs."""
         occurred_at = occurred_at or timezone.now()
-        
+
         # Calculate costs if not provided
         input_cost, output_cost = cls.calculate_cost(model, input_tokens, output_tokens)
-        
+
         # Combine into metadata for the UsageMetric record
         combined_metadata = metadata or {}
         combined_metadata.update({

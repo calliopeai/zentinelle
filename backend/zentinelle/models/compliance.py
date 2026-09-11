@@ -15,8 +15,8 @@ import uuid
 from decimal import Decimal
 
 from django.db import models
-from zentinelle.models.base import Tracking
 
+from zentinelle.models.base import Tracking
 
 # ============================================================================
 # Compliance Capabilities - What Zentinelle Can Actually Do
@@ -275,8 +275,8 @@ def get_capability_status(tenant_id):
     This is the core function for the compliance dashboard - it checks what's
     actually configured and returns coverage status.
     """
-    from zentinelle.models.policy import Policy
     from zentinelle.models.compliance import ContentRule
+    from zentinelle.models.policy import Policy
 
     # Get tenant's enabled policies and rules
     policies = Policy.objects.filter(
@@ -359,7 +359,7 @@ def get_framework_coverage(tenant_id):
             'required_covered': len(covered_required),
             'required_total': total_required,
             'required_percentage': (len(covered_required) / total_required * 100)
-                if total_required > 0 else 100,
+            if total_required > 0 else 100,
             'missing_required': list(required - enabled_caps),
             # Total coverage
             'total_covered': covered_all,
@@ -649,6 +649,12 @@ class ContentScan(Tracking):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.TextField(blank=True)
 
+    def save(self, *args, **kwargs):
+        from zentinelle.services.content_capture import capture_text
+        self.content_preview = capture_text(self.content_preview, self.tenant_id)
+        self.redacted_content = capture_text(self.redacted_content, self.tenant_id)
+        return super().save(*args, **kwargs)
+
     class Meta:
         verbose_name = 'Content Scan'
         verbose_name_plural = 'Content Scans'
@@ -726,6 +732,14 @@ class ContentViolation(Tracking):
     was_redacted = models.BooleanField(default=False)
     user_notified = models.BooleanField(default=False)
     admin_notified = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        from zentinelle.services.content_capture import (capture_payload,
+                                                         capture_text)
+        tenant_id = self.scan.tenant_id if self.scan_id else None
+        self.matched_text = capture_text(self.matched_text, tenant_id)
+        self.metadata = capture_payload(self.metadata, tenant_id)
+        return super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = 'Content Violation'
@@ -931,6 +945,15 @@ class InteractionLog(Tracking):
 
     # Occurred timestamp (when the interaction happened)
     occurred_at = models.DateTimeField()
+
+    def save(self, *args, **kwargs):
+        from zentinelle.services.content_capture import (capture_mode,
+                                                         capture_payload,
+                                                         capture_text)
+        for name in ('input_content', 'output_content', 'system_prompt'):
+            setattr(self, name, capture_text(getattr(self, name), self.tenant_id))
+        self.tool_calls = [] if capture_mode(self.tenant_id) == 'metadata' else capture_payload(self.tool_calls, self.tenant_id)
+        return super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = 'Interaction Log'

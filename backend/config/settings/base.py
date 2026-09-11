@@ -11,6 +11,10 @@ from pathlib import Path
 from celery.schedules import crontab
 from dotenv import load_dotenv
 
+# Load zentinelle.yaml config file (env vars always win over file values).
+# Must run before any settings variables are read.
+from zentinelle.conf import load_config  # noqa: E402
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -24,9 +28,6 @@ _backend_dotenv = BASE_DIR / ".env"
 if _backend_dotenv.exists():
     load_dotenv(_backend_dotenv)
 
-# Load zentinelle.yaml config file (env vars always win over file values).
-# Must run before any settings variables are read.
-from zentinelle.conf import load_config  # noqa: E402
 
 load_config()
 
@@ -176,7 +177,9 @@ CACHES = {
 #   local      — built-in username/password with session cookies
 #   sso        — OIDC/SAML via external provider (Google, Okta, Cognito, etc.)
 #   standalone — alias for "local" (backward compat)
-AUTH_MODE = os.environ.get("AUTH_MODE", "open")
+AUTH_MODE = os.environ.get("AUTH_MODE", "local").lower()
+if AUTH_MODE not in {"open", "local", "standalone", "sso", "client_cove"}:
+    raise ValueError("Invalid AUTH_MODE")
 
 # Session-based auth (httpOnly cookies — immune to XSS)
 SESSION_COOKIE_HTTPONLY = True
@@ -264,6 +267,10 @@ CELERY_TASK_ALWAYS_EAGER = False
 # high-volume and stateless, and a durable-execution engine is the wrong tool
 # for a message queue.
 CELERY_BEAT_SCHEDULE = {
+    'zentinelle-dispatch-event-outbox': {
+        'task': 'zentinelle.tasks.events.dispatch_event_outbox',
+        'schedule': timedelta(minutes=1),
+    },
     # Retention and registry
     'zentinelle-enforce-retention-policies': {
         'task': 'zentinelle.enforce_retention_policies',
@@ -412,3 +419,15 @@ BILLING_EXPORT_TIMEOUT = int(os.environ.get("BILLING_EXPORT_TIMEOUT", "30"))
 # The default is the one that under-bills if wrong. Charging a BYOK customer
 # for tokens they bought themselves is not a recoverable mistake.
 BILLING_MODE = os.environ.get("BILLING_MODE", "governance_only")
+
+# Metadata-only by default; full prompt capture requires an explicit operator choice.
+CONTENT_CAPTURE_MODE = os.environ.get("CONTENT_CAPTURE_MODE", "metadata").lower()
+AUDIT_CHECKPOINT_SIGNING_KEY = os.environ.get("AUDIT_CHECKPOINT_SIGNING_KEY", SECRET_KEY)
+
+# The portal assistant is a Zentinelle support surface, not a general-purpose
+# chatbot. Product-level scope is enforced before a provider call; tenants can
+# add terms through their ai_guardrail policy without weakening injection checks.
+ASSISTANT_ALLOWED_TOPICS = tuple(
+    term.strip() for term in os.environ.get('ASSISTANT_ALLOWED_TOPICS', '').split(',')
+    if term.strip()
+)

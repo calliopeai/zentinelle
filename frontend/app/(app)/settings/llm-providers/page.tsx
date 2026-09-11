@@ -1,5 +1,10 @@
 "use client";
 
+import { withPermissionAuthenticationRequired } from "@/components/PermissionGuard";
+
+import { authenticatedFetch } from "@/lib/auth/fetch";
+
+
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -82,7 +87,7 @@ interface StoredKey {
   updatedAt: string;
 }
 
-export default function LLMProvidersPage() {
+function LLMProvidersPage() {
   const confirmDialog = useConfirm();
   const [available, setAvailable] = useState<Set<string>>(new Set());
   const [stored, setStored] = useState<Map<string, StoredKey>>(new Map());
@@ -96,8 +101,8 @@ export default function LLMProvidersPage() {
     setLoading(true);
     try {
       const [providersRes, keysRes] = await Promise.all([
-        fetch(`${API_URL}/assistant/providers`, { credentials: "include" }),
-        fetch(`${API_URL}/settings/llm-providers`, { credentials: "include" }),
+        authenticatedFetch(`${API_URL}/assistant/providers`, { credentials: "include" }),
+        authenticatedFetch(`${API_URL}/settings/llm-providers`, { credentials: "include" }),
       ]);
       if (providersRes.ok) {
         const data = await providersRes.json();
@@ -123,7 +128,7 @@ export default function LLMProvidersPage() {
     if (!editing || !keyValue.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch(`${API_URL}/settings/llm-providers`, {
+      const res = await authenticatedFetch(`${API_URL}/settings/llm-providers`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -145,7 +150,7 @@ export default function LLMProvidersPage() {
 
   const handleToggleAssistant = async (provider: string, current: boolean) => {
     try {
-      const res = await fetch(`${API_URL}/settings/llm-providers`, {
+      const res = await authenticatedFetch(`${API_URL}/settings/llm-providers`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -173,7 +178,7 @@ export default function LLMProvidersPage() {
     });
     if (!ok) return;
     try {
-      const res = await fetch(
+      const res = await authenticatedFetch(
         `${API_URL}/settings/llm-providers/${provider}`,
         { method: "DELETE", credentials: "include" },
       );
@@ -405,3 +410,5 @@ export default function LLMProvidersPage() {
     </div>
   );
 }
+
+export default withPermissionAuthenticationRequired(LLMProvidersPage, "admin");

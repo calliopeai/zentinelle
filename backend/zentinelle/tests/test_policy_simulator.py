@@ -2,7 +2,8 @@
 Tests for the policy simulation service.
 """
 import uuid
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime
+from datetime import timezone as dt_timezone
 from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase
@@ -54,8 +55,8 @@ class TestSimulatePolicy(SimpleTestCase):
     @patch('zentinelle.services.policy_simulator.Event')
     def test_simulate_all_blocked(self, mock_event_cls, mock_engine_cls):
         """Evaluator always fails → would_block equals number of events."""
-        from zentinelle.services.policy_simulator import simulate_policy
         from zentinelle.services.evaluators.base import PolicyResult
+        from zentinelle.services.policy_simulator import simulate_policy
 
         events = [_make_event() for _ in range(5)]
 
@@ -86,8 +87,8 @@ class TestSimulatePolicy(SimpleTestCase):
     @patch('zentinelle.services.policy_simulator.Event')
     def test_simulate_mixed_results(self, mock_event_cls, mock_engine_cls):
         """Some pass, some fail → correct counts."""
-        from zentinelle.services.policy_simulator import simulate_policy
         from zentinelle.services.evaluators.base import PolicyResult
+        from zentinelle.services.policy_simulator import simulate_policy
 
         events = [_make_event() for _ in range(4)]
 
@@ -127,7 +128,8 @@ class TestDetectPolicyConflicts(SimpleTestCase):
     @patch('zentinelle.services.policy_simulator.Policy')
     def test_detect_no_conflicts(self, mock_policy_cls):
         """No existing policies → empty conflicts list."""
-        from zentinelle.services.policy_simulator import detect_policy_conflicts
+        from zentinelle.services.policy_simulator import \
+            detect_policy_conflicts
 
         mock_policy_cls.objects.filter.return_value = []
 
@@ -146,7 +148,8 @@ class TestDetectPolicyConflicts(SimpleTestCase):
     @patch('zentinelle.services.policy_simulator.Policy')
     def test_detect_contradiction(self, mock_policy_cls):
         """Existing policy allows model X, proposed blocks X → contradiction."""
-        from zentinelle.services.policy_simulator import detect_policy_conflicts
+        from zentinelle.services.policy_simulator import \
+            detect_policy_conflicts
 
         existing = MagicMock()
         existing.id = uuid.uuid4()
@@ -172,13 +175,18 @@ class TestDetectPolicyConflicts(SimpleTestCase):
     @patch('zentinelle.services.policy_simulator.Policy')
     def test_detect_shadowed(self, mock_policy_cls):
         """Existing policy has higher priority → shadowed conflict."""
-        from zentinelle.services.policy_simulator import detect_policy_conflicts
+        from zentinelle.services.policy_simulator import \
+            detect_policy_conflicts
 
         existing = MagicMock()
         existing.id = uuid.uuid4()
         existing.name = 'High Priority Policy'
         existing.config = {}
         existing.priority = 100
+        existing.override_group = 'capacity'
+        existing.scope_type = 'organization'
+        for field in ('scope_endpoint_id', 'scope_deployment_id_ext', 'scope_sub_organization_id_ext', 'scope_user_id_ext'):
+            setattr(existing, field, '')
         mock_policy_cls.objects.filter.return_value = [existing]
 
         result = detect_policy_conflicts(
@@ -188,6 +196,7 @@ class TestDetectPolicyConflicts(SimpleTestCase):
                 'config': {},
                 'enforcement': 'enforce',
                 'priority': 10,
+                'override_group': 'capacity',
             },
         )
 

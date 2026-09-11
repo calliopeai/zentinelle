@@ -6,15 +6,13 @@ without requiring API keys or database access.
 """
 import unittest
 
-from zentinelle.services.model_sync import (
-    _openai_known_models,
-    _anthropic_known_models,
-    _google_known_models,
-    _classify_openai_model,
-    _openai_capabilities,
-    _openai_pricing,
-)
 from zentinelle.models.model_registry import AIModel
+from zentinelle.services.model_sync import (_anthropic_known_models,
+                                            _classify_openai_model,
+                                            _google_known_models,
+                                            _openai_capabilities,
+                                            _openai_known_models,
+                                            _openai_pricing)
 
 
 class TestOpenAIKnownModels(unittest.TestCase):

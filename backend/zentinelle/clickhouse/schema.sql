@@ -1,7 +1,7 @@
 -- ClickHouse schema for Zentinelle audit event analytics.
 --
 -- Tables use MergeTree engine with monthly partitioning for efficient
--- time-range queries and automatic data lifecycle management.
+-- time-range queries. The shared hold-aware retention job controls expiry.
 --
 -- Usage:
 --   Run this SQL against your ClickHouse instance to initialize the schema.
@@ -32,7 +32,6 @@ CREATE TABLE IF NOT EXISTS audit_events (
 ENGINE = MergeTree()
 PARTITION BY toYYYYMM(occurred_at)
 ORDER BY (organization_id, event_type, occurred_at)
-TTL toDateTime(occurred_at) + INTERVAL 2 YEAR
 SETTINGS index_granularity = 8192;
 
 
@@ -49,8 +48,7 @@ CREATE TABLE IF NOT EXISTS audit_events_hourly_counts (
 )
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(hour)
-ORDER BY (organization_id, event_type, event_category, hour)
-TTL toDateTime(hour) + INTERVAL 2 YEAR;
+ORDER BY (organization_id, event_type, event_category, hour);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS audit_events_hourly_counts_mv
 TO audit_events_hourly_counts
@@ -78,8 +76,7 @@ CREATE TABLE IF NOT EXISTS audit_events_agent_daily (
 )
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(day)
-ORDER BY (organization_id, agent_id, event_type, day)
-TTL toDate(day) + INTERVAL 2 YEAR;
+ORDER BY (organization_id, agent_id, event_type, day);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS audit_events_agent_daily_mv
 TO audit_events_agent_daily
@@ -107,8 +104,7 @@ CREATE TABLE IF NOT EXISTS audit_events_org_daily (
 )
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(day)
-ORDER BY (organization_id, event_category, day)
-TTL toDate(day) + INTERVAL 2 YEAR;
+ORDER BY (organization_id, event_category, day);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS audit_events_org_daily_mv
 TO audit_events_org_daily

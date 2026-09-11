@@ -24,9 +24,10 @@ Architecture:
 import math
 import uuid
 from decimal import Decimal
+
 from django.db import models
+from django.db.models import Avg, Max, Min, Sum
 from django.utils import timezone
-from django.db.models import Sum, Avg, Max, Min
 
 
 class UsageMetric(models.Model):
@@ -220,6 +221,11 @@ class UsageMetric(models.Model):
         db_index=True,
         help_text='When this metric was exported to Calliope AI billing'
     )
+
+    def save(self, *args, **kwargs):
+        from zentinelle.services.content_capture import capture_payload
+        self.metadata = capture_payload(self.metadata, self.tenant_id)
+        return super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['-occurred_at']
@@ -908,6 +914,7 @@ class License(models.Model):
     def _generate_license_key():
         """Generate a unique license key."""
         import secrets
+
         # Format: CLIO-XXXX-XXXX-XXXX-XXXX
         parts = [secrets.token_hex(2).upper() for _ in range(4)]
         return f"CLIO-{'-'.join(parts)}"
@@ -950,7 +957,10 @@ class License(models.Model):
 
     def check_deployment_limit(self) -> tuple[bool, str]:
         """Check if adding another deployment is allowed."""
-        # TODO: decouple - deployments.models.Deployment not available in standalone
+        try:
+            from deployments.models import Deployment
+        except ImportError:
+            return False, "Deployment inventory is unavailable in standalone mode"
         current_count = Deployment.objects.filter(
             tenant_id=self.tenant_id,
             status__in=[Deployment.Status.ACTIVE, Deployment.Status.PENDING]
@@ -1447,6 +1457,7 @@ class MonthlyUserCount(models.Model):
         Called at the end of each billing period by a scheduled task.
         """
         from datetime import datetime
+
         from dateutil.relativedelta import relativedelta
 
         # Get license

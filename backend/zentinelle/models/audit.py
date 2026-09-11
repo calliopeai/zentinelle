@@ -66,6 +66,8 @@ class AuditLog(models.Model):
     # breaks the hash, which is the point of the chain.
     timestamp = models.DateTimeField(default=timezone.now, db_index=True)
 
+    hash_version = models.PositiveSmallIntegerField(default=2)
+
     # Tamper-evident hash chain fields
     entry_hash = models.CharField(
         max_length=64,
@@ -115,7 +117,8 @@ class AuditLog(models.Model):
         Only meaningful inside the transaction `save()` opens: the head must be
         locked before the sequence is read, or two writers read the same one.
         """
-        from zentinelle.services.audit_chain import _compute_entry_hash, compute_chain_hash
+        from zentinelle.services.audit_chain import (_compute_entry_hash,
+                                                     compute_chain_hash)
 
         head = self._locked_head(using=using)
         self.chain_sequence = head.last_sequence + 1
@@ -164,7 +167,8 @@ class AuditLog(models.Model):
         impossible even if this were bypassed.
         """
         if not self._state.adding:
-            return super().save(*args, **kwargs)
+            from django.core.exceptions import ValidationError
+            raise ValidationError('Audit entries are immutable; append a correction instead')
 
         from django.db import router, transaction
 
@@ -173,6 +177,9 @@ class AuditLog(models.Model):
 
         using = kwargs.get('using') or router.db_for_write(type(self))
 
+        from zentinelle.services.content_capture import capture_payload
+        self.changes = capture_payload(self.changes, self.tenant_id)
+        self.metadata = capture_payload(self.metadata, self.tenant_id)
         with transaction.atomic(using=using):
             head = self.compute_hashes(using=using)
             result = super().save(*args, **kwargs)
@@ -275,6 +282,9 @@ class AuditChainHead(models.Model):
     """
 
     tenant_id = models.CharField(max_length=255, primary_key=True)
+    archived_sequence = models.BigIntegerField(default=0)
+    archived_chain_hash = models.CharField(max_length=64, blank=True, default='')
+    archived_checkpoint = models.TextField(blank=True, default='')
     last_sequence = models.BigIntegerField(default=0)
     last_chain_hash = models.CharField(max_length=64, blank=True, default='')
     updated_at = models.DateTimeField(auto_now=True)
@@ -285,3 +295,14 @@ class AuditChainHead(models.Model):
 
     def __str__(self):
         return f"{self.tenant_id} @ {self.last_sequence}"
+
+
+class AuditRetentionProof(models.Model):
+    """Signed chain hashes for an expired prefix, without expired event content."""
+    tenant_id = models.CharField(max_length=255, db_index=True)
+    first_sequence = models.BigIntegerField()
+    last_sequence = models.BigIntegerField()
+    proof = models.TextField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['tenant_id', 'first_sequence'], name='unique_audit_retention_proof')]

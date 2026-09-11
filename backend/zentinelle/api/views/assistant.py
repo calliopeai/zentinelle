@@ -11,6 +11,7 @@ in context.
 Uses SSE (Server-Sent Events) for streaming.
 """
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -18,10 +19,10 @@ import queue
 import threading
 
 from django.http import JsonResponse, StreamingHttpResponse
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
+from rest_framework.permissions import BasePermission
 from rest_framework.views import APIView
+
+from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.auth.mode import is_open_mode
 
 logger = logging.getLogger(__name__)
@@ -29,13 +30,13 @@ logger = logging.getLogger(__name__)
 
 class IsAuthenticatedOrOpenMode(BasePermission):
     """Allow if authenticated OR if AUTH_MODE=open."""
+
     def has_permission(self, request, view):
         if is_open_mode():
             return True
         return bool(request.user and request.user.is_authenticated)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class AssistantExecuteToolView(APIView):
     """Deterministically execute a tool the user has approved.
 
@@ -46,8 +47,8 @@ class AssistantExecuteToolView(APIView):
     Returns the tool result so the frontend can inline it in the chat.
     """
 
-    permission_classes = [IsAuthenticatedOrOpenMode]
-    authentication_classes = []
+    permission_classes = [PortalAccess]
+    authentication_classes = PORTAL_AUTH
 
     def post(self, request):
         try:
@@ -57,13 +58,16 @@ class AssistantExecuteToolView(APIView):
 
         name = data.get('name', '')
         args = data.get('args', {}) or {}
+        endpoint_id = str(data.get('endpoint_id', '') or '').strip()
+        if len(endpoint_id) > 128:
+            return JsonResponse({'error': 'endpoint_id is a bounded identifier'}, status=400)
 
         if not name:
             return JsonResponse({'error': 'name is required'}, status=400)
 
-        from zentinelle.services.llm_tools import (REQUIRES_CONFIRMATION,
-                                                    TOOL_DISPATCH, execute_tool,
-                                                    MUTATION_TOOLS)
+        from zentinelle.services.llm_tools import (MUTATION_TOOLS,
+                                                   REQUIRES_CONFIRMATION,
+                                                   TOOL_DISPATCH, execute_tool)
 
         if name not in TOOL_DISPATCH:
             return JsonResponse({'error': f'Unknown tool: {name}'}, status=400)
@@ -79,11 +83,43 @@ class AssistantExecuteToolView(APIView):
         if not tenant_id:
             return JsonResponse({'error': 'Tenant required'}, status=403)
 
+        # Tool arguments are model supplied and remain untrusted even after a
+        # human approves the exact argument digest. Reject instruction-shaped
+        # payloads before looking up or consuming the approval.
+        from zentinelle.services.assistant_guardrails import \
+            check_untrusted_content
+        argument_check = check_untrusted_content(json.dumps(args, default=str))
+        if not argument_check.allowed:
+            try:
+                AssistantChatView._audit_guardrail_denial(tenant_id, 'tool_args', argument_check.reason, argument_check.policy_ids)
+            except Exception:
+                logger.warning('Failed to audit tool argument guardrail denial', exc_info=True)
+            return JsonResponse({'error': 'assistant_guardrail_denied'}, status=422)
+
         actor = (
             str(request.user.id)
             if request.user.is_authenticated and hasattr(request.user, 'id')
             else 'open-mode'
         )
+
+        from zentinelle.services.approvals import (consume_approvals,
+                                                   context_digest,
+                                                   find_approval)
+        approval = find_approval(
+            data.get('approval_token'), tenant_id=tenant_id, kind='assistant',
+            subject=actor, action=name, digest=context_digest(args),
+        )
+        if not approval or not consume_approvals([approval.pk], tenant_id=tenant_id):
+            return JsonResponse({'error': 'Confirmation is expired, used, or does not match this action'}, status=403)
+
+        # Re-evaluate tenant tool authority at execution time. Approval of an
+        # exact argument digest never overrides a newer deny policy.
+        try:
+            from zentinelle.services.llm_provider import _check_tool_route
+            _check_tool_route(name, args, tenant_id, approval_token=data.get('approval_token', ''),
+                              user_id=actor, endpoint_id=endpoint_id)
+        except RuntimeError as exc:
+            return JsonResponse({'error': 'tool_policy_denied', 'detail': str(exc)}, status=403)
 
         # Execute and audit
         result_str = execute_tool(name, args, tenant_id)
@@ -95,7 +131,8 @@ class AssistantExecuteToolView(APIView):
         if name in MUTATION_TOOLS:
             try:
                 from zentinelle.models import AuditLog
-                from zentinelle.services.llm_provider import _resource_id_from_args
+                from zentinelle.services.llm_provider import \
+                    _resource_id_from_args
                 res_type, res_id = _resource_id_from_args(name, args, result_obj)
                 AuditLog.log(
                     tenant_id=tenant_id,
@@ -118,12 +155,11 @@ class AssistantExecuteToolView(APIView):
         })
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class AssistantChatView(APIView):
     """Stream a GRC-aware AI assistant response."""
 
-    permission_classes = [IsAuthenticatedOrOpenMode]
-    authentication_classes = []
+    permission_classes = [PortalAccess]
+    authentication_classes = PORTAL_AUTH
 
     def post(self, request):
         try:
@@ -136,7 +172,7 @@ class AssistantChatView(APIView):
         page_context = data.get('page_context', '')
         model = data.get('model', '')
         provider = data.get('provider', '')
-        approved_actions = data.get('approved_actions', []) or []
+        approved_actions = []  # Confirmation is accepted only by execute-tool.
 
         if not message:
             return JsonResponse(
@@ -149,6 +185,29 @@ class AssistantChatView(APIView):
             tenant_id = '00000000-0000-0000-0000-000000000001'
         if not tenant_id:
             tenant_id = 'default'
+
+        from zentinelle.models import TenantConfig
+        tenant_settings = TenantConfig.objects.filter(tenant_id=tenant_id).values_list('settings', flat=True).first() or {}
+        model_override = tenant_settings.get('assistant_model', '')
+        provider_override = tenant_settings.get('assistant_provider', '')
+        if not model and model_override:
+            model = model_override
+        if not provider and provider_override:
+            provider = provider_override
+
+        from zentinelle.services.assistant_guardrails import \
+            check_support_message
+        guardrail = check_support_message(tenant_id, message)
+        if not guardrail.allowed:
+            self._audit_guardrail_denial(tenant_id, 'input', guardrail.reason, guardrail.policy_ids)
+            return JsonResponse({
+                'error': 'assistant_guardrail_denied',
+                'detail': guardrail.reason,
+                'policies_evaluated': list(guardrail.policy_ids),
+            }, status=422)
+        # Keep an audit trail for accepted prompts as well as refusals, while
+        # retaining only a digest and bounded metadata rather than user text.
+        self._audit_guardrail_acceptance(tenant_id, message, guardrail.policy_ids)
 
         system_prompt = self._build_system_prompt(request, page_context)
 
@@ -204,6 +263,7 @@ class AssistantChatView(APIView):
 
         q: queue.Queue = queue.Queue()
         SENTINEL = object()
+        buffered_text = []
 
         def producer():
             loop = asyncio.new_event_loop()
@@ -238,19 +298,57 @@ class AssistantChatView(APIView):
                 break
             kind = ev.get('type')
             if kind == 'text':
-                yield f"data: {json.dumps({'content': ev['content']})}\n\n"
+                buffered_text.append(ev.get('content', ''))
             elif kind == 'tool_call':
                 yield f"data: {json.dumps({'tool_call': ev['name'], 'args': ev.get('args', {}), 'hash': ev.get('hash', '')})}\n\n"
             elif kind == 'tool_result':
                 yield f"data: {json.dumps({'tool_result': ev['name'], 'result': ev.get('result', {})})}\n\n"
             elif kind == 'pending_action':
+                from zentinelle.services.approvals import issue_approval
+                ev['hash'] = issue_approval(tenant_id=tenant_id, kind='assistant', subject=actor,
+                                            action=ev['name'], context=ev.get('args', {}))
                 yield f"data: {json.dumps({'pending_action': ev['name'], 'args': ev.get('args', {}), 'hash': ev.get('hash', ''), 'preview': ev.get('preview', '')})}\n\n"
             elif kind == 'navigation':
                 yield f"data: {json.dumps({'navigation': {'path': ev.get('path', ''), 'label': ev.get('label', '')}})}\n\n"
             elif kind == 'error':
                 yield f"data: {json.dumps({'error': ev.get('message', 'stream error')})}\n\n"
 
+        from zentinelle.services.assistant_guardrails import \
+            check_support_output
+        complete_text = ''.join(buffered_text)
+        output_check = check_support_output(complete_text, tenant_id)
+        if output_check.allowed:
+            if complete_text:
+                yield f"data: {json.dumps({'content': complete_text})}\n\n"
+        else:
+            self._audit_guardrail_denial(tenant_id, 'output', output_check.reason, ())
+            yield f"data: {json.dumps({'error': 'assistant_guardrail_denied', 'detail': output_check.reason})}\n\n"
         yield "data: [DONE]\n\n"
+
+    @staticmethod
+    def _audit_guardrail_denial(tenant_id, boundary, reason, policy_ids):
+        """Record a denial without persisting user prompt or model content."""
+        try:
+            from zentinelle.models import AuditLog
+            AuditLog.log(tenant_id=tenant_id, action='assistant.guardrail_denied',
+                         resource_type='assistant', resource_id=boundary,
+                         changes={'boundary': boundary, 'reason': reason[:255],
+                                  'policy_ids': list(policy_ids)})
+        except Exception:
+            logger.warning('Unable to audit assistant guardrail denial', exc_info=True)
+
+    @staticmethod
+    def _audit_guardrail_acceptance(tenant_id, message, policy_ids):
+        try:
+            from zentinelle.models import AuditLog
+            AuditLog.log(tenant_id=tenant_id, action='assistant.guardrail_checked',
+                         resource_type='assistant', resource_id='input',
+                         changes={'boundary': 'input', 'outcome': 'accepted',
+                                  'policy_ids': list(policy_ids)},
+                         metadata={'prompt_sha256': hashlib.sha256(message.encode('utf-8')).hexdigest(),
+                                   'prompt_length': len(message)})
+        except Exception:
+            logger.warning('Unable to audit assistant guardrail acceptance', exc_info=True)
 
     def _build_system_prompt(self, request, page_context):
         """Build a system prompt enriched with the tenant's actual GRC data.

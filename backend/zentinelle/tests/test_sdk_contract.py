@@ -11,7 +11,6 @@ from rest_framework.test import APIClient
 
 from zentinelle.models import AgentEndpoint
 
-
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 BOOTSTRAP_SECRET = 'test-bootstrap-secret'
 
@@ -53,6 +52,24 @@ class RegisterContractTest(TestCase):
         endpoint = AgentEndpoint.objects.get(agent_id=data['agent_id'])
         self.assertEqual(endpoint.tenant_id, STANDALONE_TENANT)
         self.assertEqual(endpoint.name, 'SDK Contract Agent')
+
+    @patch.dict('os.environ', {'ZENTINELLE_BOOTSTRAP_SECRET': BOOTSTRAP_SECRET}, clear=False)
+    def test_register_preserves_governed_taxonomy_for_sdk_consumers(self):
+        response = self.client.post(
+            reverse('zentinelle:register'),
+            data={
+                'agent_type': AgentEndpoint.AgentType.CUSTOM,
+                'name': 'Taxonomy Contract Agent',
+                'metadata': {'taxonomy': ['function:customer_service', 'mode:workflow', 'authority:read_only']},
+            }, format='json',
+            HTTP_X_ZENTINELLE_BOOTSTRAP=make_bootstrap_token(STANDALONE_TENANT),
+        )
+        self.assertEqual(response.status_code, 201)
+        endpoint = AgentEndpoint.objects.get(agent_id=response.json()['agent_id'])
+        self.assertEqual(endpoint.metadata['taxonomy']['supported'], [
+            'authority:read_only', 'function:customer_service', 'mode:workflow',
+        ])
+        self.assertEqual(endpoint.metadata['taxonomy']['unsupported'], [])
 
 
 class SecretsContractTest(TestCase):

@@ -8,7 +8,8 @@ Usage:
 """
 from django.core.management.base import BaseCommand, CommandError
 
-from zentinelle.services.compliance_packs import activate_pack, get_pack, list_packs
+from zentinelle.services.compliance_packs import (activate_pack, get_pack,
+                                                  list_packs)
 
 
 class Command(BaseCommand):

@@ -3,16 +3,9 @@ Tests for the Content Scanner service.
 """
 from django.test import TestCase
 
-from zentinelle.models import (
-    AgentEndpoint,
-    ContentRule,
-    ContentScan,
-    ComplianceAlert,
-)
-from zentinelle.services.content_scanner import (
-    ContentScanner,
-    DetectionResult,
-)
+from zentinelle.models import (AgentEndpoint, ComplianceAlert, ContentRule,
+                               ContentScan)
+from zentinelle.services.content_scanner import ContentScanner, DetectionResult
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 

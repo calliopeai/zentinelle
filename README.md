@@ -79,9 +79,9 @@ Three integration modes:
 - **Analyze** — get AI feedback (clarity, safety risks, ambiguity, token efficiency, per-section improvements)
 
 ### Multi-tenancy & Auth
-- **AUTH_MODE=open** — no login (default for internal/dev behind VPN)
-- **AUTH_MODE=local** — username/password with session cookies
-- **AUTH_MODE=sso** — OIDC/SAML (Google, Okta, Cognito, Entra ID, Keycloak)
+- **AUTH_MODE=open** — explicit development mode; everyone has administrative access
+- **AUTH_MODE=local** — default; username/password with session cookies
+- **AUTH_MODE=sso** — OIDC (Google, Okta, Cognito, Entra ID, Keycloak)
 - **RBAC** — admin/operator/viewer roles
 - **API keys** — platform-level keys with scoped permissions
 
@@ -102,7 +102,7 @@ git clone https://github.com/calliopeai/zentinelle
 cd zentinelle
 cp .env.example .env
 
-# For dev/internal: defaults to AUTH_MODE=open — just start
+# Local authentication is the default; create an administrator after startup.
 docker compose up -d
 ```
 
@@ -128,16 +128,17 @@ docker compose exec backend python manage.py bootstrap_token generate \
 
 ```bash
 # Generate required secrets
-docker compose exec backend python manage.py generate_secrets
+python3 -c 'import secrets,base64; print("SECRET_KEY="+secrets.token_hex(32)); print("ZENTINELLE_BOOTSTRAP_SECRET="+secrets.token_hex(32)); print("ZENTINELLE_SECRET_KEY="+base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()); print("POSTGRES_PASSWORD="+secrets.token_hex(24))'
 
 # Set in .env:
 # - SECRET_KEY (Django)
 # - ZENTINELLE_SECRET_KEY (Fernet, encrypts LLM keys)
 # - ZENTINELLE_BOOTSTRAP_SECRET (HMAC, agent tokens)
-# - ALLOWED_HOSTS (comma-separated)
+# - ZENTINELLE_DOMAIN (public DNS hostname, for HTTPS)
+# - POSTGRES_PASSWORD (strong database password)
 # - AUTH_MODE=local or sso (open is rejected in prod)
 
-DJANGO_SETTINGS_MODULE=config.settings.prod docker compose up -d
+docker compose -f compose.production.yaml up -d --build
 ```
 
 Production settings enforce:
@@ -145,7 +146,9 @@ Production settings enforce:
 - CORS allowlist (no wildcard)
 - All required secrets present at startup (raises if missing)
 
-See [docs/wiki/Deployment-Guide.md](docs/wiki/Deployment-Guide.md) for full details.
+The production profile terminates HTTPS at Caddy and keeps databases, Redis, backend and gateway on the private Compose network. Create the first administrator with `docker compose -f compose.production.yaml exec backend python manage.py createsuperuser`.
+
+See [control upgrade notes](docs/dependable-controls.md) before upgrading an existing database.
 
 ## Connect Your Agents
 

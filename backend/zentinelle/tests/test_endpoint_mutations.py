@@ -10,12 +10,8 @@ from django.test import TestCase
 
 from zentinelle.models.endpoint import AgentEndpoint
 from zentinelle.schema import schema
-from zentinelle.tests._graphql_helpers import (
-    STANDALONE_TENANT,
-    admin_context,
-    anon_context,
-)
-
+from zentinelle.tests._graphql_helpers import (STANDALONE_TENANT,
+                                               admin_context, anon_context)
 
 UPDATE_ENDPOINT = """
 mutation UpdateEndpoint($input: UpdateAgentEndpointInput!) {
@@ -127,13 +123,8 @@ class UpdateAgentEndpointTests(TestCase):
             {'input': {'id': str(self.endpoint.id), 'name': 'Hacked'}},
             context=anon_context(),
         )
-        self.assertIsNone(result.errors)
-        payload = result.data['updateAgentEndpoint']
-        self.assertFalse(payload['success'])
-        self.assertEqual(payload['error'], 'Authentication required')
-
-        self.endpoint.refresh_from_db()
-        self.assertEqual(self.endpoint.name, 'Original Name')
+        self.assertTrue(result.errors)
+        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
 
 
 class UpdateEndpointStatusTests(TestCase):
@@ -190,10 +181,8 @@ class UpdateEndpointStatusTests(TestCase):
             {'id': str(self.endpoint.id), 'status': AgentEndpoint.Status.SUSPENDED},
             context=anon_context(),
         )
-        self.assertIsNone(result.errors)
-        payload = result.data['updateEndpointStatus']
-        self.assertFalse(payload['success'])
-        self.assertEqual(payload['error'], 'Authentication required')
+        self.assertTrue(result.errors)
+        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
 
     def test_status_round_trip(self):
         """Validate full status state machine: active -> suspended -> active."""

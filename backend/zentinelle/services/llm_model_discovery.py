@@ -15,13 +15,27 @@ from typing import Optional
 
 import httpx
 
-from zentinelle.services.llm_provider import OPENAI_COMPAT_PROVIDERS, get_api_key
+from zentinelle.services.llm_provider import (OPENAI_COMPAT_PROVIDERS,
+                                              get_api_key)
 
 logger = logging.getLogger(__name__)
 
 # Cache: { (tenant_id, provider): (timestamp, models_list) }
 _CACHE: dict = {}
 _CACHE_TTL_SECONDS = 3600  # 1 hour
+
+
+def _cache_ttl_seconds(tenant_id: str) -> int:
+    """Resolve the tenant's bounded discovery interval, failing safe to 1h."""
+    try:
+        from zentinelle.models import TenantConfig
+        value = (TenantConfig.objects.filter(tenant_id=str(tenant_id))
+                 .values_list('settings', flat=True).first() or {}).get('discovery_refresh_seconds')
+        if isinstance(value, int) and not isinstance(value, bool) and 300 <= value <= 86400:
+            return value
+    except Exception:
+        logger.debug('Unable to load discovery refresh setting', exc_info=True)
+    return _CACHE_TTL_SECONDS
 
 
 def _classify_model_type(model_id: str) -> str:
@@ -39,7 +53,7 @@ def _classify_model_type(model_id: str) -> str:
     if any(x in m for x in ['tts', 'text-to-speech']):
         return 'text_to_speech'
     if any(x in m for x in ['dall-e', 'gpt-image', 'chatgpt-image',
-                              'stable-diffusion', 'sdxl', 'flux', 'midjourney']):
+                            'stable-diffusion', 'sdxl', 'flux', 'midjourney']):
         return 'image_gen'
     if any(x in m for x in ['sora', '-video', 'video-']):
         return 'image_gen'  # closest existing bucket; no 'video' enum yet
@@ -313,7 +327,7 @@ def fetch_live_models(provider: str, tenant_id: str) -> Optional[list]:
     now = time.time()
 
     cached = _CACHE.get(cache_key)
-    if cached and (now - cached[0]) < _CACHE_TTL_SECONDS:
+    if cached and (now - cached[0]) < _cache_ttl_seconds(tenant_id):
         return cached[1]
 
     if provider == 'ollama':
@@ -343,8 +357,9 @@ def fetch_live_models(provider: str, tenant_id: str) -> Optional[list]:
 
 def _persist_to_registry(provider_slug: str, models: list) -> None:
     """Upsert discovered models into the AIModel registry."""
-    from zentinelle.models import AIModel, AIProvider
     from datetime import datetime
+
+    from zentinelle.models import AIModel, AIProvider
 
     provider, _ = AIProvider.objects.get_or_create(
         slug=provider_slug,

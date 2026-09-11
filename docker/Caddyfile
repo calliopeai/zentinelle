@@ -1,0 +1,12 @@
+{$ZENTINELLE_DOMAIN} {
+    handle_path /gateway/* {
+        reverse_proxy gateway:8742
+    }
+    @backend path /api/zentinelle/* /gql/zentinelle/* /admin/* /static/* /proxy/* /integrations/*
+    handle @backend {
+        reverse_proxy backend:8000
+    }
+    handle {
+        reverse_proxy frontend:3002
+    }
+}

@@ -5,6 +5,7 @@ ANALYTICS_MODELS = frozenset([
     # The chain head is locked in the same transaction as the audit record it
     # is the head of, so it has to live in the same database.
     'auditchainhead',
+    'auditretentionproof',
 ])
 
 

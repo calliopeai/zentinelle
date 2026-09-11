@@ -12,7 +12,7 @@ Handles two deployment models:
 """
 import json
 import logging
-from typing import Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Optional
 
 import boto3
 from django.conf import settings

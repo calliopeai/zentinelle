@@ -1,9 +1,12 @@
+import { authenticatedFetch } from "@/lib/auth/fetch";
 export interface SessionUser {
   id: string;
   username: string;
   email: string;
   is_staff: boolean;
   is_superuser: boolean;
+  role?: string;
+  capabilities?: string[];
 }
 
 // Relative, because NEXT_PUBLIC_* is inlined at build time: a task-definition
@@ -17,7 +20,7 @@ export async function fetchSessionUser(
   cookieHeader?: string,
 ): Promise<SessionUser | null> {
   try {
-    const res = await fetch(`${API_URL}/auth/me`, {
+    const res = await authenticatedFetch(`${API_URL}/auth/me`, {
       credentials: "include",
       headers: {
         ...(cookieHeader ? { Cookie: cookieHeader } : {}),
@@ -38,7 +41,7 @@ export async function login(
   username: string,
   password: string,
 ): Promise<{ user: SessionUser; csrf_token: string } | { error: string }> {
-  const res = await fetch(`${API_URL}/auth/login`, {
+  const res = await authenticatedFetch(`${API_URL}/auth/login`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -55,7 +58,7 @@ export async function login(
 }
 
 export async function logout(): Promise<void> {
-  await fetch(`${API_URL}/auth/logout`, {
+  await authenticatedFetch(`${API_URL}/auth/logout`, {
     method: "POST",
     credentials: "include",
   });

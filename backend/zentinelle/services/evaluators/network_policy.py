@@ -4,11 +4,12 @@ Controls outbound network access for agents (domains, IPs, general outbound).
 """
 import ipaddress
 from fnmatch import fnmatch
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 from zentinelle.models import Policy
-from zentinelle.services.evaluators.base import BasePolicyEvaluator, PolicyResult
+from zentinelle.services.evaluators.base import (BasePolicyEvaluator,
+                                                 PolicyResult)
 
 
 class NetworkPolicyEvaluator(BasePolicyEvaluator):

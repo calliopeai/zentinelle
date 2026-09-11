@@ -1,9 +1,10 @@
 import uuid
 
 from django.db import models
-from zentinelle.models.base import Tracking
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+
+from zentinelle.models.base import Tracking
 
 
 class Policy(Tracking):
@@ -109,6 +110,10 @@ class Policy(Tracking):
     # Policy configuration (schema depends on policy_type)
     config = models.JSONField(default=dict)
 
+    # Distinct rules compose. Only an explicit override group participates in inheritance.
+    override_group = models.CharField(max_length=255, blank=True, default='')
+    non_overridable = models.BooleanField(default=False)
+
     # Behavior
     priority = models.IntegerField(
         default=0,
@@ -143,6 +148,14 @@ class Policy(Tracking):
     def clean(self):
         """Validate scope fields match scope_type."""
         from django.core.exceptions import ValidationError
+
+        selectors = self.config.get('taxonomy_selectors', []) if isinstance(self.config, dict) else []
+        if selectors:
+            if not isinstance(selectors, list) or not all(isinstance(item, str) for item in selectors):
+                raise ValidationError('taxonomy_selectors must be a list of dimension:value strings.')
+            for selector in selectors:
+                if selector.count(':') != 1 or any(not part.strip() for part in selector.split(':', 1)):
+                    raise ValidationError('Each taxonomy selector must use dimension:value syntax.')
 
         if self.scope_type == self.ScopeType.ORGANIZATION:
             if self.scope_sub_organization_id_ext or self.scope_deployment_id_ext or self.scope_endpoint or self.scope_user_id_ext:
@@ -274,6 +287,13 @@ def create_policy_revision(sender, instance, created, **kwargs):
         'enabled': instance.enabled,
         'description': instance.description,
         'version': instance.version,
+        'scope_type': instance.scope_type,
+        'scope_sub_organization_id_ext': instance.scope_sub_organization_id_ext,
+        'scope_deployment_id_ext': instance.scope_deployment_id_ext,
+        'scope_endpoint_id': str(instance.scope_endpoint_id) if instance.scope_endpoint_id else None,
+        'scope_user_id_ext': instance.scope_user_id_ext,
+        'override_group': instance.override_group,
+        'non_overridable': instance.non_overridable,
     }
     PolicyHistory.objects.get_or_create(
         policy=instance,

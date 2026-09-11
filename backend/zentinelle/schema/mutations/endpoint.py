@@ -8,8 +8,8 @@ import uuid
 from typing import Optional
 
 import strawberry
-from strawberry.scalars import JSON
 from graphql_relay import from_global_id
+from strawberry.scalars import JSON
 
 from zentinelle.models import AgentEndpoint
 from zentinelle.schema.auth_helpers import get_request_tenant_id
@@ -38,6 +38,7 @@ class CreateAgentEndpointInput:
     capabilities: Optional[list[str]] = None
     metadata: Optional[JSON] = None
     config: Optional[JSON] = None
+    sub_organization_id: Optional[str] = None
 
 
 @strawberry.input
@@ -48,6 +49,7 @@ class UpdateAgentEndpointInput:
     capabilities: Optional[list[str]] = None
     metadata: Optional[JSON] = None
     config: Optional[JSON] = None
+    sub_organization_id: Optional[str] = None
 
 
 @strawberry.type
@@ -103,6 +105,10 @@ def create_agent_endpoint(info: strawberry.types.Info, organization_id: uuid.UUI
     if not info.context.request.user.is_authenticated:
         return CreateAgentEndpointPayload(success=False, error="Authentication required")
 
+    tenant_id = get_request_tenant_id(info.context.request.user)
+    if not tenant_id or (organization_id and str(organization_id) != str(tenant_id)):
+        return CreateAgentEndpointPayload(success=False, error='Tenant not permitted')
+
     valid_types = [t.value for t in AgentEndpoint.AgentType]
     if input.agent_type not in valid_types:
         return CreateAgentEndpointPayload(success=False, error=f"Invalid agent type: {input.agent_type}")
@@ -116,7 +122,7 @@ def create_agent_endpoint(info: strawberry.types.Info, organization_id: uuid.UUI
             agent_id = f"{input.agent_type}-{secrets_module.token_hex(4)}"
 
         endpoint = AgentEndpoint.objects.create(
-            tenant_id=str(organization_id),
+            tenant_id=tenant_id,
             name=input.name,
             agent_id=agent_id,
             agent_type=input.agent_type,
@@ -125,6 +131,7 @@ def create_agent_endpoint(info: strawberry.types.Info, organization_id: uuid.UUI
             capabilities=input.capabilities or [],
             metadata=input.metadata or {},
             config=input.config or {},
+            sub_organization_id_ext=input.sub_organization_id or '',
             status=AgentEndpoint.Status.PROVISIONING,
         )
 
@@ -181,6 +188,8 @@ def update_agent_endpoint(info: strawberry.types.Info, input: UpdateAgentEndpoin
         endpoint.capabilities = input.capabilities
     if input.metadata:
         endpoint.metadata = input.metadata
+    if input.sub_organization_id is not None:
+        endpoint.sub_organization_id_ext = input.sub_organization_id
     if input.config:
         endpoint.config = input.config
 

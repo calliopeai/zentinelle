@@ -8,26 +8,22 @@ Handles:
 4. Managing AI key mode inheritance
 """
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
+from zentinelle.services.secrets_service import SecretsService
 
 # TODO: decouple - external models not available in standalone mode
 # These are lazy-loaded when used by the client-cove integration layer
 try:
-    from deployments.models import (
-        Deployment,
-        DeploymentToolConfig,
-        ToolSecretAccess,
-        SecretBundle,
-    )
     from billing.models import ToolRegistry
+    from deployments.models import (Deployment, DeploymentToolConfig,
+                                    SecretBundle, ToolSecretAccess)
 except ImportError:
     Deployment = None
     DeploymentToolConfig = None
     ToolSecretAccess = None
     SecretBundle = None
     ToolRegistry = None
-from zentinelle.services.secrets_service import SecretsService
 
 logger = logging.getLogger(__name__)
 

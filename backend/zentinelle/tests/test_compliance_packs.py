@@ -6,7 +6,6 @@ All tests use unittest.mock — no database required.
 import unittest
 from unittest.mock import MagicMock, patch
 
-
 VALID_POLICY_TYPES = {
     'system_prompt', 'ai_guardrail', 'model_restriction', 'context_limit',
     'output_filter', 'agent_capability', 'agent_memory', 'human_oversight',
@@ -78,7 +77,8 @@ class TestActivatePack(unittest.TestCase):
 
     @patch('zentinelle.models.Policy')
     def test_activate_pack_creates_policies(self, MockPolicy):
-        from zentinelle.services.compliance_packs import activate_pack, get_pack
+        from zentinelle.services.compliance_packs import (activate_pack,
+                                                          get_pack)
 
         pack = get_pack('hipaa')
         expected_policy_count = len(pack['policies'])
@@ -96,7 +96,8 @@ class TestActivatePack(unittest.TestCase):
 
     @patch('zentinelle.models.Policy')
     def test_activate_pack_updates_existing_policies(self, MockPolicy):
-        from zentinelle.services.compliance_packs import activate_pack, get_pack
+        from zentinelle.services.compliance_packs import (activate_pack,
+                                                          get_pack)
 
         pack = get_pack('soc2')
         expected_policy_count = len(pack['policies'])

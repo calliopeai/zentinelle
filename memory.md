@@ -4,6 +4,24 @@ Persistent project memory. Decisions, context, open questions. Updated as the pr
 
 ---
 
+## September 2026 enforcement remediation
+
+The top-down BROCS review led to remediation tracked in #332. Prioritize dependable enforcement and evidence before expanding the catalogue. See `docs/dependable-controls.md` for deployment, migration and compatibility notes, and `docs/reviews/2026-09-10-remediation.md` for validation.
+
+Key decisions: local authentication by default; gateway failures deny access; workload identity comes from the validated key; human management uses session roles and CSRF. OIDC identity is issuer/subject with role reconciliation. Independent policies compose unless explicitly grouped for replacement, and mandatory controls remain effective. Approval records bind exact actions and are consumed once. Hard budgets use conservative atomic admission charges; trusted provider reconciliation is future work. Metadata-only content capture is the default. Both cleanup jobs share hold-aware decisions; non-delete lifecycle actions preserve data for review. Audit v2 includes changes and actor context, with signed retention witnesses and complete export manifests. Compliance reports distinguish configuration from unverified operating evidence.
+
+The separate production Compose profile uses HTTPS at Caddy and private service ports. Prepare independent schema migration ledgers before per-alias migrations. No production deployment or push is implied by local remediation work.
+
+Follow-on work is filed as #333–#342 on Project 4: runtime coverage, unified agent operations, staged policy change, incident containment, BROCS evidence, trusted budget reconciliation, model/tool authority, durable telemetry, archival/privacy lifecycle, and release/recovery assurance.
+
+The portal support assistant now performs deterministic product-scope and tenant organization-policy preflight before provider access. MITRE ATLAS threat mappings are documented in `docs/atlas-guardrails.md`; #343 tracks the threat/evidence model and #344 tracks the broader input/output guardrail and evaluation work.
+
+The assistant slice is a first consumer of the broader functional policy guardrail model tracked in #345. That model must cover coding agents, workflow agents, model and retrieval boundaries, tool calls, workflow transitions, egress, and operator actions under one decision and evidence contract.
+
+The existing policy hierarchy is organization → sub-organization (OU/team) → deployment (workflow/environment) → endpoint (agent) → user. Policy type is the control category, rather than another scope level. Functional resolution should compose distinct controls, permit replacement only through explicit `override_group`, and preserve `non_overridable` denies at narrower scopes.
+
+Policy rollout now has a durable `PolicyChangeSet` and tenant-scoped API. Promotion checks captured base versions transactionally, records pre-promotion snapshots, requires administrator authority, and supports audited rollback with version advancement. Endpoint/gateway acknowledgement and replay-backed rollout evidence remain open in #335.
+
 ## Strategic Decisions
 
 ### Product + Business Model

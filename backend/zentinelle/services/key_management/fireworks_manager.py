@@ -4,16 +4,12 @@ Fireworks AI API key management.
 Docs: https://docs.fireworks.ai/
 """
 import logging
-import httpx
 from datetime import datetime
 
-from .base import (
-    BaseKeyManager,
-    ProviderKeyInfo,
-    KeyCreationError,
-    KeyRevocationError,
-    KeyManagerError,
-)
+import httpx
+
+from .base import (BaseKeyManager, KeyCreationError, KeyManagerError,
+                   KeyRevocationError, ProviderKeyInfo)
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +87,7 @@ class FireworksKeyManager(BaseKeyManager):
                 key_value=data['key'],
                 name=data.get('name', name),
                 created_at=datetime.fromisoformat(data['created_at'].replace('Z', '+00:00'))
-                    if 'created_at' in data else None,
+                if 'created_at' in data else None,
                 rate_limit=data.get('rate_limit_rpm'),
                 budget_limit=data.get('monthly_budget_usd'),
             )

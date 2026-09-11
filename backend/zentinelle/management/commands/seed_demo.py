@@ -41,9 +41,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        from zentinelle.models import (
-            AgentEndpoint, Policy, ContentRule, Risk, Incident, Event,
-        )
+        from zentinelle.models import (AgentEndpoint, ContentRule, Event,
+                                       Incident, Policy, Risk)
 
         tenant = options["tenant"]
         reset = options["reset"]

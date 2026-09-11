@@ -3,16 +3,21 @@ Policy evaluation endpoint.
 POST /api/zentinelle/v1/evaluate
 """
 import logging
+import uuid
 
 from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from zentinelle.api.auth import (ZentinelleAPIKeyAuthentication,
+                                 get_endpoint_from_request)
+from zentinelle.api.serializers import EvaluateRequestSerializer
 from zentinelle.models import AgentEndpoint, Event
 from zentinelle.models.compliance import InteractionLog
-from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_endpoint_from_request
-from zentinelle.api.serializers import EvaluateRequestSerializer
+from zentinelle.services.boundary_contract import (build_contract,
+                                                   canonical_action)
+from zentinelle.services.content_capture import record_interaction
 
 logger = logging.getLogger(__name__)
 
@@ -32,41 +37,70 @@ class EvaluateView(APIView):
         serializer = EvaluateRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        try:
+            action = canonical_action(data['action'])
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         # Get authenticated endpoint
         auth_endpoint = get_endpoint_from_request(request)
 
         # Verify agent_id matches
-        if auth_endpoint.agent_id != data['agent_id']:
+        if data.get('agent_id') and auth_endpoint.agent_id != data['agent_id']:
             return Response(
                 {'error': 'Agent ID mismatch'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        trace_id = str(uuid.uuid4())
+        context = dict(data.get('context', {}) or {})
+        if data.get('authority'):
+            context['authority'] = data['authority']
+        context.setdefault('resource_type', self._resource_type_for_action(action))
+        # A boundary without an explicit resource ID is still represented as
+        # a resource, so downstream traces cannot collapse retrieval/workflow
+        # decisions into an indistinguishable generic action.
+        context.setdefault('resource_id', context.get('workload_id') or context.get('tool') or '')
+        context['trace_id'] = trace_id
         # Evaluate policies
         from zentinelle.services.policy_engine import PolicyEngine
 
-        evaluation_context = dict(data.get('context', {}))
-        if data.get('authority'):
-            evaluation_context['authority'] = data['authority']
         engine = PolicyEngine()
-        result = engine.evaluate(
-            endpoint=auth_endpoint,
-            action=data['action'],
-            user_id=data.get('user_id'),
-            context=evaluation_context,
-        )
-
+        try:
+            result = engine.evaluate(
+                endpoint=auth_endpoint,
+                action=action,
+                user_id=data.get('user_id'),
+                context=context,
+            )
+        except Exception:
+            # A policy outage must never turn into an implicit allow or an
+            # unstructured 500 that leaves adapters guessing what to do.
+            logger.exception('Policy evaluation unavailable for trace %s', trace_id)
+            return Response({
+                **build_contract(endpoint=auth_endpoint, action=action,
+                                 user_id=data.get('user_id'), context=context),
+                'trace_id': trace_id,
+                'decision': 'deny', 'allowed': False,
+                'reason': 'Policy evaluation unavailable',
+                'coverage': {'status': 'unknown'},
+                'warnings': ['retry after policy service recovery'],
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         # Log evaluation (async) and interaction (for monitoring)
-        self._log_evaluation(auth_endpoint, data, result)
-        self._log_interaction(auth_endpoint, data, result)
+        normalized_data = {**data, 'action': action}
+        self._log_evaluation(auth_endpoint, normalized_data, result, trace_id)
+        self._log_interaction(auth_endpoint, normalized_data, result)
 
         response_data = {
+            **build_contract(endpoint=auth_endpoint, action=action, user_id=data.get('user_id'), context=context),
+            'trace_id': trace_id,
+            'decision': 'allow' if result.allowed else 'deny',
             'allowed': result.allowed,
             'reason': result.reason,
             'policies_evaluated': result.policies_evaluated,
+            'coverage': result.coverage,
             'warnings': result.warnings,
-            'context': result.context,
+            'context': {k: v for k, v in result.context.items() if not k.startswith('_') and k != 'request_body'},
             # Whether this tenant has an output filter that a caller proxying
             # an LLM response must honour.
             #
@@ -83,6 +117,22 @@ class EvaluateView(APIView):
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+    @staticmethod
+    def _resource_type_for_action(action):
+        """Canonical resource classes shared by SDK/gateway evaluations."""
+        normalized = str(action or '').lower()
+        if normalized in {'tool_call', 'tool.invoke', 'mcp.tool_call'}:
+            return 'tool'
+        if normalized in {'retrieval', 'retrieve', 'rag.retrieve', 'data_access'}:
+            return 'retrieval'
+        if normalized in {'workflow.transition', 'workflow_step', 'workflow'}:
+            return 'workflow'
+        if normalized in {'egress', 'network.egress', 'llm:response'}:
+            return 'egress'
+        if normalized.startswith('llm:') or normalized in {'llm_call', 'ai_request'}:
+            return 'model'
+        return 'action'
 
     @staticmethod
     def _output_filter_required(endpoint) -> bool:
@@ -105,10 +155,11 @@ class EvaluateView(APIView):
             enabled=True,
         ).exists()
 
-    def _log_evaluation(self, endpoint: AgentEndpoint, request_data: dict, result):
+    def _log_evaluation(self, endpoint: AgentEndpoint, request_data: dict, result, trace_id: str = ''):
         """Log the policy evaluation as an audit event."""
-        from zentinelle.tasks.events import process_event_batch
         from django.utils import timezone
+
+        from zentinelle.tasks.events import process_event_batch
 
         # Determine event type based on result
         if not result.allowed:
@@ -133,6 +184,7 @@ class EvaluateView(APIView):
                     'reason': result.reason,
                     'policies_evaluated': result.policies_evaluated,
                 },
+                'trace_id': trace_id,
             },
             occurred_at=timezone.now(),
             status=Event.Status.PENDING,
@@ -149,6 +201,7 @@ class EvaluateView(APIView):
     def _log_interaction(self, endpoint: AgentEndpoint, request_data: dict, result):
         """Create an InteractionLog and record usage metrics."""
         from django.utils import timezone
+
         from zentinelle.services.usage_tracking import UsageTrackingService
 
         ctx = request_data.get('context', {})
@@ -199,7 +252,7 @@ class EvaluateView(APIView):
             topics.append(tool)
 
         try:
-            InteractionLog.objects.create(
+            record_interaction(
                 tenant_id=endpoint.tenant_id,
                 endpoint=endpoint,
                 deployment_id_ext=endpoint.deployment_id_ext,

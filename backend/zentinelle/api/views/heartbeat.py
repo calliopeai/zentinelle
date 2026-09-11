@@ -7,19 +7,17 @@ Deployment heartbeats are handled by the client-cove integration layer.
 """
 import logging
 
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from zentinelle.models import AgentEndpoint, Event
-from zentinelle.api.auth import (
-    ZentinelleAPIKeyAuthentication,
-    ZentinelleAgentUser,
-    get_endpoint_from_request,
-)
+from zentinelle.api.auth import (ZentinelleAgentUser,
+                                 ZentinelleAPIKeyAuthentication,
+                                 get_endpoint_from_request)
 from zentinelle.api.serializers import HeartbeatRequestSerializer
+from zentinelle.models import AgentEndpoint, Event
 
 logger = logging.getLogger(__name__)
 

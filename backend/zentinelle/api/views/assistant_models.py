@@ -10,19 +10,24 @@ out of the assistant chat picker (see assistant_providers.py).
 """
 import json
 import logging
+import re
 
+from django.db import transaction
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 
-from zentinelle.api.permissions import PORTAL_OR_AGENT_AUTH
-from zentinelle.api.views.assistant import IsAuthenticatedOrOpenMode
-from zentinelle.services.llm_model_discovery import (clear_cache,
-                                                      fetch_live_models)
+from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.auth.mode import is_open_mode
+from zentinelle.services.llm_model_discovery import (clear_cache,
+                                                     fetch_live_models)
 
 logger = logging.getLogger(__name__)
+
+
+def _valid_provider_slug(value):
+    return isinstance(value, str) and bool(re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,63}', value.strip().lower()))
 
 
 def _refuse_unless_admin(request):
@@ -59,21 +64,21 @@ def _refuse_unless_admin(request):
 class AssistantModelsListView(APIView):
     """List all models for a provider with their enabled_for_chat state."""
 
-    permission_classes = [IsAuthenticatedOrOpenMode]
+    permission_classes = [PortalAccess]
     # The portal session has to be visible here, or the admin check below has
     # nobody to check: with no authentication classes DRF replaces the session
     # user with AnonymousUser, so the only caller these views could ever
     # recognise was the open-mode one — who is an admin by construction.
-    authentication_classes = PORTAL_OR_AGENT_AUTH
+    authentication_classes = PORTAL_AUTH
 
     def get(self, request):
         from zentinelle.models import AIModel
         from zentinelle.schema.auth_helpers import get_request_tenant_id
-        import os
 
         provider_slug = request.GET.get('provider', '')
-        if not provider_slug:
-            return JsonResponse({'error': 'provider is required'}, status=400)
+        if not _valid_provider_slug(provider_slug):
+            return JsonResponse({'error': 'provider must be a bounded provider identifier'}, status=400)
+        provider_slug = provider_slug.strip().lower()
 
         tenant_id = get_request_tenant_id(request.user)
         if not tenant_id and is_open_mode():
@@ -111,12 +116,12 @@ class AssistantModelsListView(APIView):
 class AssistantModelsToggleView(APIView):
     """Toggle one model's enabled_for_chat flag."""
 
-    permission_classes = [IsAuthenticatedOrOpenMode]
+    permission_classes = [PortalAccess]
     # The portal session has to be visible here, or the admin check below has
     # nobody to check: with no authentication classes DRF replaces the session
     # user with AnonymousUser, so the only caller these views could ever
     # recognise was the open-mode one — who is an admin by construction.
-    authentication_classes = PORTAL_OR_AGENT_AUTH
+    authentication_classes = PORTAL_AUTH
 
     def post(self, request):
         from zentinelle.models import AIModel
@@ -132,22 +137,41 @@ class AssistantModelsToggleView(APIView):
 
         model_id = data.get('model_id')
         enabled = data.get('enabled')
-        if not model_id or enabled is None:
+        if not model_id or not isinstance(enabled, bool):
             return JsonResponse(
-                {'error': 'model_id and enabled are required'}, status=400
+                {'error': 'model_id is required and enabled must be boolean'}, status=400
             )
 
         provider_slug = data.get('provider')
+        if provider_slug is not None and not _valid_provider_slug(provider_slug):
+            return JsonResponse({'error': 'provider must be a bounded provider identifier'}, status=400)
+        provider_slug = provider_slug.strip().lower() if isinstance(provider_slug, str) else provider_slug
         qs = AIModel.objects.filter(model_id=model_id)
         if provider_slug:
             qs = qs.filter(provider__slug=provider_slug)
 
+        if not provider_slug and qs.values('provider_id').distinct().count() > 1:
+            return JsonResponse({'error': 'provider is required when model_id is ambiguous'}, status=400)
         obj = qs.first()
         if not obj:
             return JsonResponse({'error': 'Model not found'}, status=404)
 
         obj.enabled_for_chat = bool(enabled)
         obj.save(update_fields=['enabled_for_chat', 'updated_at'])
+        try:
+            from zentinelle.models import AuditLog
+            from zentinelle.schema.auth_helpers import get_request_tenant_id
+            audit_tenant = get_request_tenant_id(request.user)
+            if not audit_tenant and is_open_mode():
+                audit_tenant = '00000000-0000-0000-0000-000000000001'
+            if audit_tenant:
+                AuditLog.log(tenant_id=audit_tenant, action='model_catalogue.changed',
+                             resource_type='ai_model', resource_id=str(obj.id),
+                             ext_user_id=str(getattr(request.user, 'pk', '') or ''),
+                             changes={'provider': obj.provider.slug, 'model_id': obj.model_id,
+                                      'enabled_for_chat': obj.enabled_for_chat})
+        except Exception:
+            logger.warning('Unable to audit model catalogue change', exc_info=True)
 
         return JsonResponse({
             'model_id': obj.model_id,
@@ -159,12 +183,12 @@ class AssistantModelsToggleView(APIView):
 class AssistantModelsBulkView(APIView):
     """Set the enabled set for an entire provider at once."""
 
-    permission_classes = [IsAuthenticatedOrOpenMode]
+    permission_classes = [PortalAccess]
     # The portal session has to be visible here, or the admin check below has
     # nobody to check: with no authentication classes DRF replaces the session
     # user with AnonymousUser, so the only caller these views could ever
     # recognise was the open-mode one — who is an admin by construction.
-    authentication_classes = PORTAL_OR_AGENT_AUTH
+    authentication_classes = PORTAL_AUTH
 
     def post(self, request):
         from zentinelle.models import AIModel
@@ -180,23 +204,48 @@ class AssistantModelsBulkView(APIView):
 
         provider_slug = data.get('provider')
         enabled_ids = data.get('enabled_ids')
-        if not provider_slug or enabled_ids is None:
+        if not _valid_provider_slug(provider_slug) or enabled_ids is None:
             return JsonResponse(
-                {'error': 'provider and enabled_ids are required'}, status=400
+                {'error': 'provider and enabled_ids are required bounded values'}, status=400
             )
+        provider_slug = provider_slug.strip().lower()
+
+        if (not isinstance(enabled_ids, list) or len(enabled_ids) > 500 or
+                not all(isinstance(item, str) and 0 < len(item) <= 256 for item in enabled_ids)):
+            return JsonResponse({'error': 'enabled_ids must be a bounded list of model identifiers'}, status=400)
 
         enabled_set = set(enabled_ids)
         qs = AIModel.objects.filter(provider__slug=provider_slug)
+        known_ids = set(qs.values_list('model_id', flat=True))
+        unknown_ids = sorted(enabled_set - known_ids)
+        if unknown_ids:
+            return JsonResponse({'error': 'enabled_ids contains unknown models', 'models': unknown_ids[:20]}, status=400)
 
         updated = 0
-        for m in qs:
-            target = m.model_id in enabled_set
-            if m.enabled_for_chat != target:
-                m.enabled_for_chat = target
-                m.save(update_fields=['enabled_for_chat', 'updated_at'])
-                updated += 1
+        with transaction.atomic():
+            for m in qs.select_for_update():
+                target = m.model_id in enabled_set
+                if m.enabled_for_chat != target:
+                    m.enabled_for_chat = target
+                    m.save(update_fields=['enabled_for_chat', 'updated_at'])
+                    updated += 1
 
         # Clear discovery cache so the picker refreshes
         clear_cache(provider_slug)
+
+        try:
+            from zentinelle.models import AuditLog
+            from zentinelle.schema.auth_helpers import get_request_tenant_id
+            audit_tenant = get_request_tenant_id(request.user)
+            if not audit_tenant and is_open_mode():
+                audit_tenant = '00000000-0000-0000-0000-000000000001'
+            if audit_tenant:
+                AuditLog.log(tenant_id=audit_tenant, action='model_catalogue.bulk_changed',
+                             resource_type='ai_provider', resource_id=provider_slug,
+                             ext_user_id=str(getattr(request.user, 'pk', '') or ''),
+                             changes={'provider': provider_slug, 'enabled_model_count': len(enabled_set),
+                                      'updated': updated})
+        except Exception:
+            logger.warning('Unable to audit bulk model catalogue change', exc_info=True)
 
         return JsonResponse({'provider': provider_slug, 'updated': updated})

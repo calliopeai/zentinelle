@@ -7,29 +7,26 @@ from typing import Optional
 
 import strawberry
 
-from .queries import Query as ZentinelleQuery
-from .system_prompt import PromptLibraryQuery
 from . import mutations as m
-from .system_prompt import (
-    create_system_prompt as sp_create,
-    update_system_prompt as sp_update,
-    delete_system_prompt as sp_delete,
-    fork_system_prompt as sp_fork,
-    toggle_prompt_favorite as sp_toggle_fav,
-    rate_system_prompt as sp_rate,
-    test_system_prompt as sp_test,
-    analyze_system_prompt as sp_analyze,
-    CreateSystemPromptInput as SPCreateInput,
-    UpdateSystemPromptInput as SPUpdateInput,
-    CreateSystemPromptPayload,
-    UpdateSystemPromptPayload,
-    DeleteSystemPromptPayload,
-    ForkSystemPromptPayload,
-    TogglePromptFavoritePayload,
-    RateSystemPromptPayload,
-    TestSystemPromptPayload,
-    AnalyzeSystemPromptPayload,
-)
+from .access import PortalRoleExtension
+from .queries import Query as ZentinelleQuery
+from .system_prompt import AnalyzeSystemPromptPayload
+from .system_prompt import CreateSystemPromptInput as SPCreateInput
+from .system_prompt import (CreateSystemPromptPayload,
+                            DeleteSystemPromptPayload, ForkSystemPromptPayload,
+                            PromptLibraryQuery, RateSystemPromptPayload,
+                            TestSystemPromptPayload,
+                            TogglePromptFavoritePayload)
+from .system_prompt import UpdateSystemPromptInput as SPUpdateInput
+from .system_prompt import UpdateSystemPromptPayload
+from .system_prompt import analyze_system_prompt as sp_analyze
+from .system_prompt import create_system_prompt as sp_create
+from .system_prompt import delete_system_prompt as sp_delete
+from .system_prompt import fork_system_prompt as sp_fork
+from .system_prompt import rate_system_prompt as sp_rate
+from .system_prompt import test_system_prompt as sp_test
+from .system_prompt import toggle_prompt_favorite as sp_toggle_fav
+from .system_prompt import update_system_prompt as sp_update
 
 
 @strawberry.type
@@ -43,7 +40,7 @@ class Mutation:
     # Endpoints
     @strawberry.mutation
     def create_agent_endpoint(self, info: strawberry.types.Info, input: m.CreateAgentEndpointInput) -> m.CreateAgentEndpointPayload:
-        return m.create_agent_endpoint(info, input)
+        return m.create_agent_endpoint(info, organization_id=None, input=input)
 
     @strawberry.mutation
     def update_agent_endpoint(self, info: strawberry.types.Info, input: m.UpdateAgentEndpointInput) -> m.UpdateAgentEndpointPayload:
@@ -89,7 +86,7 @@ class Mutation:
     # Policies
     @strawberry.mutation
     def create_policy(self, info: strawberry.types.Info, input: m.CreatePolicyInput) -> m.CreatePolicyPayload:
-        return m.create_policy(info, input)
+        return m.create_policy(info, organization_id=None, input=input)
 
     @strawberry.mutation
     def update_policy(self, info: strawberry.types.Info, input: m.UpdatePolicyInput) -> m.UpdatePolicyPayload:
@@ -310,4 +307,4 @@ class Mutation:
         return m.export_audit_logs(info, format, dt.fromisoformat(start_date), dt.fromisoformat(end_date))
 
 
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+schema = strawberry.Schema(query=Query, mutation=Mutation, extensions=[PortalRoleExtension])

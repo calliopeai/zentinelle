@@ -16,12 +16,8 @@ from django.test import TestCase
 
 from zentinelle.models import LegalHold
 from zentinelle.schema import schema
-from zentinelle.tests._graphql_helpers import (
-    STANDALONE_TENANT,
-    admin_context,
-    anon_context,
-)
-
+from zentinelle.tests._graphql_helpers import (STANDALONE_TENANT,
+                                               admin_context, anon_context)
 
 CREATE_HOLD = """
 mutation Create($input: CreateLegalHoldInput!) {
@@ -118,7 +114,7 @@ class CreateLegalHoldTests(TestCase):
         # Unauthenticated should raise (mutation uses GraphQLError)
         result = _exec(CREATE_HOLD, {'input': {'name': 'NoAuth'}}, context=anon_context())
         self.assertIsNotNone(result.errors)
-        self.assertIn('Authentication required', str(result.errors[0]))
+        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
         self.assertEqual(LegalHold.objects.count(), 0)
 
 
@@ -303,5 +299,5 @@ class DeleteLegalHoldTests(TestCase):
             DELETE_HOLD, {'id': str(hold.id)}, context=anon_context(),
         )
         self.assertIsNotNone(result.errors)
-        self.assertIn('Authentication required', str(result.errors[0]))
+        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
         self.assertTrue(LegalHold.objects.filter(id=hold.id).exists())

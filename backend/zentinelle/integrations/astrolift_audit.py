@@ -29,11 +29,8 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from zentinelle.models import (
-    AstroliftAuditDelivery,
-    AstroliftIntegration,
-    AuditLog,
-)
+from zentinelle.models import (AstroliftAuditDelivery, AstroliftIntegration,
+                               AuditLog)
 
 logger = logging.getLogger(__name__)
 
@@ -232,7 +229,7 @@ def astrolift_audit_webhook(request):
         # Already accepted. Retries must be a no-op, not a second evidence row.
         return JsonResponse({"status": "duplicate", "idempotency_key": idempotency_key}, status=200)
 
-    payload = envelope["payload"]
+    envelope["payload"]
     try:
         entry = _write_evidence(request, tenant_id, envelope, event_type, org_id, actor)
     except Exception:
@@ -278,4 +275,3 @@ def _write_evidence(request, tenant_id, envelope, event_type, org_id, actor):
             "payload_version": envelope["payload_version"],
         },
     )
-

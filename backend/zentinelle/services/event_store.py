@@ -10,14 +10,14 @@ Provides:
 """
 import logging
 import uuid
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Optional, List, Dict, Any, Generator, Callable
-from dataclasses import dataclass, asdict
 from enum import Enum
+from typing import Any, Callable, Dict, Generator, List, Optional
 
+from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
-from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -150,9 +150,6 @@ class EventStore:
                 correlation_id=correlation_id,
                 status=Event.Status.PENDING,
             )
-
-            # Update sequence cache
-            self._update_sequence(aggregate_type, aggregate_id, sequence_number)
 
             logger.debug(
                 f"Appended event {event_id} to stream {aggregate_type}:{aggregate_id}"
@@ -327,23 +324,29 @@ class EventStore:
         logger.info(f"Registered projection: {name}")
 
     def _next_sequence(self, aggregate_type: str, aggregate_id: str) -> int:
-        """Get next sequence number for aggregate stream."""
+        """Atomically get the next sequence number for an aggregate stream."""
         key = f"{self.SEQUENCE_KEY_PREFIX}{aggregate_type}:{aggregate_id}"
-        seq = cache.get(key, 0)
-        return seq + 1
-
-    def _update_sequence(self, aggregate_type: str, aggregate_id: str, seq: int):
-        """Update cached sequence number."""
-        key = f"{self.SEQUENCE_KEY_PREFIX}{aggregate_type}:{aggregate_id}"
-        cache.set(key, seq, timeout=86400 * 30)  # 30 days
+        # ``add`` initializes only the first writer; ``incr`` is atomic on the
+        # Redis cache used in production, avoiding duplicate sequence numbers
+        # when concurrent requests append to the same aggregate.
+        cache.add(key, 0, timeout=86400 * 30)
+        return cache.incr(key)
 
     def _apply_projections_async(self, envelope: EventEnvelope, event):
         """Queue projection updates for async processing."""
+        from zentinelle.models import EventDeliveryOutbox
         from zentinelle.tasks.events import apply_event_projections
 
         try:
+            if EventDeliveryOutbox.objects.filter(status=EventDeliveryOutbox.Status.PENDING).count() >= 10000:
+                logger.error('Event projection outbox is full; event %s remains pending', event.id)
+                return
+            outbox = EventDeliveryOutbox.objects.create(
+                tenant_id=event.tenant_id, event_id=event.id, envelope=envelope.to_dict(),
+                status=EventDeliveryOutbox.Status.QUEUED,
+            )
             apply_event_projections.apply_async(
-                args=[str(event.id), envelope.to_dict()],
+                args=[str(event.id), envelope.to_dict(), str(outbox.id)],
             )
         except Exception as e:
             logger.warning(f"Failed to queue projection: {e}")
@@ -377,12 +380,13 @@ class DeadLetterQueue:
         """Move event to dead letter queue."""
         from zentinelle.models import Event
 
+        original_status = event.status
         event.status = Event.Status.FAILED
         event.error_message = error
         event.payload['dlq'] = {
             'moved_at': timezone.now().isoformat(),
             'reason': error,
-            'original_status': event.status,
+            'original_status': original_status,
         }
         event.save()
 

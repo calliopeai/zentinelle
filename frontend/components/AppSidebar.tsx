@@ -62,6 +62,8 @@ import {
   SparklesIcon,
   LayersIcon,
   UploadIcon,
+  ShieldCheckIcon,
+  CoinsIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -95,11 +97,16 @@ const sections: NavSection[] = [
       { title: "Effective Policy", url: "/policies/effective", icon: <SearchIcon /> },
       { title: "Policy Simulator", url: "/policies/simulator", icon: <PlayIcon /> },
       { title: "Policy Analyzer", url: "/policies/analyzer", icon: <SearchCheckIcon /> },
+      { title: "Policy Copilot", url: "/policies/copilot", icon: <SparklesIcon /> },
       { title: "Policy Import", url: "/policies/import", icon: <UploadIcon /> },
+      { title: "Control Evidence", url: "/governance/evidence", icon: <ShieldCheckIcon /> },
       { title: "Content Rules", url: "/content-rules", icon: <ScanLineIcon /> },
       { title: "Scanner Dashboard", url: "/content-rules/scanner", icon: <ScanSearchIcon /> },
       { title: "Models", url: "/models", icon: <CpuIcon /> },
       { title: "Model Compare", url: "/models/compare", icon: <BarChart3Icon /> },
+      { title: "Route Canary", url: "/models/route-canary", icon: <ShieldCheckIcon /> },
+      { title: "Budget Showback", url: "/budgets/showback", icon: <CoinsIcon /> },
+      { title: "ATLAS Controls", url: "/threats/atlas", icon: <ShieldCheckIcon /> },
     ],
   },
   {

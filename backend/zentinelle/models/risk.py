@@ -4,6 +4,7 @@ Risk and Incident Management Models for Zentinelle.
 Provides AI-specific risk register and incident tracking capabilities.
 """
 import uuid
+
 from django.db import models
 
 
@@ -317,8 +318,9 @@ class Incident(models.Model):
     @property
     def sla_status(self) -> str:
         """Check SLA compliance based on severity."""
-        from django.utils import timezone
         from datetime import timedelta
+
+        from django.utils import timezone
 
         sla_targets = {
             'critical': timedelta(hours=1),

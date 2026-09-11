@@ -9,8 +9,8 @@ from typing import Optional
 
 import strawberry
 
-from zentinelle.services.compliance_packs import activate_pack, list_packs
 from zentinelle.schema.auth_helpers import user_has_org_access
+from zentinelle.services.compliance_packs import activate_pack, list_packs
 
 logger = logging.getLogger(__name__)
 

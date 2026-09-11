@@ -18,11 +18,8 @@ import (
 // on the other path did (#225). This closes the same kind of gap #218 closed
 // for output filtering.
 //
-// On by default, because the alternative is two paths through one product that
-// record different things, which is what made this a bug rather than a
-// preference. LOG_INTERACTIONS=false turns it off for a deployment that must
-// not send prompt text off-cluster, and that is a real requirement rather than
-// a hypothetical one — hence the switch.
+// Prompt/completion capture is opt-in through LOG_INTERACTIONS=true.
+// The backend applies its own content-capture profile before persistence.
 
 // interactionLoggingEnabled reports whether prompts and completions should be
 // sent. Read per call rather than cached at startup so a deployment that flips
@@ -30,7 +27,7 @@ import (
 func interactionLoggingEnabled() bool {
 	v := os.Getenv("LOG_INTERACTIONS")
 	if v == "" {
-		return true
+		return false
 	}
 	enabled, err := strconv.ParseBool(v)
 	if err != nil {

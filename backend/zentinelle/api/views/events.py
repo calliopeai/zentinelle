@@ -2,19 +2,21 @@
 Agent events endpoint.
 POST /api/zentinelle/v1/events
 """
-import uuid
 import logging
+import uuid
 
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from zentinelle.models import Event
-from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_endpoint_from_request
+from zentinelle.api.auth import (ZentinelleAPIKeyAuthentication,
+                                 get_endpoint_from_request)
 from zentinelle.api.serializers import EventsRequestSerializer
+from zentinelle.models import Event
+from zentinelle.services.content_capture import capture_payload
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +71,7 @@ class EventsView(APIView):
                 deployment_id_ext=auth_endpoint.deployment_id_ext,
                 event_type=event_data['type'],
                 event_category=event_data.get('category', Event.Category.TELEMETRY),
-                payload=event_data.get('payload', {}),
+                payload=capture_payload(event_data.get('payload', {}), auth_endpoint.tenant_id),
                 user_identifier=event_data.get('user_id', ''),
                 occurred_at=occurred_at,
                 status=Event.Status.PENDING,

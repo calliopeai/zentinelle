@@ -3,14 +3,10 @@ Tests for Zentinelle models.
 """
 from django.test import TestCase
 
+from zentinelle.models import AgentEndpoint, ContentRule, Event, Policy
+
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 
-from zentinelle.models import (
-    AgentEndpoint,
-    Policy,
-    Event,
-    ContentRule,
-)
 
 class AgentEndpointModelTest(TestCase):
     """Tests for AgentEndpoint model."""

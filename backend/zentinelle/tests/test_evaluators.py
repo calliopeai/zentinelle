@@ -3,23 +3,19 @@ Tests for the individual policy evaluators.
 
 Issue: #23
 """
-from django.test import TestCase, override_settings
 from django.core.cache import cache
-from django.core import signing
-from unittest.mock import patch
+from django.test import TestCase, override_settings
 
 from zentinelle.models import Policy
+from zentinelle.services.evaluators import (BudgetLimitEvaluator,
+                                            NoOpEvaluator, RateLimitEvaluator,
+                                            ResourceQuotaEvaluator,
+                                            SecretAccessEvaluator,
+                                            ToolPermissionEvaluator)
+from zentinelle.services.evaluators.tool_permission import \
+    create_tool_approval_token
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
-from zentinelle.services.evaluators import (
-    NoOpEvaluator,
-    RateLimitEvaluator,
-    ResourceQuotaEvaluator,
-    BudgetLimitEvaluator,
-    ToolPermissionEvaluator,
-    SecretAccessEvaluator,
-)
-from zentinelle.services.evaluators.tool_permission import create_tool_approval_token
 
 
 class NoOpEvaluatorTest(TestCase):
@@ -352,19 +348,25 @@ class BudgetLimitEvaluatorTest(TestCase):
             config=config,
         )
 
-    def test_no_budget_configured_passes(self):
-        """Test pass when no budget is configured."""
+    def test_missing_budget_configuration_is_denied(self):
+        """An enabled but malformed control cannot silently allow work."""
         policy = self._create_policy({})
         context = {'current_month_spend_usd': 1000}
+        from zentinelle.models.budget import BudgetAccount
+        from zentinelle.services.budgets import month_start
+        BudgetAccount.objects.create(tenant_id=policy.tenant_id, policy_id_ext=policy.pk, period=month_start().date(), committed_usd=1000)
 
         result = self.evaluator.evaluate(policy, 'spawn', 'user123', context)
 
-        self.assertTrue(result.passed)
+        self.assertFalse(result.passed)
 
     def test_under_budget_passes(self):
         """Test pass when under budget."""
         policy = self._create_policy({'monthly_budget_usd': 500})
         context = {'current_month_spend_usd': 200}
+        from zentinelle.models.budget import BudgetAccount
+        from zentinelle.services.budgets import month_start
+        BudgetAccount.objects.create(tenant_id=policy.tenant_id, policy_id_ext=policy.pk, period=month_start().date(), committed_usd=200)
 
         result = self.evaluator.evaluate(policy, 'spawn', 'user123', context)
 
@@ -377,6 +379,9 @@ class BudgetLimitEvaluatorTest(TestCase):
             'hard_limit': True,
         })
         context = {'current_month_spend_usd': 500}
+        from zentinelle.models.budget import BudgetAccount
+        from zentinelle.services.budgets import month_start
+        BudgetAccount.objects.create(tenant_id=policy.tenant_id, policy_id_ext=policy.pk, period=month_start().date(), committed_usd=500)
 
         result = self.evaluator.evaluate(policy, 'spawn', 'user123', context)
 
@@ -391,6 +396,9 @@ class BudgetLimitEvaluatorTest(TestCase):
             'hard_limit': False,
         })
         context = {'current_month_spend_usd': 600}
+        from zentinelle.models.budget import BudgetAccount
+        from zentinelle.services.budgets import month_start
+        BudgetAccount.objects.create(tenant_id=policy.tenant_id, policy_id_ext=policy.pk, period=month_start().date(), committed_usd=600)
 
         result = self.evaluator.evaluate(policy, 'spawn', 'user123', context)
 
@@ -405,6 +413,9 @@ class BudgetLimitEvaluatorTest(TestCase):
             'alert_threshold_percent': 80,
         })
         context = {'current_month_spend_usd': 450}  # 90% used
+        from zentinelle.models.budget import BudgetAccount
+        from zentinelle.services.budgets import month_start
+        BudgetAccount.objects.create(tenant_id=policy.tenant_id, policy_id_ext=policy.pk, period=month_start().date(), committed_usd=450)
 
         result = self.evaluator.evaluate(policy, 'spawn', 'user123', context)
 
@@ -417,6 +428,9 @@ class BudgetLimitEvaluatorTest(TestCase):
         """Test that budget info is added to context."""
         policy = self._create_policy({'monthly_budget_usd': 500})
         context = {'current_month_spend_usd': 200}
+        from zentinelle.models.budget import BudgetAccount
+        from zentinelle.services.budgets import month_start
+        BudgetAccount.objects.create(tenant_id=policy.tenant_id, policy_id_ext=policy.pk, period=month_start().date(), committed_usd=200)
 
         self.evaluator.evaluate(policy, 'spawn', 'user123', context)
 
@@ -453,14 +467,14 @@ class ToolPermissionEvaluatorTest(TestCase):
 
         self.assertTrue(result.passed)
 
-    def test_no_tool_name_passes(self):
+    def test_missing_tool_name_is_denied(self):
         """Test that missing tool_name passes."""
         policy = self._create_policy({'denied_tools': ['shell']})
         context = {}
 
         result = self.evaluator.evaluate(policy, 'tool_call', 'user123', context)
 
-        self.assertTrue(result.passed)
+        self.assertFalse(result.passed)
 
     def test_denied_tool_fails(self):
         """Test that denied tools are blocked."""
@@ -524,134 +538,49 @@ class ToolPermissionEvaluatorTest(TestCase):
         self.assertFalse(result.passed)
         self.assertIn('requires approval', result.message)
 
-    def test_requires_approval_with_valid_token_passes(self):
-        """Test that tools requiring approval pass with valid token."""
-        policy = self._create_policy({
-            'requires_approval': ['delete_database']
-        })
+    def _approval_fixture(self, *, subject='user123', tool='delete_database', policy=None):
+        from zentinelle.services.approvals import issue_approval
+        policy = policy or self._create_policy({'requires_approval': ['delete_database']})
+        context = {'tool_name': tool, 'tool_args': {'database': 'intended'},
+                   '_tenant_id': policy.tenant_id, '_endpoint_id': 'workload-1'}
+        token = issue_approval(tenant_id=policy.tenant_id, kind='policy', subject=subject,
+                               action='tool_call', context=context, endpoint_id='workload-1',
+                               policies=[policy], granted_by='admin')
+        return policy, {**context, 'approval_token': token}
 
-        # Create a valid approval token
-        token = create_tool_approval_token(
-            tool_name='delete_database',
-            policy_id=str(policy.id),
-            granted_by='admin',
-            user_id='user123',
-        )
+    def test_exact_approval_passes(self):
+        policy, context = self._approval_fixture()
+        self.assertTrue(self.evaluator.evaluate(policy, 'tool_call', 'user123', context).passed)
 
-        context = {
-            'tool_name': 'delete_database',
-            'approval_token': token,
-        }
+    def test_changed_arguments_fail(self):
+        policy, context = self._approval_fixture()
+        context['tool_args'] = {'database': 'different'}
+        self.assertFalse(self.evaluator.evaluate(policy, 'tool_call', 'user123', context).passed)
 
-        result = self.evaluator.evaluate(policy, 'tool_call', 'user123', context)
+    def test_changed_user_or_missing_user_fails(self):
+        policy, context = self._approval_fixture(subject='other-user')
+        for user in ('user123', None):
+            self.assertFalse(self.evaluator.evaluate(policy, 'tool_call', user, context).passed)
 
-        self.assertTrue(result.passed)
+    def test_changed_policy_version_fails(self):
+        policy, context = self._approval_fixture()
+        policy.version += 1
+        self.assertFalse(self.evaluator.evaluate(policy, 'tool_call', 'user123', context).passed)
 
-    def test_approval_token_wrong_tool_fails(self):
-        """Test that approval token for wrong tool fails."""
-        policy = self._create_policy({
-            'requires_approval': ['delete_database']
-        })
+    def test_expired_approval_fails(self):
+        from datetime import timedelta
 
-        # Create token for different tool
-        token = create_tool_approval_token(
-            tool_name='send_email',
-            policy_id=str(policy.id),
-            granted_by='admin',
-        )
+        from django.utils import timezone
 
-        context = {
-            'tool_name': 'delete_database',
-            'approval_token': token,
-        }
+        from zentinelle.models.approval import ExecutionApproval
+        policy, context = self._approval_fixture()
+        ExecutionApproval.objects.filter(tenant_id=policy.tenant_id).update(expires_at=timezone.now() - timedelta(seconds=1))
+        self.assertFalse(self.evaluator.evaluate(policy, 'tool_call', 'user123', context).passed)
 
-        result = self.evaluator.evaluate(policy, 'tool_call', 'user123', context)
-
-        self.assertFalse(result.passed)
-        self.assertIn('send_email', result.message)
-
-    def test_approval_token_wrong_policy_fails(self):
-        """Test that approval token for wrong policy fails."""
-        policy = self._create_policy({
-            'requires_approval': ['delete_database']
-        })
-
-        # Create token for different policy
-        token = create_tool_approval_token(
-            tool_name='delete_database',
-            policy_id='wrong-policy-id',
-            granted_by='admin',
-        )
-
-        context = {
-            'tool_name': 'delete_database',
-            'approval_token': token,
-        }
-
-        result = self.evaluator.evaluate(policy, 'tool_call', 'user123', context)
-
-        self.assertFalse(result.passed)
-        self.assertIn('different policy', result.message)
-
-    def test_approval_token_wrong_user_fails(self):
-        """Test that approval token for wrong user fails."""
-        policy = self._create_policy({
-            'requires_approval': ['delete_database']
-        })
-
-        # Create token for different user
-        token = create_tool_approval_token(
-            tool_name='delete_database',
-            policy_id=str(policy.id),
-            granted_by='admin',
-            user_id='other_user',
-        )
-
-        context = {
-            'tool_name': 'delete_database',
-            'approval_token': token,
-        }
-
-        result = self.evaluator.evaluate(policy, 'tool_call', 'user123', context)
-
-        self.assertFalse(result.passed)
-        self.assertIn('different user', result.message)
-
-    def test_approval_token_expired_fails(self):
-        """Test that expired approval token fails."""
-        policy = self._create_policy({
-            'requires_approval': ['delete_database']
-        })
-
-        # Create an expired token by mocking signing.loads to raise SignatureExpired
-        with patch('zentinelle.services.evaluators.tool_permission.signing.loads') as mock_loads:
-            mock_loads.side_effect = signing.SignatureExpired('Signature expired')
-
-            context = {
-                'tool_name': 'delete_database',
-                'approval_token': 'expired_token',
-            }
-
-            result = self.evaluator.evaluate(policy, 'tool_call', 'user123', context)
-
-            self.assertFalse(result.passed)
-            self.assertIn('expired', result.message)
-
-    def test_approval_token_invalid_signature_fails(self):
-        """Test that invalid signature fails."""
-        policy = self._create_policy({
-            'requires_approval': ['delete_database']
-        })
-
-        context = {
-            'tool_name': 'delete_database',
-            'approval_token': 'invalid_token_here',
-        }
-
-        result = self.evaluator.evaluate(policy, 'tool_call', 'user123', context)
-
-        self.assertFalse(result.passed)
-        self.assertIn('Invalid approval token', result.message)
+    def test_invalid_signature_fails(self):
+        policy, context = self._approval_fixture()
+        context['approval_token'] += 'tampered'
+        self.assertFalse(self.evaluator.evaluate(policy, 'tool_call', 'user123', context).passed)
 
     def test_sql_read_only_blocks_write(self):
         """Test SQL read-only mode blocks write operations."""
@@ -845,59 +774,6 @@ class SecretAccessEvaluatorTest(TestCase):
 
 
 class CreateToolApprovalTokenTest(TestCase):
-    """Tests for create_tool_approval_token helper function."""
-
-    def test_create_token_basic(self):
-        """Test creating a basic approval token."""
-        token = create_tool_approval_token(
-            tool_name='delete_database',
-            policy_id='policy-123',
-            granted_by='admin',
-        )
-
-        self.assertIsInstance(token, str)
-        self.assertTrue(len(token) > 0)
-
-    def test_create_token_with_user(self):
-        """Test creating a token for a specific user."""
-        token = create_tool_approval_token(
-            tool_name='delete_database',
-            policy_id='policy-123',
-            granted_by='admin',
-            user_id='user123',
-        )
-
-        # Decode and verify
-        payload = signing.loads(token, salt='tool-approval')
-
-        self.assertEqual(payload['tool'], 'delete_database')
-        self.assertEqual(payload['policy'], 'policy-123')
-        self.assertEqual(payload['granted_by'], 'admin')
-        self.assertEqual(payload['user'], 'user123')
-
-    def test_create_token_with_reason(self):
-        """Test creating a token with approval reason."""
-        token = create_tool_approval_token(
-            tool_name='delete_database',
-            policy_id='policy-123',
-            granted_by='admin',
-            reason='Approved for maintenance window',
-        )
-
-        payload = signing.loads(token, salt='tool-approval')
-
-        self.assertEqual(payload['reason'], 'Approved for maintenance window')
-
-    def test_create_token_includes_timestamp(self):
-        """Test that token includes granted_at timestamp."""
-        token = create_tool_approval_token(
-            tool_name='delete_database',
-            policy_id='policy-123',
-            granted_by='admin',
-        )
-
-        payload = signing.loads(token, salt='tool-approval')
-
-        self.assertIn('granted_at', payload)
-        # Verify it's a valid ISO timestamp
-        self.assertIsNotNone(payload['granted_at'])
+    def test_legacy_unbound_issuance_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'authenticated approvals endpoint'):
+            create_tool_approval_token('send_email', 'policy', 'admin')

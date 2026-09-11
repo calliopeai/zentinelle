@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_policy(
     pk=1,
     tenant_id='tenant-abc',
@@ -488,6 +489,22 @@ class TestPolicyDiffView(unittest.TestCase):
         self.assertIn('removed', config_diff)
         self.assertEqual(config_diff['changed']['max_tier'], ['standard', 'premium'])
         self.assertEqual(config_diff['removed']['blocked_models'], ['gpt-3'])
+
+
+class TestPolicyHistoryRoutes(unittest.TestCase):
+    """History routes accept the UUID primary keys used by Policy."""
+
+    def test_history_and_diff_routes_resolve_uuid_policy_ids(self):
+        import uuid
+
+        from django.urls import resolve
+
+        policy_id = '123e4567-e89b-12d3-a456-426614174000'
+        history = resolve(f'/api/zentinelle/v1/policies/{policy_id}/history/')
+        diff = resolve(f'/api/zentinelle/v1/policies/{policy_id}/diff/')
+
+        self.assertEqual(history.kwargs['policy_id'], uuid.UUID(policy_id))
+        self.assertEqual(diff.kwargs['policy_id'], uuid.UUID(policy_id))
 
 
 if __name__ == '__main__':

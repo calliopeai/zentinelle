@@ -1,5 +1,8 @@
 "use client";
 
+import { authenticatedFetch } from "@/lib/auth/fetch";
+
+
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronDownIcon,
@@ -143,7 +146,7 @@ function HistoryDialogBody({ policy }: { policy: PolicyData }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/policies/${policyId}/history/`, {
+      const res = await authenticatedFetch(`${API_URL}/policies/${policyId}/history/`, {
         credentials: "include",
         headers: { Accept: "application/json" },
       });
@@ -199,7 +202,7 @@ function HistoryDialogBody({ policy }: { policy: PolicyData }) {
     setDiffLoading(true);
     setDiffError(null);
     try {
-      const res = await fetch(
+      const res = await authenticatedFetch(
         `${API_URL}/policies/${policyId}/diff/?from=${from}&to=${to}`,
         {
           credentials: "include",

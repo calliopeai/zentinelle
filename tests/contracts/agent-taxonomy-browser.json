@@ -1,0 +1,12 @@
+{
+  "contract_version": "1",
+  "surface": "browser",
+  "registration": {
+    "taxonomy": ["function:customer_service", "service_subcategory:technical_support", "authority:read_only", "project:phoenix"]
+  },
+  "expected": {
+    "supported": ["authority:read_only", "function:customer_service", "service_subcategory:technical_support"],
+    "unsupported": ["project:phoenix"]
+  },
+  "security_invariant": "Browser policy views preserve unsupported tags explicitly and never infer authority from them."
+}

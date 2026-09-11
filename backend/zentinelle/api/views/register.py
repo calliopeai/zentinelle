@@ -7,19 +7,19 @@ Authentication:
 - Bootstrap tokens are issued per-tenant and are used to register new agents
 - After registration, agents use their API key for subsequent requests
 """
-import uuid
-import logging
 import hashlib
 import hmac
+import logging
+import uuid
 
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import BasePermission
 from django.utils.text import slugify
+from rest_framework import status
+from rest_framework.permissions import BasePermission
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from zentinelle.models import AgentEndpoint
 from zentinelle.api.serializers import RegisterRequestSerializer
+from zentinelle.models import AgentEndpoint, TenantConfig
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +111,23 @@ class RegisterView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        from zentinelle.services.agent_taxonomy import (inherit_taxonomy,
+                                                        validate_taxonomy)
+        metadata = dict(data.get('metadata') or {})
+        tenant_config = TenantConfig.objects.filter(tenant_id=tenant_id).first()
+        extensions = (tenant_config.settings or {}).get('taxonomy_extensions', []) if tenant_config else []
+        taxonomy = validate_taxonomy(metadata.get('taxonomy', []), tenant_extensions=extensions)
+        parent_id = metadata.get('parent_agent_id')
+        if parent_id:
+            parent = AgentEndpoint.objects.filter(tenant_id=tenant_id, agent_id=str(parent_id)).first()
+            if parent is None:
+                return Response({'error': 'parent_agent_id is not registered in this tenant'}, status=400)
+            try:
+                taxonomy = inherit_taxonomy(parent.metadata.get('taxonomy', {}), taxonomy)
+            except ValueError as exc:
+                return Response({'error': str(exc)}, status=400)
+        metadata['taxonomy'] = taxonomy
+
         # Generate agent_id if not provided
         agent_id = data.get('agent_id')
         if not agent_id:
@@ -140,7 +157,7 @@ class RegisterView(APIView):
             existing.api_key_hash = key_hash
             existing.api_key_prefix = key_prefix
             existing.capabilities = data.get('capabilities', existing.capabilities)
-            existing.metadata = data.get('metadata', existing.metadata)
+            existing.metadata = metadata
             existing.status = AgentEndpoint.Status.ACTIVE
             existing.health = AgentEndpoint.Health.UNKNOWN
             existing.save()
@@ -157,7 +174,7 @@ class RegisterView(APIView):
                 api_key_hash=key_hash,
                 api_key_prefix=key_prefix,
                 capabilities=data.get('capabilities', []),
-                metadata=data.get('metadata', {}),
+                metadata=metadata,
                 status=AgentEndpoint.Status.ACTIVE,
                 health=AgentEndpoint.Health.UNKNOWN,
                 config=self._get_default_config(),

@@ -11,8 +11,9 @@ from typing import Optional
 
 import strawberry
 
-from zentinelle.models.system_prompt import SystemPrompt, PromptFavorite, PromptRating
-from zentinelle.schema.auth_helpers import get_request_tenant_id, require_request_tenant_id
+from zentinelle.models.system_prompt import (PromptFavorite, PromptRating,
+                                             SystemPrompt)
+from zentinelle.schema.auth_helpers import require_request_tenant_id
 from zentinelle.schema.types import SystemPromptType
 
 
@@ -88,8 +89,9 @@ class DeletePromptPayload:
 
 
 def create_system_prompt(info: strawberry.types.Info, input: CreateSystemPromptInput) -> SystemPromptPayload:
-    from zentinelle.models.system_prompt import PromptCategory, PromptTag
     from django.utils.text import slugify
+
+    from zentinelle.models.system_prompt import PromptCategory, PromptTag
 
     tenant_id = _tenant_id(info)
 

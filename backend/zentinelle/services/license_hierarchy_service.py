@@ -23,10 +23,16 @@ Usage:
 """
 import logging
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from django.db import transaction
 from django.utils import timezone
+
+if TYPE_CHECKING:
+    from organization.models import Organization
+
+    from zentinelle.models import License
+
 
 logger = logging.getLogger(__name__)
 

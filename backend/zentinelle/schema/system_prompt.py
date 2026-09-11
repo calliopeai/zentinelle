@@ -22,6 +22,7 @@ from zentinelle.schema.auth_helpers import get_request_tenant_id
 # Types
 # =============================================================================
 
+
 @strawberry_django.type(PromptCategory)
 class PromptCategoryDjangoType:
     id: auto

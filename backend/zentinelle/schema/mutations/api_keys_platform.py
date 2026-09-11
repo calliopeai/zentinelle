@@ -10,7 +10,8 @@ from typing import Optional
 import strawberry
 
 from zentinelle.models.api_key import APIKey
-from zentinelle.schema.auth_helpers import get_request_tenant_id, is_internal_admin
+from zentinelle.schema.auth_helpers import (get_request_tenant_id,
+                                            is_internal_admin)
 
 
 @strawberry.type

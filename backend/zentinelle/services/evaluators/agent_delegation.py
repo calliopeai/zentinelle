@@ -8,12 +8,13 @@ This is the enforcement side of multi-agent trust (issue #21).
 Tokens are issued via: zentinelle.utils.delegation_tokens.issue_delegation_token()
 """
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
 from django.core import signing
 
 from zentinelle.models import Policy
-from zentinelle.services.evaluators.base import BasePolicyEvaluator, PolicyResult
+from zentinelle.services.evaluators.base import (BasePolicyEvaluator,
+                                                 PolicyResult)
 
 logger = logging.getLogger(__name__)
 

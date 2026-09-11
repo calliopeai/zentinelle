@@ -6,11 +6,15 @@ GraphQL mutations for managing content scanning/filtering rules.
 These mutations require the MONITORING_CUSTOM_RULES feature (Business or Enterprise plan).
 """
 import re
-import strawberry
-from strawberry.scalars import JSON
 from typing import Optional
+
+import strawberry
 from graphql import GraphQLError
 from graphql_relay import from_global_id
+from strawberry.scalars import JSON
+
+from zentinelle.models import ContentRule
+from zentinelle.schema.auth_helpers import user_has_org_access
 
 try:
     from billing.features import Features, require_feature_for_mutation
@@ -22,8 +26,6 @@ except ImportError:
         def decorator(fn):
             return fn
         return decorator
-from zentinelle.models import ContentRule
-from zentinelle.schema.auth_helpers import user_has_org_access
 
 
 @strawberry.input
@@ -118,6 +120,7 @@ def create_content_rule(info: strawberry.types.Info, input: CreateContentRuleInp
 
     try:
         from deployments.models import Deployment
+
         from zentinelle.models import AgentEndpoint
 
         scope_deployment = None

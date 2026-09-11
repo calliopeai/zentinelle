@@ -2,10 +2,11 @@
 Model Restriction Evaluator.
 Enforces which AI models an agent is allowed to use.
 """
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from zentinelle.models import Policy
-from zentinelle.services.evaluators.base import BasePolicyEvaluator, PolicyResult
+from zentinelle.services.evaluators.base import (BasePolicyEvaluator,
+                                                 PolicyResult)
 
 
 class ModelRestrictionEvaluator(BasePolicyEvaluator):

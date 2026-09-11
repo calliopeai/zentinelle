@@ -4,9 +4,9 @@ from django.db import models
 from django.utils import timezone
 
 from zentinelle.models.base import Tracking
+from zentinelle.utils.api_keys import KeyPrefixes
 from zentinelle.utils.api_keys import generate_api_key as _generate_api_key
 from zentinelle.utils.api_keys import verify_api_key as _verify_api_key
-from zentinelle.utils.api_keys import KeyPrefixes
 
 
 class AgentEndpoint(Tracking):
@@ -127,6 +127,7 @@ class AgentEndpoint(Tracking):
     )
 
     # Optional deployment reference (standalone: store as string)
+    sub_organization_id_ext = models.CharField(max_length=255, blank=True, default='')
     deployment_id_ext = models.CharField(
         max_length=255, blank=True, default='',
         help_text='External deployment ID reference'

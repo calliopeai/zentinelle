@@ -6,16 +6,16 @@ parent_organization FK, and organization.models import.
 These tests will be re-enabled when the managed deployment shim is implemented.
 """
 import pytest
-
-pytestmark = pytest.mark.skip(
-    reason='Requires managed-cloud Organization model (Tier, parent_organization)'
-)
-
 from django.test import TestCase  # noqa: E402
 
 from zentinelle.models import License  # noqa: E402
 from zentinelle.services.license_hierarchy_service import \
     license_hierarchy_service  # noqa: E402
+
+pytestmark = pytest.mark.skip(
+    reason='Requires managed-cloud Organization model (Tier, parent_organization)'
+)
+
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 TENANT_PARENT = '00000000-0000-0000-0000-000000000010'

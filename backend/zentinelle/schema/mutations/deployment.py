@@ -6,10 +6,10 @@ import uuid
 from typing import Optional
 
 import strawberry
-from strawberry.scalars import JSON
-
 from deployments.models import Deployment
 from organization.models import OrganizationMember
+from strawberry.scalars import JSON
+
 from zentinelle.schema.types import DeploymentType, TerraformProvisionType
 
 logger = logging.getLogger(__name__)
@@ -121,8 +121,8 @@ def create_deployment(info: strawberry.types.Info, organization_id: strawberry.I
     if not info.context.request.user.is_authenticated:
         return CreateDeploymentPayload(success=False, error="Authentication required")
 
-    from organization.models import Organization, CloudConfiguration
     from graphql_relay import from_global_id
+    from organization.models import CloudConfiguration, Organization
 
     # Handle both relay global ID and raw integer ID
     try:
@@ -362,10 +362,10 @@ def revoke_deployment_api_key(info: strawberry.types.Info, deployment_id: strawb
 
 
 def create_internal_deployment(info: strawberry.types.Info, organization_id: strawberry.ID, name: str, slug: str, hub_url: str, environment: Optional[str] = 'development', cloud_region: Optional[str] = 'us-west-2', cluster_arn: Optional[str] = None, secrets_arn: Optional[str] = None, description: Optional[str] = None) -> CreateInternalDeploymentPayload:
-    from django.utils import timezone
-    from organization.models import Organization
     from deployments.models import JunoHubConfig
+    from django.utils import timezone
     from graphql_relay import from_global_id
+    from organization.models import Organization
 
     user = info.context.request.user
     if not user.is_authenticated:

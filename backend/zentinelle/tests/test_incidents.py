@@ -7,10 +7,10 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_evaluation_result(
     allowed=False,
@@ -80,7 +80,8 @@ def _make_comment(pk=1, author_id='system', body='hello', created_at=None):
 class TestRiskScoreToSeverity(unittest.TestCase):
 
     def _map(self, score):
-        from zentinelle.services.incident_service import _risk_score_to_severity
+        from zentinelle.services.incident_service import \
+            _risk_score_to_severity
         return _risk_score_to_severity(score)
 
     def test_score_0_maps_to_low(self):
@@ -300,7 +301,7 @@ class TestIncidentListView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.incidents.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)):
             response = view(request)
 
@@ -333,11 +334,11 @@ class TestIncidentListView(unittest.TestCase):
         mock_task = MagicMock()
         mock_task.delay = MagicMock()
 
-        with patch('zentinelle.api.views.incidents.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)), \
-             patch('zentinelle.api.views.incidents._VALID_SEVERITIES', {'high', 'low', 'medium', 'critical', 'info'}), \
-             patch('zentinelle.api.views.incidents._VALID_SOURCES', {'manual', 'policy_violation', 'anomaly'}), \
-             patch('zentinelle.api.views.incidents.send_incident_notification', mock_task):
+                patch('zentinelle.api.views.incidents._VALID_SEVERITIES', {'high', 'low', 'medium', 'critical', 'info'}), \
+                patch('zentinelle.api.views.incidents._VALID_SOURCES', {'manual', 'policy_violation', 'anomaly'}), \
+                patch('zentinelle.api.views.incidents.send_incident_notification', mock_task):
             response = view(request)
 
         self.assertEqual(response.status_code, 201)
@@ -357,7 +358,7 @@ class TestIncidentListView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.incidents.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)):
             response = view(request)
 
@@ -386,7 +387,7 @@ class TestIncidentDetailView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.incidents.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)):
             response = view(request, incident_id=1)
 
@@ -396,8 +397,9 @@ class TestIncidentDetailView(unittest.TestCase):
     @patch('zentinelle.api.views.incidents.Incident')
     def test_patch_resolved_sets_resolved_at(self, mock_inc_cls, mock_tenant):
         """PATCH with status=resolved auto-sets resolved_at."""
-        from zentinelle.api.views.incidents import IncidentDetailView
         import datetime
+
+        from zentinelle.api.views.incidents import IncidentDetailView
 
         fake_now = datetime.datetime(2026, 1, 1, 12, 0, 0)
 
@@ -417,12 +419,12 @@ class TestIncidentDetailView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.incidents.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)), \
-             patch('zentinelle.api.views.incidents._VALID_STATUSES', {'open', 'resolved', 'closed', 'investigating'}), \
-             patch('zentinelle.api.views.incidents.timezone') as mock_tz:
+                patch('zentinelle.api.views.incidents._VALID_STATUSES', {'open', 'resolved', 'closed', 'investigating'}), \
+                patch('zentinelle.api.views.incidents.timezone') as mock_tz:
             mock_tz.now.return_value = fake_now
-            response = view(request, incident_id=1)
+            view(request, incident_id=1)
 
         self.assertEqual(inc.status, 'resolved')
         self.assertEqual(inc.resolved_at, fake_now)
@@ -448,7 +450,7 @@ class TestIncidentCommentView(unittest.TestCase):
         inc = _make_incident(pk=1, tenant_id='t1')
         mock_inc_cls.objects.get.return_value = inc
 
-        comment = _make_comment(pk=10, author_id='user-99', body='Looks bad')
+        comment = _make_comment(pk=10, author_id='verified-actor', body='Looks bad')
         mock_comment_cls.objects.create.return_value = comment
 
         view = IncidentCommentView.as_view()
@@ -457,17 +459,17 @@ class TestIncidentCommentView(unittest.TestCase):
             data=json.dumps({'body': 'Looks bad', 'author_id': 'user-99'}),
             content_type='application/json',
         )
-        request.user = MagicMock(is_authenticated=True)
+        request.user = MagicMock(is_authenticated=True, pk='verified-actor')
         request.auth = None
 
-        with patch('zentinelle.api.views.incidents.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)):
             response = view(request, incident_id=1)
 
         self.assertEqual(response.status_code, 201)
         mock_comment_cls.objects.create.assert_called_once_with(
             incident=inc,
-            author_id='user-99',
+            author_id='verified-actor',
             body='Looks bad',
         )
 
@@ -489,7 +491,7 @@ class TestIncidentCommentView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.incidents.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)):
             response = view(request, incident_id=1)
 

@@ -1,10 +1,6 @@
 from django.contrib import admin
-from zentinelle.models import (
-    AgentEndpoint,
-    Policy,
-    Event,
-    AuditLog,
-)
+
+from zentinelle.models import AgentEndpoint, AuditLog, Event, Policy
 
 
 @admin.register(AgentEndpoint)

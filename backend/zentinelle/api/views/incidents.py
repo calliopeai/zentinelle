@@ -9,16 +9,16 @@ POST /api/zentinelle/v1/incidents/{id}/comments/ — add a comment
 """
 import logging
 
+from django.db import models
+from django.http import StreamingHttpResponse
 from django.utils import timezone
-
 from rest_framework import status
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from zentinelle.api.permissions import OpenOrAgentAuth, PORTAL_OR_AGENT_AUTH
+from rest_framework.views import APIView
 
+from zentinelle.api.auth import get_tenant_id_from_request
+from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.models import Incident, IncidentComment
-from zentinelle.api.auth import ZentinelleAPIKeyAuthentication, get_tenant_id_from_request
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +67,8 @@ class IncidentListView(APIView):
     POST /api/zentinelle/v1/incidents/ — create a manual incident.
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def get(self, request):
         tenant_id = get_tenant_id_from_request(request)
@@ -135,8 +135,8 @@ class IncidentDetailView(APIView):
     PATCH /api/zentinelle/v1/incidents/{id}/ — update status or assignee.
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def _get_incident(self, request, incident_id):
         tenant_id = get_tenant_id_from_request(request)
@@ -162,7 +162,6 @@ class IncidentDetailView(APIView):
 
         data = request.data
         update_fields = ['updated_at']
-
         new_status = data.get('status')
         if new_status is not None:
             if new_status not in _VALID_STATUSES:
@@ -172,21 +171,54 @@ class IncidentDetailView(APIView):
                 )
             incident.status = new_status
             update_fields.append('status')
-
-            # Auto-set resolved_at when transitioning to resolved/closed
-            if new_status in (Incident.Status.RESOLVED, Incident.Status.CLOSED):
-                if not incident.resolved_at:
-                    incident.resolved_at = timezone.now()
-                    update_fields.append('resolved_at')
-
+            if new_status in (Incident.Status.RESOLVED, Incident.Status.CLOSED) and not incident.resolved_at:
+                incident.resolved_at = timezone.now()
+                update_fields.append('resolved_at')
         new_assignee = data.get('assignee_id')
         if new_assignee is not None:
             incident.assignee_id = new_assignee
             update_fields.append('assignee_id')
-
         incident.save(update_fields=update_fields)
-
         return Response(_serialize_incident(incident, include_comments=True), status=status.HTTP_200_OK)
+
+
+class IncidentEvidenceView(APIView):
+    """Stream a tenant-scoped, signed audit evidence bundle for an incident."""
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
+
+    def get(self, request, incident_id):
+        tenant_id = get_tenant_id_from_request(request)
+        try:
+            incident = Incident.objects.get(pk=incident_id, tenant_id=tenant_id)
+        except (Incident.DoesNotExist, ValueError):
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        from zentinelle.models import AuditLog, Event
+        refs = [str(incident.id)] + ([incident.source_ref] if incident.source_ref else [])
+        correlation_ids = set()
+        if incident.source_ref:
+            source_event = Event.objects.filter(tenant_id=tenant_id, id=incident.source_ref).first()
+            if source_event and source_event.correlation_id:
+                correlation_ids.add(str(source_event.correlation_id))
+        # Include the originating event's correlation chain so request,
+        # workload, tool and decision audit records are exported together.
+        audit_filter = models.Q(resource_id__in=refs)
+        if correlation_ids:
+            audit_filter |= models.Q(metadata__correlation_id__in=list(correlation_ids))
+        records = AuditLog.objects.filter(tenant_id=tenant_id).filter(audit_filter).order_by('chain_sequence')
+        selection = {
+            'incident_id': str(incident.id), 'source_refs': refs,
+            'correlation_ids': sorted(correlation_ids),
+            'endpoint_id': str(incident.endpoint_id) if incident.endpoint_id else '',
+            'assignee_id': incident.assignee_id,
+        }
+        from zentinelle.services.audit_chain import stream_evidence_bundle
+        response = StreamingHttpResponse(
+            stream_evidence_bundle(records, tenant_id, selection),
+            content_type='application/x-ndjson',
+        )
+        response['Content-Disposition'] = f'attachment; filename="incident-{incident.id}-evidence.ndjson"'
+        return response
 
 
 class IncidentCommentView(APIView):
@@ -195,8 +227,8 @@ class IncidentCommentView(APIView):
     POST /api/zentinelle/v1/incidents/{id}/comments/ — add a comment to an incident.
     """
 
-    authentication_classes = PORTAL_OR_AGENT_AUTH
-    permission_classes = [OpenOrAgentAuth]
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
 
     def _get_incident(self, request, incident_id):
         tenant_id = get_tenant_id_from_request(request)
@@ -224,7 +256,7 @@ class IncidentCommentView(APIView):
         if not body:
             return Response({'detail': '"body" is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        author_id = request.data.get('author_id', 'system')
+        author_id = str(request.user.pk)
 
         comment = IncidentComment.objects.create(
             incident=incident,

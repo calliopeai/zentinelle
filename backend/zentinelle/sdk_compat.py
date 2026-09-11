@@ -11,21 +11,13 @@ Usage:
     # New style (preferred):
     from zentinelle.sdk.sentinel_sdk import SentinelClient
 """
-from zentinelle.sdk.sentinel_sdk import (
-    SentinelClient,
-    SentinelError,
-    SentinelConnectionError,
-    SentinelAuthError,
-    SentinelRateLimitError,
-    RetryConfig,
-    CircuitBreaker,
-    EvaluateResult,
-    PolicyConfig,
-    RegisterResult,
-    ConfigResult,
-    SecretsResult,
-    EventsResult,
-)
+from zentinelle.sdk.sentinel_sdk import (CircuitBreaker, ConfigResult,
+                                         EvaluateResult, EventsResult,
+                                         PolicyConfig, RegisterResult,
+                                         RetryConfig, SecretsResult,
+                                         SentinelAuthError, SentinelClient,
+                                         SentinelConnectionError,
+                                         SentinelError, SentinelRateLimitError)
 
 __all__ = [
     'SentinelClient',

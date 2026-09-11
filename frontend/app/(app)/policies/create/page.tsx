@@ -1,5 +1,7 @@
 "use client";
 
+import { withPermissionAuthenticationRequired } from "@/components/PermissionGuard";
+
 import { useRouter } from "next/navigation";
 import { useMutation } from "@apollo/client/react";
 import { useForm, Controller } from "react-hook-form";
@@ -51,7 +53,7 @@ const policySchema = z.object({
 
 type PolicyFormValues = z.infer<typeof policySchema>;
 
-export default function CreatePolicyPage() {
+function CreatePolicyPage() {
   const router = useRouter();
   const { options, loading: optionsLoading } = usePolicyOptions();
   const [createPolicy, { loading: submitting }] = useMutation<{
@@ -289,3 +291,5 @@ export default function CreatePolicyPage() {
     </div>
   );
 }
+
+export default withPermissionAuthenticationRequired(CreatePolicyPage, "mutate");

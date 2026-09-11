@@ -47,34 +47,54 @@ Note: Deployment operations and provisioner callbacks have moved to:
 """
 from django.urls import path
 
-from zentinelle.api.views import (
-    AgentSummaryView,
-    AcknowledgeAlertView, AlertsListView,
+from zentinelle.api.views import (AcknowledgeAlertView, AgentControlView,
+                                  AgentSummaryView, AlertsListView,
                                   AsyncScanView, AuditChainVerifyView,
-                                  AuditExportView, ComplianceReportSummaryView,
-                                  ConfigView, DeregisterView,
+                                  AuditExportView, BrocsControlMapView,
+                                  BudgetShowbackView,
+                                  ComplianceReportSummaryView, ConfigView,
+                                  ControlEvidenceView, DeregisterView,
                                   EffectivePolicyView, EvaluateView,
                                   EventsView, ExportComplianceReportCSVView,
                                   ExportViolationsCSVView, HeartbeatView,
                                   IncidentCommentView, IncidentDetailView,
-                                  IncidentListView, LogInteractionView,
-                                  PolicyDiffView, PolicyHistoryListView,
-                                  RegisterView, ReportCreateView,
-                                  ReportDownloadView, ReportStatusView,
-                                  ResolveAlertView, RetentionStatusView,
-                                  RiskTrendView, ScanContentView,
-                                  ScanResultView, SecretsView,
-                                  SystemPromptsView, ViolationsListView)
+                                  IncidentEvidenceView, IncidentListView,
+                                  LogInteractionView,
+                                  ModelRouteCanaryRollbackView,
+                                  ModelRouteCanaryView,
+                                  PolicyChangeAcknowledgementView,
+                                  PolicyChangeSetListView,
+                                  PolicyChangeSetTransitionView,
+                                  PolicyCopilotDiffView,
+                                  PolicyCopilotDraftView,
+                                  PolicyCopilotExplainView,
+                                  PolicyCopilotStageView,
+                                  PolicyCopilotStatusView, PolicyDiffView,
+                                  PolicyHistoryListView, PrivacyEraseView,
+                                  PrivacyRestoreView, RegisterView,
+                                  ReportCreateView, ReportDownloadView,
+                                  ReportStatusView, ResolveAlertView,
+                                  RetentionStatusView, RiskTrendView,
+                                  ScanContentView, ScanResultView, SecretsView,
+                                  SystemPromptsView,
+                                  TelemetryDeliveryHealthView,
+                                  ViolationsListView)
+from zentinelle.api.views.approvals import ApprovalIssueView
 from zentinelle.api.views.assistant import (AssistantChatView,
-                                              AssistantExecuteToolView)
+                                            AssistantExecuteToolView)
 from zentinelle.api.views.assistant_models import (AssistantModelsBulkView,
-                                                    AssistantModelsListView,
-                                                    AssistantModelsToggleView)
+                                                   AssistantModelsListView,
+                                                   AssistantModelsToggleView)
 from zentinelle.api.views.assistant_providers import AssistantProvidersView
+from zentinelle.api.views.atlas import AtlasControlMapView
+from zentinelle.api.views.auth import (CSRFTokenView, LoginView, LogoutView,
+                                       MeView)
+from zentinelle.api.views.health import HealthView, ReadyView
 from zentinelle.api.views.llm_provider_keys import (LLMProviderKeyDeleteView,
                                                     LLMProviderKeysView)
-from zentinelle.api.views.auth import LoginView, LogoutView, MeView
-from zentinelle.api.views.health import HealthView, ReadyView
+from zentinelle.api.views.runtime_settings import (
+    RuntimeSettingsChangesView, RuntimeSettingsChangeTransitionView,
+    RuntimeSettingsRollbackView, RuntimeSettingsView)
 from zentinelle.auth.oidc import OIDCCallbackView, OIDCLoginView
 
 app_name = 'zentinelle'
@@ -83,8 +103,11 @@ urlpatterns = [
     # Platform health (Kubernetes probes)
     path('health', HealthView.as_view(), name='health'),
     path('ready', ReadyView.as_view(), name='ready'),
+    path('telemetry/health', TelemetryDeliveryHealthView.as_view(), name='telemetry-health'),
 
     # Portal auth (session-based, httpOnly cookies)
+    path('approvals', ApprovalIssueView.as_view(), name='approval-issue'),
+    path('auth/csrf', CSRFTokenView.as_view(), name='auth-csrf'),
     path('auth/login', LoginView.as_view(), name='auth-login'),
     path('auth/logout', LogoutView.as_view(), name='auth-logout'),
     path('auth/me', MeView.as_view(), name='auth-me'),
@@ -102,11 +125,27 @@ urlpatterns = [
     # LLM provider key management (encrypted at rest, per-tenant)
     path('settings/llm-providers', LLMProviderKeysView.as_view(), name='llm-provider-keys'),
     path('settings/llm-providers/<str:provider>', LLMProviderKeyDeleteView.as_view(), name='llm-provider-key-delete'),
+    path('settings/runtime', RuntimeSettingsView.as_view(), name='runtime-settings'),
+    path('settings/runtime/rollback', RuntimeSettingsRollbackView.as_view(), name='runtime-settings-rollback'),
+    path('settings/runtime/changes', RuntimeSettingsChangesView.as_view(), name='runtime-settings-changes'),
+    path('settings/runtime/changes/<uuid:change_id>/transition', RuntimeSettingsChangeTransitionView.as_view(), name='runtime-settings-change-transition'),
+    path('policy-copilot/status', PolicyCopilotStatusView.as_view(), name='policy-copilot-status'),
+    path('policy-copilot/draft', PolicyCopilotDraftView.as_view(), name='policy-copilot-draft'),
+    path('policy-copilot/explain', PolicyCopilotExplainView.as_view(), name='policy-copilot-explain'),
+    path('policy-copilot/diff', PolicyCopilotDiffView.as_view(), name='policy-copilot-diff'),
+    path('policy-copilot/stage', PolicyCopilotStageView.as_view(), name='policy-copilot-stage'),
+    path('threats/atlas', AtlasControlMapView.as_view(), name='atlas-control-map'),
+    path('evidence/controls', ControlEvidenceView.as_view(), name='control-evidence'),
+    path('budgets/showback', BudgetShowbackView.as_view(), name='budget-showback'),
+    path('models/route-canary', ModelRouteCanaryView.as_view(), name='model-route-canary'),
+    path('models/route-canary/<uuid:canary_id>/rollback', ModelRouteCanaryRollbackView.as_view(), name='model-route-canary-rollback'),
+    path('controls/brocs', BrocsControlMapView.as_view(), name='brocs-control-map'),
 
     # Agent-facing endpoints
     path('register', RegisterView.as_view(), name='register'),
     path('deregister', DeregisterView.as_view(), name='deregister'),
     path('config/<str:agent_id>', ConfigView.as_view(), name='config'),
+    path('agents/<str:agent_id>/control', AgentControlView.as_view(), name='agent-control'),
     path('secrets', SecretsView.as_view(), name='secrets'),
     path('secrets/<str:agent_id>', SecretsView.as_view(), name='secrets-agent'),
     path('events', EventsView.as_view(), name='events'),
@@ -145,18 +184,24 @@ urlpatterns = [
 
     # Retention status
     path('retention/status/', RetentionStatusView.as_view(), name='retention-status'),
+    path('retention/erase', PrivacyEraseView.as_view(), name='retention-erase'),
+    path('retention/restore', PrivacyRestoreView.as_view(), name='retention-restore'),
 
     # Risk register trend
     path('risks/trend', RiskTrendView.as_view(), name='risks-trend'),
 
     # Policy version history & diff
-    path('policies/<int:policy_id>/history/', PolicyHistoryListView.as_view(), name='policy-history'),
-    path('policies/<int:policy_id>/diff/', PolicyDiffView.as_view(), name='policy-diff'),
+    path('policies/<uuid:policy_id>/history/', PolicyHistoryListView.as_view(), name='policy-history'),
+    path('policies/<uuid:policy_id>/diff/', PolicyDiffView.as_view(), name='policy-diff'),
+    path('policy-changes', PolicyChangeSetListView.as_view(), name='policy-change-list'),
+    path('policy-changes/<uuid:change_id>/transition', PolicyChangeSetTransitionView.as_view(), name='policy-change-transition'),
+    path('policy-changes/<uuid:change_id>/acknowledge', PolicyChangeAcknowledgementView.as_view(), name='policy-change-acknowledge'),
 
     # Incident management
     path('incidents/', IncidentListView.as_view(), name='incident-list'),
-    path('incidents/<int:incident_id>/', IncidentDetailView.as_view(), name='incident-detail'),
-    path('incidents/<int:incident_id>/comments/', IncidentCommentView.as_view(), name='incident-comments'),
+    path('incidents/<uuid:incident_id>/', IncidentDetailView.as_view(), name='incident-detail'),
+    path('incidents/<uuid:incident_id>/evidence/', IncidentEvidenceView.as_view(), name='incident-evidence'),
+    path('incidents/<uuid:incident_id>/comments/', IncidentCommentView.as_view(), name='incident-comments'),
 
     # Compliance report export
     path('reports/', ReportCreateView.as_view(), name='report-create'),

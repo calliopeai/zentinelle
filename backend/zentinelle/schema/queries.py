@@ -8,93 +8,33 @@ from datetime import datetime
 from typing import Optional
 
 import strawberry
+from django.db.models import Count, Q
 from strawberry.scalars import JSON
-from django.db.models import Q, Count
-from zentinelle.schema.mutations.policy_document import PolicyDocumentType
 
 # Agent-level models (from zentinelle)
-from zentinelle.models import (
-    AgentEndpoint,
-    Policy,
-    PolicyRevision,
-    Event,
-    AuditLog,
-    # AI Provider models
-    AIProvider,
-    # Platform API Keys
-    APIKey,
-    # Model Registry
-    AIModel,
-    OrganizationModelApproval,
-    # Compliance & Monitoring
-    ContentRule,
-    ContentScan,
-    ContentViolation,
-    ComplianceAlert,
-    InteractionLog,
-    # Risk Management
-    Risk,
-    Incident,
-    # Policy Documents
-    PolicyDocument,
-    # License Compliance
-    LicenseComplianceReport,
-    LicenseComplianceViolation,
-)
-from .types import (
-    AgentGroupType,
-    AgentEndpointType,
-    PolicyType,
-    PolicyRevisionType,
-    EventType,
-    AuditLogType,
-    # AI Provider types
-    AIProviderType,
-    # Platform API Keys
-    APIKeyType,
-    # Model Registry
-    AIModelType,
-    OrganizationModelApprovalType,
-    # Compliance & Monitoring types
-    ContentRuleType,
-    ContentScanType,
-    ContentViolationType,
-    ComplianceAlertType,
-    InteractionLogType,
-    # Risk Management types
-    RiskType,
-    IncidentType,
-    # Retention
-    RetentionPolicyType,
-    LegalHoldType,
-    # License Compliance types
-    LicenseComplianceReportType,
-    LicenseComplianceViolationGraphType,
-    # Organization (stub types for standalone mode)
-    OrganizationType,
-    NotificationType,
-    UsageMetricsType,
-    UsageMetricsSummaryType,
-    UsageAlertType,
-    UsageTimeSeriesPointType,
-    UsageByAgentType,
-    ComplianceReportType,
-    EffectivePolicyType,
-    PromptCategoryType,
-    SystemPromptType,
-    PolicyGraphNodeType,
-    PolicyGraphEdgeType,
-    PolicyGraphType,
-    ClientCoveIntegrationType,
-    AuditAnalyticsType,
-    AuditTimelinePointType,
-    AuditEventCountType,
-    AuditTopAgentType,
-)
-
+from zentinelle.models import (  # AI Provider models; Platform API Keys; Model Registry; Compliance & Monitoring; Risk Management; Policy Documents; License Compliance
+    AgentEndpoint, AIModel, AIProvider, APIKey, AuditLog, ComplianceAlert,
+    ContentRule, ContentScan, ContentViolation, Event, Incident,
+    InteractionLog, LicenseComplianceReport, LicenseComplianceViolation,
+    OrganizationModelApproval, Policy, PolicyDocument, PolicyRevision, Risk)
+from zentinelle.schema.mutations.policy_document import PolicyDocumentType
 
 # Import authorization helpers from centralized module
-from .auth_helpers import filter_by_org, get_request_tenant_id, is_internal_admin
+from .auth_helpers import (filter_by_org, get_request_tenant_id,
+                           is_internal_admin)
+from .types import (  # AI Provider types; Platform API Keys; Model Registry; Compliance & Monitoring types; Risk Management types; Retention; License Compliance types; Organization (stub types for standalone mode)
+    AgentEndpointType, AgentGroupType, AIModelType, AIProviderType, APIKeyType,
+    AuditAnalyticsType, AuditEventCountType, AuditLogType,
+    AuditTimelinePointType, AuditTopAgentType, ClientCoveIntegrationType,
+    ComplianceAlertType, ComplianceReportType, ContentRuleType,
+    ContentScanType, ContentViolationType, EffectivePolicyType, EventType,
+    IncidentType, InteractionLogType, LegalHoldType,
+    LicenseComplianceReportType, LicenseComplianceViolationGraphType,
+    NotificationType, OrganizationModelApprovalType, OrganizationType,
+    PolicyGraphEdgeType, PolicyGraphNodeType, PolicyGraphType,
+    PolicyRevisionType, PolicyType, PromptCategoryType, RetentionPolicyType,
+    RiskType, SystemPromptType, UsageAlertType, UsageByAgentType,
+    UsageMetricsSummaryType, UsageMetricsType, UsageTimeSeriesPointType)
 
 
 # Dashboard Stats Types
@@ -694,6 +634,7 @@ class SimulatePolicyResultType:
     would_block: int = 0
     would_warn: int = 0
     would_pass: int = 0
+    inconclusive: int = 0
     impact_percent: float = 0.0
     blocked_samples: list[str] = strawberry.field(default_factory=list)
     simulated_policy_type: Optional[str] = None
@@ -708,7 +649,7 @@ class Query:
     @strawberry.field
     def policy_options(self, info: strawberry.types.Info) -> Optional[PolicyOptionsType]:
         """Return all policy form options for dynamic UI."""
-        from zentinelle.models.policy import Policy, POLICY_CONFIG_SCHEMAS
+        from zentinelle.models.policy import POLICY_CONFIG_SCHEMAS, Policy
 
         # Policy type descriptions and categories
         policy_type_info = {
@@ -993,12 +934,10 @@ class Query:
         if not info.context.request.user.is_authenticated:
             return None
 
-        from zentinelle.models.compliance import (
-            COMPLIANCE_CAPABILITIES,
-            FRAMEWORK_REQUIREMENTS,
-            get_capability_status,
-            get_framework_coverage,
-        )
+        from zentinelle.models.compliance import (COMPLIANCE_CAPABILITIES,
+                                                  FRAMEWORK_REQUIREMENTS,
+                                                  get_capability_status,
+                                                  get_framework_coverage)
 
         # Get user's tenant
         user = info.context.request.user
@@ -1132,8 +1071,10 @@ class Query:
         if not info.context.request.user.is_authenticated:
             return None
 
-        from django.utils import timezone
         from datetime import timedelta
+
+        from django.utils import timezone
+
         from zentinelle.models import ComplianceAlert, ContentViolation
 
         user = info.context.request.user
@@ -1397,8 +1338,9 @@ class Query:
         if not info.context.request.user.is_authenticated:
             return None
 
-        from zentinelle.services.policy_simulator import simulate_policy
         import json
+
+        from zentinelle.services.policy_simulator import simulate_policy
 
         tenant_id = get_request_tenant_id(info.context.request.user)
         if not tenant_id:
@@ -1423,6 +1365,7 @@ class Query:
             would_block=result['would_block'],
             would_warn=result['would_warn'],
             would_pass=result['would_pass'],
+            inconclusive=result['inconclusive'],
             impact_percent=result['impact_percent'],
             blocked_samples=[str(s) for s in result['blocked_samples']],
             simulated_policy_type=result['simulated_policy_type'],
@@ -1525,8 +1468,10 @@ class Query:
 
     @staticmethod
     def _audit_analytics_postgres(tenant_id, days):
-        from django.utils import timezone
         from datetime import timedelta
+
+        from django.utils import timezone
+
         from zentinelle.models import AuditLog
 
         cutoff = timezone.now() - timedelta(days=days)
@@ -1560,8 +1505,9 @@ class Query:
         if not info.context.request.user.is_authenticated:
             return None
 
-        from django.utils import timezone
         from datetime import timedelta
+
+        from django.utils import timezone
 
         user = info.context.request.user
         now = timezone.now()
@@ -2210,9 +2156,10 @@ class Query:
         if not info.context.request.user.is_authenticated:
             return None
 
-        from django.utils import timezone
         from datetime import timedelta
+
         from django.db.models import Avg, Sum
+        from django.utils import timezone
 
         user = info.context.request.user
         tenant_id = get_request_tenant_id(user)
@@ -2670,6 +2617,7 @@ class Query:
     def my_organization(self, info: strawberry.types.Info) -> Optional[OrganizationType]:
         """Return the organization object for the current tenant, backed by TenantConfig."""
         from zentinelle.models.tenant_config import TenantConfig
+
         # No tenant, no organization. The old fallback did not merely read the
         # wrong row, it created one under a literal nobody owns — and
         # get_or_create means the first such caller decided what everyone
@@ -2698,6 +2646,7 @@ class Query:
     @strawberry.field
     def client_cove_integration(self, info: strawberry.types.Info) -> Optional[ClientCoveIntegrationType]:
         from zentinelle.models.integration import ClientCoveIntegration
+
         # None rather than a shared 'default' bucket: a caller whose tenant
         # cannot be resolved has no integration, and handing them whatever sits
         # under a literal nobody owns is how two such callers end up reading
@@ -2732,11 +2681,13 @@ class Query:
         granularity: Optional[str] = None,
         endpoint_id: Optional[strawberry.ID] = None,
     ) -> Optional[UsageMetricsType]:
-        from zentinelle.models import InteractionLog, AgentEndpoint
-        from django.db.models import Sum, Count
+        from datetime import timedelta
+
+        from django.db.models import Count, Sum
         from django.db.models.functions import TruncDay
         from django.utils import timezone
-        from datetime import timedelta
+
+        from zentinelle.models import AgentEndpoint, InteractionLog
 
         if not info.context.request.user.is_authenticated:
             return UsageMetricsType(
@@ -2842,8 +2793,9 @@ class Query:
         verified_only: Optional[bool] = None,
         favorites_only: Optional[bool] = None,
     ) -> list[SystemPromptType]:
-        from zentinelle.models import SystemPrompt
         from django.db.models import Q
+
+        from zentinelle.models import SystemPrompt
 
         if not info.context.request.user.is_authenticated:
             return SystemPrompt.objects.none()
@@ -2880,8 +2832,9 @@ class Query:
         id: Optional[uuid.UUID] = None,
         slug: Optional[str] = None,
     ) -> Optional[SystemPromptType]:
-        from zentinelle.models import SystemPrompt
         from django.db.models import Q
+
+        from zentinelle.models import SystemPrompt
 
         if not info.context.request.user.is_authenticated:
             return None
@@ -2910,10 +2863,12 @@ class Query:
         first: Optional[int] = None,
         after: Optional[str] = None,
     ) -> list[UsageAlertType]:
-        from zentinelle.models import InteractionLog, Policy
+        import uuid as _uuid
+
         from django.db.models import Sum
         from django.utils import timezone
-        import uuid as _uuid
+
+        from zentinelle.models import InteractionLog, Policy
 
         if not info.context.request.user.is_authenticated:
             return []
@@ -2999,6 +2954,7 @@ class Query:
         after: Optional[str] = None,
     ) -> list[EffectivePolicyType]:
         import json
+
         from zentinelle.models import Policy
 
         if not info.context.request.user.is_authenticated:
@@ -3044,7 +3000,7 @@ class Query:
         risk_severity: Optional[str] = None,
         include_incidents: Optional[bool] = False,
     ) -> Optional[PolicyGraphType]:
-        from zentinelle.models import Policy, AgentEndpoint, Risk, Incident
+        from zentinelle.models import AgentEndpoint, Incident, Policy, Risk
 
         if not info.context.request.user.is_authenticated:
             return PolicyGraphType(nodes=[], edges=[], node_count=0, edge_count=0)
@@ -3053,10 +3009,10 @@ class Query:
         if not tenant_id:
             return PolicyGraphType(nodes=[], edges=[], node_count=0, edge_count=0)
 
-        TEAL   = '#08D4B8'
-        BLUE   = '#3B5CAA'
+        TEAL = '#08D4B8'
+        BLUE = '#3B5CAA'
         ORANGE = '#FFB547'
-        RED    = '#EE5D50'
+        RED = '#EE5D50'
         DARK_RED = '#E31A1A'
 
         nodes = []

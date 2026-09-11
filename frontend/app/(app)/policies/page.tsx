@@ -1,5 +1,7 @@
 "use client";
 
+import { PermissionGuard } from "@/components/PermissionGuard";
+
 import { useState, useMemo } from "react";
 import { useMutation } from "@apollo/client/react";
 import { type ColumnDef } from "@tanstack/react-table";
@@ -310,6 +312,7 @@ function ActionsCell({
   };
 
   return (
+    <PermissionGuard permission="mutate">
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -335,6 +338,7 @@ function ActionsCell({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </PermissionGuard>
   );
 }
 
@@ -485,12 +489,14 @@ export default function PoliciesPage() {
             Define and manage governance policies for your AI agents
           </p>
         </div>
+        <PermissionGuard permission="mutate">
         <Button size="sm" asChild>
           <Link href="/policies/create">
             <PlusIcon className="mr-1.5 h-4 w-4" />
             Create Policy
           </Link>
         </Button>
+        </PermissionGuard>
       </div>
 
       <div data-tour="policies-heatmap">

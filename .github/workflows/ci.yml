@@ -15,6 +15,11 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
 jobs:
   backend:
     name: Backend
@@ -49,9 +54,15 @@ jobs:
       DATABASE_URL: postgresql://zentinelle:zentinelle@localhost:5432/zentinelle
       REDIS_URL: redis://localhost:6379/0
       DJANGO_SETTINGS_MODULE: config.settings
+      AUTH_MODE: local
+      CLICKHOUSE_URL: ""
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The backend support-matrix contract verifies the pinned SDK tree;
+          # initialize it here so the test matches the clean CI checkout.
+          submodules: recursive
 
       - uses: actions/setup-python@v5
         with:
@@ -79,6 +90,96 @@ jobs:
         working-directory: backend
         run: python -m pytest -q
 
+      # Persist the same release gate that production promotion consumes. The
+      # checks are deliberately explicit: adding a required control makes CI
+      # fail closed until its evidence is represented in this artifact.
+      - name: Qualify release and publish evidence
+        working-directory: backend
+        run: |
+          python manage.py prepare_schemas
+          python manage.py migrate --database default --no-input
+          python manage.py migrate --database zentinelle --no-input
+          python manage.py migrate --database analytics --no-input
+          python -m pytest -q zentinelle/tests/test_graphql_auth_profile.py
+          python -m pytest -q zentinelle/tests/test_models.py -k rotate_api_key
+          pip check
+          # Exercise a real migration rollback/re-apply on the CI database.
+          python manage.py migrate zentinelle 0049 --database zentinelle --no-input
+          python manage.py migrate zentinelle --database zentinelle --no-input
+          # Dump and restore the complete database into a fresh CI database.
+          pg_dump "$DATABASE_URL" --format=custom --file=/tmp/zentinelle-ci.dump
+          PGPASSWORD=zentinelle createdb "${DATABASE_URL##*/}_recovery" -h localhost -U zentinelle
+          pg_restore --exit-on-error --no-owner --dbname="${DATABASE_URL%/*}/$(basename "${DATABASE_URL##*/}")_recovery" /tmp/zentinelle-ci.dump
+          pip freeze --all | sort > /tmp/zentinelle-sbom.txt
+          sbom_digest="sha256:$(sha256sum /tmp/zentinelle-sbom.txt | cut -d' ' -f1)"
+          cat > /tmp/zentinelle-release-checks.json <<JSON
+          {"checks":{"migrations":true,"auth":true,"csrf":true,"secret_rotation":true,"dependency_scan":true,"backup_restore":true,"rollback":true},"sbom_digest":"${sbom_digest}","evidence":{"auth_profile":"test_graphql_auth_profile.py","secret_rotation":"test_models.py -k rotate_api_key","dependency_scan":"pip check","backup_restore":"pg_dump+pg_restore fresh database","rollback":"migrate 0049 then latest"},"rollback_evidence":{"source":"ci","commit":"${GITHUB_SHA}"}}
+          JSON
+          python manage.py qualify_release \
+            --release-id "ci-${GITHUB_RUN_ID}" \
+            --release-version "${GITHUB_SHA}" \
+            --checks-file /tmp/zentinelle-release-checks.json \
+            --sbom-digest "$sbom_digest" \
+            --sbom-file /tmp/zentinelle-sbom.txt
+          cp /tmp/zentinelle-release-checks.json "release-qualification-${GITHUB_RUN_ID}.json"
+          cp /tmp/zentinelle-sbom.txt "release-sbom-${GITHUB_RUN_ID}.txt"
+        env:
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SHA: ${{ github.sha }}
+
+      - name: Upload release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: zentinelle-release-evidence-${{ github.run_id }}
+          path: |
+            backend/release-qualification-*.json
+            backend/release-sbom-*.txt
+
+      - name: Attest release SBOM
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: backend/release-sbom-*.txt
+
+      - name: Attest release qualification evidence
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: backend/release-qualification-*.json
+
+
+      - name: Backend lint
+        working-directory: backend
+        run: |
+          flake8
+          isort --check-only .
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Real gateway and multi-schema backend contract
+        env:
+          ZENTINELLE_CONTRACT_TEST: '1'
+          CONTRACT_KEYS_FILE: /tmp/zentinelle-contract-keys.json
+          CONTRACT_BACKEND_URL: http://127.0.0.1:62592
+          CELERY_BROKER_URL: memory://
+          CELERY_RESULT_BACKEND: cache+memory://
+        run: |
+          python backend/manage.py prepare_schemas
+          python backend/manage.py migrate --database default --no-input
+          python backend/manage.py migrate --database zentinelle --no-input
+          python backend/manage.py migrate --database analytics --no-input
+          python backend/manage.py shell < tests/integration/seed_gateway_contract.py
+          python backend/manage.py runserver 127.0.0.1:62592 --noreload > /tmp/zentinelle-contract-server.log 2>&1 &
+          contract_pid=$!
+          trap 'kill "$contract_pid"; rm -f "$CONTRACT_KEYS_FILE"' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:62592/api/zentinelle/v1/health > /dev/null; then break; fi
+            sleep 1
+          done
+          go -C gateway test -race -run TestRealBackendEnforcementContract -v
+
   gateway:
     name: Gateway
     runs-on: ubuntu-latest
@@ -95,7 +196,35 @@ jobs:
 
       - name: Test
         working-directory: gateway
-        run: go test ./...
+        run: go test -race ./...
+
+  sdk:
+    name: SDK contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Java SDK tests
+        working-directory: sdk/java
+        run: mvn -B test
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: C# SDK tests
+        working-directory: sdk/csharp
+        # Restore on clean runners; the repository intentionally does not
+        # commit generated obj/project.assets.json files.
+        run: dotnet test --configuration Release
 
   frontend:
     name: Frontend

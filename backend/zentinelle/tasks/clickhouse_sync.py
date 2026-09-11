@@ -104,7 +104,8 @@ def stream_audit_log_to_clickhouse(self, audit_log_id: str):
 
     Called asynchronously after AuditLog.log() or AuditLog.log_from_request().
     """
-    from zentinelle.services.clickhouse_service import is_enabled, insert_audit_events
+    from zentinelle.services.clickhouse_service import (insert_audit_events,
+                                                        is_enabled)
 
     if not is_enabled():
         return
@@ -130,7 +131,8 @@ def stream_event_to_clickhouse(self, event_id: str):
 
     Called asynchronously after Event creation.
     """
-    from zentinelle.services.clickhouse_service import is_enabled, insert_audit_events
+    from zentinelle.services.clickhouse_service import (insert_audit_events,
+                                                        is_enabled)
 
     if not is_enabled():
         return
@@ -156,7 +158,8 @@ def stream_batch_to_clickhouse(self, audit_log_ids: list = None, event_ids: list
 
     More efficient than individual inserts for high-volume scenarios.
     """
-    from zentinelle.services.clickhouse_service import is_enabled, insert_audit_events
+    from zentinelle.services.clickhouse_service import (insert_audit_events,
+                                                        is_enabled)
 
     if not is_enabled():
         return
@@ -192,10 +195,13 @@ def backfill_clickhouse(
     Useful for initial setup or after data loss. Processes both
     AuditLog and Event records from the last N days.
     """
-    from django.utils import timezone
     from datetime import timedelta
+
+    from django.utils import timezone
+
     from zentinelle.models import AuditLog, Event
-    from zentinelle.services.clickhouse_service import is_enabled, insert_audit_events
+    from zentinelle.services.clickhouse_service import (insert_audit_events,
+                                                        is_enabled)
 
     if not is_enabled():
         logger.warning("ClickHouse not enabled; skipping backfill.")

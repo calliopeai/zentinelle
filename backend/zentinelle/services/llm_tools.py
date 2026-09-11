@@ -349,8 +349,8 @@ TOOL_SCHEMAS = [
 # ─── Tool implementations ──────────────────────────────────────────────
 
 def _list_agents(tenant_id: str, status: str = "all",
-                agent_type: Optional[str] = None,
-                name_contains: Optional[str] = None) -> dict:
+                 agent_type: Optional[str] = None,
+                 name_contains: Optional[str] = None) -> dict:
     from zentinelle.models import AgentEndpoint
     qs = AgentEndpoint.objects.filter(tenant_id=tenant_id)
     if status and status != "all":
@@ -434,9 +434,10 @@ def _get_policy_details(tenant_id: str, policy_id: str) -> dict:
 
 
 def _list_recent_events(tenant_id: str, event_type: Optional[str] = None,
-                       category: Optional[str] = None, limit: int = 20,
-                       since_hours: int = 24) -> dict:
+                        category: Optional[str] = None, limit: int = 20,
+                        since_hours: int = 24) -> dict:
     from datetime import timedelta
+
     from zentinelle.models import Event
     qs = Event.objects.filter(tenant_id=tenant_id)
     if event_type:
@@ -457,7 +458,7 @@ def _list_recent_events(tenant_id: str, event_type: Optional[str] = None,
 
 
 def _list_open_incidents(tenant_id: str, severity: Optional[str] = None,
-                        title_contains: Optional[str] = None) -> dict:
+                         title_contains: Optional[str] = None) -> dict:
     from zentinelle.models import Incident
     qs = Incident.objects.filter(tenant_id=tenant_id).exclude(
         status__in=["resolved", "closed"]
@@ -480,8 +481,8 @@ def _list_open_incidents(tenant_id: str, severity: Optional[str] = None,
 
 
 def _list_open_risks(tenant_id: str, category: Optional[str] = None,
-                    min_rpn: Optional[int] = None,
-                    name_contains: Optional[str] = None) -> dict:
+                     min_rpn: Optional[int] = None,
+                     name_contains: Optional[str] = None) -> dict:
     from zentinelle.models import Risk
     qs = Risk.objects.filter(tenant_id=tenant_id).exclude(
         status__in=["closed", "accepted"]
@@ -577,6 +578,7 @@ def _run_compliance_check(tenant_id: str) -> dict:
     """Trigger compliance assessment (uses celery task entry-point synchronously)."""
     try:
         from zentinelle.tasks.compliance import run_compliance_check_task
+
         # Run inline (apply) so the assistant gets the result back
         result = run_compliance_check_task.apply(
             kwargs={'organization_id': tenant_id, 'assessment_type': 'assistant'}
@@ -604,8 +606,8 @@ def _navigate_to(path: str, label: str) -> dict:
 
 
 def _create_policy(tenant_id: str, name: str, policy_type: str, config: dict,
-                  description: str = "", scope_type: str = "organization",
-                  enforcement: str = "enforce", priority: int = 0) -> dict:
+                   description: str = "", scope_type: str = "organization",
+                   enforcement: str = "enforce", priority: int = 0) -> dict:
     from zentinelle.models import Policy
     obj = Policy.objects.create(
         tenant_id=tenant_id,
@@ -630,9 +632,9 @@ def _create_policy(tenant_id: str, name: str, policy_type: str, config: dict,
 
 
 def _create_risk(tenant_id: str, name: str, description: str,
-                severity: int, likelihood: int, impact: int,
-                category: str = "operational",
-                mitigation_plan: str = "") -> dict:
+                 severity: int, likelihood: int, impact: int,
+                 category: str = "operational",
+                 mitigation_plan: str = "") -> dict:
     from zentinelle.models import Risk
     obj = Risk.objects.create(
         tenant_id=tenant_id,
@@ -680,13 +682,13 @@ def _generate_compliance_report(tenant_id: str, framework_id: str = "all") -> di
 
 
 def _update_policy(tenant_id: str, policy_id: str,
-                  name: Optional[str] = None,
-                  description: Optional[str] = None,
-                  enforcement: Optional[str] = None,
-                  enabled: Optional[bool] = None,
-                  priority: Optional[int] = None,
-                  config: Optional[dict] = None,
-                  replace_config: bool = False) -> dict:
+                   name: Optional[str] = None,
+                   description: Optional[str] = None,
+                   enforcement: Optional[str] = None,
+                   enabled: Optional[bool] = None,
+                   priority: Optional[int] = None,
+                   config: Optional[dict] = None,
+                   replace_config: bool = False) -> dict:
     from zentinelle.models import Policy
     obj = Policy.objects.filter(tenant_id=tenant_id, id=policy_id).first()
     if not obj:
@@ -755,7 +757,7 @@ def _update_risk(tenant_id: str, risk_id: str, **kwargs) -> dict:
 
 
 def _resolve_incident(tenant_id: str, incident_id: str,
-                     resolution_notes: str = "") -> dict:
+                      resolution_notes: str = "") -> dict:
     from zentinelle.models import Incident
     obj = Incident.objects.filter(tenant_id=tenant_id, id=incident_id).first()
     if not obj:

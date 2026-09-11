@@ -3,12 +3,16 @@ Policy Engine - Evaluates policies for agents with inheritance support.
 """
 import logging
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from django.db.models import Q
 from django.core.cache import cache
+from django.db.models import Q
 
-from zentinelle.models import Policy, AgentEndpoint
+from zentinelle.models import AgentEndpoint, Policy
+
+if TYPE_CHECKING:
+    from zentinelle.services.evaluators.base import BasePolicyEvaluator
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +39,7 @@ class EvaluationResult:
     dry_run: bool = False
     risk_score: int = 0
     risk_factors: List[Dict] = field(default_factory=list)
+    coverage: Dict[str, Any] = field(default_factory=dict)
 
 
 class PolicyEngine:
@@ -70,10 +75,19 @@ class PolicyEngine:
         Results are cached for POLICY_CACHE_TTL seconds.
         """
         tenant_id = endpoint.tenant_id
+        sub_organization_id = endpoint.sub_organization_id_ext or sub_organization_id
 
         # Build versioned cache key — version bumps on policy changes
         version = cache.get(f"policies_version:{tenant_id}", 0)
-        cache_key = f"policies:v{version}:{tenant_id}:{endpoint.id}:{user_id}:{sub_organization_id}"
+        taxonomy_key = ','.join(
+            sorted(
+                (endpoint.metadata or {}).get(
+                    'taxonomy',
+                    {}).get(
+                    'supported',
+                    [])))
+        cache_key = f"policies:v{version}:{tenant_id}:{
+            endpoint.id}:{user_id}:{sub_organization_id}:{taxonomy_key}"
         if policy_types:
             cache_key += f":{','.join(sorted(policy_types))}"
 
@@ -126,6 +140,19 @@ class PolicyEngine:
             .order_by('priority')
         )
 
+        # Taxonomy selectors are additive: a policy with selectors applies only
+        # when every selector is present on the endpoint.  Unselected policies
+        # retain the existing hierarchy semantics.
+        endpoint_tags = set(
+            (endpoint.metadata or {}).get(
+                'taxonomy',
+                {}).get(
+                'supported',
+                []))
+        all_policies = [
+            p for p in all_policies if self._taxonomy_matches(
+                p, endpoint_tags)]
+
         # Group policies by scope for proper merging
         org_policies = []
         sub_org_policies = []
@@ -160,6 +187,27 @@ class PolicyEngine:
 
         return result
 
+    @staticmethod
+    def _taxonomy_matches(policy: Policy, endpoint_tags: set) -> bool:
+        selectors = policy.config.get(
+            'taxonomy_selectors',
+            []) if isinstance(
+            policy.config,
+            dict) else []
+        if not selectors:
+            return True
+        if not isinstance(
+                selectors,
+                list) or not all(
+                isinstance(
+                item,
+                str) for item in selectors):
+            logger.warning(
+                'Malformed taxonomy selectors on policy %s; retaining for fail-closed evaluation',
+                policy.id)
+            return True
+        return set(selectors).issubset(endpoint_tags)
+
     def invalidate_cache(self, tenant_id: str) -> None:
         """
         Invalidate policy cache for a tenant by bumping a version counter.
@@ -177,24 +225,22 @@ class PolicyEngine:
             cache.set(version_key, 1, timeout=None)
         logger.info(f"Policy cache invalidated for tenant {tenant_id}")
 
-    def _merge_policies(self, policy_layers: List[List[Policy]]) -> List[Policy]:
+    def _merge_policies(self,
+                        policy_layers: List[List[Policy]]) -> List[Policy]:
         """
         Merge policies from different scopes.
         Later layers override earlier ones for same policy_type.
         Within same layer, higher priority wins.
         """
-        merged: Dict[str, Policy] = {}
-
+        merged = {}
         for layer in policy_layers:
-            # Sort by priority within layer (lower priority first, so higher overwrites)
-            layer.sort(key=lambda p: p.priority)
-
-            for policy in layer:
-                # Later layer always overrides, higher priority within layer overrides
-                existing = merged.get(policy.policy_type)
-                if existing is None or policy.priority >= existing.priority:
-                    merged[policy.policy_type] = policy
-
+            for policy in sorted(layer, key=lambda p: (p.priority, str(p.id))):
+                # Blank groups and mandatory constraints always compose.
+                if policy.non_overridable or not policy.override_group:
+                    key = ('independent', str(policy.id))
+                else:
+                    key = (policy.policy_type, policy.override_group)
+                merged[key] = policy
         return list(merged.values())
 
     def evaluate(
@@ -215,14 +261,16 @@ class PolicyEngine:
         - The final result always has allowed=True
         - The result has dry_run=True so callers can distinguish
         """
-        if context is not None and not isinstance(context, dict):
-            return EvaluationResult(allowed=False, reason='evaluation context must be an object')
-        context = dict(context or {})
+        from zentinelle.services.evaluation_context import normalize_context
+        try:
+            context = normalize_context(context or {})
+        except (ValueError, TypeError) as exc:
+            return EvaluationResult(allowed=False, reason=str(exc))
         from zentinelle.services.authority import normalize_authority
         try:
             authority = normalize_authority(context.get('authority'))
         except (ValueError, TypeError) as exc:
-            return EvaluationResult(allowed=False, reason=str(exc), context=context)
+            return EvaluationResult(allowed=False, reason=str(exc))
         claimed_tenant = authority.get('tenant_id')
         if claimed_tenant is not None and claimed_tenant != str(endpoint.tenant_id):
             return EvaluationResult(
@@ -233,54 +281,98 @@ class PolicyEngine:
         authority['tenant_id'] = str(endpoint.tenant_id)
         authority['endpoint_id'] = str(endpoint.id)
         context['authority'] = authority
+        context = {k: v for k, v in context.items() if not k.startswith('_')}
+        from zentinelle.services.approvals import context_digest
+        context['_approval_digest'] = context_digest(context)
+        # Trusted workload identity always replaces caller-supplied values.
+        context['_tenant_id'] = endpoint.tenant_id
+        context['_endpoint_id'] = str(endpoint.id)
+        # Preserve the complete taxonomy decision context in traces and
+        # incident evidence. Unsupported labels remain visible to operators;
+        # only canonical/tenant-approved labels participate in selection.
+        context['taxonomy'] = (endpoint.metadata or {}).get(
+            'taxonomy', {'supported': [], 'unsupported': []})
 
-        # Check organization budget first (before policy evaluation)
-        # Skip hard budget denial in dry-run mode
-        budget_check = self._check_organization_budget(endpoint, context)
-        if not budget_check['allowed'] and not dry_run:
-            return EvaluationResult(
-                allowed=False,
-                reason=budget_check['reason'],
-                policies_evaluated=[{
-                    'id': 'budget_check',
-                    'name': 'Organization AI Budget',
-                    'type': 'budget_limit',
-                    'result': 'fail',
-                    'message': budget_check['reason'],
-                }],
-                warnings=[],
-                context=context,
-                dry_run=False,
-            )
-
-        policies = self.get_effective_policies(endpoint, user_id)
+        policies = self.get_effective_policies(
+            endpoint, user_id, policy_types=['output_filter'] if action == 'llm:response' else None,
+        )
 
         results = []
         allowed = True
         denial_reason = None
         warnings = []
-
-        # Add budget warning if approaching limit
-        if budget_check.get('warning'):
-            warnings.append(budget_check['warning'])
+        coverage_counts = {
+            'enforced': 0,
+            'observation_only': 0,
+            'unsupported': 0}
 
         for policy in policies:
             if policy.enforcement == Policy.Enforcement.DISABLED:
                 continue
 
+            selectors = policy.config.get('taxonomy_selectors') if isinstance(
+                policy.config, dict) else None
+            if selectors is not None and (
+                not isinstance(
+                    selectors,
+                    list) or not all(
+                    isinstance(
+                    item,
+                    str) and ':' in item for item in selectors)):
+                message = f"Policy {
+                    policy.name} has malformed taxonomy selectors"
+                results.append(
+                    {
+                        'id': str(
+                            policy.id),
+                        'version': policy.version,
+                        'name': policy.name,
+                        'type': policy.policy_type,
+                        'result': 'fail',
+                        'message': message,
+                        'matched_selectors': selectors if isinstance(
+                            selectors,
+                            list) else [],
+                        'coverage': 'enforced' if policy.enforcement == Policy.Enforcement.ENFORCE else 'observation_only'})
+                if policy.enforcement == Policy.Enforcement.ENFORCE and not dry_run:
+                    allowed = False
+                    denial_reason = message
+                else:
+                    warnings.append(message)
+                continue
+
             evaluator = self._get_evaluator(policy.policy_type)
+            # Tests and embedding callers may replace _get_evaluator; in that
+            # case the returned evaluator itself is the authority for support.
+            supported = (True if self._evaluator_cache is None else
+                         policy.policy_type in self._evaluator_cache)
+            coverage_status = ('unsupported' if not supported else
+                               'enforced' if policy.enforcement == Policy.Enforcement.ENFORCE else
+                               'observation_only')
+            coverage_counts[coverage_status] += 1
             try:
-                result = evaluator.evaluate(policy, action, user_id, context, dry_run=dry_run)
+                result = evaluator.evaluate(
+                    policy, action, user_id, context, dry_run=dry_run)
             except Exception as exc:
-                logger.error("Evaluator %s raised exception: %s", policy.policy_type, exc)
-                result = PolicyResult(passed=False, message=f"Policy evaluation error: {policy.name}")
+                logger.error(
+                    "Evaluator %s raised exception: %s",
+                    policy.policy_type,
+                    exc)
+                result = PolicyResult(
+                    passed=False,
+                    message=f"Policy evaluation error: {
+                        policy.name}")
 
             results.append({
                 'id': str(policy.id),
+                'version': policy.version,
                 'name': policy.name,
                 'type': policy.policy_type,
                 'result': 'pass' if result.passed else 'fail',
                 'message': result.message,
+                'matched_selectors': policy.config.get('taxonomy_selectors', [])
+                if isinstance(policy.config, dict) else [],
+                'coverage': coverage_status,
             })
 
             if not result.passed:
@@ -294,16 +386,25 @@ class PolicyEngine:
                         f"(endpoint={endpoint.agent_id}, action={action}, user={user_id})"
                     )
                     if dry_run:
-                        warnings.append(f"[Dry-run] Would be denied: {policy.name}: {result.message}")
+                        warnings.append(
+                            f"[Dry-run] Would be denied: {policy.name}: {result.message}")
                 else:  # audit mode
                     warnings.append(f"[Audit] {policy.name}: {result.message}")
 
             if result.warnings:
                 warnings.extend(result.warnings)
 
+        if allowed and not dry_run:
+            from zentinelle.services.budgets import admit
+            admission_error = admit(policies, endpoint, action, context)
+            if admission_error:
+                allowed = False
+                denial_reason = admission_error
+
         from zentinelle.services.risk_scorer import RiskScorer
         scorer = RiskScorer()
-        risk_score, risk_factors = scorer.compute(action, context, results, warnings)
+        risk_score, risk_factors = scorer.compute(
+            action, context, results, warnings)
 
         evaluation_result = EvaluationResult(
             allowed=True if dry_run else allowed,
@@ -314,23 +415,32 @@ class PolicyEngine:
             dry_run=dry_run,
             risk_score=risk_score,
             risk_factors=risk_factors,
+            coverage={
+                'status': ('unsupported' if coverage_counts['unsupported'] else
+                           'enforced' if coverage_counts['enforced'] else
+                           'observation_only' if coverage_counts['observation_only'] else 'unknown'),
+                'counts': coverage_counts,
+            },
         )
 
         # Auto-create incidents for policy violations (skipped in dry_run mode)
         if not dry_run and not allowed:
             try:
-                from zentinelle.services.incident_service import _maybe_create_incident
+                from zentinelle.services.incident_service import \
+                    _maybe_create_incident
                 _maybe_create_incident(
                     tenant_id=endpoint.tenant_id,
                     result=evaluation_result,
                     policies=policies,
                 )
             except Exception as exc:
-                logger.warning("incident_service._maybe_create_incident failed: %s", exc)
+                logger.warning(
+                    "incident_service._maybe_create_incident failed: %s", exc)
 
             # Notify on policy violation
             try:
-                from zentinelle.models.notification import create_notification, Notification
+                from zentinelle.models.notification import (
+                    Notification, create_notification)
                 create_notification(
                     tenant_id=endpoint.tenant_id,
                     type=Notification.Type.POLICY_VIOLATION,
@@ -344,7 +454,8 @@ class PolicyEngine:
         # Notify on high risk score (>= 75), even if allowed
         if not dry_run and risk_score >= 75:
             try:
-                from zentinelle.models.notification import create_notification, Notification
+                from zentinelle.models.notification import (
+                    Notification, create_notification)
                 create_notification(
                     tenant_id=endpoint.tenant_id,
                     type=Notification.Type.HIGH_RISK,
@@ -361,32 +472,18 @@ class PolicyEngine:
         """Get the appropriate evaluator for a policy type (cached)."""
         if PolicyEngine._evaluator_cache is None:
             from zentinelle.services.evaluators import (
-                ResourceQuotaEvaluator,
-                BudgetLimitEvaluator,
-                RateLimitEvaluator,
-                ToolPermissionEvaluator,
-                SecretAccessEvaluator,
-                ModelRestrictionEvaluator,
-                ContextLimitEvaluator,
-                NetworkPolicyEvaluator,
-                OutputFilterEvaluator,
-                AgentCapabilityEvaluator,
-                HumanOversightEvaluator,
-                SystemPromptEvaluator,
-                AIGuardrailEvaluator,
-                AgentMemoryEvaluator,
-                AuditPolicyEvaluator,
-                SessionPolicyEvaluator,
-                DataAccessEvaluator,
-                DataRetentionEvaluator,
-                PromptInjectionEvaluator,
-                AgentDelegationEvaluator,
-                BehavioralBaselineEvaluator,
-                SessionQuotaEvaluator,
-                SafetySettingsEvaluator,
-                MultimodalPolicyEvaluator,
-                NoOpEvaluator,
-            )
+                AgentCapabilityEvaluator, AgentDelegationEvaluator,
+                AgentMemoryEvaluator, AIGuardrailEvaluator,
+                AuditPolicyEvaluator, BehavioralBaselineEvaluator,
+                BudgetLimitEvaluator, ContextLimitEvaluator,
+                DataAccessEvaluator, DataRetentionEvaluator,
+                HumanOversightEvaluator, ModelRestrictionEvaluator,
+                MultimodalPolicyEvaluator, NetworkPolicyEvaluator,
+                NoOpEvaluator, OutputFilterEvaluator, PromptInjectionEvaluator,
+                RateLimitEvaluator, ResourceQuotaEvaluator,
+                SafetySettingsEvaluator, SecretAccessEvaluator,
+                SessionPolicyEvaluator, SessionQuotaEvaluator,
+                SystemPromptEvaluator, ToolPermissionEvaluator)
 
             PolicyEngine._evaluator_cache = {
                 Policy.PolicyType.RESOURCE_QUOTA: ResourceQuotaEvaluator(),
@@ -415,92 +512,18 @@ class PolicyEngine:
                 Policy.PolicyType.MULTIMODAL_POLICY: MultimodalPolicyEvaluator(),
                 '_noop': NoOpEvaluator(),
             }
-        return PolicyEngine._evaluator_cache.get(policy_type, PolicyEngine._evaluator_cache['_noop'])
+        return PolicyEngine._evaluator_cache.get(
+            policy_type, PolicyEngine._evaluator_cache['_noop'])
 
-    def _check_organization_budget(
-        self,
-        endpoint: AgentEndpoint,
-        context: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """
-        Check BUDGET_LIMIT policies for the tenant against current-month InteractionLog spend.
-
-        Returns:
-            {'allowed': True}                        — under budget
-            {'allowed': True, 'warning': str}        — approaching limit (>= alert_at_percent)
-            {'allowed': False, 'reason': str}        — over limit + enforcement=enforce
-        """
-        from zentinelle.models import Policy, InteractionLog
-        from django.db.models import Sum
-        from django.utils import timezone
-
-        tenant_id = endpoint.tenant_id
-
-        budget_policies = list(
-            Policy.objects.filter(
-                tenant_id=tenant_id,
-                policy_type=Policy.PolicyType.BUDGET_LIMIT,
-                enabled=True,
-                enforcement=Policy.Enforcement.ENFORCE,
-            ).order_by('priority')
-        )
-
-        if not budget_policies:
-            return {'allowed': True}
-
-        now = timezone.now()
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-        current_cost = float(
-            InteractionLog.objects.filter(
-                tenant_id=tenant_id,
-                created_at__gte=month_start,
-            ).aggregate(total=Sum('estimated_cost_usd'))['total'] or 0
-        )
-
-        warning = None
-
-        for policy in budget_policies:
-            config = policy.config or {}
-            monthly_limit = config.get('monthly_limit_usd')
-            if not monthly_limit:
-                continue
-
-            monthly_limit = float(monthly_limit)
-            if monthly_limit <= 0:
-                continue
-
-            ratio = current_cost / monthly_limit
-            alert_threshold = float(config.get('alert_at_percent', 80)) / 100.0
-
-            if ratio >= 1.0:
-                return {
-                    'allowed': False,
-                    'reason': (
-                        f"Monthly AI budget exceeded: ${current_cost:.2f} of "
-                        f"${monthly_limit:.2f} used ({ratio * 100:.0f}%). "
-                        f"Policy: {policy.name}"
-                    ),
-                }
-
-            if ratio >= alert_threshold and warning is None:
-                warning = (
-                    f"AI budget at {ratio * 100:.0f}%: ${current_cost:.2f} of "
-                    f"${monthly_limit:.2f} monthly limit ({policy.name})"
-                )
-
-        if warning:
-            try:
-                from zentinelle.models.notification import create_notification, Notification
-                create_notification(
-                    tenant_id=tenant_id,
-                    type=Notification.Type.BUDGET_WARNING,
-                    subject="AI budget alert",
-                    message=warning,
-                    metadata={'current_cost': current_cost},
-                )
-            except Exception as exc:
-                logger.warning("budget warning notification failed: %s", exc)
-            return {'allowed': True, 'warning': warning}
-
+    def _check_organization_budget(self, endpoint, context):
+        """Compatibility check using effective scope and server-owned spend."""
+        from zentinelle.services.budgets import current_spend, monthly_limit
+        for policy in self.get_effective_policies(
+                endpoint, policy_types=['budget_limit']):
+            if policy.enforcement == 'enforce' and policy.config.get(
+                    'hard_limit', True):
+                if current_spend(policy) >= monthly_limit(policy):
+                    return {
+                        'allowed': False,
+                        'reason': 'Monthly budget exceeded'}
         return {'allowed': True}

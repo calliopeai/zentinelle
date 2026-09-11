@@ -4,17 +4,22 @@ agent_capability, safety_settings, multimodal_policy, and context_limit.
 
 Tests run without a database -- Policy objects are constructed in memory.
 """
-from django.test import SimpleTestCase
 from django.core import signing
+from django.test import SimpleTestCase
 
 from zentinelle.models import Policy
-from zentinelle.services.evaluators.model_restriction import ModelRestrictionEvaluator
-from zentinelle.services.evaluators.network_policy import NetworkPolicyEvaluator
-from zentinelle.services.evaluators.output_filter import OutputFilterEvaluator
-from zentinelle.services.evaluators.agent_capability import AgentCapabilityEvaluator
-from zentinelle.services.evaluators.safety_settings import SafetySettingsEvaluator
-from zentinelle.services.evaluators.multimodal_policy import MultimodalPolicyEvaluator
+from zentinelle.services.evaluators.agent_capability import \
+    AgentCapabilityEvaluator
 from zentinelle.services.evaluators.context_limit import ContextLimitEvaluator
+from zentinelle.services.evaluators.model_restriction import \
+    ModelRestrictionEvaluator
+from zentinelle.services.evaluators.multimodal_policy import \
+    MultimodalPolicyEvaluator
+from zentinelle.services.evaluators.network_policy import \
+    NetworkPolicyEvaluator
+from zentinelle.services.evaluators.output_filter import OutputFilterEvaluator
+from zentinelle.services.evaluators.safety_settings import \
+    SafetySettingsEvaluator
 
 TENANT = '00000000-0000-0000-0000-000000000099'
 
@@ -490,13 +495,13 @@ class TestAgentCapabilityNoConfig(SimpleTestCase):
 class TestAgentCapabilityContextAction(SimpleTestCase):
     """The evaluator uses context['action'] if present, falling back to param."""
 
-    def test_context_action_overrides_param(self):
+    def test_context_cannot_override_action(self):
         ev = AgentCapabilityEvaluator()
         policy = _policy(Policy.PolicyType.AGENT_CAPABILITY, {
             'denied_actions': ['real_action'],
         })
         result = ev.evaluate(policy, 'ignored_action', None, {'action': 'real_action'})
-        self.assertFalse(result.passed)
+        self.assertTrue(result.passed)
 
 
 class TestAgentCapabilityRequireApproval(SimpleTestCase):
@@ -520,9 +525,9 @@ class TestAgentCapabilityRequireApproval(SimpleTestCase):
             'approval_token': 'bogus-token',
         })
         self.assertFalse(result.passed)
-        self.assertIn('Invalid approval token', result.message)
+        self.assertIn('current approval', result.message)
 
-    def test_valid_token_passes(self):
+    def test_legacy_unbound_token_is_rejected(self):
         ev = AgentCapabilityEvaluator()
         policy = _policy(Policy.PolicyType.AGENT_CAPABILITY, {
             'require_approval': ['tool:database_write'],
@@ -541,7 +546,7 @@ class TestAgentCapabilityRequireApproval(SimpleTestCase):
         result = ev.evaluate(policy, 'tool:database_write', None, {
             'approval_token': token,
         })
-        self.assertTrue(result.passed)
+        self.assertFalse(result.passed)
 
 
 # ── SafetySettingsEvaluator ──────────────────────────────────────────

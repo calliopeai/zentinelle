@@ -7,10 +7,10 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_report(
     pk=1,
@@ -104,7 +104,8 @@ class TestGenerateControlCoverage(unittest.TestCase):
     """
 
     def _call(self, tenant_id, pack_name, **kwargs):
-        from zentinelle.services.report_generator import generate_control_coverage
+        from zentinelle.services.report_generator import \
+            generate_control_coverage
         return generate_control_coverage(tenant_id, pack_name, **kwargs)
 
     def test_returns_active_status_for_enforce_policy(self):
@@ -130,8 +131,8 @@ class TestGenerateControlCoverage(unittest.TestCase):
         mock_policy_cls.objects.filter.return_value.first.return_value = mock_policy
         mock_policy_cls.Enforcement.AUDIT = 'audit'
 
-        import zentinelle.services.compliance_packs as packs_module
         import zentinelle.models as models_module
+        import zentinelle.services.compliance_packs as packs_module
 
         original_get_pack = packs_module.get_pack
         original_policy = models_module.Policy
@@ -145,7 +146,7 @@ class TestGenerateControlCoverage(unittest.TestCase):
 
         self.assertEqual(len(rows), 1)
         row = rows[0]
-        self.assertEqual(row['status'], 'active')
+        self.assertEqual(row['status'], 'configured')
         self.assertEqual(row['actual_enforcement'], 'enforce')
         self.assertEqual(row['control_name'], 'HIPAA: PHI Output Blocking')
 
@@ -167,8 +168,8 @@ class TestGenerateControlCoverage(unittest.TestCase):
         mock_policy_cls.objects.filter.return_value.first.return_value = None
         mock_policy_cls.Enforcement.AUDIT = 'audit'
 
-        import zentinelle.services.compliance_packs as packs_module
         import zentinelle.models as models_module
+        import zentinelle.services.compliance_packs as packs_module
 
         original_get_pack = packs_module.get_pack
         original_policy = models_module.Policy
@@ -204,8 +205,8 @@ class TestGenerateControlCoverage(unittest.TestCase):
         mock_policy_cls.objects.filter.return_value.first.return_value = mock_policy
         mock_policy_cls.Enforcement.AUDIT = 'audit'
 
-        import zentinelle.services.compliance_packs as packs_module
         import zentinelle.models as models_module
+        import zentinelle.services.compliance_packs as packs_module
 
         original_get_pack = packs_module.get_pack
         original_policy = models_module.Policy
@@ -266,11 +267,11 @@ class TestReportCreateView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.reports.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)), \
-             patch('zentinelle.api.views.reports._VALID_REPORT_TYPES', {'control_coverage', 'violation_summary', 'audit_trail'}), \
-             patch('zentinelle.api.views.reports._VALID_FORMATS', {'csv', 'pdf', 'ndjson'}), \
-             patch('zentinelle.api.views.reports.generate_report_task', None):
+                patch('zentinelle.api.views.reports._VALID_REPORT_TYPES', {'control_coverage', 'violation_summary', 'audit_trail'}), \
+                patch('zentinelle.api.views.reports._VALID_FORMATS', {'csv', 'pdf', 'ndjson'}), \
+                patch('zentinelle.api.views.reports.generate_report_task', None):
             response = view(request)
 
         self.assertEqual(response.status_code, 201)
@@ -303,11 +304,11 @@ class TestReportCreateView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.reports.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)), \
-             patch('zentinelle.api.views.reports._VALID_REPORT_TYPES', {'control_coverage', 'violation_summary', 'audit_trail'}), \
-             patch('zentinelle.api.views.reports._VALID_FORMATS', {'csv', 'pdf', 'ndjson'}), \
-             patch('zentinelle.api.views.reports.generate_report_task', mock_task):
+                patch('zentinelle.api.views.reports._VALID_REPORT_TYPES', {'control_coverage', 'violation_summary', 'audit_trail'}), \
+                patch('zentinelle.api.views.reports._VALID_FORMATS', {'csv', 'pdf', 'ndjson'}), \
+                patch('zentinelle.api.views.reports.generate_report_task', mock_task):
             response = view(request)
 
         self.assertEqual(response.status_code, 201)
@@ -328,7 +329,7 @@ class TestReportCreateView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.reports.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)):
             response = view(request)
 
@@ -349,9 +350,9 @@ class TestReportCreateView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.reports.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)), \
-             patch('zentinelle.api.views.reports._VALID_REPORT_TYPES', {'control_coverage', 'violation_summary', 'audit_trail'}):
+                patch('zentinelle.api.views.reports._VALID_REPORT_TYPES', {'control_coverage', 'violation_summary', 'audit_trail'}):
             response = view(request)
 
         self.assertEqual(response.status_code, 400)
@@ -367,8 +368,9 @@ class TestReportStatusView(unittest.TestCase):
     @patch('zentinelle.api.views.reports.Report')
     def test_status_returns_200_with_report_data(self, mock_report_cls, mock_tenant):
         """GET /reports/{id}/ returns 200 with report metadata."""
-        from zentinelle.api.views.reports import ReportStatusView
         import datetime
+
+        from zentinelle.api.views.reports import ReportStatusView
 
         report = _make_report(
             pk=1,
@@ -384,7 +386,7 @@ class TestReportStatusView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.reports.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)):
             response = view(request, report_id=1)
 
@@ -411,7 +413,7 @@ class TestReportStatusView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.reports.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)):
             response = view(request, report_id=999)
 
@@ -439,7 +441,7 @@ class TestReportDownloadView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.reports.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)):
             response = view(request, report_id=1)
 
@@ -460,7 +462,7 @@ class TestReportDownloadView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.reports.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)):
             response = view(request, report_id=2)
 
@@ -481,7 +483,7 @@ class TestReportDownloadView(unittest.TestCase):
         request.user = MagicMock(is_authenticated=True)
         request.auth = None
 
-        with patch('zentinelle.api.views.reports.ZentinelleAPIKeyAuthentication.authenticate',
+        with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)):
             response = view(request, report_id=3)
 
@@ -492,8 +494,9 @@ class TestReportDownloadView(unittest.TestCase):
     @patch('zentinelle.api.views.reports.Report')
     def test_download_returns_200_when_complete(self, mock_report_cls, mock_exists, mock_tenant):
         """GET download returns 200 with file content when report is complete."""
-        import tempfile
         import os
+        import tempfile
+
         from zentinelle.api.views.reports import ReportDownloadView
 
         # Create a real temp file to serve
@@ -511,7 +514,7 @@ class TestReportDownloadView(unittest.TestCase):
             request.user = MagicMock(is_authenticated=True)
             request.auth = None
 
-            with patch('zentinelle.api.views.reports.ZentinelleAPIKeyAuthentication.authenticate',
+            with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                        return_value=(request.user, None)):
                 response = view(request, report_id=4)
 

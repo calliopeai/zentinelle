@@ -14,6 +14,7 @@ const TABS = [
   { slug: "interactions", label: "Interactions" },
   { slug: "usage", label: "Usage" },
   { slug: "compliance", label: "Compliance" },
+  { slug: "controls", label: "Controls" },
 ] as const;
 
 function healthVariant(health: string | null | undefined) {
@@ -65,6 +66,19 @@ export function AgentShell({ children }: { children: React.ReactNode }) {
             </div>
           ) : null}
         </div>
+        {agent && (
+          <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            <span>Owner: {String(agent.metadata?.owner_id ?? "Unassigned")}</span>
+            <span>Deployment: {agent.deploymentName ?? "Unassigned"}</span>
+            <span>Team: {agent.agentGroup?.name ?? "Unassigned"}</span>
+            <span>Heartbeat: {agent.lastHeartbeat ? new Date(agent.lastHeartbeat).toLocaleString() : "Never"}</span>
+          </div>
+        )}
+        {agent && agent.capabilities.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {agent.capabilities.map((capability) => <Badge key={capability} variant="secondary">{capability}</Badge>)}
+          </div>
+        )}
       </div>
 
       {notFound ? (

@@ -6,8 +6,10 @@ Scheduled tasks for:
 - Weekly compliance summaries for enterprise organizations
 - Monthly compliance report generation
 """
+import importlib
 import logging
 from datetime import timedelta
+
 from celery import shared_task
 from django.utils import timezone
 
@@ -35,7 +37,8 @@ def detect_license_violations_all_orgs():
         logger.info("Managed-only task skipped in standalone mode")
         return
 
-    from zentinelle.services.license_compliance_service import license_compliance_service
+    from zentinelle.services.license_compliance_service import \
+        license_compliance_service
 
     results = {
         'organizations_checked': 0,
@@ -95,7 +98,8 @@ def generate_weekly_compliance_summaries():
         return
 
     from zentinelle.models import License
-    from zentinelle.services.license_compliance_service import license_compliance_service
+    from zentinelle.services.license_compliance_service import \
+        license_compliance_service
 
     results = {
         'reports_generated': 0,
@@ -171,13 +175,15 @@ def auto_resolve_violations():
     Checks if the condition causing the violation has been fixed.
     """
     try:
-        from organization.models import Organization
+        importlib.import_module('organization.models')
     except ImportError:
         logger.info("Managed-only task skipped in standalone mode")
         return
 
-    from zentinelle.models import License, LicensedUser, LicenseComplianceViolation, AgentEndpoint
     from deployments.models import Deployment
+
+    from zentinelle.models import (AgentEndpoint, License,
+                                   LicenseComplianceViolation, LicensedUser)
 
     results = {
         'violations_checked': 0,
@@ -281,9 +287,11 @@ def generate_monthly_compliance_reports():
         logger.info("Managed-only task skipped in standalone mode")
         return
 
-    from zentinelle.models import License
-    from zentinelle.services.license_compliance_service import license_compliance_service
     from dateutil.relativedelta import relativedelta
+
+    from zentinelle.models import License
+    from zentinelle.services.license_compliance_service import \
+        license_compliance_service
 
     results = {
         'usage_reports': 0,

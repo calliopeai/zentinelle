@@ -1,21 +1,15 @@
 """
 Tests for Zentinelle API views.
 """
-import hashlib
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
-from unittest.mock import patch
 
-from zentinelle.models import (
-    AgentEndpoint,
-    AuditLog,
-    Policy,
-    Event,
-)
+from zentinelle.models import AgentEndpoint, AuditLog, Event, Policy
 from zentinelle.models.risk import Risk
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
@@ -225,6 +219,20 @@ class EvaluateViewTest(ZentinelleAPITestMixin, TestCase):
             format='json',
         )
         self.assertEqual(response.status_code, 403)
+
+    @patch('zentinelle.services.policy_engine.PolicyEngine.evaluate', side_effect=RuntimeError('evaluator down'))
+    def test_evaluate_fails_closed_when_policy_service_is_unavailable(self, _mock_evaluate):
+        self.authenticate()
+        response = self.client.post(
+            reverse('zentinelle:evaluate'),
+            data={'agent_id': self.endpoint.agent_id, 'action': 'spawn'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 503)
+        data = response.json()
+        self.assertFalse(data['allowed'])
+        self.assertEqual(data['decision'], 'deny')
+        self.assertTrue(data['trace_id'])
 
     @patch('zentinelle.services.policy_engine.PolicyEngine.evaluate')
     def test_evaluate_policy_allowed(self, mock_evaluate):
@@ -438,7 +446,17 @@ class RateLimitMiddlewareTest(ZentinelleAPITestMixin, TestCase):
         self.assertEqual(response.status_code, 200)
 
 
-class RiskTrendViewTest(ZentinelleAPITestMixin, TestCase):
+class PortalAPITestMixin(ZentinelleAPITestMixin):
+    def authenticate(self):
+        from django.contrib.auth import get_user_model
+
+        from zentinelle.auth.roles import ROLE_VIEWER, assign_role
+        user = get_user_model().objects.create_user(username='portal-reader')
+        assign_role(user, ROLE_VIEWER)
+        self.client.force_login(user)
+
+
+class RiskTrendViewTest(PortalAPITestMixin, TestCase):
     """Tests for /api/zentinelle/v1/risks/trend."""
 
     @override_settings(AUTH_MODE='local')
@@ -631,7 +649,7 @@ def _build_audit_chain(tenant_id, count, action='create', resource_type='policy'
     return records
 
 
-class AuditChainVerifyViewTest(ZentinelleAPITestMixin, TestCase):
+class AuditChainVerifyViewTest(PortalAPITestMixin, TestCase):
     """Integration tests for /api/zentinelle/v1/audit/verify."""
 
     @override_settings(AUTH_MODE='local')
@@ -649,6 +667,8 @@ class AuditChainVerifyViewTest(ZentinelleAPITestMixin, TestCase):
         in it, so the tenant is made to have nothing in it.
         """
         AuditLog.objects.filter(tenant_id=STANDALONE_TENANT).delete()
+        from zentinelle.models.audit import AuditChainHead
+        AuditChainHead.objects.filter(tenant_id=STANDALONE_TENANT).delete()
         self.authenticate()
         response = self.client.get(reverse('zentinelle:audit-verify'))
 

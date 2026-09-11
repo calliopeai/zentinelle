@@ -4,16 +4,12 @@ OpenRouter API key management.
 Docs: https://openrouter.ai/docs
 """
 import logging
-import httpx
 from datetime import datetime
 
-from .base import (
-    BaseKeyManager,
-    ProviderKeyInfo,
-    KeyCreationError,
-    KeyRevocationError,
-    KeyManagerError,
-)
+import httpx
+
+from .base import (BaseKeyManager, KeyCreationError, KeyManagerError,
+                   KeyRevocationError, ProviderKeyInfo)
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +84,7 @@ class OpenRouterKeyManager(BaseKeyManager):
                 key_value=data['key'],
                 name=data.get('name', name),
                 created_at=datetime.fromisoformat(data['created_at'].replace('Z', '+00:00'))
-                    if 'created_at' in data else None,
+                if 'created_at' in data else None,
                 budget_limit=data.get('limit'),
             )
 
@@ -147,7 +143,7 @@ class OpenRouterKeyManager(BaseKeyManager):
                 'usage_usd': data.get('usage', 0),
                 'limit_usd': data.get('limit'),
                 'remaining_usd': (data.get('limit', 0) - data.get('usage', 0))
-                    if data.get('limit') else None,
+                if data.get('limit') else None,
                 'is_free_tier': data.get('is_free_tier', False),
             }
 

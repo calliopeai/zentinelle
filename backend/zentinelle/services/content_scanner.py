@@ -11,22 +11,17 @@ Provides configurable content scanning for:
 
 Supports both real-time (inline) and async (background) scanning modes.
 """
-import re
 import hashlib
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+import re
 from dataclasses import dataclass, field
 from datetime import timedelta
+from typing import Any, Dict, List, Optional, Tuple
 
 from django.utils import timezone
 
-from zentinelle.models import (
-    ContentRule,
-    ContentScan,
-    ContentViolation,
-    ComplianceAlert,
-    AgentEndpoint,
-)
+from zentinelle.models import (AgentEndpoint, ComplianceAlert, ContentRule,
+                               ContentScan, ContentViolation)
 
 logger = logging.getLogger(__name__)
 
@@ -808,7 +803,7 @@ class ContentScanner:
         # Slurs (additional)
         r'\bspic+s?\b',    # ethnic slur
         r'\bchink+s?\b',   # ethnic slur
-        r'\bwetback+s?\b', # ethnic slur
+        r'\bwetback+s?\b',  # ethnic slur
     ]
     _compiled_toxicity_patterns = [
         re.compile(p, re.IGNORECASE) for p in TOXICITY_PATTERNS

@@ -1,0 +1,16 @@
+{
+  "source": "MITRE ATLAS",
+  "source_url": "https://atlas.mitre.org/",
+  "source_revision": "2026-09-11",
+  "retrieved_at": "2026-09-11",
+  "disclaimer": "Threat-model vocabulary only; this mapping is not certification or endorsement.",
+  "techniques": [
+    {"id": "AML.T0051", "name": "LLM Prompt Injection", "control": "prompt_injection", "enforcement_point": "pre-provider and pre-tool context inspection", "owner": "security", "evidence_test": "test_assistant_guardrails.py", "residual_risk": "Novel or obfuscated injections may evade detection."},
+    {"id": "AML.T0053", "name": "AI Agent Tool Invocation", "control": "tool_permission_and_approval", "enforcement_point": "tool dispatch and policy admission", "owner": "platform", "evidence_test": "test_tool_permissions.py", "residual_risk": "Permitted tools may still contain unsafe side effects."},
+    {"id": "AML.T0080", "name": "AI Agent Context Poisoning", "control": "untrusted_context_scanning", "enforcement_point": "context normalization", "owner": "security", "evidence_test": "test_assistant_guardrails.py", "residual_risk": "Memory and thread poisoning require independent persistence controls."},
+    {"id": "AML.T0057", "name": "LLM Data Leakage", "control": "output_filter_and_capture_redaction", "enforcement_point": "output release and durable capture", "owner": "privacy", "evidence_test": "test_content_capture.py", "residual_risk": "Derived or memorized information may evade literal matching."},
+    {"id": "AML.T0055", "name": "AI Agent Tool Credential Harvesting", "control": "secret_boundary_and_redaction", "enforcement_point": "key management and tool dispatch", "owner": "security", "evidence_test": "test_secrets.py", "residual_risk": "Unmanaged infrastructure can expose credentials."},
+    {"id": "AML.T0086", "name": "Exfiltration via AI Agent Tool Invocation", "control": "scoped_authority_and_egress_policy", "enforcement_point": "tool dispatch and network gateway", "owner": "platform", "evidence_test": "test_tool_permissions.py", "residual_risk": "Direct unmanaged provider paths remain deployment responsibility."},
+    {"id": "AML.T0081", "name": "Modify AI Agent Configuration", "control": "staged_policy_rollout_and_rollback", "enforcement_point": "policy mutation and deployment acknowledgement", "owner": "governance", "evidence_test": "test_policy_change.py", "residual_risk": "Compromised administrators or pipelines can still change authority."}
+  ]
+}

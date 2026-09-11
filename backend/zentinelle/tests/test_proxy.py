@@ -2,10 +2,9 @@
 Tests for the LLM proxy view.
 """
 import json
+import unittest
 import uuid
 from unittest.mock import MagicMock, patch
-
-import unittest
 
 from django.test import RequestFactory
 
@@ -150,6 +149,8 @@ class TestProxyView(unittest.TestCase):
         forwarded_headers = mock_client_instance.request.call_args[1].get('headers', {})
         header_names_lower = {k.lower() for k in forwarded_headers}
         self.assertNotIn('x-zentinelle-key', header_names_lower)
+        evaluated_context = mock_engine.evaluate.call_args.kwargs['context']
+        self.assertEqual(evaluated_context['domain'], 'api.openai.com')
 
     def test_provider_not_supported_returns_404(self):
         """Unknown provider returns 404."""

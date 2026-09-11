@@ -2,14 +2,11 @@
 Celery tasks for compliance and content scanning.
 """
 import logging
+
 from celery import shared_task
 
-from zentinelle.models import (
-    ContentRule,
-    ContentScan,
-    InteractionLog,
-    ComplianceAssessment,
-)
+from zentinelle.models import (ComplianceAssessment, ContentRule, ContentScan,
+                               InteractionLog)
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +30,13 @@ def run_compliance_check_task(
     Creates a ComplianceAssessment record with current compliance state.
     Generates alerts for critical gaps if any frameworks have <50% coverage.
     """
-    from zentinelle.models.compliance import (
-        get_capability_status,
-        get_framework_coverage,
-        FRAMEWORK_REQUIREMENTS,
-        ComplianceAlert,
-    )
     from django.contrib.auth import get_user_model
     from django.utils import timezone
+
+    from zentinelle.models.compliance import (FRAMEWORK_REQUIREMENTS,
+                                              ComplianceAlert,
+                                              get_capability_status,
+                                              get_framework_coverage)
 
     User = get_user_model()
 
@@ -84,7 +80,7 @@ def run_compliance_check_task(
             total_gaps += gap_count
 
             # Classify gap severity based on framework importance and gap count
-            fw_info = FRAMEWORK_REQUIREMENTS.get(fw_id, {})
+            FRAMEWORK_REQUIREMENTS.get(fw_id, {})
             if gap_count > 0:
                 # Critical if score < 50% or multiple missing required
                 if score < 50 or gap_count >= 3:
@@ -310,9 +306,11 @@ def aggregate_usage_summary(organization_id: str, period: str = 'hourly'):
 
     Run periodically to pre-compute dashboard metrics.
     """
-    from django.utils import timezone
     from datetime import timedelta
-    from django.db.models import Count, Sum, Q
+
+    from django.db.models import Count, Q, Sum
+    from django.utils import timezone
+
     from zentinelle.models import UsageSummary
 
     tenant_id = organization_id
@@ -398,10 +396,12 @@ def check_repeated_violations():
 
     Run periodically (e.g., every 15 minutes).
     """
-    from django.utils import timezone
     from datetime import timedelta
+
     from django.db.models import Count
-    from zentinelle.models import ContentViolation, ComplianceAlert
+    from django.utils import timezone
+
+    from zentinelle.models import ComplianceAlert, ContentViolation
 
     # Look at last hour
     one_hour_ago = timezone.now() - timedelta(hours=1)

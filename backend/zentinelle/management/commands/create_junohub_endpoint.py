@@ -8,6 +8,7 @@ Usage:
 """
 from django.core.management.base import BaseCommand
 from organization.models import Organization
+
 from zentinelle.models import AgentEndpoint
 
 

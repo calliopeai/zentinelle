@@ -9,16 +9,13 @@ from datetime import datetime
 from typing import Optional
 
 import strawberry
-from strawberry.scalars import JSON
 from asgiref.sync import async_to_sync
-from graphql_relay import from_global_id
-
 from deployments.models import Deployment
+from deployments.services import DeploymentManager, SyncDirection
+from graphql_relay import from_global_id
+from strawberry.scalars import JSON
+
 from zentinelle.schema.types import DeploymentType
-from deployments.services import (
-    DeploymentManager,
-    SyncDirection,
-)
 
 logger = logging.getLogger(__name__)
 
