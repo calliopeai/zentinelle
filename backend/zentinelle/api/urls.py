@@ -57,6 +57,8 @@ from zentinelle.api.views import (AcknowledgeAlertView, AgentSummaryView,
                                   ExportViolationsCSVView, HeartbeatView,
                                   IncidentCommentView, IncidentDetailView,
                                   IncidentListView, LogInteractionView,
+                                  PolicyChangeSetListView,
+                                  PolicyChangeSetTransitionView,
                                   PolicyDiffView, PolicyHistoryListView,
                                   RegisterView, ReportCreateView,
                                   ReportDownloadView, ReportStatusView,
@@ -155,6 +157,8 @@ urlpatterns = [
     # Policy version history & diff
     path('policies/<uuid:policy_id>/history/', PolicyHistoryListView.as_view(), name='policy-history'),
     path('policies/<uuid:policy_id>/diff/', PolicyDiffView.as_view(), name='policy-diff'),
+    path('policy-changes', PolicyChangeSetListView.as_view(), name='policy-change-list'),
+    path('policy-changes/<uuid:change_id>/transition', PolicyChangeSetTransitionView.as_view(), name='policy-change-transition'),
 
     # Incident management
     path('incidents/', IncidentListView.as_view(), name='incident-list'),
