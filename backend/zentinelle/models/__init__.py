@@ -45,6 +45,7 @@ from zentinelle.models.model_registry import (AIModel, ModelUsageLog,
 # Notifications
 from zentinelle.models.notification import Notification, create_notification
 from zentinelle.models.policy import Policy, PolicyHistory, PolicyRevision
+from zentinelle.models.policy_change import PolicyChangeSet
 from zentinelle.models.policy_document import PolicyDocument
 # Compliance Report Export
 from zentinelle.models.reporting import Report
@@ -80,6 +81,7 @@ __all__ = [
     'BudgetCharge',
     'Policy',
     'PolicyRevision',
+    'PolicyChangeSet',
     'PolicyHistory',
     'PolicyDocument',
     'Event',
