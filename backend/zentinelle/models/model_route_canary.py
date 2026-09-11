@@ -8,6 +8,7 @@ class ModelRouteCanary(models.Model):
     class Status(models.TextChoices):
         PASSED = 'passed', 'Passed'
         FAILED = 'failed', 'Failed'
+        ROLLED_BACK = 'rolled_back', 'Rolled back'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant_id = models.CharField(max_length=255, db_index=True)

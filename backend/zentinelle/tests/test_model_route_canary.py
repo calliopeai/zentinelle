@@ -32,3 +32,19 @@ class ModelRouteCanaryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.json()['allowed'])
         self.assertEqual(response.json()['decision'], 'deny')
+
+    def test_rollback_is_tenant_scoped_and_idempotency_is_explicit(self):
+        user = User.objects.create_user('route-admin-rollback')
+        assign_role(user, ROLE_ADMIN)
+        client = APIClient(); client.force_authenticate(user=user)
+        with patch('zentinelle.api.views.model_route_canary.get_request_tenant_id', return_value='tenant-a'), \
+             patch('zentinelle.services.llm_provider._check_model_route'):
+            created = client.post('/api/zentinelle/v1/models/route-canary', {'provider': 'openai', 'model': 'gpt-4o'}, format='json')
+        canary_id = created.json()['id']
+        with patch('zentinelle.api.views.model_route_canary.get_request_tenant_id', return_value='tenant-b'):
+            self.assertEqual(client.post(f'/api/zentinelle/v1/models/route-canary/{canary_id}/rollback').status_code, 404)
+        with patch('zentinelle.api.views.model_route_canary.get_request_tenant_id', return_value='tenant-a'):
+            rolled = client.post(f'/api/zentinelle/v1/models/route-canary/{canary_id}/rollback')
+            self.assertEqual(rolled.status_code, 200)
+            self.assertEqual(rolled.json()['status'], 'rolled_back')
+            self.assertEqual(client.post(f'/api/zentinelle/v1/models/route-canary/{canary_id}/rollback').status_code, 409)

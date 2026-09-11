@@ -57,7 +57,7 @@ from zentinelle.api.views import (AcknowledgeAlertView, AgentControlView,
                                   BrocsControlMapView,
                                   EffectivePolicyView, EvaluateView,
                                   EventsView, ExportComplianceReportCSVView,
-                                  ModelRouteCanaryView,
+                                  ModelRouteCanaryRollbackView, ModelRouteCanaryView,
                                   ExportViolationsCSVView, HeartbeatView,
                                   IncidentCommentView, IncidentDetailView,
                                   IncidentEvidenceView, IncidentListView,
@@ -137,6 +137,7 @@ urlpatterns = [
     path('evidence/controls', ControlEvidenceView.as_view(), name='control-evidence'),
     path('budgets/showback', BudgetShowbackView.as_view(), name='budget-showback'),
     path('models/route-canary', ModelRouteCanaryView.as_view(), name='model-route-canary'),
+    path('models/route-canary/<uuid:canary_id>/rollback', ModelRouteCanaryRollbackView.as_view(), name='model-route-canary-rollback'),
     path('controls/brocs', BrocsControlMapView.as_view(), name='brocs-control-map'),
 
     # Agent-facing endpoints

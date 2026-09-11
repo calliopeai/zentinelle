@@ -53,3 +53,34 @@ class ModelRouteCanaryView(APIView):
                                       'status': row.status, 'reason': row.reason, 'baseline': row.baseline,
                                       'evidence': row.evidence, 'created_at': row.created_at.isoformat()}
                                      for row in rows]})
+
+
+class ModelRouteCanaryRollbackView(APIView):
+    """Record an operator rollback decision for a route canary."""
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAdminAccess]
+
+    def post(self, request, canary_id):
+        tenant_id = get_request_tenant_id(request.user) or ''
+        from zentinelle.models import ModelRouteCanary
+        try:
+            record = ModelRouteCanary.objects.get(id=canary_id, tenant_id=tenant_id)
+        except ModelRouteCanary.DoesNotExist:
+            return Response({'error': 'Canary not found'}, status=404)
+        if record.status == ModelRouteCanary.Status.ROLLED_BACK:
+            return Response({'error': 'Canary is already rolled back'}, status=409)
+        actor = str(getattr(request.user, 'pk', '') or '')
+        record.status = ModelRouteCanary.Status.ROLLED_BACK
+        record.evidence = {**(record.evidence or {}), 'rollback': {'actor_id': actor}}
+        record.save(update_fields=['status', 'evidence'])
+        try:
+            from zentinelle.models import AuditLog
+            AuditLog.log(tenant_id=tenant_id, action='model_route.rollback',
+                         resource_type='model_route_canary', resource_id=str(record.id),
+                         ext_user_id=actor,
+                         changes={'provider': record.provider, 'model': record.model,
+                                  'status': record.status})
+        except Exception:
+            pass
+        return Response({'id': str(record.id), 'provider': record.provider, 'model': record.model,
+                         'status': record.status, 'rollback': True, 'evidence': record.evidence})
