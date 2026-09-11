@@ -186,11 +186,14 @@ class RuntimeSettingsRollbackView(RuntimeSettingsView):
             target = int(payload.get('revision'))
         except (TypeError, ValueError, json.JSONDecodeError):
             return JsonResponse({'error': 'revision is required'}, status=400)
+        expected_revision = payload.get('expected_revision')
+        if not isinstance(expected_revision, int) or isinstance(expected_revision, bool) or expected_revision < 0:
+            return JsonResponse({'error': 'expected_revision is required for rollback'}, status=400)
         tenant_id = _tenant_id(request)
         source = RuntimeSettingsRevision.objects.filter(tenant_id=tenant_id, revision=target).first()
         if source is None:
             return JsonResponse({'error': 'revision not found'}, status=404)
-        body = json.dumps({'settings': source.settings, 'expected_revision': payload.get('expected_revision')}).encode()
+        body = json.dumps({'settings': source.settings, 'expected_revision': expected_revision}).encode()
         request._request._body = body
         request._request._stream = None
         return super().patch(request)

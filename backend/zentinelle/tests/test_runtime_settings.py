@@ -34,7 +34,7 @@ class RuntimeSettingsRevisionTests(TestCase):
         TenantConfig.objects.create(tenant_id='tenant-a', settings={'assistant_model': 'first'})
         RuntimeSettingsRevision.objects.create(tenant_id='tenant-a', revision=1, settings={'assistant_model': 'first'})
         RuntimeSettingsRevision.objects.create(tenant_id='tenant-a', revision=2, settings={'assistant_model': 'second'})
-        request = self.factory.post('/settings/runtime/rollback', data=json.dumps({'revision': 1}), content_type='application/json')
+        request = self.factory.post('/settings/runtime/rollback', data=json.dumps({'revision': 1, 'expected_revision': 2}), content_type='application/json')
         request.user = self.user
         response = RuntimeSettingsRollbackView.as_view()(request)
         self.assertEqual(response.status_code, 200)
@@ -44,6 +44,10 @@ class RuntimeSettingsRevisionTests(TestCase):
         stale = self.factory.post('/settings/runtime/rollback', data=json.dumps({'revision': 2, 'expected_revision': 0}), content_type='application/json')
         stale.user = self.user
         self.assertEqual(RuntimeSettingsRollbackView.as_view()(stale).status_code, 409)
+
+        missing = self.factory.post('/settings/runtime/rollback', data=json.dumps({'revision': 1}), content_type='application/json')
+        missing.user = self.user
+        self.assertEqual(RuntimeSettingsRollbackView.as_view()(missing).status_code, 400)
 
     @patch('zentinelle.api.views.runtime_settings._tenant_id', return_value='tenant-a')
     def test_patch_rejects_unbounded_or_malformed_values(self, _tenant):
