@@ -1,4 +1,5 @@
 """Shared functional-boundary contract for gateway and adapter integrations."""
+import uuid
 
 CONTRACT_VERSION = '1'
 ACTION_ALIASES = {
@@ -51,3 +52,35 @@ def build_contract(*, endpoint, action, user_id='', context=None):
         'resource': {'type': str(resource_type), 'id': str(resource_id)},
         'context': supplied,
     }
+
+
+def evaluate_boundary(*, endpoint, action, user_id='', context=None, dry_run=False):
+    """Authorize an adapter boundary using the canonical contract.
+
+    Workflow, retrieval, MCP, and native integrations can call this helper
+    immediately before a side effect. Identity is sourced from ``endpoint``;
+    malformed context or evaluator outages return a deny decision rather than
+    allowing an adapter to continue without evidence.
+    """
+    trace_id = str(uuid.uuid4())
+    supplied = dict(context or {}) if isinstance(context or {}, dict) else None
+    if supplied is None:
+        return {'contract_version': CONTRACT_VERSION, 'action': str(action or ''),
+                'decision': 'deny', 'allowed': False, 'reason': 'Boundary context must be an object',
+                'trace_id': trace_id, 'coverage': {'status': 'unknown'}}
+    supplied['trace_id'] = trace_id
+    try:
+        normalized = canonical_action(action)
+        contract = build_contract(endpoint=endpoint, action=normalized, user_id=user_id, context=supplied)
+        from zentinelle.services.policy_engine import PolicyEngine
+        result = PolicyEngine().evaluate(endpoint=endpoint, action=normalized, user_id=user_id,
+                                         context=supplied, dry_run=dry_run)
+        return {**contract, 'trace_id': trace_id,
+                'decision': 'allow' if result.allowed else 'deny', 'allowed': result.allowed,
+                'reason': result.reason, 'policies_evaluated': result.policies_evaluated,
+                'coverage': result.coverage, 'warnings': result.warnings}
+    except Exception as exc:
+        return {'contract_version': CONTRACT_VERSION, 'action': str(action or ''),
+                'decision': 'deny', 'allowed': False,
+                'reason': 'Boundary evaluation unavailable', 'trace_id': trace_id,
+                'coverage': {'status': 'unknown'}, 'warnings': [str(exc)[:255]]}

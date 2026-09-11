@@ -1,8 +1,9 @@
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from zentinelle.services.boundary_contract import build_contract, canonical_action
+from zentinelle.services.boundary_contract import build_contract, canonical_action, evaluate_boundary
 
 
 class BoundaryContractTests(SimpleTestCase):
@@ -22,3 +23,18 @@ class BoundaryContractTests(SimpleTestCase):
             canonical_action('')
         with self.assertRaises(ValueError):
             build_contract(endpoint=SimpleNamespace(tenant_id='', id=None, agent_id='x'), action='llm:invoke')
+
+    @patch('zentinelle.services.policy_engine.PolicyEngine.evaluate')
+    def test_adapter_evaluation_canonicalizes_and_carries_trace(self, evaluate):
+        from zentinelle.services.policy_engine import EvaluationResult
+        evaluate.return_value = EvaluationResult(allowed=True, coverage={'status': 'enforced'})
+        result = evaluate_boundary(endpoint=self.endpoint, action='mcp.tool_call', context={'tool': 'search'})
+        self.assertTrue(result['allowed'])
+        self.assertEqual(result['action'], 'tool_call')
+        self.assertEqual(evaluate.call_args.kwargs['action'], 'tool_call')
+        self.assertEqual(result['context']['trace_id'], result['trace_id'])
+
+    def test_adapter_evaluation_fails_closed_on_malformed_context(self):
+        result = evaluate_boundary(endpoint=self.endpoint, action='retrieval', context=['untrusted'])
+        self.assertFalse(result['allowed'])
+        self.assertEqual(result['decision'], 'deny')
