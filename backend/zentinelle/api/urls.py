@@ -52,6 +52,7 @@ from zentinelle.api.views import (AcknowledgeAlertView, AgentControlView,
                                   AsyncScanView, AuditChainVerifyView,
                                   AuditExportView, ComplianceReportSummaryView,
                                   ConfigView, DeregisterView,
+                                  ControlEvidenceView,
                                   EffectivePolicyView, EvaluateView,
                                   EventsView, ExportComplianceReportCSVView,
                                   ExportViolationsCSVView, HeartbeatView,
@@ -119,6 +120,7 @@ urlpatterns = [
     path('policy-copilot/status', PolicyCopilotStatusView.as_view(), name='policy-copilot-status'),
     path('policy-copilot/draft', PolicyCopilotDraftView.as_view(), name='policy-copilot-draft'),
     path('threats/atlas', AtlasControlMapView.as_view(), name='atlas-control-map'),
+    path('evidence/controls', ControlEvidenceView.as_view(), name='control-evidence'),
 
     # Agent-facing endpoints
     path('register', RegisterView.as_view(), name='register'),

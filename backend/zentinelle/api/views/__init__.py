@@ -43,6 +43,7 @@ from zentinelle.api.views.risks_trend import RiskTrendView
 from zentinelle.api.views.secrets import SecretsView
 from zentinelle.api.views.runtime_settings import RuntimeSettingsRollbackView
 from zentinelle.api.views.telemetry_health import TelemetryDeliveryHealthView
+from zentinelle.api.views.control_evidence import ControlEvidenceView
 
 __all__ = [
     'RegisterView',
@@ -94,4 +95,5 @@ __all__ = [
     'ReportDownloadView',
     'TelemetryDeliveryHealthView',
     'RuntimeSettingsRollbackView',
+    'ControlEvidenceView',
 ]
