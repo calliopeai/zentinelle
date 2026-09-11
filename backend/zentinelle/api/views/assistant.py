@@ -173,6 +173,7 @@ class AssistantChatView(APIView):
             check_support_message
         guardrail = check_support_message(tenant_id, message)
         if not guardrail.allowed:
+            self._audit_guardrail_denial(tenant_id, 'input', guardrail.reason, guardrail.policy_ids)
             return JsonResponse({
                 'error': 'assistant_guardrail_denied',
                 'detail': guardrail.reason,
@@ -291,8 +292,21 @@ class AssistantChatView(APIView):
             if complete_text:
                 yield f"data: {json.dumps({'content': complete_text})}\n\n"
         else:
+            self._audit_guardrail_denial(tenant_id, 'output', output_check.reason, ())
             yield f"data: {json.dumps({'error': 'assistant_guardrail_denied', 'detail': output_check.reason})}\n\n"
         yield "data: [DONE]\n\n"
+
+    @staticmethod
+    def _audit_guardrail_denial(tenant_id, boundary, reason, policy_ids):
+        """Record a denial without persisting user prompt or model content."""
+        try:
+            from zentinelle.models import AuditLog
+            AuditLog.log(tenant_id=tenant_id, action='assistant.guardrail_denied',
+                         resource_type='assistant', resource_id=boundary,
+                         changes={'boundary': boundary, 'reason': reason[:255],
+                                  'policy_ids': list(policy_ids)})
+        except Exception:
+            logger.warning('Unable to audit assistant guardrail denial', exc_info=True)
 
     def _build_system_prompt(self, request, page_context):
         """Build a system prompt enriched with the tenant's actual GRC data.
