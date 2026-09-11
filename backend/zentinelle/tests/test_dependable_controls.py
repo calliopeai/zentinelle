@@ -10,7 +10,7 @@ from rest_framework.test import APIClient
 from zentinelle.auth.oidc import OIDCCallbackView
 from zentinelle.auth.roles import (ROLE_ADMIN, ROLE_VIEWER, assign_role,
                                    can_admin)
-from zentinelle.models import AgentEndpoint, Policy
+from zentinelle.models import AgentEndpoint, Policy, TenantConfig
 from zentinelle.services.approvals import issue_approval
 from zentinelle.services.evaluation_context import normalize_context
 from zentinelle.services.policy_engine import PolicyEngine
@@ -64,6 +64,23 @@ class DependableControlsTests(TestCase):
         self.assertEqual(client.patch(API + 'settings/llm-providers', payload, format='json').status_code, 403)
         token = client.get(API + 'auth/csrf').json()['csrf_token']
         self.assertEqual(client.patch(API + 'settings/llm-providers', payload, format='json', HTTP_X_CSRFTOKEN=token).status_code, 200)
+
+    def test_agent_containment_requires_exact_human_approval_when_enabled(self):
+        assign_role(self.user, ROLE_ADMIN)
+        TenantConfig.objects.create(tenant_id=TENANT, settings={'control_approval_required': True})
+        self.client.force_login(self.user)
+        url = API + f'agents/{self.endpoint.agent_id}/control'
+        action_context = {'agent_id': self.endpoint.agent_id, 'action': 'contain_tools', 'denied_tools': ['shell']}
+        denied = self.client.post(url, {'action': 'contain_tools', 'denied_tools': ['shell']}, format='json')
+        self.assertEqual(denied.status_code, 403)
+        token = issue_approval(tenant_id=TENANT, kind='assistant', subject=str(self.user.pk),
+                               action='agent_control:contain_tools', context=action_context,
+                               granted_by=self.user.pk)
+        approved = self.client.post(url, {'action': 'contain_tools', 'denied_tools': ['shell'], 'approval_token': token}, format='json')
+        self.assertEqual(approved.status_code, 200)
+        self.assertEqual(approved.json()['metadata']['containment']['denied_tools'], ['shell'])
+        replay = self.client.post(url, {'action': 'contain_tools', 'denied_tools': ['shell'], 'approval_token': token}, format='json')
+        self.assertEqual(replay.status_code, 403)
 
     def test_login_requires_csrf_and_is_throttled(self):
         client = APIClient(enforce_csrf_checks=True)
