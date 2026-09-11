@@ -50,6 +50,19 @@ class DependableControlsTests(TestCase):
             response = self.client.post(API + 'evaluate', {'agent_id': 'someone-else', 'action': 'llm:invoke'}, format='json')
             self.assertEqual(response.status_code, 403)
 
+    @patch('zentinelle.api.views.evaluate.EvaluateView._log_evaluation')
+    @patch('zentinelle.api.views.evaluate.EvaluateView._log_interaction')
+    @patch('zentinelle.services.policy_engine.PolicyEngine.evaluate')
+    def test_alias_actions_are_canonicalized_before_policy_evaluation(self, evaluate, _log_interaction, _log_evaluation):
+        from zentinelle.services.policy_engine import EvaluationResult
+        evaluate.return_value = EvaluationResult(allowed=True)
+        self.client.credentials(HTTP_X_ZENTINELLE_KEY=self.key)
+        response = self.client.post(API + 'evaluate', {'action': 'tool.invoke', 'context': {'tool': 'search'}}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['action'], 'tool_call')
+        self.assertEqual(evaluate.call_args.kwargs['action'], 'tool_call')
+        self.assertEqual(evaluate.call_args.kwargs['context']['trace_id'], response.json()['trace_id'])
+
     @patch('zentinelle.models.AuditLog.log')
     def test_allowed_model_route_writes_metadata_only_evidence(self, audit):
         from zentinelle.services.llm_provider import _check_model_route

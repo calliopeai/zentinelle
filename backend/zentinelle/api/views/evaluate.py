@@ -16,7 +16,7 @@ from zentinelle.api.serializers import EvaluateRequestSerializer
 from zentinelle.models import AgentEndpoint, Event
 from zentinelle.models.compliance import InteractionLog
 from zentinelle.services.content_capture import record_interaction
-from zentinelle.services.boundary_contract import build_contract
+from zentinelle.services.boundary_contract import build_contract, canonical_action
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,10 @@ class EvaluateView(APIView):
         serializer = EvaluateRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        try:
+            action = canonical_action(data['action'])
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         # Get authenticated endpoint
         auth_endpoint = get_endpoint_from_request(request)
@@ -49,27 +53,29 @@ class EvaluateView(APIView):
 
         trace_id = str(uuid.uuid4())
         context = dict(data.get('context', {}) or {})
-        context.setdefault('resource_type', self._resource_type_for_action(data['action']))
+        context.setdefault('resource_type', self._resource_type_for_action(action))
         # A boundary without an explicit resource ID is still represented as
         # a resource, so downstream traces cannot collapse retrieval/workflow
         # decisions into an indistinguishable generic action.
         context.setdefault('resource_id', context.get('workload_id') or context.get('tool') or '')
+        context['trace_id'] = trace_id
         # Evaluate policies
         from zentinelle.services.policy_engine import PolicyEngine
 
         engine = PolicyEngine()
         result = engine.evaluate(
             endpoint=auth_endpoint,
-            action=data['action'],
+            action=action,
             user_id=data.get('user_id'),
             context=context,
         )
         # Log evaluation (async) and interaction (for monitoring)
-        self._log_evaluation(auth_endpoint, data, result, trace_id)
-        self._log_interaction(auth_endpoint, data, result)
+        normalized_data = {**data, 'action': action}
+        self._log_evaluation(auth_endpoint, normalized_data, result, trace_id)
+        self._log_interaction(auth_endpoint, normalized_data, result)
 
         response_data = {
-            **build_contract(endpoint=auth_endpoint, action=data['action'], user_id=data.get('user_id'), context=context),
+            **build_contract(endpoint=auth_endpoint, action=action, user_id=data.get('user_id'), context=context),
             'trace_id': trace_id,
             'decision': 'allow' if result.allowed else 'deny',
             'allowed': result.allowed,
