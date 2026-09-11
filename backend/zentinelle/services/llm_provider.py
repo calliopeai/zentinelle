@@ -218,7 +218,7 @@ def _check_model_route(model: str, provider: str, tenant_id: str = None):
             enforcement=Policy.Enforcement.ENFORCE,
         ).order_by('-priority', 'id'):
             try:
-                policy_versions.append({'id': str(policy.id), 'version': policy.version})
+                policy_versions.append({'id': str(policy.id), 'version': getattr(policy, 'version', None)})
                 result = ModelRestrictionEvaluator().evaluate(
                     policy, 'llm:invoke', None, {'model': model, 'provider': provider}, dry_run=False,
                 )
