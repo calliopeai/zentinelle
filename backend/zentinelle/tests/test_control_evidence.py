@@ -25,3 +25,7 @@ class ControlEvidenceTests(TestCase):
             expires_at=timezone.now() + timedelta(days=1),
         )
         self.assertEqual(evidence.effective_status, ControlEvidence.Status.FAILED)
+
+    def test_coverage_states_include_observation_and_unsupported(self):
+        self.assertIn('observation-only', {item.value for item in ControlEvidence.Status})
+        self.assertIn('unsupported', {item.value for item in ControlEvidence.Status})

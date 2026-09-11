@@ -15,7 +15,12 @@ class ControlEvidenceView(APIView):
     def get(self, request):
         tenant_id = get_request_tenant_id(request.user) or ''
         rows = ControlEvidence.objects.filter(tenant_id=tenant_id)[:200]
-        return Response({'evidence': [self._serialize(row) for row in rows]})
+        serialized = [self._serialize(row) for row in rows]
+        coverage = {status.value: 0 for status in ControlEvidence.Status}
+        for item in serialized:
+            coverage[item['effective_status']] = coverage.get(item['effective_status'], 0) + 1
+        return Response({'evidence': serialized, 'coverage': coverage,
+                         'coverage_as_of': max((item['captured_at'] for item in serialized), default=None)})
 
     def post(self, request):
         tenant_id = get_request_tenant_id(request.user) or ''

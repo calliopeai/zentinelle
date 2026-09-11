@@ -11,6 +11,8 @@ class ControlEvidence(models.Model):
         STALE = 'stale', 'Stale'
         FAILED = 'failed', 'Failed'
         UNKNOWN = 'unknown', 'Unknown'
+        OBSERVATION_ONLY = 'observation-only', 'Observation only'
+        UNSUPPORTED = 'unsupported', 'Unsupported'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant_id = models.CharField(max_length=255, db_index=True)
