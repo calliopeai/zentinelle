@@ -149,6 +149,14 @@ class Policy(Tracking):
         """Validate scope fields match scope_type."""
         from django.core.exceptions import ValidationError
 
+        selectors = self.config.get('taxonomy_selectors', []) if isinstance(self.config, dict) else []
+        if selectors:
+            if not isinstance(selectors, list) or not all(isinstance(item, str) for item in selectors):
+                raise ValidationError('taxonomy_selectors must be a list of dimension:value strings.')
+            for selector in selectors:
+                if selector.count(':') != 1 or any(not part.strip() for part in selector.split(':', 1)):
+                    raise ValidationError('Each taxonomy selector must use dimension:value syntax.')
+
         if self.scope_type == self.ScopeType.ORGANIZATION:
             if self.scope_sub_organization_id_ext or self.scope_deployment_id_ext or self.scope_endpoint or self.scope_user_id_ext:
                 raise ValidationError(
