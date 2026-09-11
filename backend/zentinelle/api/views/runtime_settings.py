@@ -16,6 +16,7 @@ SETTING_DEFAULTS = {
     'assistant_model': lambda: getattr(settings, 'ASSISTANT_MODEL', ''),
     'assistant_provider': lambda: getattr(settings, 'ASSISTANT_PROVIDER', ''),
     'taxonomy_extensions': lambda: [],
+    'policy_copilot_enabled': lambda: False,
 }
 
 
@@ -55,6 +56,8 @@ class RuntimeSettingsView(APIView):
         if 'taxonomy_extensions' in updates:
             if not isinstance(updates['taxonomy_extensions'], list) or not all(isinstance(item, str) for item in updates['taxonomy_extensions']):
                 return JsonResponse({'error': 'taxonomy_extensions must be a list of strings'}, status=400)
+        if 'policy_copilot_enabled' in updates and not isinstance(updates['policy_copilot_enabled'], bool):
+            return JsonResponse({'error': 'policy_copilot_enabled must be boolean'}, status=400)
         tenant_id = _tenant_id(request)
         config, _ = TenantConfig.objects.get_or_create(tenant_id=tenant_id)
         config.settings = {**config.settings, **updates}
