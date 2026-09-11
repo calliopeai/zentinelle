@@ -15,6 +15,7 @@ import asyncio
 import json
 import logging
 import os
+import uuid
 from typing import AsyncGenerator, Optional
 
 import httpx
@@ -174,17 +175,36 @@ def _hash_action(name: str, args: dict) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
+def _deny_model_route(message, *, tenant_id=None, provider='', model='', policy=None):
+    """Record a redacted route denial, then fail closed for the caller."""
+    trace_id = str(uuid.uuid4())
+    if tenant_id:
+        try:
+            from zentinelle.models import AuditLog
+            AuditLog.log(
+                tenant_id=tenant_id, action='model_route.denied',
+                resource_type='model_route', resource_id=f'{provider}/{model}',
+                changes={'decision': 'deny'},
+                metadata={'trace_id': trace_id, 'provider': provider,
+                          'model': model, 'policy_id': str(getattr(policy, 'id', '') or ''),
+                          'policy_version': getattr(policy, 'version', None)},
+            )
+        except Exception:
+            logger.warning('Unable to audit model route denial', exc_info=True)
+    raise RuntimeError(f'{message} [trace_id={trace_id}]')
+
+
 def _check_model_route(model: str, provider: str, tenant_id: str = None):
     """Fail closed for a model explicitly disabled or unavailable by admins."""
     from zentinelle.models import AIModel
     registered = AIModel.objects.filter(model_id=model, provider__slug=provider).first()
     if registered and (not registered.is_available or registered.deprecated or not registered.enabled_for_chat):
-        raise RuntimeError(f'Model route is disabled: {provider}/{model}')
+        _deny_model_route(f'Model route is disabled: {provider}/{model}', tenant_id=tenant_id, provider=provider, model=model)
     if registered and tenant_id:
         from zentinelle.models import OrganizationModelApproval
         approval = OrganizationModelApproval.objects.filter(tenant_id=tenant_id, model=registered).first()
         if approval and not approval.is_usable:
-            raise RuntimeError(f'Model route is not approved for tenant: {provider}/{model}')
+            _deny_model_route(f'Model route is not approved for tenant: {provider}/{model}', tenant_id=tenant_id, provider=provider, model=model)
     if tenant_id:
         # Provider calls can originate outside an AgentEndpoint (for example,
         # the portal assistant). Apply tenant organization model restrictions
@@ -200,10 +220,10 @@ def _check_model_route(model: str, provider: str, tenant_id: str = None):
                 result = ModelRestrictionEvaluator().evaluate(
                     policy, 'llm:invoke', None, {'model': model, 'provider': provider}, dry_run=False,
                 )
-            except Exception as exc:
-                raise RuntimeError(f'Model route policy evaluation failed: {policy.id}') from exc
+            except Exception:
+                _deny_model_route(f'Model route policy evaluation failed: {policy.id}', tenant_id=tenant_id, provider=provider, model=model, policy=policy)
             if not result.passed:
-                raise RuntimeError(f'Model route denied by policy {policy.id}: {result.message}')
+                _deny_model_route(f'Model route denied by policy {policy.id}: {result.message}', tenant_id=tenant_id, provider=provider, model=model, policy=policy)
 
 
 async def agentic_chat(
