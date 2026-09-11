@@ -9,7 +9,8 @@
     "policy_allow_deny_trace": "backend/zentinelle/tests/test_e2e_pipeline.py",
     "revoked_key": "backend/zentinelle/tests/test_api_views.py",
     "streaming_tools": "backend/zentinelle/tests/test_proxy.py",
-    "agent_taxonomy": "tests/contracts/agent-taxonomy.json"
+    "agent_taxonomy": "tests/contracts/agent-taxonomy.json",
+    "browser_agent_taxonomy": "tests/contracts/agent-taxonomy-browser.json"
   },
   "implementations": [
     {"name": "python", "path": "python/zentinelle", "status": "contract-tested", "limitations": ["framework callback enforcement varies by adapter"]},

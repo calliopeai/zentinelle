@@ -1,9 +1,15 @@
 from django.test import SimpleTestCase
+import json
+from pathlib import Path
 
 from zentinelle.services.agent_taxonomy import inherit_taxonomy, validate_taxonomy
 
 
 class AgentTaxonomyTests(SimpleTestCase):
+    def test_browser_contract_fixture_matches_normalization(self):
+        fixture = json.loads((Path(__file__).parents[3] / 'tests/contracts/agent-taxonomy-browser.json').read_text())
+        result = validate_taxonomy(fixture['registration']['taxonomy'])
+        self.assertEqual(result, fixture['expected'])
     def test_composes_dimensions_and_preserves_unsupported_values(self):
         result = validate_taxonomy([
             'function:customer_service', 'data:regulated', 'project:acme',
