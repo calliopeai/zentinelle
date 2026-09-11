@@ -15,6 +15,7 @@ Note: httpx is required (already used by ClientCoveTenantResolver).
 import json
 import logging
 import uuid
+from urllib.parse import urlparse
 
 from django.http import JsonResponse, StreamingHttpResponse
 from django.utils.decorators import method_decorator
@@ -177,6 +178,12 @@ class ProxyView(View):
             'path': path,
             'request_id': request.headers.get('X-Request-ID') or str(uuid.uuid4()),
         }
+        # Give network_policy evaluators the actual upstream destination before
+        # the request is sent. Without this, an allowlist could only enforce
+        # allow_outbound and every provider domain would bypass domain rules.
+        upstream_base = PROVIDERS.get(provider, 'https://aiplatform.googleapis.com')
+        context['url'] = upstream_base
+        context['domain'] = urlparse(upstream_base).hostname or ''
 
         body_bytes = b''
         if request.method in ('POST', 'PUT', 'PATCH'):
@@ -258,7 +265,6 @@ class ProxyView(View):
                 forward_headers['Authorization'] = f'Bearer {managed_key}'
 
         # Set correct Host (just the hostname, not the path)
-        from urllib.parse import urlparse
         if provider in PROVIDERS:
             forward_headers['Host'] = urlparse(PROVIDERS[provider]).hostname
         else:
