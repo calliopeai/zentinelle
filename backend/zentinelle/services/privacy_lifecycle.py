@@ -178,6 +178,15 @@ def erase_tenant(tenant_id, *, actor='privacy-operator', subject_id=None):
                     raise RuntimeError('Local archive cryptographic erasure requires a regular file')
                 if not os.path.isfile(destination):
                     raise RuntimeError('Local archive is unavailable for erasure')
+                expected_checksum = manifest.get('archive_checksum')
+                if expected_checksum:
+                    try:
+                        with open(destination, 'rb') as archive:
+                            actual_checksum = hashlib.sha256(archive.read()).hexdigest()
+                    except OSError as exc:
+                        raise RuntimeError('Local archive checksum could not be verified') from exc
+                    if actual_checksum != expected_checksum:
+                        raise RuntimeError('Local archive checksum verification failed')
                 archive_plan.append((outcome, manifest, destination, None))
         counts = {}
         for model in models:

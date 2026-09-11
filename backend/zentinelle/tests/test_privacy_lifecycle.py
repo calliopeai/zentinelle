@@ -134,3 +134,22 @@ class PrivacyLifecycleTests(TestCase):
         with self.assertRaisesRegex(RuntimeError, 'regular file'):
             erase_tenant('tenant-a')
         self.assertEqual(Event.objects.filter(tenant_id='tenant-a', event_type='must-survive').count(), 1)
+
+    @patch('zentinelle.services.clickhouse_service._get_clickhouse_url', return_value='')
+    @patch('zentinelle.services.clickhouse_service.erase_tenant_analytics', return_value=False)
+    def test_tampered_local_archive_fails_checksum_preflight(self, _analytics, _url):
+        from zentinelle.models import RetentionOutcome
+        from zentinelle.services.retention import signed_retention_manifest
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False) as archive:
+            path = archive.name
+            archive.write(b'original archive')
+        self.addCleanup(lambda: os.path.exists(path) and os.unlink(path))
+        manifest = signed_retention_manifest('tenant-a', 'events', 'archive', 1, path,
+                                             archive_checksum=hashlib.sha256(b'original archive').hexdigest())
+        with open(path, 'wb') as changed:
+            changed.write(b'tampered archive')
+        RetentionOutcome.objects.create(tenant_id='tenant-a', entity_type='events', status='archived', manifest=manifest, destination=path)
+        Event.objects.create(tenant_id='tenant-a', event_type='must-survive-checksum', occurred_at=timezone.now())
+        with self.assertRaisesRegex(RuntimeError, 'checksum verification'):
+            erase_tenant('tenant-a')
+        self.assertTrue(Event.objects.filter(tenant_id='tenant-a', event_type='must-survive-checksum').exists())
