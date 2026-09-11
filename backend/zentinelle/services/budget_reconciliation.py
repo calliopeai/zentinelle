@@ -64,3 +64,29 @@ def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-a
         charge.reconciliation_source = source
         charge.save(update_fields=['actual_usd', 'reconciled_at', 'reconciliation_source'])
         return charge
+
+
+def cancel_charge(charge_id, *, tenant_id, provider_request_id, source='provider-api'):
+    """Release a reservation after an authenticated provider cancellation.
+
+    Cancellation is deliberately separate from telemetry: callers must supply
+    the provider request ID that matches the reservation, and the operation is
+    idempotent under the same row lock as usage reconciliation.
+    """
+    if source != 'provider-api' or not provider_request_id:
+        raise ValueError('Budget cancellation requires authenticated provider confirmation')
+    with transaction.atomic():
+        charge = BudgetCharge.objects.select_for_update().get(id=charge_id, tenant_id=tenant_id)
+        if charge.reconciled_at:
+            return charge
+        if str(provider_request_id) != str(charge.request_id):
+            raise ValueError('Provider request_id does not match the reserved charge')
+        for account_id in charge.account_ids:
+            account = BudgetAccount.objects.select_for_update().get(id=account_id, tenant_id=tenant_id)
+            account.committed_usd = max(Decimal('0'), account.committed_usd - charge.amount_usd)
+            account.save(update_fields=['committed_usd'])
+        charge.actual_usd = Decimal('0')
+        charge.reconciled_at = timezone.now()
+        charge.reconciliation_source = 'provider-api:cancellation'
+        charge.save(update_fields=['actual_usd', 'reconciled_at', 'reconciliation_source'])
+        return charge
