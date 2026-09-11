@@ -146,6 +146,16 @@ class AssistantModelsToggleView(APIView):
 
         obj.enabled_for_chat = bool(enabled)
         obj.save(update_fields=['enabled_for_chat', 'updated_at'])
+        try:
+            from zentinelle.models import AuditLog
+            from zentinelle.schema.auth_helpers import get_request_tenant_id
+            AuditLog.log(tenant_id=get_request_tenant_id(request.user) or 'default', action='model_catalogue.changed',
+                         resource_type='ai_model', resource_id=str(obj.id),
+                         ext_user_id=str(getattr(request.user, 'pk', '') or ''),
+                         changes={'provider': obj.provider.slug, 'model_id': obj.model_id,
+                                  'enabled_for_chat': obj.enabled_for_chat})
+        except Exception:
+            logger.warning('Unable to audit model catalogue change', exc_info=True)
 
         return JsonResponse({
             'model_id': obj.model_id,
@@ -196,5 +206,17 @@ class AssistantModelsBulkView(APIView):
 
         # Clear discovery cache so the picker refreshes
         clear_cache(provider_slug)
+
+        try:
+            from zentinelle.models import AuditLog
+            from zentinelle.schema.auth_helpers import get_request_tenant_id
+            AuditLog.log(tenant_id=get_request_tenant_id(request.user) or 'default',
+                         action='model_catalogue.bulk_changed', resource_type='ai_provider',
+                         resource_id=provider_slug,
+                         ext_user_id=str(getattr(request.user, 'pk', '') or ''),
+                         changes={'provider': provider_slug, 'enabled_model_count': len(enabled_set),
+                                  'updated': updated})
+        except Exception:
+            logger.warning('Unable to audit bulk model catalogue change', exc_info=True)
 
         return JsonResponse({'provider': provider_slug, 'updated': updated})

@@ -16,7 +16,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from zentinelle.auth.roles import ROLE_ADMIN, ROLE_OPERATOR, assign_role
-from zentinelle.models import AIModel
+from zentinelle.models import AIModel, AuditLog
 from zentinelle.models.ai_provider import AIProvider
 
 
@@ -63,6 +63,7 @@ class ModelCatalogueIsAdminOnlyTest(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.model.refresh_from_db()
         self.assertFalse(self.model.enabled_for_chat)
+        self.assertTrue(AuditLog.objects.filter(action='model_catalogue.changed', resource_id=str(self.model.id)).exists())
 
     @override_settings(AUTH_MODE='local')
     def test_an_unauthenticated_caller_cannot(self):
