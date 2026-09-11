@@ -4,6 +4,8 @@ Celery tasks for processing Zentinelle events.
 import logging
 
 from celery import shared_task
+from django.db.models import F
+from django.utils import timezone
 
 from zentinelle.services.event_store import (EventEnvelope, dead_letter_queue,
                                              event_store)
@@ -231,7 +233,7 @@ def process_alert_event(event_id: str):
     retry_backoff=True,
     max_retries=3,
 )
-def apply_event_projections(self, event_id: str, envelope_data: dict):
+def apply_event_projections(self, event_id: str, envelope_data: dict, outbox_id: str = None):
     """
     Apply registered projections to an event.
 
@@ -250,7 +252,19 @@ def apply_event_projections(self, event_id: str, envelope_data: dict):
                 logger.error(f"Projection {name} failed for event {event_id}: {e}")
                 # Continue with other projections
 
+        if outbox_id:
+            from zentinelle.models import EventDeliveryOutbox
+            EventDeliveryOutbox.objects.filter(id=outbox_id).update(
+                status=EventDeliveryOutbox.Status.DELIVERED,
+                delivered_at=timezone.now(), attempts=F('attempts') + 1,
+            )
     except Exception as e:
+        if outbox_id:
+            from zentinelle.models import EventDeliveryOutbox
+            EventDeliveryOutbox.objects.filter(id=outbox_id).update(
+                status=EventDeliveryOutbox.Status.DEAD_LETTER, attempts=F('attempts') + 1,
+                last_error=str(e),
+            )
         logger.error(f"Failed to apply projections for event {event_id}: {e}")
         raise
 

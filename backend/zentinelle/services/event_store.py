@@ -334,11 +334,19 @@ class EventStore:
 
     def _apply_projections_async(self, envelope: EventEnvelope, event):
         """Queue projection updates for async processing."""
+        from zentinelle.models import EventDeliveryOutbox
         from zentinelle.tasks.events import apply_event_projections
 
         try:
+            if EventDeliveryOutbox.objects.filter(status=EventDeliveryOutbox.Status.PENDING).count() >= 10000:
+                logger.error('Event projection outbox is full; event %s remains pending', event.id)
+                return
+            outbox = EventDeliveryOutbox.objects.create(
+                tenant_id=event.tenant_id, event_id=event.id, envelope=envelope.to_dict(),
+                status=EventDeliveryOutbox.Status.QUEUED,
+            )
             apply_event_projections.apply_async(
-                args=[str(event.id), envelope.to_dict()],
+                args=[str(event.id), envelope.to_dict(), str(outbox.id)],
             )
         except Exception as e:
             logger.warning(f"Failed to queue projection: {e}")

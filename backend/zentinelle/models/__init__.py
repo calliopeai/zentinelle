@@ -34,6 +34,7 @@ from zentinelle.models.control_evidence import ControlEvidence
 # Agent-level models
 from zentinelle.models.endpoint import AgentEndpoint
 from zentinelle.models.event import Event
+from zentinelle.models.event_outbox import EventDeliveryOutbox
 # Client Cove Integration
 from zentinelle.models.integration import ClientCoveIntegration
 # Zentinelle License & Agent Entitlements
@@ -92,6 +93,7 @@ __all__ = [
     'PolicyHistory',
     'PolicyDocument',
     'Event',
+    'EventDeliveryOutbox',
     'AuditLog',
     'AuditChainHead',
     # Compliance & Monitoring
