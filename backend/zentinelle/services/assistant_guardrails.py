@@ -28,6 +28,13 @@ DEFAULT_TOPIC_TERMS = {
     'gateway', 'scan', 'scanning', 'report', 'reports', 'evidence',
 }
 
+INDIRECT_INJECTION_PATTERNS = (
+    r'ignore\s+(?:all\s+)?previous\s+instructions',
+    r'(?:reveal|show|print)\s+(?:the\s+)?system\s+prompt',
+    r'do\s+not\s+follow\s+(?:the\s+)?policy',
+    r' instructions\s*:\s*',
+)
+
 
 @dataclass(frozen=True)
 class GuardrailDecision:
@@ -86,4 +93,14 @@ def check_support_output(text: str) -> GuardrailDecision:
         return GuardrailDecision(False, 'The assistant returned no safe response')
     if not _terms(text).intersection(_allowed_topic_terms()):
         return GuardrailDecision(False, 'The generated response was outside the Zentinelle support scope')
+    return GuardrailDecision(True)
+
+
+def check_untrusted_content(text: str) -> GuardrailDecision:
+    """Reject injection-shaped instructions returned by tools or retrieval."""
+    if not isinstance(text, str):
+        return GuardrailDecision(True)
+    for pattern in INDIRECT_INJECTION_PATTERNS:
+        if re.search(pattern, text, flags=re.IGNORECASE):
+            return GuardrailDecision(False, 'Untrusted tool content contained an instruction injection')
     return GuardrailDecision(True)

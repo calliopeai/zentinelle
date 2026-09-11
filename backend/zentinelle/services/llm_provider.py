@@ -726,6 +726,12 @@ async def _openai_tool_loop(messages, model, provider, api_key, temperature,
                 result_obj = json.loads(result_str)
             except json.JSONDecodeError:
                 result_obj = {'raw': result_str}
+            from zentinelle.services.assistant_guardrails import \
+                check_untrusted_content
+            indirect_check = check_untrusted_content(result_str)
+            if not indirect_check.allowed:
+                yield {'type': 'error', 'message': 'assistant_guardrail_denied'}
+                return
             yield {'type': 'tool_result', 'name': name, 'result': result_obj}
             nav = result_obj.get('navigation') if isinstance(result_obj, dict) else None
             if nav and isinstance(nav, dict):
@@ -954,6 +960,12 @@ async def _gemini_tool_loop(messages, model, api_key, temperature,
                 result_obj = json.loads(result_str)
             except json.JSONDecodeError:
                 result_obj = {'raw': result_str}
+            from zentinelle.services.assistant_guardrails import \
+                check_untrusted_content
+            indirect_check = check_untrusted_content(result_str)
+            if not indirect_check.allowed:
+                yield {'type': 'error', 'message': 'assistant_guardrail_denied'}
+                return
             yield {'type': 'tool_result', 'name': name, 'result': result_obj}
             nav = result_obj.get('navigation') if isinstance(result_obj, dict) else None
             if nav and isinstance(nav, dict):
