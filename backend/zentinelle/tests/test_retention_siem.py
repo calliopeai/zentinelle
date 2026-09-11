@@ -4,6 +4,7 @@ Tests for event retention TTL enforcement and SIEM export (issue #35).
 All tests use unittest.TestCase + unittest.mock only — no database required.
 """
 import json
+import tempfile
 import unittest
 from datetime import datetime
 from datetime import timezone as dt_timezone
@@ -111,6 +112,43 @@ class TestEnforceRetentionTask(TestCase):
         result = cleanup_old_events()
         self.assertTrue(Event.objects.filter(pk=self.event.pk).exists())
         self.assertTrue(result['preserved_for_review'])
+
+    def test_archive_writes_verified_payload_before_deleting_expired_records(self):
+        from zentinelle.models import Event, RetentionOutcome
+        from zentinelle.models.retention_policy import RetentionPolicy
+        from zentinelle.services.retention import verify_retention_manifest
+        from zentinelle.tasks.scheduled import cleanup_old_events
+
+        with tempfile.TemporaryDirectory() as archive_dir:
+            RetentionPolicy.objects.create(
+                tenant_id='tenant1', name='Archive events', entity_type='events',
+                retention_days=30, expiration_action='archive', archive_location=archive_dir,
+            )
+            result = cleanup_old_events()
+            self.assertEqual(result['tenants_failed'], 0)
+            self.assertFalse(Event.objects.filter(pk=self.event.pk).exists())
+            outcome = RetentionOutcome.objects.get(tenant_id='tenant1', entity_type='events')
+            self.assertEqual(outcome.status, RetentionOutcome.Status.ARCHIVED)
+            self.assertTrue(verify_retention_manifest(outcome.manifest))
+            with open(outcome.destination, encoding='utf-8') as archived:
+                payload = json.loads(archived.readline())
+            self.assertEqual(payload['id'], str(self.event.id))
+
+    def test_archive_rejects_unconfigured_remote_transport_and_preserves_source(self):
+        from zentinelle.models import Event, RetentionOutcome
+        from zentinelle.models.retention_policy import RetentionPolicy
+        from zentinelle.tasks.scheduled import cleanup_old_events
+
+        RetentionPolicy.objects.create(
+            tenant_id='tenant1', name='Remote archive', entity_type='events',
+            retention_days=30, expiration_action='archive', archive_location='s3://bucket/tenant1',
+        )
+        result = cleanup_old_events()
+        self.assertGreaterEqual(result['tenants_failed'], 1)
+        self.assertTrue(Event.objects.filter(pk=self.event.pk).exists())
+        self.assertTrue(RetentionOutcome.objects.filter(
+            tenant_id='tenant1', entity_type='events', status=RetentionOutcome.Status.FAILED,
+        ).exists())
 
     def test_one_tenant_failure_does_not_delete_its_data(self):
         from zentinelle.models import Event

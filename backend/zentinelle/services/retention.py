@@ -1,6 +1,9 @@
 """One conservative retention decision for both scheduled entry points."""
 import hashlib
+import json
 import logging
+import os
+import tempfile
 from contextlib import contextmanager
 from datetime import timedelta
 
@@ -78,16 +81,67 @@ def retention_decision(tenant_id, entity, default_days):
     action = 'delete'
     for policy in RetentionPolicy.objects.filter(tenant_id=tenant_id, enabled=True, entity_type__in=[entity, 'all']):
         days.append(max(1, policy.get_effective_retention_days()))
-        if policy.expiration_action != 'delete':
+        if policy.expiration_action == 'archive' and policy.archive_location:
+            action = 'archive'
+        elif policy.expiration_action != 'delete':
             # Never substitute deletion for an archive, anonymize or review request.
             action = 'preserve_for_review'
     return max(days) if days else default_days, action
+
+
+def _archive_destination(location, tenant_id, entity):
+    """Return a safe local archive path for a configured destination.
+
+    Remote transports must be implemented by an explicitly configured storage
+    adapter. Silently treating an S3 URI as a local path would make deletion
+    unsafe, so those destinations fail closed.
+    """
+    if location.startswith('file://'):
+        location = location[7:]
+    if '://' in location or not os.path.isabs(location):
+        raise ValueError('archive_location must be an absolute local path or file:// URI')
+    os.makedirs(location, mode=0o750, exist_ok=True)
+    return os.path.join(location, f'{tenant_id}-{entity}-{timezone.now().strftime("%Y%m%dT%H%M%S%fZ")}.jsonl')
+
+
+def _archive_records(records, location, tenant_id, entity):
+    """Atomically persist records and return destination, digest and count."""
+    destination = _archive_destination(location, tenant_id, entity)
+    directory = os.path.dirname(destination)
+    fd, temporary = tempfile.mkstemp(prefix='.zentinelle-', suffix='.tmp', dir=directory, text=True)
+    digest = hashlib.sha256()
+    count = 0
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as output:
+            for record in records:
+                payload = {}
+                for field in record._meta.concrete_fields:
+                    value = getattr(record, field.attname)
+                    if hasattr(value, 'isoformat'):
+                        value = value.isoformat()
+                    payload[field.name] = value
+                line = (json.dumps(payload, sort_keys=True, default=str) + '\n').encode('utf-8')
+                output.buffer.write(line)
+                digest.update(line)
+                count += 1
+            output.flush()
+            os.fsync(output.fileno())
+        os.chmod(temporary, 0o640)
+        os.replace(temporary, destination)
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise
+    return destination, digest.hexdigest(), count
 
 
 def enforce_retention():
     from zentinelle.models import AuditLog, Event
     from zentinelle.models.compliance import ContentScan, InteractionLog
     from zentinelle.models.usage import UsageMetric
+    from zentinelle.models.retention_policy import RetentionPolicy
     from zentinelle.services.audit_chain import prune_audit_prefix
     models = [(Event, 'events', 'occurred_at', 90), (AuditLog, 'audit_logs', 'timestamp', 365),
               (InteractionLog, 'interactions', 'occurred_at', 90), (ContentScan, 'scans', 'created_at', 90), (UsageMetric, 'usage_data', 'occurred_at', 365)]
@@ -109,6 +163,38 @@ def enforce_retention():
                     continue
                 for model, entity, date_field, default in models:
                     days, action = retention_decision(tenant, entity, default)
+                    cutoff = timezone.now() - timedelta(days=days)
+                    qs = model.objects.filter(tenant_id=tenant, **{date_field + '__lt': cutoff})
+                    if model is Event:
+                        qs = qs.filter(status=Event.Status.PROCESSED)
+                    if action == 'archive':
+                        records = list(qs.order_by('pk'))
+                        policy = RetentionPolicy.objects.filter(
+                            tenant_id=tenant, enabled=True, entity_type__in=[entity, 'all'],
+                            expiration_action='archive',
+                        ).exclude(archive_location='').order_by('-priority').first()
+                        try:
+                            destination, checksum, archived_count = _archive_records(
+                                records, policy.archive_location, tenant, entity,
+                            )
+                            manifest = signed_retention_manifest(tenant, entity, 'archive', archived_count, destination)
+                            manifest['archive_checksum'] = checksum
+                            RetentionOutcome.objects.create(
+                                tenant_id=tenant, entity_type=entity,
+                                status=RetentionOutcome.Status.ARCHIVED,
+                                record_count=archived_count, manifest=manifest,
+                                manifest_digest=manifest['digest'], destination=destination,
+                            )
+                            if records:
+                                qs.delete()
+                            continue
+                        except Exception as exc:
+                            RetentionOutcome.objects.create(
+                                tenant_id=tenant, entity_type=entity,
+                                status=RetentionOutcome.Status.FAILED, error=str(exc),
+                            )
+                            result['tenants_failed'] += 1
+                            continue
                     if action != 'delete':
                         result['preserved_for_review'].append({'tenant_id': tenant, 'entity': entity})
                         manifest = signed_retention_manifest(tenant, entity, action)
@@ -120,7 +206,6 @@ def enforce_retention():
                             destination=manifest['destination'],
                         )
                         continue
-                    cutoff = timezone.now() - timedelta(days=days)
                     if model is AuditLog:
                         deleted = prune_audit_prefix(tenant, cutoff)
                     else:
