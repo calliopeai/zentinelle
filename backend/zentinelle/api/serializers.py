@@ -59,10 +59,11 @@ class SecretsResponseSerializer(serializers.Serializer):
 
 
 class EvaluateRequestSerializer(serializers.Serializer):
-    """Request to evaluate policies for an action."""
+    """Request to evaluate policies with optional workload authority."""
     agent_id = serializers.CharField()
     action = serializers.CharField(max_length=50)
     user_id = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    authority = serializers.DictField(required=False, default=dict)
     context = serializers.JSONField(default=dict)
 
 

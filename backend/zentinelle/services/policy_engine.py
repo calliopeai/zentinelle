@@ -215,7 +215,22 @@ class PolicyEngine:
         - The final result always has allowed=True
         - The result has dry_run=True so callers can distinguish
         """
-        context = context or {}
+        context = dict(context or {})
+        from zentinelle.services.authority import normalize_authority
+        try:
+            authority = normalize_authority(context.get('authority'))
+        except (ValueError, TypeError) as exc:
+            return EvaluationResult(allowed=False, reason=str(exc), context=context)
+        claimed_tenant = authority.get('tenant_id')
+        if claimed_tenant is not None and claimed_tenant != str(endpoint.tenant_id):
+            return EvaluationResult(
+                allowed=False,
+                reason='authority tenant_id does not match authenticated endpoint',
+                context={'authority': authority},
+            )
+        authority['tenant_id'] = str(endpoint.tenant_id)
+        authority['endpoint_id'] = str(endpoint.id)
+        context['authority'] = authority
 
         # Check organization budget first (before policy evaluation)
         # Skip hard budget denial in dry-run mode
