@@ -262,10 +262,16 @@ def apply_event_projections(self, event_id: str, envelope_data: dict, outbox_id:
     except Exception as e:
         if outbox_id:
             from zentinelle.models import EventDeliveryOutbox
-            EventDeliveryOutbox.objects.filter(id=outbox_id).update(
-                status=EventDeliveryOutbox.Status.DEAD_LETTER, attempts=F('attempts') + 1,
-                last_error=str(e),
-            )
+            row = EventDeliveryOutbox.objects.filter(id=outbox_id).first()
+            if row:
+                row.attempts += 1
+                row.last_error = str(e)
+                if row.attempts >= 5:
+                    row.status = EventDeliveryOutbox.Status.DEAD_LETTER
+                else:
+                    row.status = EventDeliveryOutbox.Status.PENDING
+                    row.next_attempt_at = timezone.now() + timedelta(minutes=min(60, 2 ** row.attempts))
+                row.save(update_fields=['status', 'attempts', 'last_error', 'next_attempt_at'])
         logger.error(f"Failed to apply projections for event {event_id}: {e}")
         raise
 
