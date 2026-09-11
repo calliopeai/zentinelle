@@ -496,6 +496,7 @@ class TestPolicyHistoryRoutes(unittest.TestCase):
 
     def test_history_and_diff_routes_resolve_uuid_policy_ids(self):
         import uuid
+
         from django.urls import resolve
 
         policy_id = '123e4567-e89b-12d3-a456-426614174000'
