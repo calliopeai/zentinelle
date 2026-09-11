@@ -25,6 +25,7 @@ class BudgetCharge(models.Model):
     actual_usd = models.DecimalField(max_digits=20, decimal_places=8, null=True, blank=True)
     reconciled_at = models.DateTimeField(null=True, blank=True)
     reconciliation_source = models.CharField(max_length=64, blank=True, default='')
+    pricing_version = models.CharField(max_length=64, blank=True, default='')
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['tenant_id', 'endpoint_id_ext', 'request_id'], name='unique_budget_request')]

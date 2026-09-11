@@ -24,7 +24,8 @@ def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-a
         raise ValueError('Provider usage requires model and integer token counts')
     if min(input_tokens, output_tokens) < 0:
         raise ValueError('Provider token counts cannot be negative')
-    from zentinelle.services.usage_tracking import MODEL_PRICING
+    from zentinelle.services.usage_tracking import (MODEL_PRICING,
+                                                    MODEL_PRICING_VERSION)
     pricing = MODEL_PRICING.get(model)
     if not pricing:
         raise ValueError('No current pricing source for provider model')
@@ -35,6 +36,8 @@ def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-a
         charge = BudgetCharge.objects.select_for_update().get(id=charge_id, tenant_id=tenant_id)
         if charge.reconciled_at:
             return charge
+        if charge.pricing_version and charge.pricing_version != MODEL_PRICING_VERSION:
+            raise ValueError('Budget reservation uses a stale pricing source')
         reservation = charge.amount_usd
         release = max(Decimal('0'), reservation - actual)
         for account_id in charge.account_ids:

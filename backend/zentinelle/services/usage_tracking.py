@@ -9,6 +9,7 @@ from django.utils import timezone
 from zentinelle.models.usage import UsageMetric
 
 logger = logging.getLogger(__name__)
+MODEL_PRICING_VERSION = 'catalog-2026-09-11'
 
 # Model pricing in USD per 1M tokens
 # Source: frontend/src/components/zentinelle/PolicyOverheadDashboard.tsx

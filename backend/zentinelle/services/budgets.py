@@ -94,8 +94,11 @@ def admit(policies, endpoint, action, context):
                     account.committed_usd += amount
                     account.save(update_fields=['committed_usd'])
                     accounts.append(account.pk)
+                from zentinelle.services.usage_tracking import \
+                    MODEL_PRICING_VERSION
                 charge = BudgetCharge.objects.create(tenant_id=endpoint.tenant_id, endpoint_id_ext=endpoint.pk,
-                                                     request_id=request_id, amount_usd=amount, account_ids=accounts)
+                                                     request_id=request_id, amount_usd=amount, account_ids=accounts,
+                                                     pricing_version=MODEL_PRICING_VERSION)
                 context['budget_reservation'] = {'id': str(charge.pk), 'committed_usd': str(amount),
                                                  'basis': 'conservative_upper_bound', 'refundable_by_telemetry': False}
             if not consume_approvals(context.get('_validated_approval_ids', []), tenant_id=endpoint.tenant_id):
