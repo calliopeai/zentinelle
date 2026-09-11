@@ -38,6 +38,7 @@ class PolicyCopilotDiffAPITests(TestCase):
             }, format='json')
         self.assertEqual(response.status_code, 200)
         self.assertIn('config', response.json()['changed_fields'])
+        self.assertTrue(response.json()['rollback']['available_after_promotion'])
         policy.refresh_from_db()
         self.assertEqual(policy.config, {'denied_tools': []})
 

@@ -169,6 +169,9 @@ class PolicyCopilotDiffView(APIView):
         return JsonResponse({'policy_id': policy_id or None, 'before': before, 'after': after,
                              'changed_fields': changed, 'impacted_agent_count': impacted,
                              'simulation': simulation,
+                             'rollback': {'available_after_promotion': True,
+                                          'mechanism': 'policy_change_set_snapshot',
+                                          'base_policy_version': current.version if current else None},
                              'mutated': False, 'next_step': 'Submit through staged policy workflow'})
 
 
