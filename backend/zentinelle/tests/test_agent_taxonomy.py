@@ -27,3 +27,8 @@ class AgentTaxonomyTests(SimpleTestCase):
         child = validate_taxonomy(['authority:destructive'])
         with self.assertRaisesRegex(ValueError, 'widen'):
             inherit_taxonomy(parent, child)
+
+    def test_undeclared_parent_authority_defaults_to_read_only(self):
+        with self.assertRaisesRegex(ValueError, 'widen'):
+            inherit_taxonomy(validate_taxonomy(['function:legal']),
+                             validate_taxonomy(['authority:write']))

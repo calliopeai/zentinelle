@@ -42,7 +42,10 @@ def inherit_taxonomy(parent, child):
     """Inherit swarm/workflow tags without allowing a child to widen authority."""
     parent_supported = set((parent or {}).get('supported', []))
     child_supported = set((child or {}).get('supported', []))
-    parent_authority = max((AUTHORITY_ORDER.get(tag.split(':', 1)[1], 0) for tag in parent_supported if tag.startswith('authority:')), default=0)
+    # An omitted parent authority is treated as the narrowest read-only
+    # boundary. Children must never gain write, egress, destructive, or
+    # privileged authority merely because a parent failed to declare it.
+    parent_authority = max((AUTHORITY_ORDER.get(tag.split(':', 1)[1], 0) for tag in parent_supported if tag.startswith('authority:')), default=AUTHORITY_ORDER['read_only'])
     child_authority = max((AUTHORITY_ORDER.get(tag.split(':', 1)[1], 0) for tag in child_supported if tag.startswith('authority:')), default=0)
     if child_authority > parent_authority:
         raise ValueError('child taxonomy cannot widen parent authority')
