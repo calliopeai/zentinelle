@@ -153,8 +153,8 @@ urlpatterns = [
     path('risks/trend', RiskTrendView.as_view(), name='risks-trend'),
 
     # Policy version history & diff
-    path('policies/<int:policy_id>/history/', PolicyHistoryListView.as_view(), name='policy-history'),
-    path('policies/<int:policy_id>/diff/', PolicyDiffView.as_view(), name='policy-diff'),
+    path('policies/<uuid:policy_id>/history/', PolicyHistoryListView.as_view(), name='policy-history'),
+    path('policies/<uuid:policy_id>/diff/', PolicyDiffView.as_view(), name='policy-diff'),
 
     # Incident management
     path('incidents/', IncidentListView.as_view(), name='incident-list'),
