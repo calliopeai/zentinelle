@@ -14,6 +14,7 @@ const TABS = [
   { slug: "interactions", label: "Interactions" },
   { slug: "usage", label: "Usage" },
   { slug: "compliance", label: "Compliance" },
+  { slug: "controls", label: "Controls" },
 ] as const;
 
 function healthVariant(health: string | null | undefined) {
