@@ -61,6 +61,7 @@ from zentinelle.api.views import (AcknowledgeAlertView, AgentControlView,
                                   PolicyChangeAcknowledgementView,
                                   PolicyChangeSetListView,
                                   PolicyChangeSetTransitionView,
+                                  PolicyCopilotDraftView,
                                   PolicyCopilotStatusView, PolicyDiffView,
                                   PolicyHistoryListView, RegisterView,
                                   ReportCreateView, ReportDownloadView,
@@ -113,6 +114,7 @@ urlpatterns = [
     path('settings/llm-providers/<str:provider>', LLMProviderKeyDeleteView.as_view(), name='llm-provider-key-delete'),
     path('settings/runtime', RuntimeSettingsView.as_view(), name='runtime-settings'),
     path('policy-copilot/status', PolicyCopilotStatusView.as_view(), name='policy-copilot-status'),
+    path('policy-copilot/draft', PolicyCopilotDraftView.as_view(), name='policy-copilot-draft'),
     path('threats/atlas', AtlasControlMapView.as_view(), name='atlas-control-map'),
 
     # Agent-facing endpoints
