@@ -31,7 +31,8 @@ from zentinelle.api.views.policy import EffectivePolicyView, SystemPromptsView
 from zentinelle.api.views.policy_change import (
     PolicyChangeAcknowledgementView, PolicyChangeSetListView,
     PolicyChangeSetTransitionView)
-from zentinelle.api.views.policy_copilot import (PolicyCopilotDraftView,
+from zentinelle.api.views.policy_copilot import (PolicyCopilotDiffView,
+                                                 PolicyCopilotDraftView,
                                                  PolicyCopilotExplainView,
                                                  PolicyCopilotStatusView)
 from zentinelle.api.views.policy_history import (PolicyDiffView,
@@ -86,6 +87,7 @@ __all__ = [
     'PolicyChangeAcknowledgementView',
     'PolicyCopilotStatusView',
     'PolicyCopilotDraftView',
+    'PolicyCopilotDiffView',
     'PolicyCopilotExplainView',
     'PolicyDiffView',
     # Incidents

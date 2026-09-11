@@ -131,3 +131,34 @@ class PolicyCopilotExplainView(APIView):
                              'evidence': [{'control_id': key, 'status': value.effective_status,
                                            'captured_at': value.captured_at.isoformat(), 'id': str(value.id)}
                                           for key, value in evidence_by_control.items()]})
+
+
+class PolicyCopilotDiffView(APIView):
+    """Return a tenant-scoped, non-mutating diff and impact preview."""
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAccess]
+
+    def post(self, request):
+        tenant_id = get_request_tenant_id(request.user) or ''
+        config = TenantConfig.objects.filter(tenant_id=tenant_id).first()
+        if not (config and (config.settings or {}).get('policy_copilot_enabled', False)):
+            return JsonResponse({'error': 'Policy copilot is disabled'}, status=403)
+        payload = request.data if isinstance(request.data, dict) else {}
+        policy_id = str(payload.get('policy_id', '')).strip()
+        draft = payload.get('draft') if isinstance(payload.get('draft'), dict) else payload
+        current = Policy.objects.filter(tenant_id=tenant_id, id=policy_id).first() if policy_id else None
+        if policy_id and current is None:
+            return JsonResponse({'error': 'Policy not found'}, status=404)
+        before = {'policy_type': current.policy_type, 'scope_type': current.scope_type,
+                  'enforcement': current.enforcement, 'config': current.config} if current else {}
+        after = {'policy_type': draft.get('policy_type'), 'scope_type': draft.get('scope_type'),
+                 'enforcement': draft.get('enforcement'), 'config': draft.get('config', {})}
+        changed = [key for key in after if after[key] != before.get(key)]
+        from zentinelle.models import AgentEndpoint
+        impacted = AgentEndpoint.objects.filter(tenant_id=tenant_id).count()
+        AuditLog.objects.create(tenant_id=tenant_id, ext_user_id=str(request.user.pk), action=AuditLog.Action.ACCESS,
+                                resource_type='policy_copilot', resource_id=tenant_id,
+                                metadata={'operation': 'diff', 'policy_id': policy_id, 'changed': changed})
+        return JsonResponse({'policy_id': policy_id or None, 'before': before, 'after': after,
+                             'changed_fields': changed, 'impacted_agent_count': impacted,
+                             'mutated': False, 'next_step': 'Submit through staged policy workflow'})
