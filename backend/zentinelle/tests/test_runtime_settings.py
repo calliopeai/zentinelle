@@ -58,6 +58,9 @@ class RuntimeSettingsRevisionTests(TestCase):
         data = json.loads(RuntimeSettingsView.as_view()(request).content)
         self.assertEqual(data['settings']['model_visibility'], 'enabled_only')
         self.assertEqual(data['settings']['discovery_refresh_seconds'], 3600)
+        self.assertEqual(data['settingSchema']['assistant_model']['scope'], 'tenant')
+        self.assertFalse(data['settingSchema']['assistant_model']['secret'])
+        self.assertIn('provider credentials', data['bootstrapOnly'])
         self.assertEqual(data['effective']['model_visibility']['source'], 'default')
         self.assertIsNone(data['effective']['model_visibility']['changed_at'])
 

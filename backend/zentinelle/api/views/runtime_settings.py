@@ -27,6 +27,15 @@ SETTING_DEFAULTS = {
     'default_budget_cents': lambda: 0,
 }
 
+SETTING_SCHEMA = {
+    key: {'scope': 'tenant', 'secret': False, 'runtime_managed': True}
+    for key in SETTING_DEFAULTS
+}
+BOOTSTRAP_ONLY_SETTINGS = [
+    'bootstrap secrets', 'database URLs', 'broker URLs', 'provider credentials',
+    'encryption keys', 'OIDC client secrets',
+]
+
 
 def _tenant_id(request):
     tenant_id = get_request_tenant_id(request.user)
@@ -87,7 +96,10 @@ class RuntimeSettingsView(APIView):
             tenant_id=tenant_id,
             status__in=[RuntimeSettingsChange.Status.STAGED, RuntimeSettingsChange.Status.APPROVED],
         )[:20]
-        return JsonResponse({'settings': values, 'allowedKeys': list(SETTING_DEFAULTS), 'revision': latest.revision if latest else 0,
+        return JsonResponse({'settings': values, 'allowedKeys': list(SETTING_DEFAULTS),
+                             'settingSchema': SETTING_SCHEMA,
+                             'bootstrapOnly': BOOTSTRAP_ONLY_SETTINGS,
+                             'revision': latest.revision if latest else 0,
                              'effective': effective,
                              'pending': [_serialize_change(row) for row in pending],
                              'revisions': [{'revision': row.revision, 'actor_id': row.actor_id, 'actor_name': row.actor_name,
