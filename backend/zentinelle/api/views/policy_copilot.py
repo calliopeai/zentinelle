@@ -157,11 +157,18 @@ class PolicyCopilotDiffView(APIView):
         changed = [key for key in after if after[key] != before.get(key)]
         from zentinelle.models import AgentEndpoint
         impacted = AgentEndpoint.objects.filter(tenant_id=tenant_id).count()
+        try:
+            from zentinelle.services.policy_simulator import simulate_policy
+            simulation = simulate_policy(tenant_id, after, lookback_days=7, max_events=1000)
+        except Exception as exc:
+            simulation = {'status': 'unknown', 'error': str(exc)[:255]}
         AuditLog.objects.create(tenant_id=tenant_id, ext_user_id=str(request.user.pk), action=AuditLog.Action.ACCESS,
                                 resource_type='policy_copilot', resource_id=tenant_id,
-                                metadata={'operation': 'diff', 'policy_id': policy_id, 'changed': changed})
+                                metadata={'operation': 'diff', 'policy_id': policy_id, 'changed': changed,
+                                          'simulation': {key: simulation.get(key) for key in ('total_events', 'would_block', 'would_warn', 'inconclusive') if key in simulation}})
         return JsonResponse({'policy_id': policy_id or None, 'before': before, 'after': after,
                              'changed_fields': changed, 'impacted_agent_count': impacted,
+                             'simulation': simulation,
                              'mutated': False, 'next_step': 'Submit through staged policy workflow'})
 
 
