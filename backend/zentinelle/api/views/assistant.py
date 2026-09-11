@@ -224,6 +224,7 @@ class AssistantChatView(APIView):
 
         q: queue.Queue = queue.Queue()
         SENTINEL = object()
+        buffered_text = []
 
         def producer():
             loop = asyncio.new_event_loop()
@@ -258,7 +259,7 @@ class AssistantChatView(APIView):
                 break
             kind = ev.get('type')
             if kind == 'text':
-                yield f"data: {json.dumps({'content': ev['content']})}\n\n"
+                buffered_text.append(ev.get('content', ''))
             elif kind == 'tool_call':
                 yield f"data: {json.dumps({'tool_call': ev['name'], 'args': ev.get('args', {}), 'hash': ev.get('hash', '')})}\n\n"
             elif kind == 'tool_result':
@@ -273,6 +274,15 @@ class AssistantChatView(APIView):
             elif kind == 'error':
                 yield f"data: {json.dumps({'error': ev.get('message', 'stream error')})}\n\n"
 
+        from zentinelle.services.assistant_guardrails import \
+            check_support_output
+        complete_text = ''.join(buffered_text)
+        output_check = check_support_output(complete_text)
+        if output_check.allowed:
+            if complete_text:
+                yield f"data: {json.dumps({'content': complete_text})}\n\n"
+        else:
+            yield f"data: {json.dumps({'error': 'assistant_guardrail_denied', 'detail': output_check.reason})}\n\n"
         yield "data: [DONE]\n\n"
 
     def _build_system_prompt(self, request, page_context):
