@@ -174,12 +174,17 @@ def _hash_action(name: str, args: dict) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
-def _check_model_route(model: str, provider: str):
+def _check_model_route(model: str, provider: str, tenant_id: str = None):
     """Fail closed for a model explicitly disabled or unavailable by admins."""
     from zentinelle.models import AIModel
     registered = AIModel.objects.filter(model_id=model, provider__slug=provider).first()
     if registered and (not registered.is_available or registered.deprecated or not registered.enabled_for_chat):
         raise RuntimeError(f'Model route is disabled: {provider}/{model}')
+    if registered and tenant_id:
+        from zentinelle.models import OrganizationModelApproval
+        approval = OrganizationModelApproval.objects.filter(tenant_id=tenant_id, model=registered).first()
+        if approval and not approval.is_usable:
+            raise RuntimeError(f'Model route is not approved for tenant: {provider}/{model}')
 
 
 async def agentic_chat(
@@ -213,7 +218,7 @@ async def agentic_chat(
         provider = detect_provider(model)
 
     if tenant_id:
-        await asyncio.to_thread(_check_model_route, model, provider)
+        await asyncio.to_thread(_check_model_route, model, provider, tenant_id)
 
     if tenant_id:
         api_key = await asyncio.to_thread(get_api_key, provider, tenant_id)
@@ -1030,7 +1035,7 @@ async def stream_chat(
         provider = detect_provider(model)
 
     if tenant_id:
-        await asyncio.to_thread(_check_model_route, model, provider)
+        await asyncio.to_thread(_check_model_route, model, provider, tenant_id)
 
     # Resolve API key BEFORE async path — get_api_key uses Django ORM which
     # can't run inside an async loop without explicit sync_to_async.
