@@ -197,6 +197,7 @@ def _deny_model_route(message, *, tenant_id=None, provider='', model='', policy=
 def _check_model_route(model: str, provider: str, tenant_id: str = None):
     """Fail closed for a model explicitly disabled or unavailable by admins."""
     from zentinelle.models import AIModel
+    policy_versions = []
     registered = AIModel.objects.filter(model_id=model, provider__slug=provider).first()
     if registered and (not registered.is_available or registered.deprecated or not registered.enabled_for_chat):
         _deny_model_route(f'Model route is disabled: {provider}/{model}', tenant_id=tenant_id, provider=provider, model=model)
@@ -217,6 +218,7 @@ def _check_model_route(model: str, provider: str, tenant_id: str = None):
             enforcement=Policy.Enforcement.ENFORCE,
         ).order_by('-priority', 'id'):
             try:
+                policy_versions.append({'id': str(policy.id), 'version': policy.version})
                 result = ModelRestrictionEvaluator().evaluate(
                     policy, 'llm:invoke', None, {'model': model, 'provider': provider}, dry_run=False,
                 )
@@ -224,6 +226,21 @@ def _check_model_route(model: str, provider: str, tenant_id: str = None):
                 _deny_model_route(f'Model route policy evaluation failed: {policy.id}', tenant_id=tenant_id, provider=provider, model=model, policy=policy)
             if not result.passed:
                 _deny_model_route(f'Model route denied by policy {policy.id}: {result.message}', tenant_id=tenant_id, provider=provider, model=model, policy=policy)
+    if tenant_id:
+        try:
+            from zentinelle.models import AuditLog
+            AuditLog.log(
+                tenant_id=tenant_id, action='model_route.allowed',
+                resource_type='model_route', resource_id=f'{provider}/{model}',
+                changes={'decision': 'allow'},
+                metadata={
+                    'provider': provider, 'model': model,
+                    'registered_model_id': str(getattr(registered, 'id', '') or ''),
+                    'policy_versions': policy_versions,
+                },
+            )
+        except Exception:
+            logger.warning('Unable to audit model route admission', exc_info=True)
 
 
 def _check_tool_route(tool_name: str, tool_args: dict, tenant_id: str,

@@ -50,6 +50,15 @@ class DependableControlsTests(TestCase):
             response = self.client.post(API + 'evaluate', {'agent_id': 'someone-else', 'action': 'llm:invoke'}, format='json')
             self.assertEqual(response.status_code, 403)
 
+    @patch('zentinelle.models.AuditLog.log')
+    def test_allowed_model_route_writes_metadata_only_evidence(self, audit):
+        from zentinelle.services.llm_provider import _check_model_route
+        _check_model_route('gpt-4o', 'openai', TENANT)
+        audit.assert_called_once()
+        kwargs = audit.call_args.kwargs
+        self.assertEqual(kwargs['action'], 'model_route.allowed')
+        self.assertEqual(kwargs['resource_id'], 'openai/gpt-4o')
+        self.assertNotIn('api_key', kwargs['metadata'])
     def test_viewer_and_agent_cannot_change_provider_keys_or_incidents(self):
         for agent in (False, True):
             self.client.logout()
