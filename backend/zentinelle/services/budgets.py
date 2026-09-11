@@ -61,7 +61,10 @@ def request_upper_bound(context):
         import json
         body = context['request_body']
         body = json.loads(body) if isinstance(body, str) else body
-        if body.get('n', 1) != 1 or any(t.get('type', 'function') != 'function' for t in body.get('tools', [])):
+        if not isinstance(body, dict):
+            raise ValueError('Hard budget request_body must be an object')
+        tools = body.get('tools', [])
+        if not isinstance(tools, list) or any(not isinstance(t, dict) or t.get('type', 'function') != 'function' for t in tools):
             raise ValueError('Hard budget does not support multiple candidates or provider-hosted tools')
     amount = (Decimal(inputs * 2) * Decimal(str(price['input'])) + Decimal(tokens) * Decimal(str(price['output']))) / Decimal(1000000)
     return amount.quantize(Decimal('0.00000001'), rounding=ROUND_UP)
