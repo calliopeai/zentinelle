@@ -20,7 +20,8 @@ class RuntimeCoverageTests(TestCase):
             tenant_id='tenant-a', endpoint=observed, event_type='ai_request',
             occurred_at=timezone.now(),
         )
-        event_time = Event.objects.filter(endpoint=observed).values_list('occurred_at', flat=True).get()
+        event = Event.objects.filter(endpoint=observed).values('id', 'occurred_at', 'event_type').get()
+        event_time = event['occurred_at']
         result = runtime_coverage('tenant-a')
         self.assertEqual(result['registered_workloads'], 2)
         self.assertEqual(result['observed_workloads'], 1)
@@ -30,6 +31,8 @@ class RuntimeCoverageTests(TestCase):
         observed_row = next(row for row in result['workloads'] if row['agent_id'] == 'observed')
         self.assertEqual(observed_row['last_observed_at'], event_time.isoformat())
         self.assertEqual(result['coverage_as_of'], event_time.isoformat())
+        self.assertEqual(observed_row['last_event_id'], str(event['id']))
+        self.assertEqual(observed_row['last_event_type'], event['event_type'])
 
     def test_tenant_isolation(self):
         self.endpoint('tenant-a-agent')

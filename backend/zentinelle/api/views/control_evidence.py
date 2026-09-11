@@ -71,6 +71,9 @@ def runtime_coverage(tenant_id):
         tenant_id=tenant_id, endpoint_id__isnull=False,
     ).values('endpoint_id').annotate(last_observed_at=Max('occurred_at'))
     observed = {row['endpoint_id']: row['last_observed_at'] for row in observed_rows}
+    latest_events = {}
+    for event in Event.objects.filter(tenant_id=tenant_id, endpoint_id__isnull=False).order_by('-occurred_at').values('id', 'endpoint_id', 'event_type'):
+        latest_events.setdefault(event['endpoint_id'], event)
     rows = []
     for endpoint in endpoints:
         endpoint_id = endpoint['id']
@@ -80,6 +83,8 @@ def runtime_coverage(tenant_id):
             'status': 'observed' if endpoint_id in observed else 'unknown',
             'registered_status': endpoint['status'],
             'last_observed_at': observed.get(endpoint_id).isoformat() if observed.get(endpoint_id) else None,
+            'last_event_id': str(latest_events[endpoint_id]['id']) if endpoint_id in latest_events else None,
+            'last_event_type': latest_events[endpoint_id]['event_type'] if endpoint_id in latest_events else None,
         })
     return {
         'registered_workloads': len(endpoints),
