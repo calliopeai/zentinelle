@@ -74,6 +74,7 @@ from zentinelle.api.views.assistant_models import (AssistantModelsBulkView,
                                                    AssistantModelsListView,
                                                    AssistantModelsToggleView)
 from zentinelle.api.views.assistant_providers import AssistantProvidersView
+from zentinelle.api.views.atlas import AtlasControlMapView
 from zentinelle.api.views.auth import (CSRFTokenView, LoginView, LogoutView,
                                        MeView)
 from zentinelle.api.views.health import HealthView, ReadyView
@@ -110,6 +111,7 @@ urlpatterns = [
     path('settings/llm-providers', LLMProviderKeysView.as_view(), name='llm-provider-keys'),
     path('settings/llm-providers/<str:provider>', LLMProviderKeyDeleteView.as_view(), name='llm-provider-key-delete'),
     path('settings/runtime', RuntimeSettingsView.as_view(), name='runtime-settings'),
+    path('threats/atlas', AtlasControlMapView.as_view(), name='atlas-control-map'),
 
     # Agent-facing endpoints
     path('register', RegisterView.as_view(), name='register'),
