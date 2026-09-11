@@ -71,7 +71,7 @@ class EventsView(APIView):
                 deployment_id_ext=auth_endpoint.deployment_id_ext,
                 event_type=event_data['type'],
                 event_category=event_data.get('category', Event.Category.TELEMETRY),
-                payload=capture_payload(event_data.get('payload', {})),
+                payload=capture_payload(event_data.get('payload', {}), auth_endpoint.tenant_id),
                 user_identifier=event_data.get('user_id', ''),
                 occurred_at=occurred_at,
                 status=Event.Status.PENDING,

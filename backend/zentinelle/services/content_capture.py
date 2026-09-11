@@ -9,7 +9,16 @@ CONTENT_KEYS = {'input', 'output', 'input_text', 'output_text', 'input_content',
 SECRET_KEYS = {'api_key', 'apikey', 'authorization', 'password', 'secret', 'token', 'approval_token'}
 
 
-def capture_mode():
+def capture_mode(tenant_id=None):
+    if tenant_id:
+        try:
+            from zentinelle.models import TenantConfig
+            stored = TenantConfig.objects.filter(tenant_id=str(tenant_id)).values_list('settings', flat=True).first() or {}
+            configured = stored.get('content_capture_mode')
+            if configured in ('metadata', 'redacted', 'full'):
+                return configured
+        except Exception:
+            pass
     mode = getattr(settings, 'CONTENT_CAPTURE_MODE', 'metadata')
     return mode if mode in ('metadata', 'redacted', 'full') else 'metadata'
 
@@ -28,27 +37,27 @@ def redact_text(value):
     return text
 
 
-def capture_text(value):
-    mode = capture_mode()
+def capture_text(value, tenant_id=None):
+    mode = capture_mode(tenant_id)
     if mode == 'metadata':
         return ''
     return str(value or '') if mode == 'full' else redact_text(value)
 
 
-def capture_payload(value):
+def capture_payload(value, tenant_id=None):
     if isinstance(value, dict):
         result = {}
         for key, item in value.items():
             if key.lower() in SECRET_KEYS or key.startswith('_'):
                 continue
-            if key.lower() in CONTENT_KEYS and capture_mode() == 'metadata':
+            if key.lower() in CONTENT_KEYS and capture_mode(tenant_id) == 'metadata':
                 continue
-            result[key] = capture_payload(item)
+            result[key] = capture_payload(item, tenant_id)
         return result
     if isinstance(value, list):
-        return [capture_payload(item) for item in value]
+        return [capture_payload(item, tenant_id) for item in value]
     if isinstance(value, str):
-        return value if capture_mode() == 'full' else redact_text(value)
+        return value if capture_mode(tenant_id) == 'full' else redact_text(value)
     return value
 
 
@@ -65,4 +74,8 @@ def record_interaction(**kwargs):
                                    user_id=kwargs.get('user_identifier') or '', content_type=kind,
                                    request_id=kwargs.get('request_id', ''))
             kwargs['scan'] = scan
+    tenant_id = kwargs.get('tenant_id')
+    for field in ('input_content', 'output_content'):
+        if kwargs.get(field) is not None:
+            kwargs[field] = capture_text(kwargs[field], tenant_id)
     return InteractionLog.objects.create(**kwargs)

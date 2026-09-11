@@ -178,8 +178,8 @@ class AuditLog(models.Model):
         using = kwargs.get('using') or router.db_for_write(type(self))
 
         from zentinelle.services.content_capture import capture_payload
-        self.changes = capture_payload(self.changes)
-        self.metadata = capture_payload(self.metadata)
+        self.changes = capture_payload(self.changes, self.tenant_id)
+        self.metadata = capture_payload(self.metadata, self.tenant_id)
         with transaction.atomic(using=using):
             head = self.compute_hashes(using=using)
             result = super().save(*args, **kwargs)

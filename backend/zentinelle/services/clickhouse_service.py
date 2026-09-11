@@ -118,7 +118,7 @@ def insert_audit_events(rows: List[Dict[str, Any]]) -> int:
             row.get('resource_type', ''),
             str(row.get('resource_id', '')),
             row.get('resource_name', ''),
-            json.dumps(capture_payload(row.get('metadata', {}))) if isinstance(row.get('metadata'), dict) else '{}',
+            json.dumps(capture_payload(row.get('metadata', {}), row.get('tenant_id'))) if isinstance(row.get('metadata'), dict) else '{}',
             row.get('ip_address') or None,
             row.get('user_agent', ''),
             row.get('correlation_id', ''),

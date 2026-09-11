@@ -126,7 +126,7 @@ class Event(models.Model):
 
     def save(self, *args, **kwargs):
         from zentinelle.services.content_capture import capture_payload
-        self.payload = capture_payload(self.payload)
+        self.payload = capture_payload(self.payload, self.tenant_id)
         return super().save(*args, **kwargs)
 
     def __str__(self):

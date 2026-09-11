@@ -224,7 +224,7 @@ class UsageMetric(models.Model):
 
     def save(self, *args, **kwargs):
         from zentinelle.services.content_capture import capture_payload
-        self.metadata = capture_payload(self.metadata)
+        self.metadata = capture_payload(self.metadata, self.tenant_id)
         return super().save(*args, **kwargs)
 
     class Meta:

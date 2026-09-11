@@ -651,8 +651,8 @@ class ContentScan(Tracking):
 
     def save(self, *args, **kwargs):
         from zentinelle.services.content_capture import capture_text
-        self.content_preview = capture_text(self.content_preview)
-        self.redacted_content = capture_text(self.redacted_content)
+        self.content_preview = capture_text(self.content_preview, self.tenant_id)
+        self.redacted_content = capture_text(self.redacted_content, self.tenant_id)
         return super().save(*args, **kwargs)
 
     class Meta:
@@ -736,8 +736,8 @@ class ContentViolation(Tracking):
     def save(self, *args, **kwargs):
         from zentinelle.services.content_capture import (capture_payload,
                                                          capture_text)
-        self.matched_text = capture_text(self.matched_text)
-        self.metadata = capture_payload(self.metadata)
+        self.matched_text = capture_text(self.matched_text, self.tenant_id)
+        self.metadata = capture_payload(self.metadata, self.tenant_id)
         return super().save(*args, **kwargs)
 
     class Meta:
@@ -950,8 +950,8 @@ class InteractionLog(Tracking):
                                                          capture_payload,
                                                          capture_text)
         for name in ('input_content', 'output_content', 'system_prompt'):
-            setattr(self, name, capture_text(getattr(self, name)))
-        self.tool_calls = [] if capture_mode() == 'metadata' else capture_payload(self.tool_calls)
+            setattr(self, name, capture_text(getattr(self, name), self.tenant_id))
+        self.tool_calls = [] if capture_mode(self.tenant_id) == 'metadata' else capture_payload(self.tool_calls, self.tenant_id)
         return super().save(*args, **kwargs)
 
     class Meta:

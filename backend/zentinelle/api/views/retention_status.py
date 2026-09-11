@@ -60,15 +60,20 @@ class RetentionStatusView(APIView):
                 'auto_delete_user_data': config.get('auto_delete_user_data', False),
             })
 
-        outcomes = RetentionOutcome.objects.filter(tenant_id=tenant_id).order_by('-created_at')[:100]
+        try:
+            outcomes = RetentionOutcome.objects.filter(tenant_id=tenant_id).order_by('-created_at')[:100]
+            outcome_counts = {
+                status_value: RetentionOutcome.objects.filter(tenant_id=tenant_id, status=status_value).count()
+                for status_value, _ in RetentionOutcome.Status.choices
+            }
+        except Exception:
+            # Keep policy status readable during a migration/ledger outage.
+            outcomes = []
+            outcome_counts = {}
         serialized = [{
             'id': str(outcome.id), 'entity_type': outcome.entity_type,
             'status': outcome.status, 'record_count': outcome.record_count,
             'destination': outcome.destination, 'manifest_digest': outcome.manifest_digest,
             'created_at': outcome.created_at.isoformat(),
         } for outcome in outcomes]
-        return Response({'policies': policies, 'outcomes': serialized,
-                         'outcome_counts': {
-                             status_value: RetentionOutcome.objects.filter(tenant_id=tenant_id, status=status_value).count()
-                             for status_value, _ in RetentionOutcome.Status.choices
-                         }})
+        return Response({'policies': policies, 'outcomes': serialized, 'outcome_counts': outcome_counts})
