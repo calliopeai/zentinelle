@@ -15,8 +15,8 @@
     {"name": "python", "path": "python/zentinelle", "status": "contract-tested", "limitations": ["framework callback enforcement varies by adapter"]},
     {"name": "typescript", "path": "typescript/src", "status": "contract-tested", "limitations": ["direct provider calls outside proxy are deployment responsibility"]},
     {"name": "go", "path": "go/zentinelle", "status": "contract-tested", "limitations": ["provider route coverage is explicit, not generic"]},
-    {"name": "java", "path": "java/src/main/java/ai/zentinelle", "status": "sdk-contract-pending", "limitations": ["runtime conformance fixture not yet wired in this repository"]},
-    {"name": "csharp", "path": "csharp/src/Zentinelle", "status": "sdk-contract-pending", "limitations": ["runtime conformance fixture not yet wired in this repository"]},
+    {"name": "java", "path": "java/src/main/java/ai/zentinelle", "status": "sdk-contract-tested", "limitations": ["clean-checkout runtime fixture is CI-only; direct provider bypass remains deployment responsibility"]},
+    {"name": "csharp", "path": "csharp/src/Zentinelle", "status": "sdk-contract-tested", "limitations": ["clean-checkout runtime fixture is CI-only; direct provider bypass remains deployment responsibility"]},
     {"name": "gateway", "path": "gateway", "status": "gateway-contract-tested", "limitations": ["direct provider bypass remains outside gateway boundary"]},
     {"name": "browser", "path": "frontend", "status": "browser-contract-tested", "limitations": ["browser cannot enforce unmanaged agent paths"]}
   ]
