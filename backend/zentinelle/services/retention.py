@@ -13,7 +13,7 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
-def signed_retention_manifest(tenant_id, entity, action, record_count=0, destination=''):
+def signed_retention_manifest(tenant_id, entity, action, record_count=0, destination='', subject_id=None):
     """Create a tamper-evident manifest for an archive/preservation outcome."""
     from django.conf import settings
     from django.core import signing
@@ -25,6 +25,8 @@ def signed_retention_manifest(tenant_id, entity, action, record_count=0, destina
         'destination': destination,
         'created_at': timezone.now().isoformat(),
     }
+    if subject_id is not None:
+        manifest['subject_id'] = str(subject_id)
     signature = signing.dumps(manifest, key=settings.SECRET_KEY, salt='zentinelle-retention-v1')
     digest = hashlib.sha256(signature.encode()).hexdigest()
     return {**manifest, 'signature': signature, 'digest': digest}
@@ -44,7 +46,12 @@ def verify_retention_manifest(manifest):
         payload = signing.loads(signature, key=settings.SECRET_KEY, salt='zentinelle-retention-v1')
     except (signing.BadSignature, TypeError, ValueError):
         return False
-    return all(payload.get(key) == manifest.get(key) for key in ('tenant_id', 'entity_type', 'action', 'record_count', 'destination', 'created_at'))
+    required = ('tenant_id', 'entity_type', 'action', 'record_count', 'destination', 'created_at')
+    if not all(payload.get(key) == manifest.get(key) for key in required):
+        return False
+    if 'subject_id' in manifest:
+        return payload.get('subject_id') == manifest.get('subject_id')
+    return 'subject_id' not in payload
 
 
 def expire_archive(manifest, tenant_id):

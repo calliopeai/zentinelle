@@ -3,7 +3,8 @@ import os
 from django.db.models import Q
 from django.utils import timezone
 
-from zentinelle.services.retention import held, tenant_retention_lock, verify_retention_manifest
+from zentinelle.services.retention import (held, tenant_retention_lock,
+                                            verify_retention_manifest)
 
 
 def _held_for_subject(tenant_id, subject_id):
@@ -52,6 +53,8 @@ def erase_tenant(tenant_id, *, actor='privacy-operator', subject_id=None):
             manifest = outcome.manifest or {}
             if not verify_retention_manifest(manifest) or manifest.get('tenant_id') != tenant_id:
                 raise RuntimeError('Cannot erase an archive with an invalid retention manifest')
+            if subject_id and manifest.get('subject_id') != subject_id:
+                continue
             destination = str(manifest.get('destination') or '')
             if destination.startswith('file://'):
                 destination = destination[7:]

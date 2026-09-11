@@ -32,3 +32,9 @@ class RetentionManifestTests(SimpleTestCase):
             with self.assertRaisesRegex(ValueError, 'cross-tenant'):
                 expire_archive(manifest, 'tenant-b')
             self.assertTrue(archive.exists())
+
+    def test_subject_scope_is_signed_and_tamper_evident(self):
+        manifest = signed_retention_manifest('tenant-a', 'user', 'archive', 1, 'file:///tmp/user-a', subject_id='user-a')
+        self.assertTrue(verify_retention_manifest(manifest))
+        manifest['subject_id'] = 'user-b'
+        self.assertFalse(verify_retention_manifest(manifest))
