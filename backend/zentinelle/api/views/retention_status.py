@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 
 from zentinelle.api.auth import get_tenant_id_from_request
 from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
-from zentinelle.models import Policy
+from zentinelle.models import Policy, RetentionOutcome
 
 logger = logging.getLogger(__name__)
 
@@ -60,4 +60,15 @@ class RetentionStatusView(APIView):
                 'auto_delete_user_data': config.get('auto_delete_user_data', False),
             })
 
-        return Response({'policies': policies})
+        outcomes = RetentionOutcome.objects.filter(tenant_id=tenant_id).order_by('-created_at')[:100]
+        serialized = [{
+            'id': str(outcome.id), 'entity_type': outcome.entity_type,
+            'status': outcome.status, 'record_count': outcome.record_count,
+            'destination': outcome.destination, 'manifest_digest': outcome.manifest_digest,
+            'created_at': outcome.created_at.isoformat(),
+        } for outcome in outcomes]
+        return Response({'policies': policies, 'outcomes': serialized,
+                         'outcome_counts': {
+                             status_value: RetentionOutcome.objects.filter(tenant_id=tenant_id, status=status_value).count()
+                             for status_value, _ in RetentionOutcome.Status.choices
+                         }})
