@@ -88,6 +88,7 @@ def generate_control_coverage(tenant_id: str, pack_name: str, format: str = 'csv
         raise ValueError(f"Unknown compliance pack: '{pack_name}'")
 
     rows = []
+    from zentinelle.models import ControlEvidence
     for policy_def in pack['policies']:
         control_name = policy_def['name']
         policy_type = policy_def['policy_type']
@@ -117,14 +118,28 @@ def generate_control_coverage(tenant_id: str, pack_name: str, format: str = 'csv
             actual_enforcement = matching.enforcement
             row_status = 'configured'
 
+        control_id = f"{pack_name}:{policy_type}:{control_name}"
+        try:
+            evidence = ControlEvidence.objects.filter(
+                tenant_id=tenant_id, control_id=control_id,
+            ).order_by('-captured_at').first()
+            evidence_status = evidence.effective_status if evidence else 'unverified'
+        except Exception as exc:  # noqa: BLE001
+            logger.warning('Control evidence lookup failed for %s: %s', control_id, exc)
+            evidence = None
+            evidence_status = 'unknown'
+
         rows.append({
             'control_name': control_name,
             'policy_type': policy_type,
             'required_enforcement': required_enforcement,
             'actual_enforcement': actual_enforcement,
             'status': row_status,
-            'evidence_status': 'unverified',
-            'control_id': f"{pack_name}:{policy_type}:{control_name}",
+            'evidence_status': evidence_status,
+            'evidence_id': str(evidence.id) if evidence else None,
+            'evidence_owner': evidence.owner if evidence else '',
+            'evidence_captured_at': evidence.captured_at.isoformat() if evidence else None,
+            'control_id': control_id,
         })
 
     if format == 'pdf':

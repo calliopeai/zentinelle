@@ -30,6 +30,7 @@ from zentinelle.models.compliance import (ComplianceAlert,
                                           ContentRule, ContentScan,
                                           ContentViolation, InteractionLog,
                                           UsageSummary)
+from zentinelle.models.control_evidence import ControlEvidence
 # Agent-level models
 from zentinelle.models.endpoint import AgentEndpoint
 from zentinelle.models.event import Event
@@ -84,6 +85,7 @@ __all__ = [
     'Policy',
     'PolicyRevision',
     'PolicyChangeSet',
+    'ControlEvidence',
     'PolicyChangeAcknowledgement',
     'PolicyHistory',
     'PolicyDocument',
