@@ -44,6 +44,7 @@ from zentinelle.models.llm_provider_key import LLMProviderKey  # noqa: F401
 from zentinelle.models.model_registry import (AIModel, ModelUsageLog,
                                               OrganizationModelApproval,
                                               load_model_fixtures)
+from zentinelle.models.model_route_canary import ModelRouteCanary
 # Notifications
 from zentinelle.models.notification import Notification, create_notification
 from zentinelle.models.policy import Policy, PolicyHistory, PolicyRevision

@@ -18,6 +18,8 @@ class ModelRouteCanaryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['allowed'])
         self.assertFalse(response.json()['side_effects'])
+        from zentinelle.models import ModelRouteCanary
+        self.assertEqual(ModelRouteCanary.objects.filter(tenant_id='tenant-a').count(), 1)
         check.assert_called_once_with('gpt-4o', 'openai', 'tenant-a')
 
     def test_canary_reports_guard_denial(self):

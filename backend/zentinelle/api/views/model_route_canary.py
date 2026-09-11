@@ -17,6 +17,7 @@ class ModelRouteCanaryView(APIView):
         model = str(payload.get('model', '')).strip()
         if not provider or not model or len(provider) > 64 or len(model) > 128:
             return Response({'error': 'provider and model are required bounded strings'}, status=400)
+        from zentinelle.models import ModelRouteCanary
         from zentinelle.services.llm_provider import _check_model_route
         try:
             _check_model_route(model, provider, tenant_id)
@@ -25,6 +26,12 @@ class ModelRouteCanaryView(APIView):
         except RuntimeError as exc:
             allowed = False
             reason = str(exc)
+        record = ModelRouteCanary.objects.create(
+            tenant_id=tenant_id, provider=provider, model=model,
+            status=ModelRouteCanary.Status.PASSED if allowed else ModelRouteCanary.Status.FAILED,
+            reason=reason, baseline=payload.get('baseline', {}) if isinstance(payload.get('baseline', {}), dict) else {},
+            evidence={'side_effects': False}, actor_id=str(getattr(request.user, 'pk', '') or ''),
+        )
         try:
             from zentinelle.models import AuditLog
             AuditLog.log(tenant_id=tenant_id, action='model_route.canary',
@@ -34,6 +41,15 @@ class ModelRouteCanaryView(APIView):
                          metadata={'provider': provider, 'model': model, 'canary': True})
         except Exception:
             pass
-        return Response({'provider': provider, 'model': model, 'allowed': allowed,
+        return Response({'id': str(record.id), 'provider': provider, 'model': model, 'allowed': allowed,
                          'decision': 'allow' if allowed else 'deny', 'reason': reason,
                          'side_effects': False, 'rollback_required': not allowed})
+
+    def get(self, request):
+        tenant_id = get_request_tenant_id(request.user) or ''
+        from zentinelle.models import ModelRouteCanary
+        rows = ModelRouteCanary.objects.filter(tenant_id=tenant_id)[:50]
+        return Response({'results': [{'id': str(row.id), 'provider': row.provider, 'model': row.model,
+                                      'status': row.status, 'reason': row.reason, 'baseline': row.baseline,
+                                      'evidence': row.evidence, 'created_at': row.created_at.isoformat()}
+                                     for row in rows]})
