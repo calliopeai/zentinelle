@@ -21,6 +21,14 @@ class ReleaseQualificationTests(TestCase):
         with self.assertRaisesRegex(ValueError, 'rollback'):
             qualify_release(release_id='rel-2', version='1.2.3', checks={'migrations': True})
 
+    def test_production_requires_operational_security_evidence(self):
+        checks = {name: True for name in ('migrations', 'auth', 'csrf', 'secret_rotation', 'dependency_scan', 'backup_restore', 'rollback')}
+        with self.assertRaisesRegex(ValueError, 'tls'):
+            qualify_release(release_id='rel-prod', version='1.2.3', checks=checks, environment='production')
+        checks.update({'tls': True, 'oidc': True, 'load_slo': True, 'incident_drill': True})
+        record = qualify_release(release_id='rel-prod-ok', version='1.2.3', checks=checks, environment='production')
+        self.assertEqual(record.status, ReleaseQualification.Status.QUALIFIED)
+
     def test_invalid_sbom_digest_rejects(self):
         checks = {name: True for name in ('migrations', 'auth', 'csrf', 'secret_rotation', 'dependency_scan', 'backup_restore', 'rollback')}
         with self.assertRaisesRegex(ValueError, 'sha256 digest'):

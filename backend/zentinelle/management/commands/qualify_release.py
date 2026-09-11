@@ -18,6 +18,7 @@ class Command(BaseCommand):
         parser.add_argument('--sbom-digest', default='')
         parser.add_argument('--signature', default='')
         parser.add_argument('--sbom-file', default='')
+        parser.add_argument('--environment', choices=('ci', 'staging', 'production'), default='ci')
 
     def handle(self, *args, **options):
         try:
@@ -41,7 +42,8 @@ class Command(BaseCommand):
         try:
             record = qualify_release(release_id=options['release_id'], version=options['release_version'],
                                      checks=payload['checks'], rollback_evidence=payload.get('rollback_evidence'),
-                                     sbom_digest=file_digest or options['sbom_digest'] or artifact_digest, signature=options['signature'])
+                                     sbom_digest=file_digest or options['sbom_digest'] or artifact_digest, signature=options['signature'],
+                                     environment=options['environment'])
         except ValueError as exc:
             raise CommandError(str(exc)) from exc
         self.stdout.write(self.style.SUCCESS(f'{record.status}: {record.release_id} ({record.version})'))
