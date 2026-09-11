@@ -97,6 +97,24 @@ class PolicyChangeSetTests(TestCase):
         self.assertEqual(policy.config, {'allowed_models': ['gpt-4']})
         self.assertEqual(policy.version, 3)
 
+    def test_promotion_requires_declared_acknowledgements(self):
+        policy = Policy.objects.create(
+            tenant_id='tenant-a', name='Models', policy_type='model_restriction', config={}
+        )
+        self.change.changes = [{'policy_id': str(policy.id), 'config': {'allowed_models': ['gpt-5']}}]
+        self.change.base_versions = {str(policy.id): policy.version}
+        self.change.validation = {
+            'required_acknowledgements': [
+                {'subject_type': 'endpoint', 'subject_id': 'endpoint-1'},
+            ],
+        }
+        self.change.status = PolicyChangeSet.Status.APPROVED
+        self.change.save(update_fields=['changes', 'base_versions', 'validation', 'status', 'updated_at'])
+
+        from zentinelle.services.policy_rollout import promote_change_set
+        with self.assertRaisesRegex(ValueError, 'acknowledgements are missing'):
+            promote_change_set(self.change.id, 'tenant-a', actor='admin')
+
 
 class PolicyChangeSetAPITests(TestCase):
     def setUp(self):

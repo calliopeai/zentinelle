@@ -1,7 +1,8 @@
 """Transactional promotion checks for staged policy change sets."""
 from django.db import transaction
 
-from zentinelle.models import Policy, PolicyChangeSet
+from zentinelle.models import (Policy, PolicyChangeAcknowledgement,
+                               PolicyChangeSet)
 
 _MUTABLE_FIELDS = {
     'name', 'description', 'policy_type', 'config', 'priority', 'enabled',
@@ -42,6 +43,22 @@ def promote_change_set(change_id, tenant_id, actor=''):
         raise ValueError('Only approved policy changes can be promoted')
     if not isinstance(change.changes, list):
         raise ValueError('Policy changes must be a list')
+    required_acks = change.validation.get('required_acknowledgements', [])
+    if required_acks:
+        acknowledged = set(
+            PolicyChangeAcknowledgement.objects.filter(
+                change_set=change,
+                tenant_id=tenant_id,
+                status=PolicyChangeAcknowledgement.Status.ACKNOWLEDGED,
+            ).values_list('subject_type', 'subject_id')
+        )
+        missing = [
+            item for item in required_acks
+            if isinstance(item, dict)
+            and (item.get('subject_type'), str(item.get('subject_id'))) not in acknowledged
+        ]
+        if missing:
+            raise ValueError(f'Required policy acknowledgements are missing: {missing}')
 
     policies = []
     for item in change.changes:
