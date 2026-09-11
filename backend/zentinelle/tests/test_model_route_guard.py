@@ -29,3 +29,14 @@ class ModelRouteGuardTests(SimpleTestCase):
         approvals.objects.filter.return_value.first.return_value = approval
         with self.assertRaisesRegex(RuntimeError, 'not approved for tenant'):
             _check_model_route('gpt-test', 'openai', 'tenant-a')
+
+    @patch('zentinelle.models.Policy')
+    @patch('zentinelle.models.AIModel')
+    def test_tenant_model_restriction_is_enforced_before_provider_access(self, model, policies):
+        model.objects.filter.return_value.first.return_value = None
+        policy = SimpleNamespace(
+            id='policy-models', config={'allowed_models': ['approved-model']},
+        )
+        policies.objects.filter.return_value.order_by.return_value = [policy]
+        with self.assertRaisesRegex(RuntimeError, 'denied by policy'):
+            _check_model_route('blocked-model', 'openai', 'tenant-a')

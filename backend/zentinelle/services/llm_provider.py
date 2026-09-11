@@ -185,6 +185,25 @@ def _check_model_route(model: str, provider: str, tenant_id: str = None):
         approval = OrganizationModelApproval.objects.filter(tenant_id=tenant_id, model=registered).first()
         if approval and not approval.is_usable:
             raise RuntimeError(f'Model route is not approved for tenant: {provider}/{model}')
+    if tenant_id:
+        # Provider calls can originate outside an AgentEndpoint (for example,
+        # the portal assistant). Apply tenant organization model restrictions
+        # here as the last boundary before credentials/provider access.
+        from zentinelle.models import Policy
+        from zentinelle.services.evaluators.model_restriction import ModelRestrictionEvaluator
+        for policy in Policy.objects.filter(
+            tenant_id=tenant_id, policy_type=Policy.PolicyType.MODEL_RESTRICTION,
+            enabled=True, scope_type=Policy.ScopeType.ORGANIZATION,
+            enforcement=Policy.Enforcement.ENFORCE,
+        ).order_by('-priority', 'id'):
+            try:
+                result = ModelRestrictionEvaluator().evaluate(
+                    policy, 'llm:invoke', None, {'model': model, 'provider': provider}, dry_run=False,
+                )
+            except Exception as exc:
+                raise RuntimeError(f'Model route policy evaluation failed: {policy.id}') from exc
+            if not result.passed:
+                raise RuntimeError(f'Model route denied by policy {policy.id}: {result.message}')
 
 
 async def agentic_chat(
