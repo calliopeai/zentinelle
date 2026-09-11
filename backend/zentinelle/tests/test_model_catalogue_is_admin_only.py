@@ -71,3 +71,13 @@ class ModelCatalogueIsAdminOnlyTest(TestCase):
         self.assertIn(response.status_code, (401, 403))
         self.model.refresh_from_db()
         self.assertTrue(self.model.enabled_for_chat)
+
+    @override_settings(AUTH_MODE='local')
+    def test_ambiguous_model_id_requires_provider(self):
+        second = AIProvider.objects.create(name='Azure OpenAI', slug='azure-openai')
+        AIModel.objects.create(provider=second, model_id='gpt-4o', name='GPT-4o Azure', enabled_for_chat=True)
+        self.client.force_login(self.admin)
+        response = self._toggle(False)
+        self.assertEqual(response.status_code, 400)
+        self.model.refresh_from_db()
+        self.assertTrue(self.model.enabled_for_chat)

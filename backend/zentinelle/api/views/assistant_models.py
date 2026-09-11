@@ -140,6 +140,8 @@ class AssistantModelsToggleView(APIView):
         if provider_slug:
             qs = qs.filter(provider__slug=provider_slug)
 
+        if not provider_slug and qs.values('provider_id').distinct().count() > 1:
+            return JsonResponse({'error': 'provider is required when model_id is ambiguous'}, status=400)
         obj = qs.first()
         if not obj:
             return JsonResponse({'error': 'Model not found'}, status=404)
