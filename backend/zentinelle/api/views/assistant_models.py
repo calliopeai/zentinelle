@@ -149,11 +149,13 @@ class AssistantModelsToggleView(APIView):
         try:
             from zentinelle.models import AuditLog
             from zentinelle.schema.auth_helpers import get_request_tenant_id
-            AuditLog.log(tenant_id=get_request_tenant_id(request.user) or 'default', action='model_catalogue.changed',
-                         resource_type='ai_model', resource_id=str(obj.id),
-                         ext_user_id=str(getattr(request.user, 'pk', '') or ''),
-                         changes={'provider': obj.provider.slug, 'model_id': obj.model_id,
-                                  'enabled_for_chat': obj.enabled_for_chat})
+            audit_tenant = get_request_tenant_id(request.user)
+            if audit_tenant:
+                AuditLog.log(tenant_id=audit_tenant, action='model_catalogue.changed',
+                             resource_type='ai_model', resource_id=str(obj.id),
+                             ext_user_id=str(getattr(request.user, 'pk', '') or ''),
+                             changes={'provider': obj.provider.slug, 'model_id': obj.model_id,
+                                      'enabled_for_chat': obj.enabled_for_chat})
         except Exception:
             logger.warning('Unable to audit model catalogue change', exc_info=True)
 
@@ -210,12 +212,13 @@ class AssistantModelsBulkView(APIView):
         try:
             from zentinelle.models import AuditLog
             from zentinelle.schema.auth_helpers import get_request_tenant_id
-            AuditLog.log(tenant_id=get_request_tenant_id(request.user) or 'default',
-                         action='model_catalogue.bulk_changed', resource_type='ai_provider',
-                         resource_id=provider_slug,
-                         ext_user_id=str(getattr(request.user, 'pk', '') or ''),
-                         changes={'provider': provider_slug, 'enabled_model_count': len(enabled_set),
-                                  'updated': updated})
+            audit_tenant = get_request_tenant_id(request.user)
+            if audit_tenant:
+                AuditLog.log(tenant_id=audit_tenant, action='model_catalogue.bulk_changed',
+                             resource_type='ai_provider', resource_id=provider_slug,
+                             ext_user_id=str(getattr(request.user, 'pk', '') or ''),
+                             changes={'provider': provider_slug, 'enabled_model_count': len(enabled_set),
+                                      'updated': updated})
         except Exception:
             logger.warning('Unable to audit bulk model catalogue change', exc_info=True)
 
