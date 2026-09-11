@@ -103,16 +103,10 @@ def erase_tenant(tenant_id, *, actor='privacy-operator', subject_id=None):
         from zentinelle.models.compliance import ContentScan, InteractionLog
         from zentinelle.models.usage import UsageMetric
         models = (Event, AuditLog, InteractionLog, ContentScan, UsageMetric)
-        counts = {}
-        for model in models:
-            query = model.objects.filter(tenant_id=tenant_id)
-            if subject_id:
-                field = 'ext_user_id' if model is AuditLog else 'user_identifier'
-                query = query.filter(**{field: subject_id})
-            deleted, _ = query.delete()
-            counts[model.__name__] = deleted
-        # Remove only verified local archive files belonging to this tenant.
-        archived = 0
+        # Preflight every archive before deleting source rows. This prevents a
+        # missing signature, unsupported destination, or unavailable remote
+        # adapter from leaving a partially erased tenant.
+        archive_plan = []
         outcomes = RetentionOutcome.objects.filter(tenant_id=tenant_id, status=RetentionOutcome.Status.ARCHIVED)
         if subject_id:
             outcomes = outcomes.filter(entity_type='user', manifest__subject_id=subject_id)
@@ -131,14 +125,29 @@ def erase_tenant(tenant_id, *, actor='privacy-operator', subject_id=None):
                 adapter = _REMOTE_ERASURE_ADAPTERS.get(parsed.scheme.lower())
                 if not adapter:
                     raise RuntimeError('Remote archive requires an authenticated provider erasure adapter')
+                archive_plan.append((outcome, manifest, destination, adapter))
+            elif not os.path.isabs(destination):
+                raise RuntimeError('Archive destination must be absolute or a supported remote URI')
+            else:
+                archive_plan.append((outcome, manifest, destination, None))
+        counts = {}
+        for model in models:
+            query = model.objects.filter(tenant_id=tenant_id)
+            if subject_id:
+                field = 'ext_user_id' if model is AuditLog else 'user_identifier'
+                query = query.filter(**{field: subject_id})
+            deleted, _ = query.delete()
+            counts[model.__name__] = deleted
+        # Remove only verified local archive files belonging to this tenant.
+        archived = 0
+        for outcome, manifest, destination, adapter in archive_plan:
+            if adapter:
                 try:
                     confirmed = adapter(tenant_id=tenant_id, subject_id=subject_id, manifest=dict(manifest))
                 except Exception as exc:
                     raise RuntimeError('Remote archive erasure adapter failed') from exc
                 if confirmed is not True:
                     raise RuntimeError('Remote archive erasure was not confirmed by provider')
-            elif not os.path.isabs(destination):
-                raise RuntimeError('Archive destination must be absolute or a supported remote URI')
             else:
                 try:
                     os.unlink(destination)

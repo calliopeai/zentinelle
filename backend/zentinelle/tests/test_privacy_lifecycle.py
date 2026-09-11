@@ -67,10 +67,12 @@ class PrivacyLifecycleTests(TestCase):
     def test_unsupported_remote_archive_fails_closed(self, _analytics, _url):
         from zentinelle.models import RetentionOutcome
         from zentinelle.services.retention import signed_retention_manifest
+        Event.objects.create(tenant_id='tenant-a', event_type='must-survive', occurred_at=timezone.now())
         manifest = signed_retention_manifest('tenant-a', 'user', 'archive', 1, 's3://bucket/user-a', subject_id='user-a')
         RetentionOutcome.objects.create(tenant_id='tenant-a', entity_type='user', status='archived', manifest=manifest, destination=manifest['destination'])
         with self.assertRaisesRegex(RuntimeError, 'authenticated provider'):
             erase_tenant('tenant-a', subject_id='user-a')
+        self.assertEqual(Event.objects.filter(tenant_id='tenant-a', event_type='must-survive').count(), 1)
 
     def test_restore_verifies_checksum_and_defaults_to_preview(self):
         from zentinelle.services.retention import signed_retention_manifest
