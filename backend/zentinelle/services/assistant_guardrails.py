@@ -32,7 +32,7 @@ INDIRECT_INJECTION_PATTERNS = (
     r'ignore\s+(?:all\s+)?previous\s+instructions',
     r'(?:reveal|show|print)\s+(?:the\s+)?system\s+prompt',
     r'do\s+not\s+follow\s+(?:the\s+)?policy',
-    r' instructions\s*:\s*',
+    r'\binstructions\s*:\s*',
 )
 
 
