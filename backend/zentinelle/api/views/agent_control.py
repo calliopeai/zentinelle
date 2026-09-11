@@ -62,8 +62,8 @@ class AgentControlView(APIView):
         except (TypeError, ValueError, json.JSONDecodeError):
             return JsonResponse({'error': 'Invalid JSON'}, status=400)
         action = payload.get('action')
-        if action not in ('suspend', 'revoke', 'contain_tools'):
-            return JsonResponse({'error': 'action must be suspend, revoke, or contain_tools'}, status=400)
+        if action not in ('suspend', 'revoke', 'emergency_stop', 'contain_tools'):
+            return JsonResponse({'error': 'action must be suspend, revoke, emergency_stop, or contain_tools'}, status=400)
         from zentinelle.models import TenantConfig
         config = TenantConfig.objects.filter(tenant_id=tenant_id).values_list('settings', flat=True).first() or {}
         if config.get('control_approval_required', False):
@@ -77,7 +77,7 @@ class AgentControlView(APIView):
         if action == 'suspend':
             endpoint.status = AgentEndpoint.Status.SUSPENDED
             endpoint.save(update_fields=['status', 'updated_at'])
-        elif action == 'revoke':
+        elif action in ('revoke', 'emergency_stop'):
             endpoint.status = AgentEndpoint.Status.TERMINATED
             endpoint.api_key_hash = ''
             endpoint.save(update_fields=['status', 'api_key_hash', 'updated_at'])
@@ -91,6 +91,6 @@ class AgentControlView(APIView):
         AuditLog.objects.create(
             tenant_id=tenant_id, ext_user_id=str(request.user.pk), action=AuditLog.Action.SUSPEND if action == 'suspend' else AuditLog.Action.UPDATE,
             resource_type='agent_endpoint', resource_id=str(endpoint.id), resource_name=endpoint.name,
-            metadata={'control_action': action},
+            metadata={'control_action': action, 'emergency': action == 'emergency_stop'},
         )
         return JsonResponse({'agent_id': endpoint.agent_id, 'status': endpoint.status, 'metadata': endpoint.metadata})

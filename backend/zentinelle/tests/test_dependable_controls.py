@@ -110,6 +110,19 @@ class DependableControlsTests(TestCase):
         replay = self.client.post(url, {'action': 'contain_tools', 'denied_tools': ['shell'], 'approval_token': token}, format='json')
         self.assertEqual(replay.status_code, 403)
 
+    def test_emergency_stop_terminates_and_revokes_agent_key(self):
+        assign_role(self.user, ROLE_ADMIN)
+        self.client.force_login(self.user)
+        response = self.client.post(API + f'agents/{self.endpoint.agent_id}/control',
+                                    {'action': 'emergency_stop'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.endpoint.refresh_from_db()
+        self.assertEqual(self.endpoint.status, AgentEndpoint.Status.TERMINATED)
+        self.assertEqual(self.endpoint.api_key_hash, '')
+        from zentinelle.models import AuditLog
+        self.assertTrue(AuditLog.objects.filter(tenant_id=TENANT, resource_id=str(self.endpoint.id),
+                                                 metadata__emergency=True).exists())
+
     def test_agent_control_detail_exposes_containment_and_decision_traces(self):
         from zentinelle.models import AuditLog
         assign_role(self.user, ROLE_ADMIN)
