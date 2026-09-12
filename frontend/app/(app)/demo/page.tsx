@@ -18,6 +18,15 @@ const HIGHLIGHTS = [
 
 export default function DemoLandingPage() {
   const router = useRouter();
+  const demoEnabled = process.env.NEXT_PUBLIC_ENABLE_DEMO_DATA === "true";
+
+  if (!demoEnabled) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-6">
+        <p className="text-muted-foreground">The interactive demo is disabled for this deployment.</p>
+      </div>
+    );
+  }
 
   // Auto-start if URL has ?autostart=1
   useEffect(() => {

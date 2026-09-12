@@ -19,6 +19,11 @@ from .base import *  # noqa: F401, F403
 
 DEBUG = False
 
+# Demo fixtures are a local development aid and are never allowed in the
+# production runtime.  Management commands use this setting as a second
+# fail-closed guard in addition to DJANGO_SETTINGS_MODULE.
+ENABLE_DEMO_DATA = False
+
 # ──────────────────────────────────────────────────────────────────────────
 # Required production secrets
 # ──────────────────────────────────────────────────────────────────────────

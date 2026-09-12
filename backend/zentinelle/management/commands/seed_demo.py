@@ -21,9 +21,11 @@ What it creates:
   - 200 events spanning the last 30 days (realistic time distribution)
   - 50 audit log entries
 """
+import os
 import random
 from datetime import timedelta
 
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
@@ -46,6 +48,19 @@ class Command(BaseCommand):
 
         tenant = options["tenant"]
         reset = options["reset"]
+
+        # Demo records must never be created in a production deployment.  The
+        # command remains available for local development and review apps, but
+        # production settings make an accidental invocation fail closed.
+        settings_module = os.environ.get("DJANGO_SETTINGS_MODULE", "")
+        if (
+            not getattr(settings, "ENABLE_DEMO_DATA", True)
+            or settings_module.endswith(".prod")
+            or os.environ.get("ZENTINELLE_ENV", "").lower() == "production"
+        ):
+            raise self.CommandError(
+                "seed_demo is disabled in production; use real tenant data only"
+            )
 
         if reset:
             self.stdout.write(self.style.WARNING(

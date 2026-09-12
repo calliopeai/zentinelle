@@ -22,6 +22,7 @@ const INTERNAL_API_URL =
 // signed in and shows nothing. Dev sets NEXT_PUBLIC_AUTH_MODE=open in .env.
 const AUTH_MODE =
   process.env.AUTH_MODE || process.env.NEXT_PUBLIC_AUTH_MODE || "local";
+const DEMO_DATA_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_DATA === "true";
 
 const OPEN_MODE_USER: SessionUser = {
   id: "0",
@@ -48,7 +49,7 @@ export default async function AppLayout({
             {children}
           </SidebarInset>
           <ChatBubble />
-          <DemoTour />
+          {DEMO_DATA_ENABLED && <DemoTour />}
           <Suspense fallback={null}>
             <EmbedModeStyles />
           </Suspense>
