@@ -45,6 +45,10 @@ def _make_endpoint(agent_id='test-agent-001', tenant_id='test-tenant',
 
 class TestDeregisterView(unittest.TestCase):
 
+    def test_agent_endpoint_is_csrf_exempt(self):
+        """API-key clients must not need a browser CSRF cookie or Referer."""
+        self.assertTrue(getattr(DeregisterView.dispatch, 'csrf_exempt', False))
+
     def setUp(self):
         self.factory = RequestFactory()
         self.view = DeregisterView.as_view()

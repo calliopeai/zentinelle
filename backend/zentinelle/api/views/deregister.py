@@ -10,7 +10,9 @@ import logging
 from django.core.cache import cache
 from django.http import JsonResponse
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 
 from zentinelle.auth.resolver import StandaloneTenantResolver
 from zentinelle.models import AgentEndpoint, Event
@@ -22,6 +24,7 @@ _CONFIG_CACHE_KEY = "zentinelle:config:{agent_id}"
 _BASELINE_CACHE_KEY = "baseline:{tenant_id}:{agent_id}"
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class DeregisterView(View):
     """
     Deregister an agent endpoint.

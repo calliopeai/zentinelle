@@ -5,7 +5,8 @@ import json
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
 
-from zentinelle.management.commands.persistence_check import tenant_filter_kwargs
+from zentinelle.management.commands.persistence_check import \
+    tenant_filter_kwargs
 from zentinelle.models import AgentEndpoint, Event, Policy, PolicyRevision
 
 
