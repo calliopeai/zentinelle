@@ -386,6 +386,58 @@ class EventsViewTest(ZentinelleAPITestMixin, TestCase):
         data = response.json()
         self.assertEqual(data['accepted'], 2)
 
+    @patch('zentinelle.tasks.events.process_event_batch.apply_async')
+    def test_send_events_replay_is_deduplicated(self, _queue):
+        """A producer retry must not create a second event or queue item."""
+        from django.utils import timezone
+        self.authenticate()
+        event = {
+            'event_id': 'producer-event-1',
+            'type': 'spawn',
+            'category': 'telemetry',
+            'payload': {'service': 'lab'},
+            'timestamp': timezone.now().isoformat(),
+        }
+        body = {'agent_id': self.endpoint.agent_id, 'events': [event]}
+        first = self.client.post(reverse('zentinelle:events'), data=body, format='json')
+        retry = self.client.post(reverse('zentinelle:events'), data=body, format='json')
+
+        self.assertEqual(first.status_code, 202)
+        self.assertEqual(first.json()['accepted'], 1)
+        self.assertEqual(first.json()['duplicates'], 0)
+        self.assertEqual(retry.status_code, 202)
+        self.assertEqual(retry.json()['accepted'], 0)
+        self.assertEqual(retry.json()['duplicates'], 1)
+        self.assertEqual(Event.objects.filter(
+            endpoint=self.endpoint, producer_event_id='producer-event-1',
+        ).count(), 1)
+        self.assertEqual(_queue.call_count, 1)
+
+    def test_send_events_reused_id_with_changed_data_is_rejected(self):
+        """An ID cannot be reused to overwrite an earlier event's evidence."""
+        from django.utils import timezone
+        self.authenticate()
+        base = {
+            'event_id': 'producer-event-2',
+            'type': 'spawn',
+            'category': 'telemetry',
+            'payload': {'service': 'lab'},
+            'timestamp': timezone.now().isoformat(),
+        }
+        self.client.post(
+            reverse('zentinelle:events'),
+            data={'agent_id': self.endpoint.agent_id, 'events': [base]},
+            format='json',
+        )
+        changed = {**base, 'payload': {'service': 'different'}}
+        response = self.client.post(
+            reverse('zentinelle:events'),
+            data={'agent_id': self.endpoint.agent_id, 'events': [changed]},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()['event_ids'], ['producer-event-2'])
+
 
 class APIKeyAuthenticationTest(ZentinelleAPITestMixin, TestCase):
     """Tests for API key authentication."""

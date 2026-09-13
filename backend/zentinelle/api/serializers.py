@@ -75,6 +75,7 @@ class EvaluateResponseSerializer(serializers.Serializer):
 class EventInputSerializer(serializers.Serializer):
     """Single event in batch."""
     type = serializers.CharField(max_length=100)
+    event_id = serializers.CharField(max_length=255, required=False, allow_blank=False)
     category = serializers.ChoiceField(
         choices=Event.Category.choices,
         default=Event.Category.TELEMETRY
@@ -93,6 +94,7 @@ class EventsRequestSerializer(serializers.Serializer):
 class EventsResponseSerializer(serializers.Serializer):
     """Response after accepting events."""
     accepted = serializers.IntegerField()
+    duplicates = serializers.IntegerField(default=0)
     batch_id = serializers.CharField()
 
 
