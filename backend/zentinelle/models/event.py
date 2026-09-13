@@ -1,6 +1,7 @@
 import uuid
 
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 
@@ -113,6 +114,14 @@ class Event(models.Model):
         db_index=True,
         help_text='For correlating related events'
     )
+    # Stable identifier supplied by the producer. Blank is allowed for legacy
+    # clients; when present it is unique per tenant and endpoint.
+    producer_event_id = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text='Producer-assigned event ID used for idempotent ingestion',
+    )
 
     class Meta:
         ordering = ['-occurred_at']
@@ -122,6 +131,13 @@ class Event(models.Model):
             models.Index(fields=['status', 'received_at']),
             models.Index(fields=['event_category', 'occurred_at']),
             models.Index(fields=['tenant_id', 'event_category', '-occurred_at']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant_id', 'endpoint', 'producer_event_id'],
+                condition=~Q(producer_event_id=''),
+                name='event_producer_id_per_endpoint',
+            ),
         ]
 
     def save(self, *args, **kwargs):

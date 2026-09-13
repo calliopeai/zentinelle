@@ -5,6 +5,7 @@ POST /api/zentinelle/v1/events
 import logging
 import uuid
 
+from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework import status
@@ -58,8 +59,10 @@ class EventsView(APIView):
         events = data['events']
         batch_id = f"batch_{uuid.uuid4().hex[:16]}"
 
-        # Create event records
+        # Create event records. Producer IDs opt a delivery into durable
+        # deduplication; legacy events without one retain the old fast path.
         event_objects = []
+        idempotent_events = []
         for event_data in events:
             occurred_at = event_data['timestamp']
             if isinstance(occurred_at, str):
@@ -76,11 +79,49 @@ class EventsView(APIView):
                 occurred_at=occurred_at,
                 status=Event.Status.PENDING,
                 correlation_id=batch_id,
+                producer_event_id=event_data.get('event_id', ''),
             )
-            event_objects.append(event)
+            if event.producer_event_id:
+                idempotent_events.append((event, event_data))
+            else:
+                event_objects.append(event)
 
-        # Bulk create events
+        # Bulk create legacy events, then claim producer IDs individually so
+        # get_or_create can safely resolve concurrent retries through the
+        # database uniqueness constraint.
         created_events = Event.objects.bulk_create(event_objects)
+        duplicates = 0
+        conflicts = []
+        for event, _event_data in idempotent_events:
+            with transaction.atomic():
+                existing, created = Event.objects.get_or_create(
+                    tenant_id=event.tenant_id,
+                    endpoint=event.endpoint,
+                    producer_event_id=event.producer_event_id,
+                    defaults={
+                        'deployment_id_ext': event.deployment_id_ext,
+                        'event_type': event.event_type,
+                        'event_category': event.event_category,
+                        'payload': event.payload,
+                        'user_identifier': event.user_identifier,
+                        'occurred_at': event.occurred_at,
+                        'status': event.status,
+                        'correlation_id': event.correlation_id,
+                    },
+                )
+            if created:
+                created_events.append(existing)
+            elif self._event_changed(existing, event):
+                conflicts.append(event.producer_event_id)
+            else:
+                duplicates += 1
+
+        if conflicts:
+            return Response(
+                {'error': 'Producer event ID was reused with different event data',
+                 'event_ids': conflicts},
+                status=status.HTTP_409_CONFLICT,
+            )
 
         # Queue events for async processing
         self._queue_events(created_events)
@@ -92,10 +133,22 @@ class EventsView(APIView):
         return Response(
             {
                 'accepted': len(created_events),
+                'duplicates': duplicates,
                 'batch_id': batch_id,
             },
             status=status.HTTP_202_ACCEPTED
         )
+
+    @staticmethod
+    def _event_changed(existing: Event, incoming: Event) -> bool:
+        """Reject an ID reuse that carries different event content."""
+        return any((
+            existing.event_type != incoming.event_type,
+            existing.event_category != incoming.event_category,
+            existing.user_identifier != incoming.user_identifier,
+            existing.occurred_at != incoming.occurred_at,
+            existing.payload != incoming.payload,
+        ))
 
     def _queue_events(self, events: list[Event]):
         """Queue events for async processing via Celery."""
