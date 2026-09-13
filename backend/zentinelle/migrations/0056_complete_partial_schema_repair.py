@@ -19,10 +19,11 @@ def repair_schema(apps, schema_editor):
     table = endpoint._meta.db_table
     if table not in existing_tables:
         return
-    columns = {
-        column.name
-        for column in introspection.get_table_description(connection, table)
-    }
+    with connection.cursor() as cursor:
+        columns = {
+            column.name
+            for column in introspection.get_table_description(cursor, table)
+        }
     field = endpoint._meta.get_field("sub_organization_id_ext")
     if field.column not in columns:
         schema_editor.add_field(endpoint, field)
