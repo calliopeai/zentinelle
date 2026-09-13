@@ -6,7 +6,21 @@ from django.core.management.base import BaseCommand
 from django.db import connections
 from django.db.migrations.recorder import MigrationRecorder
 
-from zentinelle.models import AgentEndpoint, Event, Policy, PolicyRevision
+from zentinelle.models import (AgentEndpoint, AuditLog, Event, Policy,
+                               PolicyRevision, UsageMetric)
+
+ROUTED_MODELS = {
+    "zentinelle": {
+        "policies": Policy,
+        "policy_revisions": PolicyRevision,
+        "events": Event,
+        "agent_endpoints": AgentEndpoint,
+    },
+    "analytics": {
+        "audit_logs": AuditLog,
+        "usage_metrics": UsageMetric,
+    },
+}
 
 
 class Command(BaseCommand):
@@ -22,7 +36,10 @@ class Command(BaseCommand):
             "tenant_id": tenant_id,
             "connections": [],
         }
-        for alias in connections:
+        # Do not probe the public/default connection: managed installations
+        # often make it intentionally unreachable, while Zentinelle's routed
+        # aliases are the persistence boundary this report verifies.
+        for alias, models in ROUTED_MODELS.items():
             connection = connections[alias]
             try:
                 with connection.cursor() as cursor:
@@ -30,14 +47,9 @@ class Command(BaseCommand):
                     database, schema = cursor.fetchone()
                 applied = MigrationRecorder(connection).applied_migrations()
                 counts = {
-                    "policies": Policy.objects.using(alias).filter(
-                        tenant_id=tenant_id).count(),
-                    "policy_revisions": PolicyRevision.objects.using(alias).filter(
-                        tenant_id=tenant_id).count(),
-                    "events": Event.objects.using(alias).filter(
-                        tenant_id=tenant_id).count(),
-                    "agent_endpoints": AgentEndpoint.objects.using(alias).filter(
-                        tenant_id=tenant_id).count(),
+                    name: model.objects.using(alias).filter(
+                        tenant_id=tenant_id).count()
+                    for name, model in models.items()
                 }
                 report["connections"].append({
                     "alias": alias,
