@@ -3,10 +3,14 @@
 from django.test import SimpleTestCase
 
 from zentinelle.models import Policy
-from zentinelle.services.agent_taxonomy import compose_taxonomy, validate_taxonomy
-from zentinelle.services.evaluators.model_restriction import ModelRestrictionEvaluator
-from zentinelle.services.evaluators.prompt_injection import PromptInjectionEvaluator
-from zentinelle.services.evaluators.tool_permission import ToolPermissionEvaluator
+from zentinelle.services.agent_taxonomy import (compose_taxonomy,
+                                                validate_taxonomy)
+from zentinelle.services.evaluators.model_restriction import \
+    ModelRestrictionEvaluator
+from zentinelle.services.evaluators.prompt_injection import \
+    PromptInjectionEvaluator
+from zentinelle.services.evaluators.tool_permission import \
+    ToolPermissionEvaluator
 
 
 class AgentAdversarialMatrixTests(SimpleTestCase):

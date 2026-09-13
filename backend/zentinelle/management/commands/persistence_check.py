@@ -8,6 +8,7 @@ from django.db import connections
 from zentinelle.models import (AgentEndpoint, AuditLog, Event, Policy,
                                PolicyRevision, UsageMetric)
 
+
 def tenant_filter_kwargs(name, tenant_id):
     """Return the correct tenant lookup for each routed model."""
     return {'policy__tenant_id' if name == 'policy_revisions' else 'tenant_id': tenant_id}

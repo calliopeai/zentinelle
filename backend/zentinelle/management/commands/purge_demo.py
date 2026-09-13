@@ -23,14 +23,8 @@ class Command(BaseCommand):
         if not options["confirm"]:
             raise CommandError("Refusing to purge without --confirm")
 
-        from zentinelle.models import (
-            AgentEndpoint,
-            ContentRule,
-            Event,
-            Incident,
-            Policy,
-            Risk,
-        )
+        from zentinelle.models import (AgentEndpoint, ContentRule, Event,
+                                       Incident, Policy, Risk)
 
         tenant = options["tenant"]
         models = [Event, Incident, Risk, ContentRule, Policy, AgentEndpoint]

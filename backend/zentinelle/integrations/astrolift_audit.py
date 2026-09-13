@@ -21,9 +21,10 @@ import hmac
 import json
 import logging
 import time
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime
+from datetime import timezone as dt_timezone
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import F
 from django.http import JsonResponse
 from django.utils import timezone
@@ -245,12 +246,15 @@ def astrolift_audit_webhook(request):
     # write fails -- otherwise a failed write leaves a marker that suppresses
     # every retry of that event, and the evidence is lost permanently.
     try:
-        delivery = AstroliftAuditDelivery.objects.create(
-            idempotency_key=idempotency_key,
-            tenant_id=tenant_id,
-            astrolift_event_id=str(envelope["event_id"]),
-            event_type=event_type,
-        )
+        # Use a savepoint so a concurrent duplicate does not poison the
+        # request transaction before we return the normal duplicate response.
+        with transaction.atomic(using="default"):
+            delivery = AstroliftAuditDelivery.objects.create(
+                idempotency_key=idempotency_key,
+                tenant_id=tenant_id,
+                astrolift_event_id=str(envelope["event_id"]),
+                event_type=event_type,
+            )
     except IntegrityError:
         # Already accepted. Retries must be a no-op, not a second evidence row.
         return JsonResponse({"status": "duplicate", "idempotency_key": idempotency_key}, status=200)
