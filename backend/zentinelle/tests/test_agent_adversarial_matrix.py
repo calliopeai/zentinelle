@@ -30,8 +30,8 @@ class AgentAdversarialMatrixTests(SimpleTestCase):
         with self.assertRaisesRegex(ValueError, 'widen'):
             compose_taxonomy(validate_taxonomy(profiles['workflow']))
         composed = compose_taxonomy(
-            validate_taxonomy(['authority:write']),
-            validate_taxonomy(profiles['workflow']),
+            validate_taxonomy(profiles['customer_service']),
+            validate_taxonomy(profiles['legal']),
             validate_taxonomy(['service_subcategory:contracts']),
         )
         self.assertIn('service_subcategory:contracts', composed['supported'])
