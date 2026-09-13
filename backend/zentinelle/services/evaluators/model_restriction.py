@@ -2,6 +2,7 @@
 Model Restriction Evaluator.
 Enforces which AI models an agent is allowed to use.
 """
+from fnmatch import fnmatchcase
 from typing import Any, Dict, Optional
 
 from zentinelle.models import Policy
@@ -50,7 +51,7 @@ class ModelRestrictionEvaluator(BasePolicyEvaluator):
 
         # Check explicit blocklist first
         blocked_models = config.get('blocked_models', [])
-        if model and model in blocked_models:
+        if model and any(fnmatchcase(model, str(pattern)) for pattern in blocked_models):
             return PolicyResult(
                 passed=False,
                 message=f"Model '{model}' is explicitly blocked",
@@ -68,8 +69,16 @@ class ModelRestrictionEvaluator(BasePolicyEvaluator):
         allowed_providers = config.get('allowed_providers', [])
 
         if allowed_models or allowed_providers:
-            model_ok = bool(model and model in allowed_models)
-            provider_ok = bool(provider and provider in allowed_providers)
+            # Entries may be exact IDs or shell-style globs (for example
+            # ``claude-*``). Matching is case-sensitive because provider model
+            # IDs are case-sensitive identifiers.
+            model_ok = bool(model and any(
+                fnmatchcase(model, str(pattern)) for pattern in allowed_models
+            ))
+            provider_ok = bool(provider and any(
+                fnmatchcase(provider, str(pattern))
+                for pattern in allowed_providers
+            ))
 
             if not model_ok and not provider_ok:
                 # Build a helpful message

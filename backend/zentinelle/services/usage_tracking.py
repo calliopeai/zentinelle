@@ -9,7 +9,40 @@ from django.utils import timezone
 from zentinelle.models.usage import UsageMetric
 
 logger = logging.getLogger(__name__)
-MODEL_PRICING_VERSION = 'catalog-2026-09-11'
+MODEL_PRICING_VERSION = 'catalog-2026-09-13'
+
+
+def resolve_model_pricing(model: str, provider: str = ''):
+    """Resolve registry pricing before compatibility fallbacks."""
+    if not isinstance(model, str) or not model:
+        return None
+    try:
+        from zentinelle.models.model_registry import AIModel
+        query = AIModel.objects.select_related('provider').filter(
+            model_id=model, is_available=True, deprecated=False
+        )
+        if provider:
+            query = query.filter(provider__slug=provider)
+        registered = query.order_by('-is_global').first()
+        if (registered and registered.input_price_per_million is not None
+                and registered.output_price_per_million is not None):
+            return {
+                'input': registered.input_price_per_million,
+                'output': registered.output_price_per_million,
+            }
+    except Exception:
+        # Pricing must remain usable during bootstrap and when the registry
+        # database is temporarily unavailable.
+        pass
+    pricing = MODEL_PRICING.get(model)
+    if pricing:
+        return pricing
+    # Snapshot suffixes and minor revisions use the nearest known family
+    # price. Registry entries remain authoritative when available.
+    matches = [(key, value) for key, value in MODEL_PRICING.items()
+               if key and (key in model or model in key)]
+    return max(matches, key=lambda item: len(item[0]))[1] if matches else None
+
 
 # Model pricing in USD per 1M tokens
 # Source: frontend/src/components/zentinelle/PolicyOverheadDashboard.tsx
@@ -20,6 +53,8 @@ MODEL_PRICING = {
     'claude-3-5-sonnet-20240620': {'input': 3.00, 'output': 15.00},
     'claude-3-opus-20240229': {'input': 15.00, 'output': 75.00},
     'claude-3-haiku-20240307': {'input': 0.25, 'output': 1.25},
+    'claude-opus-4': {'input': 15.00, 'output': 75.00},
+    'claude-sonnet-4': {'input': 3.00, 'output': 15.00},
     'gemini-1.5-pro': {'input': 3.50, 'output': 10.50},
     'gemini-1.5-flash': {'input': 0.075, 'output': 0.30},
 }
@@ -29,19 +64,15 @@ class UsageTrackingService:
     @staticmethod
     def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> tuple[Decimal, Decimal]:
         """Calculate estimated cost for a model and token counts."""
-        pricing = MODEL_PRICING.get(model)
-        if not pricing:
-            # Try fuzzy match for model versions
-            for key, val in MODEL_PRICING.items():
-                if key in model or model in key:
-                    pricing = val
-                    break
+        pricing = resolve_model_pricing(model)
 
         if not pricing:
             return Decimal('0.0'), Decimal('0.0')
 
-        input_cost = (Decimal(input_tokens) / Decimal('1000000')) * Decimal(str(pricing['input']))
-        output_cost = (Decimal(output_tokens) / Decimal('1000000')) * Decimal(str(pricing['output']))
+        input_cost = (Decimal(input_tokens) / Decimal('1000000')) * Decimal(
+            str(pricing['input']))
+        output_cost = (Decimal(output_tokens) / Decimal('1000000')) * Decimal(
+            str(pricing['output']))
 
         return input_cost, output_cost
 

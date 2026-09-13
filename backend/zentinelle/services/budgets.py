@@ -47,9 +47,9 @@ def current_spend(policy):
 
 
 def request_upper_bound(context):
-    from zentinelle.services.usage_tracking import MODEL_PRICING
+    from zentinelle.services.usage_tracking import resolve_model_pricing
     model = context.get('model') or context.get('ai_model')
-    price = MODEL_PRICING.get(model)
+    price = resolve_model_pricing(model, context.get('provider') or '')
     tokens = context.get('max_output_tokens')
     if not price or not isinstance(tokens, int) or isinstance(tokens, bool) or tokens <= 0:
         raise ValueError('Hard budget requires known model pricing and an explicit positive maximum output token count')

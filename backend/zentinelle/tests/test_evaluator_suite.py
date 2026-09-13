@@ -50,6 +50,26 @@ class TestModelRestrictionAllowedModel(SimpleTestCase):
         self.assertTrue(result.passed)
         self.assertIsNone(result.message)
 
+    def test_model_glob_in_allowlist_passes(self):
+        ev = ModelRestrictionEvaluator()
+        policy = _policy(Policy.PolicyType.MODEL_RESTRICTION, {
+            'allowed_models': ['claude-*'],
+        })
+        result = ev.evaluate(policy, 'llm:invoke', None, {
+            'model': 'claude-sonnet-4-5-20250929',
+        })
+        self.assertTrue(result.passed)
+
+    def test_model_glob_in_blocklist_fails(self):
+        ev = ModelRestrictionEvaluator()
+        policy = _policy(Policy.PolicyType.MODEL_RESTRICTION, {
+            'blocked_models': ['claude-*'],
+        })
+        result = ev.evaluate(policy, 'llm:invoke', None, {
+            'model': 'claude-sonnet-4-5-20250929',
+        })
+        self.assertFalse(result.passed)
+
     def test_provider_in_allowlist_passes(self):
         ev = ModelRestrictionEvaluator()
         policy = _policy(Policy.PolicyType.MODEL_RESTRICTION, {
