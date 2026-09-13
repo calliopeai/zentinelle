@@ -111,9 +111,16 @@ def _signature_matches(secret: str, timestamp: str, raw_body: bytes, presented: 
     """Constant-time compare against Astrolift's `sha256=<hex>` format."""
     if not secret:
         return False
+    # Astrolift stores only sha256(plaintext) and uses that hex digest as the
+    # HMAC key.  Accept the plaintext operators receive at subscription time,
+    # while retaining compatibility with integrations already storing the
+    # derived digest.
+    key = secret
+    if not (len(secret) == 64 and all(c in "0123456789abcdefABCDEF" for c in secret)):
+        key = hashlib.sha256(secret.encode("utf-8")).hexdigest()
     signing_input = f"{timestamp}.".encode("ascii") + raw_body
     expected = hmac.new(
-        secret.encode("utf-8"), signing_input, hashlib.sha256
+        key.encode("ascii"), signing_input, hashlib.sha256
     ).hexdigest()
     return hmac.compare_digest(f"sha256={expected}", presented)
 
