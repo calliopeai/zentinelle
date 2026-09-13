@@ -209,6 +209,30 @@ def get_tenant_id_from_request(request):
 get_organization_from_request = get_tenant_id_from_request
 
 
+class ZentinellePlatformKeyAuthentication(ZentinelleServiceKeyAuthentication):
+    """Authenticate platform and service bearer keys for operator APIs."""
+
+    def authenticate(self, request):
+        header = request.META.get('HTTP_AUTHORIZATION', '')
+        if not header.startswith('Bearer '):
+            return None
+        api_key = header[len('Bearer '):].strip()
+        if not (api_key.startswith(KeyPrefixes.PLATFORM)
+                or api_key.startswith(KeyPrefixes.SERVICE)):
+            return None
+        key_prefix = api_key[:15]
+        try:
+            record = APIKey.objects.get(key_prefix=key_prefix)
+        except (APIKey.DoesNotExist, APIKey.MultipleObjectsReturned):
+            raise exceptions.AuthenticationFailed('Invalid platform key')
+        if not APIKey.verify_api_key(api_key, record.key_hash) or not record.is_active:
+            raise exceptions.AuthenticationFailed('Platform key is not active')
+        if not record.tenant_id:
+            raise exceptions.AuthenticationFailed('Platform key has no tenant')
+        record.record_usage()
+        return (ZentinelleServiceUser(record), api_key)
+
+
 class ZentinelleCombinedAuthentication(authentication.BaseAuthentication):
     """
     Authentication that accepts agent (sk_agent_) keys.

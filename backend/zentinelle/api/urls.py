@@ -92,6 +92,7 @@ from zentinelle.api.views.auth import (CSRFTokenView, LoginView, LogoutView,
 from zentinelle.api.views.health import HealthView, ReadyView
 from zentinelle.api.views.llm_provider_keys import (LLMProviderKeyDeleteView,
                                                     LLMProviderKeysView)
+from zentinelle.api.views.operator import OperatorAgentView, OperatorPolicyView
 from zentinelle.api.views.runtime_settings import (
     RuntimeSettingsChangesView, RuntimeSettingsChangeTransitionView,
     RuntimeSettingsRollbackView, RuntimeSettingsView)
@@ -140,6 +141,11 @@ urlpatterns = [
     path('models/route-canary', ModelRouteCanaryView.as_view(), name='model-route-canary'),
     path('models/route-canary/<uuid:canary_id>/rollback', ModelRouteCanaryRollbackView.as_view(), name='model-route-canary-rollback'),
     path('controls/brocs', BrocsControlMapView.as_view(), name='brocs-control-map'),
+
+    # Token-authenticated operator automation
+    path('operator/agents', OperatorAgentView.as_view(), name='operator-agents'),
+    path('operator/policies', OperatorPolicyView.as_view(), name='operator-policies'),
+    path('operator/policies/<uuid:policy_id>', OperatorPolicyView.as_view(), name='operator-policy'),
 
     # Agent-facing endpoints
     path('register', RegisterView.as_view(), name='register'),
