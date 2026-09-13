@@ -56,6 +56,21 @@ const CAPABILITY_SUGGESTIONS = [
   "tool_use",
 ];
 
+const TAXONOMY_SUGGESTIONS = [
+  "function:customer_service", "function:legal", "function:coding",
+  "function:operations", "function:research", "function:sales",
+  "mode:single_agent", "mode:workflow", "mode:swarm", "mode:delegated",
+  "mode:human_assisted", "mode:scheduled", "data:public", "data:internal",
+  "data:confidential", "data:restricted", "data:regulated",
+  "authority:read_only", "authority:write", "authority:external_egress",
+  "authority:destructive", "authority:privileged", "environment:development",
+  "environment:staging", "environment:production", "environment:emergency",
+  "service:customer_service", "service:legal", "service:coding",
+  "service:research", "service:operations", "service_subcategory:billing",
+  "service_subcategory:technical_support", "service_subcategory:claims",
+  "service_subcategory:contracts",
+];
+
 const agentSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(255),
   agentId: z
@@ -65,6 +80,7 @@ const agentSchema = z.object({
     .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, "Must be a valid slug (lowercase, hyphens only)"),
   agentType: z.string().min(1, "Agent type is required"),
   capabilities: z.array(z.string()),
+  taxonomyTags: z.array(z.string()),
   metadata: z.string().optional().refine(
     (val) => {
       if (!val || val.trim() === "") return true;
@@ -111,6 +127,7 @@ export function RegisterAgentDialog({
       agentId: "",
       agentType: "",
       capabilities: [],
+      taxonomyTags: [],
       metadata: "",
     },
   });
@@ -138,6 +155,8 @@ export function RegisterAgentDialog({
       if (values.metadata && values.metadata.trim()) {
         metadataObj = JSON.parse(values.metadata);
       }
+      metadataObj = metadataObj ?? {};
+      metadataObj.taxonomy = values.taxonomyTags;
 
       const { data } = await createEndpoint({
         variables: {
@@ -280,6 +299,25 @@ export function RegisterAgentDialog({
                 />
               )}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Functional policy tags</Label>
+            <Controller
+              control={control}
+              name="taxonomyTags"
+              render={({ field }) => (
+                <TagInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  suggestions={TAXONOMY_SUGGESTIONS}
+                  placeholder="e.g. function:customer_service"
+                />
+              )}
+            />
+            <p className="text-muted-foreground text-xs">
+              Tags select the policies that apply to this agent, workflow, swarm, or client.
+            </p>
           </div>
 
           <div className="space-y-2">

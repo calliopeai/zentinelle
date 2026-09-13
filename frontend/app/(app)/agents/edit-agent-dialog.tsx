@@ -59,10 +59,26 @@ const CAPABILITY_SUGGESTIONS = [
   "tool_use",
 ];
 
+const TAXONOMY_SUGGESTIONS = [
+  "function:customer_service", "function:legal", "function:coding",
+  "function:operations", "function:research", "function:sales",
+  "mode:single_agent", "mode:workflow", "mode:swarm", "mode:delegated",
+  "mode:human_assisted", "mode:scheduled", "data:public", "data:internal",
+  "data:confidential", "data:restricted", "data:regulated",
+  "authority:read_only", "authority:write", "authority:external_egress",
+  "authority:destructive", "authority:privileged", "environment:development",
+  "environment:staging", "environment:production", "environment:emergency",
+  "service:customer_service", "service:legal", "service:coding",
+  "service:research", "service:operations", "service_subcategory:billing",
+  "service_subcategory:technical_support", "service_subcategory:claims",
+  "service_subcategory:contracts",
+];
+
 const editSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(255),
   agentType: z.string().min(1, "Agent type is required"),
   capabilities: z.array(z.string()),
+  taxonomyTags: z.array(z.string()),
   metadata: z.string().optional().refine(
     (val) => {
       if (!val || val.trim() === "") return true;
@@ -89,10 +105,23 @@ type EditAgentDialogProps = {
 function formatMetadata(metadata: Record<string, unknown> | null): string {
   if (!metadata || Object.keys(metadata).length === 0) return "";
   try {
-    return JSON.stringify(metadata, null, 2);
+    const { taxonomy: _taxonomy, ...advancedMetadata } = metadata;
+    return Object.keys(advancedMetadata).length === 0
+      ? ""
+      : JSON.stringify(advancedMetadata, null, 2);
   } catch {
     return "";
   }
+}
+
+function formatTaxonomy(metadata: Record<string, unknown> | null): string[] {
+  const taxonomy = metadata?.taxonomy;
+  if (Array.isArray(taxonomy)) return taxonomy.filter((tag): tag is string => typeof tag === "string");
+  if (taxonomy && typeof taxonomy === "object" && "supported" in taxonomy) {
+    const supported = (taxonomy as { supported?: unknown }).supported;
+    return Array.isArray(supported) ? supported.filter((tag): tag is string => typeof tag === "string") : [];
+  }
+  return [];
 }
 
 export function EditAgentDialog({
@@ -117,6 +146,7 @@ export function EditAgentDialog({
       name: "",
       agentType: "",
       capabilities: [],
+      taxonomyTags: [],
       metadata: "",
     },
   });
@@ -127,6 +157,7 @@ export function EditAgentDialog({
         name: agent.name ?? "",
         agentType: agent.agentType ?? "",
         capabilities: agent.capabilities ?? [],
+        taxonomyTags: formatTaxonomy(agent.metadata),
         metadata: formatMetadata(agent.metadata),
       });
     }
@@ -149,6 +180,8 @@ export function EditAgentDialog({
         return;
       }
     }
+    metadataObj = metadataObj ?? {};
+    metadataObj.taxonomy = values.taxonomyTags;
 
     try {
       const { data } = await updateEndpoint({
@@ -252,6 +285,25 @@ export function EditAgentDialog({
                 />
               )}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Functional policy tags</Label>
+            <Controller
+              control={control}
+              name="taxonomyTags"
+              render={({ field }) => (
+                <TagInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  suggestions={TAXONOMY_SUGGESTIONS}
+                  placeholder="e.g. function:customer_service"
+                />
+              )}
+            />
+            <p className="text-muted-foreground text-xs">
+              Tags select the policies that apply to this agent, workflow, swarm, or client.
+            </p>
           </div>
 
           <div className="space-y-2">
