@@ -21,6 +21,7 @@ import hmac
 import json
 import logging
 import time
+from datetime import datetime, timezone as dt_timezone
 
 from django.db import IntegrityError
 from django.db.models import F
@@ -70,6 +71,15 @@ KNOWN_EVENT_TYPES = frozenset({
     "AUDIT.observability.update",
     "AUDIT.residency.update",
     "AUDIT.compliance.report_generated",
+    # Agent execution and spend events emitted by the Astrolift runner.
+    "AUDIT.agent.task.launched",
+    "AUDIT.agent.task.completed",
+    "AUDIT.agent.task.failed",
+    "AUDIT.agent.dispatched",
+    "AUDIT.agent.env_spec.changed",
+    "AUDIT.agent.workflow.stage_changed",
+    "AUDIT.agent.workflow.gate_decided",
+    "AUDIT.agent.model_spend",
 })
 
 # Astrolift's event vocabulary is finer-grained than AuditLog.Action, so the
@@ -89,6 +99,14 @@ _ACTION_BY_EVENT = {
     "AUDIT.observability.update": AuditLog.Action.UPDATE,
     "AUDIT.residency.update": AuditLog.Action.UPDATE,
     "AUDIT.compliance.report_generated": AuditLog.Action.CREATE,
+    "AUDIT.agent.task.launched": AuditLog.Action.CREATE,
+    "AUDIT.agent.task.completed": AuditLog.Action.UPDATE,
+    "AUDIT.agent.task.failed": AuditLog.Action.UPDATE,
+    "AUDIT.agent.dispatched": AuditLog.Action.UPDATE,
+    "AUDIT.agent.env_spec.changed": AuditLog.Action.UPDATE,
+    "AUDIT.agent.workflow.stage_changed": AuditLog.Action.UPDATE,
+    "AUDIT.agent.workflow.gate_decided": AuditLog.Action.UPDATE,
+    "AUDIT.agent.model_spend": AuditLog.Action.ACCESS,
 }
 
 _RESOURCE_BY_EVENT_PREFIX = {
@@ -100,6 +118,7 @@ _RESOURCE_BY_EVENT_PREFIX = {
     "AUDIT.observability": "observability_profile",
     "AUDIT.residency": "residency_policy",
     "AUDIT.compliance": "compliance_report",
+    "AUDIT.agent": "agent_execution",
 }
 
 
@@ -250,6 +269,9 @@ def astrolift_audit_webhook(request):
     delivery.audit_log_id = entry.id
     delivery.save(update_fields=["audit_log_id"])
 
+    if event_type == "AUDIT.agent.model_spend":
+        _record_model_spend(tenant_id, envelope)
+
     # F() so concurrent deliveries do not clobber each other's count.
     AstroliftIntegration.objects.filter(pk=integration.pk).update(
         last_event_at=timezone.now(),
@@ -280,5 +302,45 @@ def _write_evidence(request, tenant_id, envelope, event_type, org_id, actor):
             "astrolift_delivery_id": request.headers.get("X-Astrolift-Delivery-Id", ""),
             "occurred_at_unix": envelope["occurred_at_unix"],
             "payload_version": envelope["payload_version"],
+        },
+    )
+
+
+def _record_model_spend(tenant_id, envelope):
+    """Project a verified runner spend event into existing usage rollups."""
+    payload = envelope["payload"]
+    input_tokens = payload.get("input_tokens", 0)
+    output_tokens = payload.get("output_tokens", 0)
+    provider = payload.get("provider", "")
+    model = payload.get("model_id", payload.get("model", ""))
+    if (not isinstance(input_tokens, int) or isinstance(input_tokens, bool) or
+            not isinstance(output_tokens, int) or isinstance(output_tokens, bool) or
+            min(input_tokens, output_tokens) < 0 or
+            max(input_tokens, output_tokens) > 10_000_000_000 or
+            not isinstance(provider, str) or not isinstance(model, str)):
+        raise ValueError("invalid agent model spend payload")
+
+    from zentinelle.models import AgentEndpoint, UsageMetric
+    endpoint = None
+    agent_slug = payload.get("agent_slug", payload.get("workload_slug", ""))
+    if isinstance(agent_slug, str) and agent_slug:
+        endpoint = AgentEndpoint.objects.filter(
+            tenant_id=tenant_id, agent_id=agent_slug).first()
+    UsageMetric.record_ai_usage(
+        organization=tenant_id,
+        user_identifier=str(payload.get("task_id", "")),
+        provider=provider[:50],
+        model=model[:100],
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        request_id=str(payload.get("task_id", envelope["event_id"])),
+        endpoint=endpoint,
+        deployment=str(payload.get("workflow_run", ""))[:255],
+        occurred_at=datetime.fromtimestamp(
+            envelope["occurred_at_unix"], tz=dt_timezone.utc),
+        metadata={
+            "source": "astrolift",
+            "astrolift_event_id": envelope["event_id"],
+            "estimated_usd": payload.get("estimated_usd"),
         },
     )
