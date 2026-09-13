@@ -4,7 +4,6 @@ import json
 
 from django.core.management.base import BaseCommand
 from django.db import connections
-from django.db.migrations.recorder import MigrationRecorder
 
 from zentinelle.models import (AgentEndpoint, AuditLog, Event, Policy,
                                PolicyRevision, UsageMetric)
@@ -43,23 +42,33 @@ class Command(BaseCommand):
             connection = connections[alias]
             try:
                 with connection.cursor() as cursor:
+                    cursor.execute("SET statement_timeout = 5000")
                     cursor.execute("SELECT current_database(), current_schema()")
                     database, schema = cursor.fetchone()
-                applied = MigrationRecorder(connection).applied_migrations()
-                counts = {
-                    name: model.objects.using(alias).filter(
-                        tenant_id=tenant_id).count()
-                    for name, model in models.items()
-                }
+                    cursor.execute(
+                        "SELECT COUNT(*) FROM django_migrations "
+                        "WHERE app = %s", ["zentinelle"]
+                    )
+                    migration_count = cursor.fetchone()[0]
+                    cursor.execute(
+                        "SELECT name FROM django_migrations "
+                        "WHERE app = %s ORDER BY id DESC LIMIT 1", ["zentinelle"]
+                    )
+                    latest_row = cursor.fetchone()
+                    latest_migration = latest_row[0] if latest_row else None
+                counts = {}
+                for name, model in models.items():
+                    try:
+                        counts[name] = model.objects.using(alias).filter(
+                            tenant_id=tenant_id).count()
+                    except Exception as exc:  # pragma: no cover
+                        counts[name] = f"error: {type(exc).__name__}: {exc}"
                 report["connections"].append({
                     "alias": alias,
                     "database": database,
                     "schema": schema,
-                    "migration_count": len(applied),
-                    "latest_migration": max(
-                        (name for app, name in applied if app == "zentinelle"),
-                        default=None,
-                    ),
+                    "migration_count": migration_count,
+                    "latest_migration": latest_migration,
                     "counts": counts,
                 })
             except Exception as exc:  # pragma: no cover - backend-specific errors
