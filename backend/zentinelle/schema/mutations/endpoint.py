@@ -12,6 +12,7 @@ from graphql_relay import from_global_id
 from strawberry.scalars import JSON
 
 from zentinelle.models import AgentEndpoint
+from zentinelle.models.tenant_config import TenantConfig
 from zentinelle.schema.auth_helpers import get_request_tenant_id
 from zentinelle.schema.types import AgentEndpointType
 
@@ -27,6 +28,24 @@ def resolve_endpoint_id(global_or_raw_id: str) -> str:
     except Exception:
         pass
     return global_or_raw_id
+
+
+def _normalize_endpoint_metadata(tenant_id: str, metadata):
+    """Normalize taxonomy tags at every endpoint control-plane entry point."""
+    normalized = dict(metadata or {})
+    if 'taxonomy' not in normalized:
+        return normalized, None
+    from zentinelle.services.agent_taxonomy import validate_taxonomy
+
+    raw_taxonomy = normalized['taxonomy']
+    if isinstance(raw_taxonomy, dict):
+        raw_taxonomy = raw_taxonomy.get('supported', [])
+    if not isinstance(raw_taxonomy, list):
+        return None, 'metadata.taxonomy must be a list of dimension:value tags'
+    config = TenantConfig.objects.filter(tenant_id=str(tenant_id)).first()
+    extensions = (config.settings or {}).get('taxonomy_extensions', []) if config else []
+    normalized['taxonomy'] = validate_taxonomy(raw_taxonomy, tenant_extensions=extensions)
+    return normalized, None
 
 
 @strawberry.input
@@ -113,6 +132,10 @@ def create_agent_endpoint(info: strawberry.types.Info, organization_id: uuid.UUI
     if input.agent_type not in valid_types:
         return CreateAgentEndpointPayload(success=False, error=f"Invalid agent type: {input.agent_type}")
 
+    metadata, metadata_error = _normalize_endpoint_metadata(tenant_id, input.metadata)
+    if metadata_error:
+        return CreateAgentEndpointPayload(success=False, error=metadata_error)
+
     try:
         api_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
 
@@ -129,7 +152,7 @@ def create_agent_endpoint(info: strawberry.types.Info, organization_id: uuid.UUI
             api_key_hash=key_hash,
             api_key_prefix=key_prefix,
             capabilities=input.capabilities or [],
-            metadata=input.metadata or {},
+            metadata=metadata,
             config=input.config or {},
             sub_organization_id_ext=input.sub_organization_id or '',
             status=AgentEndpoint.Status.PROVISIONING,
@@ -186,8 +209,11 @@ def update_agent_endpoint(info: strawberry.types.Info, input: UpdateAgentEndpoin
         endpoint.agent_type = input.agent_type
     if input.capabilities is not None:
         endpoint.capabilities = input.capabilities
-    if input.metadata:
-        endpoint.metadata = input.metadata
+    if input.metadata is not None:
+        metadata, metadata_error = _normalize_endpoint_metadata(endpoint.tenant_id, input.metadata)
+        if metadata_error:
+            return UpdateAgentEndpointPayload(success=False, error=metadata_error)
+        endpoint.metadata = metadata
     if input.sub_organization_id is not None:
         endpoint.sub_organization_id_ext = input.sub_organization_id
     if input.config:
