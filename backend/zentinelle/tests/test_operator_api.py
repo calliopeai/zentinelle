@@ -32,3 +32,11 @@ class OperatorAuthTests(SimpleTestCase):
         request.user = Mock(is_authenticated=True)
         request.user.has_scope.side_effect = lambda scope: scope == 'read'
         self.assertFalse(IsPlatformOperator().has_permission(request, None))
+
+class PersistenceTenantLookupTests(SimpleTestCase):
+    def test_policy_revisions_follow_parent_policy_tenant(self):
+        from zentinelle.management.commands.persistence_check import tenant_filter_kwargs
+        self.assertEqual(
+            tenant_filter_kwargs('policy_revisions', 'tenant-a'),
+            {'policy__tenant_id': 'tenant-a'},
+        )

@@ -5,6 +5,7 @@ import json
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
 
+from zentinelle.management.commands.persistence_check import tenant_filter_kwargs
 from zentinelle.models import AgentEndpoint, Event, Policy, PolicyRevision
 
 
@@ -41,7 +42,7 @@ class Command(BaseCommand):
                         continue
                     try:
                         count = model.objects.using(alias).filter(
-                            tenant_id=tenant_id).count()
+                            **tenant_filter_kwargs(name, tenant_id)).count()
                         alias_checks[name] = {'ok': True, 'tenant_count': count}
                     except Exception as exc:  # pragma: no cover
                         alias_checks[name] = {

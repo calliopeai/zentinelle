@@ -8,6 +8,11 @@ from django.db import connections
 from zentinelle.models import (AgentEndpoint, AuditLog, Event, Policy,
                                PolicyRevision, UsageMetric)
 
+def tenant_filter_kwargs(name, tenant_id):
+    """Return the correct tenant lookup for each routed model."""
+    return {'policy__tenant_id' if name == 'policy_revisions' else 'tenant_id': tenant_id}
+
+
 ROUTED_MODELS = {
     "zentinelle": {
         "policies": Policy,
@@ -60,7 +65,7 @@ class Command(BaseCommand):
                 for name, model in models.items():
                     try:
                         counts[name] = model.objects.using(alias).filter(
-                            tenant_id=tenant_id).count()
+                            **tenant_filter_kwargs(name, tenant_id)).count()
                     except Exception as exc:  # pragma: no cover
                         counts[name] = f"error: {type(exc).__name__}: {exc}"
                 report["connections"].append({
