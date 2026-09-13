@@ -18,7 +18,7 @@ mutation UpdateEndpoint($input: UpdateAgentEndpointInput!) {
   updateAgentEndpoint(input: $input) {
     success
     error
-    endpoint { id name agentType capabilities }
+    endpoint { id name agentType capabilities metadata }
   }
 }
 """
@@ -104,6 +104,36 @@ class UpdateAgentEndpointTests(TestCase):
         # Endpoint untouched
         self.endpoint.refresh_from_db()
         self.assertEqual(self.endpoint.agent_type, AgentEndpoint.AgentType.CUSTOM)
+
+    def test_update_normalizes_taxonomy_tags(self):
+        result = _exec(UPDATE_ENDPOINT, {
+            'input': {
+                'id': str(self.endpoint.id),
+                'metadata': {
+                    'taxonomy': ['function:legal', 'mode:workflow', 'client:acme'],
+                },
+            },
+        })
+        self.assertIsNone(result.errors, msg=str(result.errors))
+        payload = result.data['updateAgentEndpoint']
+        self.assertTrue(payload['success'], msg=payload.get('error'))
+        self.endpoint.refresh_from_db()
+        self.assertEqual(self.endpoint.metadata['taxonomy']['supported'], [
+            'function:legal', 'mode:workflow',
+        ])
+        self.assertEqual(self.endpoint.metadata['taxonomy']['unsupported'], ['client:acme'])
+
+    def test_update_rejects_malformed_taxonomy(self):
+        result = _exec(UPDATE_ENDPOINT, {
+            'input': {
+                'id': str(self.endpoint.id),
+                'metadata': {'taxonomy': 'function:legal'},
+            },
+        })
+        self.assertIsNone(result.errors, msg=str(result.errors))
+        payload = result.data['updateAgentEndpoint']
+        self.assertFalse(payload['success'])
+        self.assertIn('metadata.taxonomy must be a list', payload['error'])
 
     def test_update_nonexistent_returns_error(self):
         result = _exec(UPDATE_ENDPOINT, {
