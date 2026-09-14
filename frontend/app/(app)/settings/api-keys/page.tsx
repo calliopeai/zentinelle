@@ -71,11 +71,14 @@ function ApiKeysPage() {
           scopes: Array.from(selectedScopes),
         },
       });
-      const plaintext = result?.data?.createPlatformApiKey?.plaintextKey;
+      const payload = result?.data?.createPlatformApiKey;
+      const plaintext = payload?.apiKey;
       if (plaintext) {
         setCreatedKey(plaintext);
+        toast.success("API key created");
+      } else {
+        toast.error(payload?.error ?? "Failed to create key");
       }
-      toast.success("API key created");
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to create key");
     }
@@ -100,8 +103,9 @@ function ApiKeysPage() {
     });
     if (!ok) return;
     try {
-      await revokeKey({ variables: { id } });
-      toast.success("Key revoked");
+      const { data }: { data: any } = await revokeKey({ variables: { id } });
+      if (data?.revokeApiKey?.ok) toast.success("Key revoked");
+      else toast.error(data?.revokeApiKey?.error ?? "Failed to revoke");
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to revoke");
     }
@@ -116,8 +120,9 @@ function ApiKeysPage() {
     });
     if (!ok) return;
     try {
-      await deleteKey({ variables: { id } });
-      toast.success("Key deleted");
+      const { data }: { data: any } = await deleteKey({ variables: { id } });
+      if (data?.deleteApiKey?.ok) toast.success("Key deleted");
+      else toast.error(data?.deleteApiKey?.error ?? "Failed to delete");
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to delete");
     }
