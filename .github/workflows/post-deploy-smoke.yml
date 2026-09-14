@@ -1,0 +1,79 @@
+name: Post-deploy persistence smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      aws_role_arn:
+        description: IAM role allowed to describe ECS tasks and use ECS Exec
+        required: true
+        type: string
+      cluster:
+        description: ECS cluster containing the deployed backend
+        required: true
+        default: conflict
+        type: string
+      service:
+        description: ECS backend service name
+        required: true
+        default: conflict-zentinelle-backend
+        type: string
+      tenant_id:
+        description: Tenant identifier to verify
+        required: true
+        type: string
+      region:
+        description: AWS region
+        required: true
+        default: us-west-2
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  smoke:
+    name: Verify deployed persistence
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ inputs.aws_role_arn }}
+          aws-region: ${{ inputs.region }}
+
+      - name: Install ECS Exec session manager plugin
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" \
+            --output /tmp/session-manager-plugin.deb
+          sudo dpkg -i /tmp/session-manager-plugin.deb
+
+      - name: Resolve running backend task
+        id: task
+        env:
+          ECS_CLUSTER: ${{ inputs.cluster }}
+          ECS_SERVICE: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          task_arn="$(aws ecs list-tasks --cluster "$ECS_CLUSTER" --service-name "$ECS_SERVICE" \
+            --desired-status RUNNING --query 'taskArns[0]' --output text)"
+          test -n "$task_arn" -a "$task_arn" != "None"
+          echo "arn=$task_arn" >> "$GITHUB_OUTPUT"
+
+      - name: Run strict persistence smoke
+        env:
+          ECS_CLUSTER: ${{ inputs.cluster }}
+          TASK_ARN: ${{ steps.task.outputs.arn }}
+          TENANT_ID: ${{ inputs.tenant_id }}
+        run: |
+          set -euo pipefail
+          aws ecs execute-command --cluster "$ECS_CLUSTER" --task "$TASK_ARN" \
+            --container backend --interactive \
+            --command "python manage.py persistence_smoke --tenant-id '$TENANT_ID' --json" \
+            2>&1 | tee /tmp/persistence-smoke.log
+          report="$(grep -Eo '\{"checks".*\}' /tmp/persistence-smoke.log | tail -n 1)"
+          test -n "$report"
+          echo "$report" | jq --exit-status '.ok == true'
+          echo "$report" | jq .
