@@ -16,6 +16,15 @@ Back up and test restoration before upgrading. Run `python manage.py prepare_sch
 
 Migrations 0037–0039 add approval and budget records, policy composition fields, and versioned audit retention witnesses. Historical hashes remain version 1; their narrower field coverage cannot be repaired retrospectively. New entries use version 2.
 
+After each production rollout, run the **Post-deploy persistence smoke** workflow
+from GitHub Actions. Provide the deployment role, ECS cluster and backend service,
+and the tenant identifier used by the deployment check. The workflow uses ECS Exec
+to run `python manage.py persistence_smoke --tenant-id <tenant> --json` in the
+running backend and fails unless the routed tables, migration ledger and
+tenant-scoped queries all pass. Grant the workflow role only `ecs:ListTasks`,
+`ecs:DescribeTasks`, and the ECS Exec SSM channel permissions required by your
+organization's standard execution role.
+
 ## Evaluation, approvals and budgets
 
 The version 1 evaluation envelope contains an action, an optional asserted agent ID, an optional user ID, and a context object. `context.schema_version` may be omitted for existing clients; unsupported explicit versions are rejected. The authenticated key determines the workload and tenant. Canonical content fields are `input_text`, `output_text`, `tool_outputs`, `rag_context`, and complete JSON `request_body`. Known older aliases normalize at the boundary. Enforcement requiring missing inspection content denies or reports an inconclusive replay. Both proxies inspect complete buffered output, including decoded JSON/SSE and tool arguments, before release when output filtering applies. Streaming then loses incremental delivery by design.
