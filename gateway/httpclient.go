@@ -48,29 +48,36 @@ var controlPlaneTransport = &http.Transport{
 	ExpectContinueTimeout: 1 * time.Second,
 }
 
+// noRedirect keeps credentials on the host they were meant for: Go re-sends
+// custom headers on a redirect, so following one would hand the agent key or
+// the gateway credential to wherever it pointed (#397). A 3xx comes back as a
+// response and each caller treats it as a failed call.
+func noRedirect(*http.Request, []*http.Request) error {
+	return http.ErrUseLastResponse
+}
+
 // policyClient makes the policy check on the request path.
 //
 // No client timeout: CheckPolicy derives a context from cfg.PolicyTimeout and
 // the request's own context, so the deadline is already the right one and a
 // second one here would only ever cut a call short of it.
-var policyClient = &http.Client{Transport: controlPlaneTransport}
+var policyClient = &http.Client{Transport: controlPlaneTransport, CheckRedirect: noRedirect}
 
 // usageClient reports usage after the response has been returned. It carries a
 // timeout because it runs detached from any request context, so nothing else
 // would ever stop it.
 var usageClient = &http.Client{
-	Transport: controlPlaneTransport,
-	Timeout:   5 * time.Second,
+	Transport:     controlPlaneTransport,
+	Timeout:       5 * time.Second,
+	CheckRedirect: noRedirect,
 }
 
 // heartbeatClient reports on the cluster (#391), with a deadline from its
 // context. It follows no redirect: the credential header would go along to
 // wherever one pointed, and a redirected heartbeat is not one Zentinelle took.
 var heartbeatClient = &http.Client{
-	Transport: controlPlaneTransport,
-	CheckRedirect: func(*http.Request, []*http.Request) error {
-		return http.ErrUseLastResponse
-	},
+	Transport:     controlPlaneTransport,
+	CheckRedirect: noRedirect,
 }
 
 // providerTransport carries the proxied traffic. Idle connections are pooled
