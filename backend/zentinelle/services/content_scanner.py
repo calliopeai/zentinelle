@@ -26,8 +26,10 @@ from zentinelle.models.actions import (LEGACY_ENFORCEMENT_FOR_ACTION,
                                        SEVERITY_ORDER, Action)
 
 # How a rule's decided action reaches the legacy `action` of a scan, whose
-# precedence is block, then warn, then redact. Log, alert and approval had no
-# effect there before #396 and still have none; `enforcement` carries them.
+# precedence is block, then warn, then redact. Log, alert and a rule's own
+# require_approval had no effect there before #396 and still have none;
+# `enforcement` carries them. Escalation into require_approval reads as block
+# (ContentScanner._legacy_action).
 LEGACY_SCAN_ACTION = {
     Action.BLOCK: 'block',
     Action.WARN: 'warn',
@@ -299,7 +301,7 @@ class ContentScanner:
             # Find the rule that triggered this violation
             rule = next((r for r in rules if r.rule_type == v.rule_type), None)
             if rule:
-                legacy = LEGACY_SCAN_ACTION.get(decisions[rule.id].action)
+                legacy = self._legacy_action(decisions[rule.id])
                 if legacy == 'block':
                     action = 'block'
                 elif legacy == 'warn' and action != 'block':
@@ -381,6 +383,20 @@ class ContentScanner:
                 'tool': '', 'agent': endpoint.agent_id if endpoint else '',
             })
         return decision
+
+    @staticmethod
+    def _legacy_action(decision) -> Optional[str]:
+        """What a rule's decision reads as to a caller that knows only block, warn and redact.
+
+        A rule configured as require_approval holds nothing there, as before
+        #396 (#408 decides whether it should). Escalating into
+        require_approval must not undo the warn or redact the rule applied
+        before it, and a legacy caller cannot hold a call, so it reads as
+        block: where require_approval's fallback chain ends.
+        """
+        if decision.action == Action.REQUIRE_APPROVAL and decision.configured_action != Action.REQUIRE_APPROVAL:
+            return 'block'
+        return LEGACY_SCAN_ACTION.get(decision.action)
 
     @staticmethod
     def _reason(rule: ContentRule, detections: List[DetectionResult]) -> str:

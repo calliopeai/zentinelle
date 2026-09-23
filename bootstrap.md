@@ -546,7 +546,10 @@ when the decision is `redact`; the decision is stored on the `ContentScan`.
 The legacy `action` and `allowed` keep their old precedence (block, then warn,
 then redact; `log`, `alert` and `require_approval` change nothing there), so
 for a caller reading only `action` a warn rule still wins over a redact rule,
-and a `require_approval` rule holds nothing.
+and a `require_approval` rule holds nothing (#408). A rule that escalation
+raises into `require_approval` reads as `block` there instead: a legacy
+caller cannot hold a call, and escalating must not undo the warn or redact the
+rule applied before it.
 
 Delivering a steer or a stop to a running agent is the target's job
 (Astrolift: #394, calliopeai/astrolift-app#1903).

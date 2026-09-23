@@ -439,6 +439,29 @@ class ContentRuleActionTests(TestCase):
         body = self.scan().json()
         self.assertEqual((body['action'], body['enforcement']['block_level']), ('block', 'stop'))
 
+    def test_escalation_into_require_approval_reads_as_block_to_legacy_callers(self):
+        # The legacy action has no approval, so without this a redact rule
+        # escalated on a critical match answered allowed, with nothing redacted.
+        self.rule('Tickets', action='redact', severity='critical',
+                  escalation={'severity': [{'min_severity': 'critical', 'action': 'require_approval'}]})
+        body = self.scan().json()
+        self.assertEqual((body['allowed'], body['action'], body['enforcement']['action']),
+                         (False, 'block', 'require_approval'))
+        self.assertTrue(ContentScan.objects.get(id=body['scan_id']).was_blocked)
+
+    def test_repeats_into_require_approval_read_as_block_after_the_warning(self):
+        self.rule('Tickets', action='warn',
+                  escalation={'window_seconds': 60, 'repeat': [{'count': 2, 'action': 'require_approval'}]})
+        first, second = self.scan().json(), self.scan().json()
+        self.assertEqual([(b['allowed'], b['action']) for b in (first, second)], [(True, 'warn'), (False, 'block')])
+
+    def test_a_rule_of_its_own_require_approval_still_holds_nothing_on_scan(self):
+        # Unchanged from before #396 until #408 decides otherwise.
+        self.rule('Tickets', action='require_approval')
+        body = self.scan().json()
+        self.assertEqual((body['allowed'], body['action'], body['enforcement']['action']),
+                         (True, 'allow', 'require_approval'))
+
     def test_capabilities_that_are_not_booleans_are_refused(self):
         self.rule('Tickets', action='block')
         self.assertEqual(self.scan(target_capabilities={'supports_redact': 'yes'}).status_code, 400)
