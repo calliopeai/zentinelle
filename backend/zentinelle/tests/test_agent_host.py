@@ -163,7 +163,10 @@ class AgentHostHoldTests(AgentHostTestCase):
         self.assertEqual((held.tenant_id, held.endpoint_id_ext, held.subject, held.action),
                          (TENANT, str(self.host.pk), 'user-1', 'tool_call'))
         self.assertEqual(held.trace_id, body['trace_id'])
-        self.assertAlmostEqual((held.expires_at - held.created_at).total_seconds(), 300, delta=5)
+        # expires_at is fixed just before the insert stamps created_at, so the
+        # stored window never exceeds the policy's; the floor tolerates a slow DB.
+        window = (held.expires_at - held.created_at).total_seconds()
+        self.assertTrue(240 < window <= 300, window)
         self.assertEqual((held.context['session_id'], held.context['tool_name']), ('session-1', 'Bash'))
         self.assertNotIn('tool_input', held.context)
         event = Event.objects.get(endpoint=self.host)
@@ -241,6 +244,8 @@ class AgentHostHoldTests(AgentHostTestCase):
         body = self.evaluate(host_tool_call(tool_name='WebFetch', is_external_call=True)).json()
         self.assertEqual(body['decision'], 'ask')
         self.assertEqual(body['approval']['timeout_seconds'], 60)
+        held = ApprovalRequest.objects.get(pk=body['approval']['request_id'])
+        self.assertTrue(0 < (held.expires_at - held.created_at).total_seconds() <= 60)
 
     def test_a_capability_approval_also_holds(self):
         Policy.objects.create(
