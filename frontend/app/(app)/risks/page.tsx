@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useMutation } from "@apollo/client/react";
-import { type ColumnDef } from "@tanstack/react-table";
+import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import Link from "next/link";
 import { MoreHorizontalIcon } from "lucide-react";
 import { toast } from "sonner";

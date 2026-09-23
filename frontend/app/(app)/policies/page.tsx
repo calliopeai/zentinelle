@@ -4,7 +4,7 @@ import { PermissionGuard } from "@/components/PermissionGuard";
 
 import { useState, useMemo } from "react";
 import { useMutation } from "@apollo/client/react";
-import { type ColumnDef } from "@tanstack/react-table";
+import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import { MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
