@@ -9,13 +9,10 @@ Supports API keys:
 Note: Deployment key auth (sk_deploy_) has been removed in standalone mode.
 Deployment operations are handled by the client-cove integration layer.
 """
-import hmac
-
 from rest_framework import authentication, exceptions
 
-from zentinelle.auth.gateway_token import gateway_token
 from zentinelle.auth.mode import is_open_mode
-from zentinelle.models import AgentEndpoint, APIKey
+from zentinelle.models import AgentEndpoint, APIKey, GatewayCredential
 from zentinelle.utils.api_keys import KeyPrefixes
 
 
@@ -266,38 +263,35 @@ class ZentinelleCombinedAuthentication(authentication.BaseAuthentication):
 
 class GatewayAgentAuthentication(authentication.BaseAuthentication):
     """
-    Require the gateway's shared token AND an agent key (#380).
+    Require a registered gateway's credential AND an agent key (#380).
 
     Usage:
-        X-Zentinelle-Gateway-Token: <the gateway token>
+        X-Zentinelle-Gateway-Credential: sk_gateway_...
         X-Zentinelle-Key: sk_agent_...
 
-    The agent key names the tenant; the gateway token is what entitles the
-    caller to that tenant's raw provider key. An agent key alone is never
-    enough, because the agent is exactly who the provider key is kept from.
-    The expected token comes from zentinelle.auth.gateway_token: the
-    environment, else a file the backend may have minted.
+    The agent key names the tenant. The gateway credential names the gateway,
+    and through its registration the tenants that gateway may read provider
+    keys for; the view holds one against the other. An agent key alone is
+    never enough, because the agent is exactly who the provider key is kept
+    from.
 
-    The token is checked first. It is a constant-time comparison where the
-    agent key is a bcrypt verification, so a caller without the token never
-    gets to spend bcrypt rounds or learn whether an agent key is valid.
+    Returns the agent as the user and the GatewayCredential as `auth`. The
+    gateway credential is checked first, so a caller without one never learns
+    whether an agent key is valid.
     """
 
-    keyword = 'X-Zentinelle-Gateway-Token'
+    keyword = 'X-Zentinelle-Gateway-Credential'
 
     def authenticate(self, request):
-        expected = gateway_token()
-        if not expected:
-            raise exceptions.PermissionDenied('Gateway provider-key lookup is not configured')
-
-        presented = request.META.get('HTTP_X_ZENTINELLE_GATEWAY_TOKEN', '')
-        if not hmac.compare_digest(presented.encode(), expected.encode()):
+        credential = GatewayCredential.authenticate(
+            request.META.get('HTTP_X_ZENTINELLE_GATEWAY_CREDENTIAL', ''))
+        if credential is None:
             raise exceptions.AuthenticationFailed('Invalid gateway credential')
 
         agent = ZentinelleAPIKeyAuthentication().authenticate(request)
         if agent is None:
             raise exceptions.AuthenticationFailed('X-Zentinelle-Key is required')
-        return agent
+        return agent[0], credential
 
     def authenticate_header(self, request):
         return self.keyword

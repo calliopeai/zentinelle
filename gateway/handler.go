@@ -16,18 +16,18 @@ import (
 // Gateway is the main HTTP handler that proxies requests to LLM providers
 // with Zentinelle policy enforcement.
 type Gateway struct {
-	cfg    *Config
-	client *http.Client
-	keys   *providerKeyCache
-	token  *gatewayToken
+	cfg        *Config
+	client     *http.Client
+	keys       *providerKeyCache
+	credential *gatewayCredential
 }
 
 // NewGateway creates a new Gateway with the given configuration.
 func NewGateway(cfg *Config) *Gateway {
 	return &Gateway{
-		cfg:   cfg,
-		keys:  newProviderKeyCache(providerKeyCacheTTL, providerKeyCacheMaxEntries),
-		token: newGatewayToken(cfg.GatewayToken, cfg.GatewayTokenFile),
+		cfg:        cfg,
+		keys:       newProviderKeyCache(providerKeyCacheTTL, providerKeyCacheMaxEntries),
+		credential: newGatewayCredential(cfg.GatewayCredential, cfg.GatewayCredentialFile),
 		client: &http.Client{
 			// No global timeout — streaming responses can take minutes.
 			// Per-request timeouts are handled by context.

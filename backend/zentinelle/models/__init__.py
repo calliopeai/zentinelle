@@ -35,6 +35,8 @@ from zentinelle.models.control_evidence import ControlEvidence
 from zentinelle.models.endpoint import AgentEndpoint
 from zentinelle.models.event import Event
 from zentinelle.models.event_outbox import EventDeliveryOutbox
+# Registered gateways (#380)
+from zentinelle.models.gateway import GatewayCredential, GatewayRegistration
 # Client Cove Integration
 from zentinelle.models.integration import ClientCoveIntegration
 # Zentinelle License & Agent Entitlements
@@ -166,4 +168,7 @@ __all__ = [
     'ClientCoveIntegration',
     # Bootstrap Tokens
     'BootstrapToken',
+    # Registered gateways
+    'GatewayRegistration',
+    'GatewayCredential',
 ]

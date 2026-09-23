@@ -32,18 +32,22 @@ type Config struct {
 	// Deprecated: per-tenant stored keys replace it.
 	AllowEnvProviderKeys bool
 
-	// GatewayToken is presented with the agent key to read that agent's
-	// tenant's stored provider key from Zentinelle (#380). It is
-	// ZENTINELLE_GATEWAY_TOKEN, or else the contents of GatewayTokenFile.
-	// Empty disables the lookup, which leaves only the env fallback.
-	GatewayToken string
+	// GatewayCredential is this gateway's own registered credential
+	// (sk_gateway_...), presented with the agent key to read that agent's
+	// tenant's stored provider key (#380). Zentinelle releases a key only for
+	// the tenants this gateway is registered for. It is
+	// ZENTINELLE_GATEWAY_CREDENTIAL, or else the contents of
+	// GatewayCredentialFile. Empty disables the lookup, which leaves only the
+	// env fallback.
+	GatewayCredential string
 
-	// GatewayTokenFile is where the token is read from when
-	// ZENTINELLE_GATEWAY_TOKEN is unset: ZENTINELLE_GATEWAY_TOKEN_FILE, by
-	// default /var/run/zentinelle/gateway-token. It is read again when the
-	// backend refuses the token, so a rotated token needs no restart. Empty
-	// when the token came from the environment, or nothing is mounted there.
-	GatewayTokenFile string
+	// GatewayCredentialFile is where the credential is read from when
+	// ZENTINELLE_GATEWAY_CREDENTIAL is unset: ZENTINELLE_GATEWAY_CREDENTIAL_FILE,
+	// by default /var/run/zentinelle/gateway-credential. It is read again when
+	// the backend refuses the credential, so a rotated one needs no restart.
+	// Empty when the credential came from the environment, or nothing is
+	// mounted there.
+	GatewayCredentialFile string
 
 	// Which tenant and cluster this gateway speaks for, sent on every call to
 	// Zentinelle. In the cluster-local pattern one Zentinelle serves many
@@ -102,28 +106,29 @@ func LoadConfig() (*Config, error) {
 		allowEnvKeys = parsed
 	}
 
-	gatewayToken := os.Getenv("ZENTINELLE_GATEWAY_TOKEN")
-	gatewayTokenFile := ""
-	if gatewayToken != "" {
-		if len(gatewayToken) < minGatewayTokenLength {
-			return nil, fmt.Errorf("ZENTINELLE_GATEWAY_TOKEN must be at least %d characters; the backend refuses a shorter one", minGatewayTokenLength)
+	gatewayCredential := os.Getenv("ZENTINELLE_GATEWAY_CREDENTIAL")
+	gatewayCredentialFile := ""
+	if gatewayCredential != "" {
+		if !validGatewayCredential(gatewayCredential) {
+			return nil, fmt.Errorf("ZENTINELLE_GATEWAY_CREDENTIAL is not a gateway credential (%s...); "+
+				"mint one with manage.py gateway_credential", gatewayCredentialPrefix)
 		}
 	} else {
-		gatewayTokenFile = defaultGatewayTokenFile
-		if v, set := os.LookupEnv("ZENTINELLE_GATEWAY_TOKEN_FILE"); set {
-			gatewayTokenFile = v
+		gatewayCredentialFile = defaultGatewayCredentialFile
+		if v, set := os.LookupEnv("ZENTINELLE_GATEWAY_CREDENTIAL_FILE"); set {
+			gatewayCredentialFile = v
 		}
 		// A file in a directory that does not exist is not coming: nothing is
 		// mounted there, so there is nothing to wait for or read again.
-		if gatewayTokenFile != "" && !isDir(filepath.Dir(gatewayTokenFile)) {
-			gatewayTokenFile = ""
+		if gatewayCredentialFile != "" && !isDir(filepath.Dir(gatewayCredentialFile)) {
+			gatewayCredentialFile = ""
 		}
-		if gatewayTokenFile != "" {
-			token, err := waitForGatewayToken(gatewayTokenFile, gatewayTokenWait, gatewayTokenPoll)
+		if gatewayCredentialFile != "" {
+			credential, err := waitForGatewayCredential(gatewayCredentialFile, gatewayCredentialWait, gatewayCredentialPoll)
 			if err != nil {
 				return nil, err
 			}
-			gatewayToken = token
+			gatewayCredential = credential
 		}
 	}
 
@@ -131,23 +136,24 @@ func LoadConfig() (*Config, error) {
 
 	// A gateway with nowhere to get a provider key would start cleanly and
 	// then refuse every request, which is the failure that looks like health.
-	if gatewayToken == "" && !(allowEnvKeys && len(providerKeys) > 0) {
-		return nil, fmt.Errorf("no provider key source: set ZENTINELLE_GATEWAY_TOKEN, or give the gateway the token file "+
-			"the backend reads (ZENTINELLE_GATEWAY_TOKEN_FILE, default %s)", defaultGatewayTokenFile)
+	if gatewayCredential == "" && !(allowEnvKeys && len(providerKeys) > 0) {
+		return nil, fmt.Errorf("no provider key source: give the gateway its registered credential, as "+
+			"ZENTINELLE_GATEWAY_CREDENTIAL or in the file at ZENTINELLE_GATEWAY_CREDENTIAL_FILE (default %s)",
+			defaultGatewayCredentialFile)
 	}
 
 	return &Config{
-		Port:                 port,
-		ZentinelleURL:        zentinelleURL,
-		ProviderAPIKeys:      providerKeys,
-		AllowEnvProviderKeys: allowEnvKeys,
-		GatewayToken:         gatewayToken,
-		GatewayTokenFile:     gatewayTokenFile,
-		TenantID:             os.Getenv("ZENTINELLE_TENANT_ID"),
-		ClusterID:            os.Getenv("ZENTINELLE_CLUSTER_ID"),
-		FailOpen:             failOpen,
-		PolicyTimeout:        time.Duration(policyTimeoutMs) * time.Millisecond,
-		MaxResponseBytes:     maxBytes,
+		Port:                  port,
+		ZentinelleURL:         zentinelleURL,
+		ProviderAPIKeys:       providerKeys,
+		AllowEnvProviderKeys:  allowEnvKeys,
+		GatewayCredential:     gatewayCredential,
+		GatewayCredentialFile: gatewayCredentialFile,
+		TenantID:              os.Getenv("ZENTINELLE_TENANT_ID"),
+		ClusterID:             os.Getenv("ZENTINELLE_CLUSTER_ID"),
+		FailOpen:              failOpen,
+		PolicyTimeout:         time.Duration(policyTimeoutMs) * time.Millisecond,
+		MaxResponseBytes:      maxBytes,
 	}, nil
 }
 

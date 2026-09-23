@@ -326,7 +326,7 @@ request path: full interaction logging, and the multimodal request scan.
 Provider keys are the second thing carried to the gateway (#380). Once policy
 passes, it asks `POST /api/zentinelle/v1/gateway/provider-key` for the key the
 agent's tenant stored, presenting the agent key (which names the tenant) and
-`ZENTINELLE_GATEWAY_TOKEN` (which entitles it to raw keys; an agent key alone
+its own registered credential (which names the gateway; an agent key alone
 reads nothing). It caches the answer for 60 seconds per agent key and provider,
 and it always drops whatever key the client sent. This is a separate endpoint
 rather than a field on the evaluate response because a decision is made per
@@ -336,16 +336,26 @@ writes an `access` audit record without the value. The gateway's env keys
 remain only as a deprecated single-tenant fallback behind
 `ALLOW_ENV_PROVIDER_KEYS`, and a failed lookup never falls back to them.
 
-The token is one random value, never derived from names or configuration, and
-deployment-wide, so it goes only to gateways trusted with every tenant's keys.
-Both sides take `ZENTINELLE_GATEWAY_TOKEN` if set, else the file at
-`ZENTINELLE_GATEWAY_TOKEN_FILE` (default `/var/run/zentinelle/gateway-token`).
-Compose needs no configuration: the backend mints the file into a volume both
-containers mount when it starts (exclusive create, so replicas agree), and
-`make gateway-token` pins one in `.env` instead. On Kubernetes it is a
-generated Secret mounted as the file. The backend reads the file on every
-lookup and the gateway reads it again when refused, so rotation needs no
-restart.
+The gateway runs inside each cluster that hosts agents (a data plane), with
+Zentinelle as the control plane for one or many of them, so there is no shared
+secret between them: a single one would let one leaked cluster unlock every
+tenant. Each gateway is a `GatewayRegistration` scoped to an explicit set of
+`tenant_ids`, holding its own `GatewayCredential` (`sk_gateway_...`, stored as
+a bcrypt hash like an API key). A key is released only when the agent's tenant
+is in the gateway's scope; a registration or a single credential is revoked on
+its own; rotation is a second credential, then revoking the first. Operators
+use `manage.py gateway_credential` (register, mint, scope, list, revoke). The
+registration carries the opaque `cluster_id` the gateway sends as
+X-Zentinelle-Cluster; when Zentinelle gains a cluster record, the registration
+gets a nullable foreign key to it, backfilled by that id.
+
+The gateway reads its credential from `ZENTINELLE_GATEWAY_CREDENTIAL`, else the
+file at `ZENTINELLE_GATEWAY_CREDENTIAL_FILE` (default
+`/var/run/zentinelle/gateway-credential`): a mounted Secret on Kubernetes. A
+standalone compose install needs no configuration: its backend registers a
+gateway named `local` for the standalone tenant and writes its credential into
+a volume both containers mount (exclusive create, so replicas leave one). The
+gateway reads the file again when refused, so rotation needs no restart.
 
 ```
 Agent SDK → local proxy (port 8742) → Zentinelle /proxy/<provider>/ → provider API

@@ -20,11 +20,12 @@ configuration.
 ```bash
 kubectl apply -f gateway.yaml
 
-# The gateway token: one random value, generated here and never committed.
-# Skipped when it exists, so re-running never rotates it by accident.
-kubectl get secret zentinelle-gateway-token -n zentinelle >/dev/null 2>&1 ||
-  kubectl create secret generic zentinelle-gateway-token -n zentinelle \
-    --from-literal=token="$(openssl rand -hex 32)"
+# This cluster's gateway credential, minted where the Zentinelle backend runs
+# (for example `docker compose exec -T backend python manage.py ...`) and piped
+# straight into the Secret, so it never appears on screen.
+kubectl create secret generic zentinelle-gateway-credential -n zentinelle \
+  --from-literal=credential="$(python manage.py gateway_credential register \
+    prod-us-east-1 --cluster prod-us-east-1 --tenant acme-corp --plain)"
 
 kubectl apply -f network-policy-cilium.yaml    # or -vanilla, see below
 kubectl label pod -n agents -l app=my-agent zentinelle.ai/governed=true
@@ -32,44 +33,38 @@ kubectl label pod -n agents -l app=my-agent zentinelle.ai/governed=true
 
 Edit the ConfigMap in `gateway.yaml` first: `ZENTINELLE_URL`,
 `ZENTINELLE_TENANT_ID` and `ZENTINELLE_CLUSTER_ID`. The gateway pods wait for
-the Secret, then read the token from `/var/run/zentinelle/gateway-token`.
+the Secret, then read the credential from `/var/run/zentinelle/gateway-credential`.
 Provider keys are stored per tenant in Zentinelle, so neither the gateway nor
 any agent holds one.
 
-### Give the backend the same token
+### One credential per gateway
 
-The gateway presents the token and the backend checks it, so both need the
-one value.
+Each cluster's gateway is registered on the control plane with the tenants it
+serves (`--tenant`, repeatable), and Zentinelle releases a tenant's stored
+provider key only to a gateway registered for that tenant. A leaked cluster
+therefore exposes that cluster's tenants and no others, and is revoked on its
+own. The backend keeps only a hash of the credential and needs no copy of it.
 
-- **Backend in this cluster:** mount the same Secret the same way. The backend
-  reads `/var/run/zentinelle/gateway-token` by default, on every lookup, so a
-  rotated Secret reaches it without a restart. Secrets are namespaced: create
-  it in the backend's namespace too, with the same value.
+```bash
+python manage.py gateway_credential list                          # never shows a credential
+python manage.py gateway_credential scope prod-us-east-1 --tenant acme-corp --tenant globex
+python manage.py gateway_credential revoke prod-us-east-1        # the whole gateway
+```
 
-  ```yaml
-  # in the backend Deployment's pod spec
-  volumes:
-    - name: gateway-token
-      secret:
-        secretName: zentinelle-gateway-token
-        items: [{key: token, path: gateway-token}]
-  containers:
-    - name: backend
-      volumeMounts:
-        - {name: gateway-token, mountPath: /var/run/zentinelle, readOnly: true}
-  ```
+To rotate, mint a second credential and replace the Secret's value with it.
+Both work meanwhile. Revoke the first once the pods have the new file, which
+the kubelet delivers within a minute or two:
 
-- **Backend elsewhere** (ECS, compose, another cluster): put the value in the
-  secret store its `ZENTINELLE_GATEWAY_TOKEN` comes from, reading it with
-  `kubectl get secret zentinelle-gateway-token -n zentinelle -o jsonpath='{.data.token}' | base64 -d`.
+```bash
+kubectl create secret generic zentinelle-gateway-credential -n zentinelle \
+  --from-literal=credential="$(python manage.py gateway_credential mint prod-us-east-1 --plain)" \
+  --dry-run=client -o yaml | kubectl apply -f -
+python manage.py gateway_credential revoke prod-us-east-1 --credential sk_gateway_XXXXXXXX
+```
 
-The token reads the stored provider key of any tenant whose agent key it is
-presented with, so this is a Secret to guard like one: only the gateway and
-the backend mount it.
-
-To rotate, replace the Secret's value in both places. The gateway reads its
-file again when the backend refuses the old token, at most once every ten
-seconds; the kubelet takes up to a minute or so to update a mounted Secret.
+A pod still holding the first credential when it is revoked reads its file
+again on the refusal, at most once every ten seconds, and retries with the new
+one, so nothing restarts.
 
 ### Deprecated: env provider keys
 
@@ -103,10 +98,11 @@ agent legitimately needs has to be listed by CIDR, and CIDRs go stale quietly.
 Policy is evaluated before the request is forwarded, and again on the response
 when the tenant has an output filter — in which case the response is buffered
 and nothing reaches the caller until the filter has seen all of it. Provider
-keys come from Zentinelle, per tenant, and live only in the gateway's memory
-(cached for a minute), never in any agent, so an agent that somehow reached a
-provider directly would have nothing to authenticate with. A provider key an
-agent sends is dropped rather than forwarded.
+keys come from Zentinelle, per tenant and only for the tenants this cluster's
+gateway is registered for, and live only in the gateway's memory (cached for a
+minute), never in any agent, so an agent that somehow reached a provider
+directly would have nothing to authenticate with. A provider key an agent
+sends is dropped rather than forwarded.
 
 `/metrics` is Prometheus text format on the same port, unauthenticated, for
 in-cluster scraping only. The Deployment carries the usual scrape annotations.

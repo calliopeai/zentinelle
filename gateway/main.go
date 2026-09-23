@@ -68,23 +68,23 @@ func main() {
 // logStartup records how the gateway is configured, and what about that
 // configuration an operator should change.
 func logStartup(cfg *Config) {
-	tokenSource := "none"
+	credentialSource := "none"
 	switch {
-	case cfg.GatewayTokenFile != "":
-		tokenSource = "file"
-	case cfg.GatewayToken != "":
-		tokenSource = "env"
+	case cfg.GatewayCredentialFile != "":
+		credentialSource = "file"
+	case cfg.GatewayCredential != "":
+		credentialSource = "env"
 	}
 
 	logJSON("info", "gateway starting", map[string]interface{}{
-		"port":                 cfg.Port,
-		"zentinelle":           cfg.ZentinelleURL,
-		"fail_open":            cfg.FailOpen,
-		"providers":            cfg.ProviderKeys(),
-		"policy_timeout":       cfg.PolicyTimeout.String(),
-		"tenant_provider_keys": cfg.GatewayToken != "",
-		"gateway_token_source": tokenSource,
-		"env_provider_keys":    cfg.AllowEnvProviderKeys,
+		"port":                      cfg.Port,
+		"zentinelle":                cfg.ZentinelleURL,
+		"fail_open":                 cfg.FailOpen,
+		"providers":                 cfg.ProviderKeys(),
+		"policy_timeout":            cfg.PolicyTimeout.String(),
+		"tenant_provider_keys":      cfg.GatewayCredential != "",
+		"gateway_credential_source": credentialSource,
+		"env_provider_keys":         cfg.AllowEnvProviderKeys,
 	})
 
 	switch {

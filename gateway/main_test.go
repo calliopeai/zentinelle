@@ -23,7 +23,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	}
 	// A key source is required, and the stored-key lookup is the one a
 	// default deployment uses.
-	t.Setenv("ZENTINELLE_GATEWAY_TOKEN", testGatewayToken)
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL", testGatewayCredential)
 	t.Setenv("ALLOW_ENV_PROVIDER_KEYS", "")
 
 	cfg, err := LoadConfig()
@@ -33,8 +33,8 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if cfg.AllowEnvProviderKeys {
 		t.Error("the env key fallback must stay off unless it is asked for")
 	}
-	if cfg.GatewayToken != testGatewayToken {
-		t.Error("ZENTINELLE_GATEWAY_TOKEN was not read")
+	if cfg.GatewayCredential != testGatewayCredential {
+		t.Error("ZENTINELLE_GATEWAY_CREDENTIAL was not read")
 	}
 
 	if cfg.Port != "8742" {
@@ -64,7 +64,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	os.Setenv("ANTHROPIC_API_KEY", "sk-ant-test")
 	os.Setenv("GOOGLE_API_KEY", "AIza-test")
 	t.Setenv("ALLOW_ENV_PROVIDER_KEYS", "true")
-	t.Setenv("ZENTINELLE_GATEWAY_TOKEN_FILE", "")
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL_FILE", "")
 	defer func() {
 		for _, key := range []string{"GATEWAY_PORT", "ZENTINELLE_URL", "FAIL_OPEN", "POLICY_TIMEOUT_MS",
 			"MAX_RESPONSE_BYTES", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"} {
@@ -105,7 +105,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 
 func TestLoadConfigInvalidFailOpen(t *testing.T) {
 	// A valid key source, so the only thing left to fail is FAIL_OPEN.
-	t.Setenv("ZENTINELLE_GATEWAY_TOKEN", testGatewayToken)
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL", testGatewayCredential)
 	os.Setenv("FAIL_OPEN", "not-a-bool")
 	defer os.Unsetenv("FAIL_OPEN")
 
@@ -116,7 +116,7 @@ func TestLoadConfigInvalidFailOpen(t *testing.T) {
 }
 
 func TestLoadConfigInvalidPolicyTimeout(t *testing.T) {
-	t.Setenv("ZENTINELLE_GATEWAY_TOKEN", testGatewayToken)
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL", testGatewayCredential)
 	os.Setenv("POLICY_TIMEOUT_MS", "abc")
 	defer os.Unsetenv("POLICY_TIMEOUT_MS")
 

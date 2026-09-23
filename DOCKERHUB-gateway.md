@@ -15,7 +15,7 @@ docker pull calliopeai/zentinelle-gateway:latest
 ```bash
 docker run --rm \
   -e ZENTINELLE_URL=https://api.your-zentinelle-install.example \
-  -e ZENTINELLE_GATEWAY_TOKEN=<same value as on the backend> \
+  -e ZENTINELLE_GATEWAY_CREDENTIAL=<this gateway's sk_gateway_ credential> \
   -p 8742:8742 \
   calliopeai/zentinelle-gateway:latest
 ```
@@ -26,16 +26,19 @@ The image runs a statically-linked binary on port `8742`.
 
 The gateway injects the provider key the agent's tenant stored in Zentinelle,
 so one gateway serves many tenants on their own provider accounts. A provider
-key sent by the client is always dropped, never forwarded.
+key sent by the client is always dropped, never forwarded. Each gateway is
+registered on Zentinelle with the tenants it serves and has its own credential
+(`python manage.py gateway_credential register <name> --tenant <id>`); keys are
+released only for those tenants.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ZENTINELLE_URL` | `http://localhost:8080` | Zentinelle backend base URL |
-| `ZENTINELLE_GATEWAY_TOKEN` | - | Shared secret for reading each tenant's stored provider key; the backend holds the same value. At least 32 characters. Give it only to gateways you would trust with those keys |
-| `ZENTINELLE_GATEWAY_TOKEN_FILE` | `/var/run/zentinelle/gateway-token` | Read the token from this file when the variable above is unset. In compose the backend mints it into a volume both containers mount; on Kubernetes it is a mounted Secret. The gateway waits up to 60s for it at startup and reads it again after a rotation |
+| `ZENTINELLE_GATEWAY_CREDENTIAL` | - | This gateway's own registered credential (`sk_gateway_...`) |
+| `ZENTINELLE_GATEWAY_CREDENTIAL_FILE` | `/var/run/zentinelle/gateway-credential` | Read the credential from this file when the variable above is unset: a mounted Secret on Kubernetes, or, in a standalone compose install, a file the backend writes into a volume both containers mount. The gateway waits up to 60s for it at startup and reads it again after a rotation |
 | `ALLOW_ENV_PROVIDER_KEYS` | `false` | **Deprecated**, to be removed: per-tenant stored keys replace it. Single-tenant only: use `PROVIDER_KEY_<NAME>` (or `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`) for a tenant with no stored key |
 
-The container refuses to start with no token (variable or file) and no allowed env key.
+The container refuses to start with no credential (variable or file) and no allowed env key.
 Full reference: [gateway/README.md](https://github.com/calliopeai/zentinelle/blob/main/gateway/README.md).
 
 ## Tags

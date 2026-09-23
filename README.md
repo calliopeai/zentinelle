@@ -173,8 +173,9 @@ Agents authenticate with Zentinelle keys; the gateway swaps in the real provider
 
 ```bash
 # Configure provider keys, encrypted in Zentinelle per tenant. The gateway reads
-# them with a token it shares with the backend: minted automatically into a
-# compose volume, or written once to .env with `make gateway-token`.
+# them with its own registered credential: in compose the backend writes one
+# for this install's gateway into a shared volume; other gateways are
+# registered with `manage.py gateway_credential register`.
 docker compose exec backend python manage.py shell -c "
 from zentinelle.models import LLMProviderKey
 k = LLMProviderKey.objects.create(tenant_id='...', provider='openai')

@@ -7,7 +7,8 @@ import os
 import secrets
 from pathlib import Path
 
-from zentinelle.models import AgentEndpoint, LLMProviderKey, Policy
+from zentinelle.models import (AgentEndpoint, GatewayCredential,
+                               GatewayRegistration, LLMProviderKey, Policy)
 
 if os.environ.get('ZENTINELLE_CONTRACT_TEST') != '1':
     raise RuntimeError('This fixture requires an explicitly opted-in disposable test database')
@@ -46,6 +47,10 @@ for name, tenant_id in [('openai_allow', tenant), ('openai_tenant_b', second_ten
     record.is_active = True
     record.save()
     keys[name] = stored
+# A gateway registered for both tenants, as one serving a shared cluster is.
+registration, _ = GatewayRegistration.objects.update_or_create(
+    name='wire-contract', defaults={'tenant_ids': [tenant, second_tenant], 'cluster_id': 'wire'})
+keys['gateway_credential'], _ = GatewayCredential.mint(registration)
 path = Path(os.environ['CONTRACT_KEYS_FILE'])
 path.write_text(json.dumps(keys))
 path.chmod(0o600)

@@ -12,7 +12,7 @@ Agent-facing REST endpoints:
 - POST /api/zentinelle/v1/events
 - POST /api/zentinelle/v1/heartbeat
 - POST /api/zentinelle/v1/evaluate
-- POST /api/zentinelle/v1/gateway/provider-key   (gateway token + agent key)
+- POST /api/zentinelle/v1/gateway/provider-key   (gateway credential + agent key)
 - GET  /api/zentinelle/v1/approvals/requests/{request_id}   (poll a held action)
 - GET  /api/zentinelle/v1/effective-policy/{user_id}
 - GET  /api/zentinelle/v1/prompts

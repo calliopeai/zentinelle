@@ -9,16 +9,18 @@
 # Apply into the namespace the agents run in, or a neighbouring one the policy
 # allows them to reach.
 #
-# The gateway token is a Secret this file deliberately does not contain: its
-# value must be random, generated once and never committed. Create it after
-# applying this file (the pods wait for it), without replacing one that exists:
+# The gateway's credential is a Secret this file deliberately does not
+# contain. Each cluster's gateway is registered on the Zentinelle control plane
+# with the tenants it serves, and gets a credential of its own, so a leaked
+# cluster exposes only its own tenants and is revoked on its own. Register it
+# there and put the credential straight into the Secret, without it appearing
+# on screen (the pods wait for the Secret):
 #
-#   kubectl get secret zentinelle-gateway-token -n zentinelle >/dev/null 2>&1 ||
-#     kubectl create secret generic zentinelle-gateway-token -n zentinelle \
-#       --from-literal=token="$(openssl rand -hex 32)"
+#   kubectl create secret generic zentinelle-gateway-credential -n zentinelle \
+#     --from-literal=credential="$(python manage.py gateway_credential register \
+#       prod-us-east-1 --cluster prod-us-east-1 --tenant acme-corp --plain)"
 #
-# The Deployment mounts it as /var/run/zentinelle/gateway-token. The Zentinelle
-# backend needs the same value; README.md shows both ways to give it.
+# The Deployment mounts it as /var/run/zentinelle/gateway-credential.
 ---
 apiVersion: v1
 kind: Namespace
@@ -41,9 +43,9 @@ data:
   ZENTINELLE_TENANT_ID: "acme-corp"
   ZENTINELLE_CLUSTER_ID: "prod-us-east-1"
 
-  # Where the gateway token Secret is mounted, below. This is the default,
-  # stated so the path is visible next to the mount.
-  ZENTINELLE_GATEWAY_TOKEN_FILE: "/var/run/zentinelle/gateway-token"
+  # Where the gateway credential Secret is mounted, below. This is the
+  # default, stated so the path is visible next to the mount.
+  ZENTINELLE_GATEWAY_CREDENTIAL_FILE: "/var/run/zentinelle/gateway-credential"
 
   # false means a request is refused when Zentinelle cannot be reached. For a
   # cluster whose whole point is that agents cannot route around governance,
@@ -82,17 +84,17 @@ spec:
         runAsUser: 65532
         fsGroup: 65532
       volumes:
-        # The generated Secret described at the top of this file. Mounted as a
-        # directory rather than with subPath, so a rotated value reaches the
-        # running pod, which reads the file again when the backend refuses the
-        # old token.
-        - name: gateway-token
+        # The credential Secret described at the top of this file. Mounted as
+        # a directory rather than with subPath, so a rotated credential
+        # reaches the running pod, which reads the file again when the
+        # backend refuses the old one.
+        - name: gateway-credential
           secret:
-            secretName: zentinelle-gateway-token
+            secretName: zentinelle-gateway-credential
             defaultMode: 0440
             items:
-              - key: token
-                path: gateway-token
+              - key: credential
+                path: gateway-credential
       containers:
         - name: gateway
           image: ghcr.io/calliopeai/zentinelle-gateway:latest
@@ -103,7 +105,7 @@ spec:
             - configMapRef:
                 name: zentinelle-gateway
           volumeMounts:
-            - name: gateway-token
+            - name: gateway-credential
               mountPath: /var/run/zentinelle
               readOnly: true
           # Both probes hit /health, which reads no state and takes no

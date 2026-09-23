@@ -86,3 +86,4 @@ class KeyPrefixes:
     DEPLOY = 'sk_deploy_'
     ZENTINELLE = 'znt_'
     SERVICE = 'sk_service_'
+    GATEWAY = 'sk_gateway_'

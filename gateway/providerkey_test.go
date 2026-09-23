@@ -16,7 +16,7 @@ import (
 // tenant stored in Zentinelle, never one the client sent, and uses its own
 // env keys only as an explicit single-tenant fallback.
 
-const testGatewayToken = "test-gateway-token-0123456789abcdef"
+const testGatewayCredential = "sk_gateway_test-0123456789abcdefghijklmnop"
 
 // lookupStub is the control plane's side of the provider-key lookup.
 type lookupStub struct {
@@ -28,9 +28,9 @@ type lookupStub struct {
 	failWith int
 	// failBody is the body sent with failWith.
 	failBody string
-	// token is the gateway token the stub accepts, testGatewayToken unless a
-	// test rotates it.
-	token string
+	// credential is the gateway credential the stub accepts,
+	// testGatewayCredential unless a test rotates it.
+	credential string
 }
 
 func (s *lookupStub) callCount() int {
@@ -42,10 +42,10 @@ func (s *lookupStub) callCount() int {
 // controlPlaneStub stands in for Zentinelle. It allows every request, and
 // answers the provider-key lookup from stored, keyed by agent key then
 // provider, the way the backend resolves the tenant from the agent key. Like
-// the backend, it refuses a lookup without the gateway token.
+// the backend, it refuses a lookup without the gateway credential.
 func controlPlaneStub(t *testing.T, stored map[string]map[string]string) (*httptest.Server, *lookupStub) {
 	t.Helper()
-	stub := &lookupStub{token: testGatewayToken}
+	stub := &lookupStub{credential: testGatewayCredential}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -58,7 +58,7 @@ func controlPlaneStub(t *testing.T, stored map[string]map[string]string) (*httpt
 			stub.calls++
 			stub.headers = r.Header.Clone()
 			stub.body = body
-			failWith, failBody, accepted := stub.failWith, stub.failBody, stub.token
+			failWith, failBody, accepted := stub.failWith, stub.failBody, stub.credential
 			stub.mu.Unlock()
 
 			if failWith != 0 {
@@ -66,7 +66,7 @@ func controlPlaneStub(t *testing.T, stored map[string]map[string]string) (*httpt
 				w.Write([]byte(failBody))
 				return
 			}
-			if r.Header.Get("X-Zentinelle-Gateway-Token") != accepted {
+			if r.Header.Get("X-Zentinelle-Gateway-Credential") != accepted {
 				w.WriteHeader(http.StatusUnauthorized)
 				w.Write([]byte(`{"detail": "Invalid gateway credential"}`))
 				return
@@ -146,10 +146,10 @@ func proxyRequest(gw *Gateway, path, agentKey string, headers map[string]string)
 
 func storedKeyConfig(zentinelleURL string) *Config {
 	return &Config{
-		ZentinelleURL:    zentinelleURL,
-		PolicyTimeout:    5 * time.Second,
-		MaxResponseBytes: 1 << 20,
-		GatewayToken:     testGatewayToken,
+		ZentinelleURL:     zentinelleURL,
+		PolicyTimeout:     5 * time.Second,
+		MaxResponseBytes:  1 << 20,
+		GatewayCredential: testGatewayCredential,
 	}
 }
 
@@ -260,7 +260,7 @@ func TestClientCredentialsAreDroppedOnTheEnvFallbackToo(t *testing.T) {
 
 // --- the lookup ---
 
-func TestTheLookupCarriesTheAgentKeyAndTheGatewayToken(t *testing.T) {
+func TestTheLookupCarriesTheAgentKeyAndTheGatewayCredential(t *testing.T) {
 	control, stub := controlPlaneStub(t, map[string]map[string]string{
 		"sk_agent_tenant_a": {"openai": "sk-stored-tenant-a"},
 	})
@@ -276,8 +276,8 @@ func TestTheLookupCarriesTheAgentKeyAndTheGatewayToken(t *testing.T) {
 	if got := stub.headers.Get("X-Zentinelle-Key"); got != "sk_agent_tenant_a" {
 		t.Errorf("lookup agent key = %q, want the request's", got)
 	}
-	if got := stub.headers.Get("X-Zentinelle-Gateway-Token"); got != testGatewayToken {
-		t.Errorf("lookup gateway token = %q, want the configured one", got)
+	if got := stub.headers.Get("X-Zentinelle-Gateway-Credential"); got != testGatewayCredential {
+		t.Errorf("lookup gateway credential = %q, want the configured one", got)
 	}
 	if stub.body["provider"] != "openai" {
 		t.Errorf("lookup provider = %q, want openai", stub.body["provider"])
@@ -365,7 +365,7 @@ func TestWithoutTheFallbackNoStoredKeyIsARefusal(t *testing.T) {
 	}
 }
 
-func TestTheEnvFallbackNeedsNoLookupWithoutAToken(t *testing.T) {
+func TestTheEnvFallbackNeedsNoLookupWithoutACredential(t *testing.T) {
 	// The single-tenant deployment as it was before #380, opted into.
 	control, stub := controlPlaneStub(t, nil)
 	upstream, seen := recordingUpstream(t)
@@ -384,7 +384,7 @@ func TestTheEnvFallbackNeedsNoLookupWithoutAToken(t *testing.T) {
 		t.Errorf("Authorization upstream = %q, want the env key", got)
 	}
 	if stub.callCount() != 0 {
-		t.Error("a gateway without a token looked a stored key up")
+		t.Error("a gateway without a credential looked a stored key up")
 	}
 }
 
@@ -397,7 +397,7 @@ func TestAFailedLookupFailsClosedAndIsNotCached(t *testing.T) {
 		status int
 		body   string
 	}{
-		{"wrong gateway token", http.StatusUnauthorized, `{"detail": "Invalid gateway credential"}`},
+		{"wrong gateway credential", http.StatusUnauthorized, `{"detail": "Invalid gateway credential"}`},
 		{"lookup disabled", http.StatusForbidden, `{"detail": "not configured"}`},
 		{"backend without the route", http.StatusNotFound, `<h1>Not Found</h1>`},
 		{"backend error", http.StatusInternalServerError, `{"detail": "boom"}`},
@@ -439,7 +439,7 @@ func TestAFailedLookupFailsClosedAndIsNotCached(t *testing.T) {
 
 func TestAnUnreachableControlPlaneFailsTheLookupClosed(t *testing.T) {
 	cfg := &Config{ZentinelleURL: "http://127.0.0.1:1", PolicyTimeout: 200 * time.Millisecond}
-	if _, _, err := LookupProviderKey(context.Background(), cfg, testGatewayToken, "sk_agent_x", "openai"); err == nil {
+	if _, _, err := LookupProviderKey(context.Background(), cfg, testGatewayCredential, "sk_agent_x", "openai"); err == nil {
 		t.Error("an unreachable control plane was not reported as a failed lookup")
 	}
 }
@@ -519,7 +519,7 @@ func captureLogs(t *testing.T) func() string {
 	}
 }
 
-func TestNoKeyOrTokenIsEverLogged(t *testing.T) {
+func TestNoKeyOrCredentialIsEverLogged(t *testing.T) {
 	t.Setenv("LOG_INTERACTIONS", "")
 	logs := captureLogs(t)
 
@@ -539,7 +539,7 @@ func TestNoKeyOrTokenIsEverLogged(t *testing.T) {
 	}
 	// And one whose lookup fails, so the failure path logs too.
 	stub.mu.Lock()
-	stub.failWith, stub.failBody = http.StatusInternalServerError, `{"echo": "`+testGatewayToken+`"}`
+	stub.failWith, stub.failBody = http.StatusInternalServerError, `{"echo": "`+testGatewayCredential+`"}`
 	stub.mu.Unlock()
 	proxyRequest(gw, "/v1beta/models/gemini:generateContent", "sk_agent_other", nil)
 
@@ -547,7 +547,7 @@ func TestNoKeyOrTokenIsEverLogged(t *testing.T) {
 	if !strings.Contains(logged, `"key_source":"tenant"`) || !strings.Contains(logged, "provider_key_lookup_failed") {
 		t.Fatalf("the requests were not logged, so this test proves nothing: %s", logged)
 	}
-	for _, secret := range []string{"stored-google-key-a", "client-query-key", "client-header-key", testGatewayToken} {
+	for _, secret := range []string{"stored-google-key-a", "client-query-key", "client-header-key", testGatewayCredential} {
 		if strings.Contains(logged, secret) {
 			t.Errorf("%q appears in the gateway's logs", secret)
 		}
@@ -561,7 +561,7 @@ func TestHealthListsEnvProvidersOnlyWhenTheFallbackIsOn(t *testing.T) {
 		gw := NewGateway(&Config{
 			ProviderAPIKeys:      map[string]string{"openai": "sk-env"},
 			AllowEnvProviderKeys: allow,
-			GatewayToken:         testGatewayToken,
+			GatewayCredential:    testGatewayCredential,
 		})
 		w := httptest.NewRecorder()
 		gw.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/health", nil))
@@ -579,8 +579,8 @@ func TestHealthListsEnvProvidersOnlyWhenTheFallbackIsOn(t *testing.T) {
 func TestLoadConfigRefusesToStartWithNoKeySource(t *testing.T) {
 	// Env keys without the flag are not a source: they would be ignored, and
 	// the gateway would start cleanly and refuse every request.
-	t.Setenv("ZENTINELLE_GATEWAY_TOKEN", "")
-	t.Setenv("ZENTINELLE_GATEWAY_TOKEN_FILE", "")
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL", "")
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL_FILE", "")
 	t.Setenv("ALLOW_ENV_PROVIDER_KEYS", "")
 	t.Setenv("OPENAI_API_KEY", "sk-env")
 
@@ -591,8 +591,8 @@ func TestLoadConfigRefusesToStartWithNoKeySource(t *testing.T) {
 }
 
 func TestLoadConfigRefusesAFallbackWithNoKeys(t *testing.T) {
-	t.Setenv("ZENTINELLE_GATEWAY_TOKEN", "")
-	t.Setenv("ZENTINELLE_GATEWAY_TOKEN_FILE", "")
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL", "")
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL_FILE", "")
 	t.Setenv("ALLOW_ENV_PROVIDER_KEYS", "true")
 	for _, name := range []string{"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"} {
 		t.Setenv(name, "")
@@ -604,17 +604,23 @@ func TestLoadConfigRefusesAFallbackWithNoKeys(t *testing.T) {
 	}
 }
 
-func TestLoadConfigRejectsAGuessableGatewayToken(t *testing.T) {
-	t.Setenv("ZENTINELLE_GATEWAY_TOKEN", "too-short")
+func TestLoadConfigRejectsAValueThatIsNotAGatewayCredential(t *testing.T) {
+	// An agent key pasted into the wrong variable, caught before it is sent.
+	for _, value := range []string{"sk_agent_0123456789abcdefghijklmnop", "sk_gateway_short", "replace-me"} {
+		t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL", value)
 
-	_, err := LoadConfig()
-	if err == nil || !strings.Contains(err.Error(), "ZENTINELLE_GATEWAY_TOKEN") {
-		t.Errorf("err = %v, want the short token refused", err)
+		_, err := LoadConfig()
+		if err == nil || !strings.Contains(err.Error(), "ZENTINELLE_GATEWAY_CREDENTIAL") {
+			t.Errorf("%q: err = %v, want it refused as not a gateway credential", value, err)
+		}
+		if err != nil && strings.Contains(err.Error(), value) {
+			t.Errorf("%q: the error echoed the value", value)
+		}
 	}
 }
 
 func TestLoadConfigRejectsAnUnparseableFallbackFlag(t *testing.T) {
-	t.Setenv("ZENTINELLE_GATEWAY_TOKEN", testGatewayToken)
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL", testGatewayCredential)
 	t.Setenv("ALLOW_ENV_PROVIDER_KEYS", "yes-please")
 
 	_, err := LoadConfig()
