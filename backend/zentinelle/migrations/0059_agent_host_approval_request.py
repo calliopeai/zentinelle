@@ -9,7 +9,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("zentinelle", "0057_event_producer_idempotency"),
+        ("zentinelle", "0058_agentendpoint_api_key_expires_at"),
     ]
 
     operations = [
