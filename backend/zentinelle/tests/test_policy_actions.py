@@ -6,7 +6,7 @@ deciding as before is proven separately in test_action_equivalence.py.
 """
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.db import connection
+from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.test import (SimpleTestCase, TestCase, TransactionTestCase,
                          override_settings)
@@ -612,3 +612,49 @@ class ActionMigrationTests(TransactionTestCase):
             'block': 'block', 'warn': 'warn', 'log_only': 'log_only', 'redact': 'redact',
             'require_approval': 'require_approval', 'retired': 'log_only', 'steer': 'warn', 'alert': 'log_only'})
         self.migrate(None)
+
+
+class RollingDeployTests(TestCase):
+    """Pods of the release before 0062 keep working against it.
+
+    The new backend migrates at startup while the old tasks still serve, so
+    the models as they stood at 0061 have to read and write this schema.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.old = MigrationExecutor(connection).loader.project_state(ActionMigrationTests.before).apps
+
+    def test_an_old_pod_reads_each_rule_as_its_nearest_legacy_value(self):
+        for name, action in (('Steer', 'steer'), ('Alert', 'alert'), ('Block', 'block')):
+            ContentRule.objects.create(tenant_id=TENANT, name=name, rule_type='custom_pattern', action=action,
+                                       steer_message='Stop.' if action == 'steer' else '')
+        changed = ContentRule.objects.get(name='Block')
+        changed.action = 'redact'
+        changed.save(update_fields=['action', 'updated_at'])
+        old_rules = self.old.get_model('zentinelle', 'ContentRule').objects.filter(tenant_id=TENANT)
+        self.assertEqual(dict(old_rules.values_list('name', 'enforcement')),
+                         {'Steer': 'warn', 'Alert': 'log_only', 'Block': 'redact'})
+
+    def test_an_old_pod_still_records_scans_and_creates_policies_that_block(self):
+        scan = self.old.get_model('zentinelle', 'ContentScan').objects.create(
+            tenant_id=TENANT, user_identifier='user-1', content_type='user_input', content_hash='0' * 64,
+            content_length=1)
+        self.assertEqual(ContentScan.objects.get(id=scan.id).enforcement, {})
+        created = self.old.get_model('zentinelle', 'Policy').objects.create(
+            tenant_id=TENANT, name='No rm', policy_type='tool_permission', config={'denied_tools': ['rm']})
+        policy = Policy.objects.get(id=created.id)
+        self.assertEqual((policy.action, policy.block_level, policy.steer_message, policy.escalation),
+                         ('block', 'tool_call', '', {}))
+        key, key_hash, prefix = AgentEndpoint.generate_api_key()
+        endpoint = AgentEndpoint.objects.create(tenant_id=TENANT, agent_id='agent-1', name='agent-1',
+                                                api_key_hash=key_hash, api_key_prefix=prefix)
+        result = PolicyEngine().evaluate(endpoint, 'tool_call', 'user-1', {'tool_name': 'rm'})
+        self.assertEqual((result.allowed, result.enforcement['action']), (False, 'block'))
+
+    def test_an_old_pod_cannot_create_a_content_rule_that_would_read_as_log(self):
+        # A database default for `action` would let it through as `log`,
+        # whatever its enforcement said. No old path creates rules (#407).
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self.old.get_model('zentinelle', 'ContentRule').objects.create(
+                tenant_id=TENANT, name='Old', rule_type='custom_pattern', enforcement='block')

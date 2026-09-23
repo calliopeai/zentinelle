@@ -11,9 +11,23 @@ Existing rows keep their behaviour:
   `log_only` becoming `log`. A value outside the old choices never had an
   effect in the scanner, which is what `log` (the default) does.
 
-The data step runs between adding `action` and removing `enforcement`, so the
-migration reverses cleanly: `steer` goes back as `warn` and `alert` as
-`log_only`, the nearest values the old vocabulary had.
+Pods of the previous release keep working against this schema, because the
+new backend migrates at startup while the old tasks are still serving:
+
+- `ContentRule.enforcement` stays. The old models select it on every rule
+  read, the scanner's included. New code writes it from `action` on every
+  save, and #416 drops it in a later release.
+- The new columns the old pods insert into have database defaults: the
+  policy fields (the `block`/`tool_call` every policy meant then) and
+  `ContentScan.enforcement` (written by every /scan).
+- The new content-rule columns have none on purpose. An old pod has no
+  working way to create a content rule (#407), and a rule created without an
+  action would read as `log` whatever its enforcement said, so the insert
+  failing is the safer outcome.
+
+The reverse data step copies `action` back into `enforcement` before the new
+columns go: `steer` becomes `warn` and `alert` becomes `log_only`, the nearest
+values the old vocabulary had.
 """
 from django.db import migrations, models
 
@@ -99,10 +113,6 @@ class Migration(migrations.Migration):
             model_name='contentrule',
             name='zentinelle__enforce_3fe25a_idx',
         ),
-        migrations.RemoveField(
-            model_name='contentrule',
-            name='enforcement',
-        ),
         migrations.AddIndex(
             model_name='contentrule',
             index=models.Index(fields=['action', 'enabled'], name='zentinelle__action_13fcd9_idx'),
@@ -110,26 +120,27 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='contentscan',
             name='enforcement',
-            field=models.JSONField(blank=True, default=dict),
+            field=models.JSONField(blank=True, default=dict, db_default={}),
         ),
         migrations.AddField(
             model_name='policy',
             name='action',
-            field=models.CharField(choices=ACTION_CHOICES, default='block', max_length=20),
+            field=models.CharField(choices=ACTION_CHOICES, default='block', db_default='block', max_length=20),
         ),
         migrations.AddField(
             model_name='policy',
             name='block_level',
-            field=models.CharField(choices=BLOCK_LEVEL_CHOICES, default='tool_call', max_length=20),
+            field=models.CharField(choices=BLOCK_LEVEL_CHOICES, default='tool_call', db_default='tool_call',
+                                   max_length=20),
         ),
         migrations.AddField(
             model_name='policy',
             name='escalation',
-            field=models.JSONField(blank=True, default=dict),
+            field=models.JSONField(blank=True, default=dict, db_default={}),
         ),
         migrations.AddField(
             model_name='policy',
             name='steer_message',
-            field=models.TextField(blank=True, default=''),
+            field=models.TextField(blank=True, default='', db_default=''),
         ),
     ]

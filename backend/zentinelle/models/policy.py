@@ -130,11 +130,15 @@ class Policy(Tracking):
     )
     # What a match does under enforce. Block is what every policy did before
     # #396, so it is the default; see services/actions.py for escalation,
-    # the mode ceiling and fallback.
-    action = models.CharField(max_length=20, choices=Action.choices, default=Action.BLOCK)
-    block_level = models.CharField(max_length=20, choices=BlockLevel.choices, default=BlockLevel.TOOL_CALL)
-    steer_message = models.TextField(blank=True, default='')
-    escalation = models.JSONField(default=dict, blank=True)
+    # the mode ceiling and fallback. The database defaults are the same
+    # values, so a policy created by a pod of the release before #396 during
+    # a rolling deploy is written, and does what that pod meant.
+    action = models.CharField(max_length=20, choices=Action.choices, default=Action.BLOCK,
+                              db_default=Action.BLOCK)
+    block_level = models.CharField(max_length=20, choices=BlockLevel.choices, default=BlockLevel.TOOL_CALL,
+                                   db_default=BlockLevel.TOOL_CALL)
+    steer_message = models.TextField(blank=True, default='', db_default='')
+    escalation = models.JSONField(default=dict, blank=True, db_default={})
 
     # Audit fields
     # TODO: decouple - created_by FK removed (use user_id field)

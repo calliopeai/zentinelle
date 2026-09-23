@@ -16,7 +16,8 @@ from decimal import Decimal
 
 from django.db import models
 
-from zentinelle.models.actions import Action, BlockLevel
+from zentinelle.models.actions import (LEGACY_ENFORCEMENT_FOR_ACTION, Action,
+                                       BlockLevel)
 from zentinelle.models.base import Tracking
 
 # ============================================================================
@@ -422,8 +423,9 @@ class ContentRule(Tracking):
         HIGH = 'high', 'High'
         CRITICAL = 'critical', 'Critical'
 
-    # The vocabulary rules used before #396. Rules now store an `action`;
-    # scan and violation records, and the legacy API field, keep these values.
+    # The vocabulary rules used before #396. Rules now store an `action`, and
+    # `enforcement` mirrors it for one release; scan and violation records,
+    # and the legacy API field, keep these values.
     class Enforcement(models.TextChoices):
         BLOCK = 'block', 'Block (Prevent action)'
         WARN = 'warn', 'Warn (Allow but notify user)'
@@ -490,6 +492,15 @@ class ContentRule(Tracking):
         choices=Severity.choices,
         default=Severity.MEDIUM
     )
+    # What rules stored before #396. Pods still running that release read it
+    # during a rolling deploy (the new backend migrates at startup while old
+    # tasks serve), so it stays for one release, written from `action` on
+    # every save. #416 drops it.
+    enforcement = models.CharField(
+        max_length=20,
+        choices=Enforcement.choices,
+        default=Enforcement.LOG_ONLY
+    )
     # What a match does (#396); see services/actions.py.
     action = models.CharField(max_length=20, choices=Action.choices, default=Action.LOG)
     block_level = models.CharField(max_length=20, choices=BlockLevel.choices, default=BlockLevel.TOOL_CALL)
@@ -543,6 +554,10 @@ class ContentRule(Tracking):
 
     def save(self, *args, **kwargs):
         self.clean()
+        self.enforcement = LEGACY_ENFORCEMENT_FOR_ACTION[self.action]
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None and 'action' in update_fields:
+            kwargs['update_fields'] = {*update_fields, 'enforcement'}
         return super().save(*args, **kwargs)
 
 
@@ -650,7 +665,9 @@ class ContentScan(Tracking):
         help_text='Content after redaction (if applicable)'
     )
     # The decided action and its fallback chain, as /scan returned it (#396).
-    enforcement = models.JSONField(default=dict, blank=True)
+    # The database default lets pods of the release before it keep recording
+    # scans during a rolling deploy.
+    enforcement = models.JSONField(default=dict, blank=True, db_default={})
 
     # Token/cost tracking
     token_count = models.IntegerField(null=True, blank=True)

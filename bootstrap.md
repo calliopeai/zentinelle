@@ -487,6 +487,20 @@ rules through the real migration and then `/evaluate`, the engine and `/scan`,
 and compares everything they produce with a golden file recorded before the
 change.
 
+**Rolling deploys.** The backend migrates at startup while the previous
+release's tasks still serve, so 0062 leaves that release working:
+
+- `ContentRule.enforcement` stays, written from `action` on every save as the
+  nearest legacy value, because the old models read it on every rule lookup.
+  #416 drops it once no environment runs, or could roll back to, the old
+  release.
+- The new `Policy` columns and `ContentScan.enforcement` have database
+  defaults, so an old pod's policy create and `/scan` still insert. A policy
+  it creates takes `block` at `tool_call`, which is what it meant.
+- The new content-rule columns have no database default on purpose. An old
+  pod has no working way to create a rule (#407), and one without an action
+  would read as `log`.
+
 ### The evaluate contract
 
 `POST /api/zentinelle/v1/evaluate` may carry `target_capabilities`, an object
