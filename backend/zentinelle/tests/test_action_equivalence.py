@@ -135,7 +135,8 @@ MULTI_POLICY_CASES = [
         policy('oversee deploy', Policy.PolicyType.HUMAN_OVERSIGHT,
                {'require_approval_for': ['sensitive_data']}, priority=2),
     ], [call('tool_call', tool_name='deploy', has_sensitive_data=True)]),
-    # auto_incident is left out: the incident insert fails today (#401).
+    # auto_incident is left out: its incident insert failed on the main this
+    # was recorded on (#401). #403 fixed that, and test_api_views covers it.
     ('hard_budget_without_request_id', [
         policy('hard budget', Policy.PolicyType.BUDGET_LIMIT,
                {'monthly_budget_usd': 100, 'hard_limit': True}),
