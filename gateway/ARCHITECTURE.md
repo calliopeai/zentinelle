@@ -50,7 +50,7 @@ The gateway tier scales independently from the Django backend:
 **Key properties:**
 - **Stateless**: no sessions and no durable state. The only local state is a
   60-second in-memory cache of provider-key lookups, which any instance can
-  rebuild. Any instance can handle any request.
+  rebuild, and the counters its cluster heartbeat reports. Any instance can handle any request.
 - **N+1 redundancy**: lose one instance, traffic routes to others.
 - **Independent scaling**: scale gateway tier based on request volume, backend based on policy complexity.
 - **Zero shared state**: provider keys come from Zentinelle per tenant, or
@@ -127,6 +127,32 @@ SSE streaming is the default for LLM responses:
 | `FAIL_OPEN` | `true` | Allow on policy check timeout |
 | `POLICY_TIMEOUT_MS` | `2000` | Policy check timeout |
 | `MAX_RESPONSE_BYTES` | `52428800` | 50MB response cap |
+| `HEARTBEAT_INTERVAL_SECONDS` | `60` | Cluster heartbeat interval until the answer names one; `0` turns it off, otherwise 10 to 3600 |
+
+## Cluster Heartbeat
+
+A gateway that Astrolift registered for a cluster reports on it (#391):
+`POST /api/zentinelle/v1/astrolift/clusters/{ZENTINELLE_CLUSTER_ID}/heartbeat`
+with `X-Zentinelle-Gateway-Credential` and `{"status", "version", "counters":
+{"requests", "blocked", "agents_seen"}}`. It runs when the cluster id and a
+credential source are set, sends once at start, then waits the answer's
+`next_heartbeat_seconds` (clamped to 10s..1h) moved by up to a tenth either way.
+
+- Counters are running totals since the process started. Zentinelle stores
+  each beat's counters as they are, so a beat never resets them.
+- Status covers the window since the last delivered beat: request-time policy
+  checks with no usable answer (transport error, timeout, 5xx, unreadable) and
+  failed provider-key lookups. All of either failed: `unhealthy`; some:
+  `degraded`; none: `healthy`. A 4xx from `/evaluate` is an answer about the
+  agent, not a failure. Calls abandoned by the client are not counted.
+- `agents_seen` counts distinct agent keys Zentinelle decided on, held as
+  SHA-256 digests, bounded at 100,000.
+- A failure retries after 10s, doubling to 5 minutes. 401/403: read the
+  credential file again and retry once if it changed. 404: log once, send
+  nothing until the credential file changes. Redirects are not followed; a 2xx
+  counts only with `{"acknowledged": true}`.
+- The build version comes from `-ldflags "-X main.version=..."` (the Dockerfile's
+  `VERSION` build argument), `dev` otherwise.
 
 ## Performance Targets
 

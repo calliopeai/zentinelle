@@ -79,6 +79,7 @@ func (g *Gateway) resolveProviderKey(ctx context.Context, agentKey, provider str
 			if errors.Is(err, errLookupRefused) && g.credential.reread() {
 				key, found, err = LookupProviderKey(ctx, g.cfg, g.credential.current(), agentKey, provider)
 			}
+			g.stats.lookedUp(ctx, err)
 			if err != nil {
 				return "", "", &providerKeyError{
 					status: http.StatusBadGateway,

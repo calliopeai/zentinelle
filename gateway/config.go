@@ -57,6 +57,11 @@ type Config struct {
 	TenantID  string
 	ClusterID string
 
+	// HeartbeatInterval is how often the gateway reports on its cluster to
+	// Zentinelle (#391) until an answer names the interval Zentinelle wants:
+	// HEARTBEAT_INTERVAL_SECONDS, 60 by default. Zero turns heartbeats off.
+	HeartbeatInterval time.Duration
+
 	FailOpen         bool
 	PolicyTimeout    time.Duration
 	MaxResponseBytes int64
@@ -95,6 +100,17 @@ func LoadConfig() (*Config, error) {
 			return nil, fmt.Errorf("invalid MAX_RESPONSE_BYTES value %q", v)
 		}
 		maxBytes = parsed
+	}
+
+	heartbeatInterval := defaultHeartbeatInterval
+	if v := os.Getenv("HEARTBEAT_INTERVAL_SECONDS"); v != "" {
+		least, most := int(minHeartbeatInterval/time.Second), int(maxHeartbeatInterval/time.Second)
+		seconds, err := strconv.Atoi(v)
+		if err != nil || (seconds != 0 && (seconds < least || seconds > most)) {
+			return nil, fmt.Errorf("invalid HEARTBEAT_INTERVAL_SECONDS value %q: 0 turns heartbeats off, otherwise %d to %d",
+				v, least, most)
+		}
+		heartbeatInterval = time.Duration(seconds) * time.Second
 	}
 
 	allowEnvKeys := false
@@ -151,6 +167,7 @@ func LoadConfig() (*Config, error) {
 		GatewayCredentialFile: gatewayCredentialFile,
 		TenantID:              os.Getenv("ZENTINELLE_TENANT_ID"),
 		ClusterID:             os.Getenv("ZENTINELLE_CLUSTER_ID"),
+		HeartbeatInterval:     heartbeatInterval,
 		FailOpen:              failOpen,
 		PolicyTimeout:         time.Duration(policyTimeoutMs) * time.Millisecond,
 		MaxResponseBytes:      maxBytes,

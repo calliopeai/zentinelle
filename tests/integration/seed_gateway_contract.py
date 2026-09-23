@@ -9,6 +9,9 @@ from pathlib import Path
 
 from zentinelle.models import (AgentEndpoint, GatewayCredential,
                                GatewayRegistration, LLMProviderKey, Policy)
+from zentinelle.services.astrolift_clusters import (connect,
+                                                    issue_enrollment_code,
+                                                    register_cluster)
 
 if os.environ.get('ZENTINELLE_CONTRACT_TEST') != '1':
     raise RuntimeError('This fixture requires an explicitly opted-in disposable test database')
@@ -51,6 +54,11 @@ for name, tenant_id in [('openai_allow', tenant), ('openai_tenant_b', second_ten
 registration, _ = GatewayRegistration.objects.update_or_create(
     name='wire-contract', defaults={'tenant_ids': [tenant, second_tenant], 'cluster_id': 'wire'})
 keys['gateway_credential'], _ = GatewayCredential.mint(registration)
+# An Astrolift install with one cluster for tenant A, whose gateway reports
+# heartbeats on it (#391).
+code, _ = issue_enrollment_code([tenant], created_by='contract')
+install, _ = connect(code, 'https://astrolift.contract.invalid', 'contract')
+_, _, keys['cluster_gateway_credential'], _ = register_cluster(install, 'wire-cluster', provider='aws', region='us-east-1')
 path = Path(os.environ['CONTRACT_KEYS_FILE'])
 path.write_text(json.dumps(keys))
 path.chmod(0o600)

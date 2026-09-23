@@ -180,6 +180,7 @@ jobs:
           file: ${{ steps.cfg.outputs.dockerfile }}
           platforms: ${{ matrix.platform }}
           push: ${{ github.event_name != 'workflow_dispatch' || inputs.push }}
+          build-args: VERSION=${{ steps.tag.outputs.version }}
           tags: ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAMESPACE }}/${{ steps.cfg.outputs.image }}:${{ steps.tag.outputs.version }}-${{ matrix.suffix }}
           cache-from: type=gha,scope=${{ matrix.product }}-${{ matrix.suffix }}
           cache-to:   type=gha,mode=max,scope=${{ matrix.product }}-${{ matrix.suffix }}

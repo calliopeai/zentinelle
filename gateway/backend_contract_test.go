@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,7 +15,8 @@ import (
 
 // Opt-in integration fixture: isolated Django database seeded with an active
 // workload, a revoked workload, enforcing input/output inspection policies,
-// a second tenant, and a gateway registered for both. Each tenant stores its
+// a second tenant, a gateway registered for both, and an Astrolift cluster
+// whose own gateway serves the first tenant. Each tenant stores its
 // own OpenAI key, and every key the provider sees must be the requesting
 // tenant's, never the client's (#380).
 func TestRealBackendEnforcementContract(t *testing.T) {
@@ -142,6 +144,41 @@ func TestRealBackendEnforcementContract(t *testing.T) {
 		}
 		if calls.Load() != before {
 			t.Fatal("the provider was contacted for a tenant outside the gateway's registration")
+		}
+	})
+
+	// The gateway of an Astrolift cluster reports on it, and Zentinelle takes
+	// the payload and names the next interval. The operator-registered gateway
+	// above is not one Astrolift registered, so it is told 404 (#391).
+	t.Run("cluster-heartbeat", func(t *testing.T) {
+		clusterCredential := keys["cluster_gateway_credential"]
+		if clusterCredential == "" {
+			t.Fatal("the fixture did not register an Astrolift cluster")
+		}
+		cluster := NewGateway(&Config{ZentinelleURL: backend, PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1024 * 1024,
+			GatewayCredential: clusterCredential, ClusterID: "wire-cluster", HeartbeatInterval: 45 * time.Second})
+		response = `{"choices":[{"message":{"content":"safe response"}}]}`
+		body, _ := json.Marshal(map[string]interface{}{"model": "gpt-4o", "messages": []map[string]string{{"role": "user", "content": "hello"}}})
+		req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(string(body)))
+		req.Header.Set("X-Zentinelle-Key", keys["allow"])
+		w := httptest.NewRecorder()
+		cluster.ServeHTTP(w, req)
+		if w.Code != 200 {
+			t.Fatalf("tenant A through the cluster's gateway: status=%d body=%s", w.Code, w.Body.String())
+		}
+
+		h := cluster.newHeartbeat()
+		if outcome, err := h.beat(context.Background()); outcome != beatDelivered {
+			t.Fatalf("heartbeat outcome = %v (%v), want delivered", outcome, err)
+		}
+		if h.interval != time.Minute {
+			t.Errorf("interval after the answer = %v, want the 60s Zentinelle asks for", h.interval)
+		}
+
+		operator := NewGateway(&Config{ZentinelleURL: backend, GatewayCredential: credential, ClusterID: "wire",
+			HeartbeatInterval: time.Minute}).newHeartbeat()
+		if outcome, err := operator.beat(context.Background()); outcome != beatNotRegistered {
+			t.Errorf("operator gateway's heartbeat outcome = %v (%v), want not registered", outcome, err)
 		}
 	})
 }

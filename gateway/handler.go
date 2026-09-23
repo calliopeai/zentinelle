@@ -20,6 +20,7 @@ type Gateway struct {
 	client     *http.Client
 	keys       *providerKeyCache
 	credential *gatewayCredential
+	stats      *gatewayStats
 }
 
 // NewGateway creates a new Gateway with the given configuration.
@@ -28,6 +29,7 @@ func NewGateway(cfg *Config) *Gateway {
 		cfg:        cfg,
 		keys:       newProviderKeyCache(providerKeyCacheTTL, providerKeyCacheMaxEntries),
 		credential: newGatewayCredential(cfg.GatewayCredential, cfg.GatewayCredentialFile),
+		stats:      newGatewayStats(maxAgentsSeen),
 		client: &http.Client{
 			// No global timeout — streaming responses can take minutes.
 			// Per-request timeouts are handled by context.
@@ -58,6 +60,7 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// own traffic, and a gauge that included them would never read zero.
 	atomic.AddInt64(&metricActiveConnections, 1)
 	defer atomic.AddInt64(&metricActiveConnections, -1)
+	g.stats.requests.Add(1)
 
 	g.handleProxy(w, r)
 }
@@ -144,6 +147,7 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 	policyStart := time.Now()
 	policyResult := CheckPolicy(r.Context(), g.cfg, agentKey, provider.Name, model, map[string]interface{}{"input_text": string(body), "request_id": requestID, "request_body": string(body)})
 	metricPolicyCheckDuration.observe("", time.Since(policyStart).Seconds())
+	g.stats.policyChecked(r.Context(), agentKey, policyResult)
 
 	logJSON("info", "policy check completed", map[string]interface{}{
 		"request_id": requestID,
@@ -161,6 +165,7 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 			"reason":     policyResult.Reason,
 		})
 		metricPolicyDenied.inc(labels("provider", provider.Name))
+		g.stats.blocked.Add(1)
 		writeJSONError(w, http.StatusForbidden, "policy_denied", policyResult.Reason)
 		return
 	}
@@ -286,6 +291,7 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 				})
 				// Nothing has been written yet, so this is a clean refusal
 				// rather than a truncated answer.
+				g.stats.blocked.Add(1)
 				writeJSONError(w, http.StatusForbidden, "output_filtered", outcome.Reason)
 				return
 			}

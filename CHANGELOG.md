@@ -7,6 +7,17 @@ Notable changes to Zentinelle. The format follows
 
 ### Added
 
+- Gateway: cluster heartbeats (#391). With `ZENTINELLE_CLUSTER_ID` and its
+  credential set, the gateway reports to
+  `POST /api/zentinelle/v1/astrolift/clusters/<id>/heartbeat` at start and then
+  as often as Zentinelle asks (60 seconds today): a status judged from its own
+  calls to Zentinelle since the last heartbeat, its version, and running totals
+  of requests, blocked requests and distinct agents. Failures back off from 10
+  seconds to five minutes, a refused credential is read again from its file,
+  and a 404 is logged once and ends the heartbeats until the credential
+  changes. `HEARTBEAT_INTERVAL_SECONDS` (default 60, `0` turns them off).
+  Gateway images carry their version, from the `VERSION` build argument, and
+  log it at startup.
 - Astrolift installs and clusters (#389). An admin generates a one-time
   enrollment code (Settings > Astrolift, or `manage.py
   astrolift_enrollment_code`), and Astrolift exchanges it for an install
