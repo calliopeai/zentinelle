@@ -4,7 +4,7 @@ import { authenticatedFetch } from "@/lib/auth/fetch";
 
 
 import { useState } from "react";
-import { type ColumnDef } from "@tanstack/react-table";
+import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import {
   CheckCircle2Icon,
   ChevronDownIcon,

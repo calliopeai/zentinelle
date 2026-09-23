@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { type ColumnDef } from "@tanstack/react-table";
+import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import { toast } from "sonner";
 import {
   CheckIcon,
@@ -340,7 +340,7 @@ export default function AlertsPage() {
           {formatTimestamp(row.original.createdAt)}
         </span>
       ),
-      sortingFn: (a, b) =>
+      sortFn: (a, b) =>
         new Date(a.original.createdAt).getTime() -
         new Date(b.original.createdAt).getTime(),
     },
