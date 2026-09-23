@@ -1,6 +1,7 @@
 "use client";
 
-import { type Table } from "@tanstack/react-table";
+import { type RowData } from "@tanstack/react-table";
+import { type LegacyReactTable as Table } from "@tanstack/react-table/legacy";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -14,11 +15,11 @@ import {
 
 const PAGE_SIZES = [5, 10, 20, 50];
 
-type DataTablePaginationProps<TData> = {
+type DataTablePaginationProps<TData extends RowData> = {
   table: Table<TData>;
 };
 
-export const DataTablePagination = <TData,>({ table }: DataTablePaginationProps<TData>) => {
+export const DataTablePagination = <TData extends RowData>({ table }: DataTablePaginationProps<TData>) => {
   const t = useTranslations("dataTable.pagination");
   const { pageIndex, pageSize } = table.getState().pagination;
   const total = table.getFilteredRowModel().rows.length;
