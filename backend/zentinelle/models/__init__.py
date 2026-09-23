@@ -77,13 +77,14 @@ from zentinelle.models.usage import (LicenseComplianceReport,
                                      LicensedUser, MonthlyUserCount,
                                      Subscription, UsageAggregate, UsageMetric)
 
-from .approval import ExecutionApproval
+from .approval import ApprovalRequest, ExecutionApproval
 from .audit import AuditRetentionProof
 from .budget import BudgetAccount, BudgetCharge
 
 __all__ = [
     # Agent-level
     'AgentEndpoint',
+    'ApprovalRequest',
     'ExecutionApproval',
     'AuditRetentionProof',
     'BudgetAccount',

@@ -12,9 +12,11 @@ from rest_framework.views import APIView
 
 from zentinelle.api.auth import (ZentinelleAPIKeyAuthentication,
                                  get_endpoint_from_request)
-from zentinelle.api.serializers import EvaluateRequestSerializer
+from zentinelle.api.serializers import (EvaluateRequestSerializer,
+                                        HostToolCallContextSerializer)
 from zentinelle.models import AgentEndpoint, Event
 from zentinelle.models.compliance import InteractionLog
+from zentinelle.services.approvals import open_approval_request
 from zentinelle.services.boundary_contract import (build_contract,
                                                    canonical_action)
 from zentinelle.services.content_capture import record_interaction
@@ -44,6 +46,8 @@ class EvaluateView(APIView):
 
         # Get authenticated endpoint
         auth_endpoint = get_endpoint_from_request(request)
+        # One agent host key serves many sessions across harnesses (#377).
+        is_host = auth_endpoint.agent_type == AgentEndpoint.AgentType.AGENT_HOST
 
         # Verify agent_id matches
         if data.get('agent_id') and auth_endpoint.agent_id != data['agent_id']:
@@ -51,6 +55,16 @@ class EvaluateView(APIView):
                 {'error': 'Agent ID mismatch'},
                 status=status.HTTP_403_FORBIDDEN
             )
+
+        # Behind one host key, a tool call that does not name its harness,
+        # session and tool cannot be attributed, and neither can its approval.
+        if is_host and action == 'tool_call':
+            host_context = HostToolCallContextSerializer(data=data.get('context') or {})
+            if not host_context.is_valid():
+                return Response(
+                    {'error': 'Invalid agent host tool_call context', 'context': host_context.errors},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         trace_id = str(uuid.uuid4())
         context = dict(data.get('context', {}) or {})
@@ -60,12 +74,14 @@ class EvaluateView(APIView):
         # A boundary without an explicit resource ID is still represented as
         # a resource, so downstream traces cannot collapse retrieval/workflow
         # decisions into an indistinguishable generic action.
-        context.setdefault('resource_id', context.get('workload_id') or context.get('tool') or '')
+        context.setdefault('resource_id', context.get('workload_id') or context.get('tool')
+                           or context.get('tool_name') or '')
         context['trace_id'] = trace_id
         # Evaluate policies
         from zentinelle.services.policy_engine import PolicyEngine
 
         engine = PolicyEngine()
+        held = None
         try:
             result = engine.evaluate(
                 endpoint=auth_endpoint,
@@ -73,6 +89,14 @@ class EvaluateView(APIView):
                 user_id=data.get('user_id'),
                 context=context,
             )
+            # A host can keep the call pending, so an action blocked only for
+            # want of a human approval is held for one instead of refused.
+            # Other workloads keep receiving deny, as before.
+            if is_host and result.approval_required:
+                held, timeout = open_approval_request(
+                    endpoint=auth_endpoint, action=action, user_id=data.get('user_id'),
+                    result=result, trace_id=trace_id,
+                )
         except Exception:
             # A policy outage must never turn into an implicit allow or an
             # unstructured 500 that leaves adapters guessing what to do.
@@ -86,15 +110,18 @@ class EvaluateView(APIView):
                 'coverage': {'status': 'unknown'},
                 'warnings': ['retry after policy service recovery'],
             }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        # `allowed` stays false for ask, so a client reading only that field
+        # still refuses the call.
+        decision = 'ask' if held is not None else 'allow' if result.allowed else 'deny'
         # Log evaluation (async) and interaction (for monitoring)
         normalized_data = {**data, 'action': action}
-        self._log_evaluation(auth_endpoint, normalized_data, result, trace_id)
+        self._log_evaluation(auth_endpoint, normalized_data, result, trace_id, decision, held)
         self._log_interaction(auth_endpoint, normalized_data, result)
 
         response_data = {
             **build_contract(endpoint=auth_endpoint, action=action, user_id=data.get('user_id'), context=context),
             'trace_id': trace_id,
-            'decision': 'allow' if result.allowed else 'deny',
+            'decision': decision,
             'allowed': result.allowed,
             'reason': result.reason,
             'policies_evaluated': result.policies_evaluated,
@@ -115,6 +142,15 @@ class EvaluateView(APIView):
             # a caller learns it at the point it must decide whether to buffer.
             'output_filter_required': self._output_filter_required(auth_endpoint),
         }
+        if held is not None:
+            # The host polls this request until it is decided or expires, and
+            # denies the call itself if no approval arrives in time.
+            response_data['approval'] = {
+                'request_id': str(held.pk),
+                'status': held.status,
+                'expires_at': held.expires_at,
+                'timeout_seconds': timeout,
+            }
 
         return Response(response_data, status=status.HTTP_200_OK)
 
@@ -155,7 +191,8 @@ class EvaluateView(APIView):
             enabled=True,
         ).exists()
 
-    def _log_evaluation(self, endpoint: AgentEndpoint, request_data: dict, result, trace_id: str = ''):
+    def _log_evaluation(self, endpoint: AgentEndpoint, request_data: dict, result, trace_id: str = '',
+                        decision: str = '', held=None):
         """Log the policy evaluation as an audit event."""
         from django.utils import timezone
 
@@ -169,6 +206,19 @@ class EvaluateView(APIView):
             event_type = f"policy_evaluation_{request_data['action']}"
             event_category = Event.Category.AUDIT
 
+        payload = {
+            'action': request_data['action'],
+            'context': request_data.get('context', {}),
+            'result': {
+                'allowed': result.allowed,
+                'decision': decision or ('allow' if result.allowed else 'deny'),
+                'reason': result.reason,
+                'policies_evaluated': result.policies_evaluated,
+            },
+            'trace_id': trace_id,
+        }
+        if held is not None:
+            payload['approval_request_id'] = str(held.pk)
         event = Event.objects.create(
             tenant_id=endpoint.tenant_id,
             endpoint=endpoint,
@@ -176,16 +226,7 @@ class EvaluateView(APIView):
             event_type=event_type,
             event_category=event_category,
             user_identifier=request_data.get('user_id', ''),
-            payload={
-                'action': request_data['action'],
-                'context': request_data.get('context', {}),
-                'result': {
-                    'allowed': result.allowed,
-                    'reason': result.reason,
-                    'policies_evaluated': result.policies_evaluated,
-                },
-                'trace_id': trace_id,
-            },
+            payload=payload,
             occurred_at=timezone.now(),
             status=Event.Status.PENDING,
         )
@@ -206,7 +247,7 @@ class EvaluateView(APIView):
 
         ctx = request_data.get('context', {})
         action = request_data['action']
-        tool = ctx.get('tool', action)
+        tool = ctx.get('tool') or ctx.get('tool_name') or action
         tool_input = ctx.get('tool_input', {})
 
         type_map = {

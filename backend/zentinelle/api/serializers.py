@@ -63,6 +63,26 @@ class EvaluateRequestSerializer(serializers.Serializer):
     context = serializers.DictField(default=dict)
 
 
+class HostToolCallContextSerializer(serializers.Serializer):
+    """What an agent host's tool_call context must say (#377).
+
+    One host key serves many sessions, so each call names its harness, session
+    and tool. Validation only: the context is evaluated as sent.
+    """
+    harness = serializers.RegexField(r'^[a-z0-9][a-z0-9_.-]*$', max_length=50)
+    session_id = serializers.CharField(max_length=255)
+    chat_id = serializers.CharField(max_length=255, required=False)
+    tool_call_id = serializers.CharField(max_length=255, required=False)
+    tool_name = serializers.CharField(max_length=255)
+    tool_input = serializers.JSONField(required=False)
+
+
+class ApprovalDecisionSerializer(serializers.Serializer):
+    """An operator's decision on a held action."""
+    decision = serializers.ChoiceField(choices=['approve', 'deny'])
+    reason = serializers.CharField(max_length=1000, allow_blank=True, default='')
+
+
 class EvaluateResponseSerializer(serializers.Serializer):
     """Response from policy evaluation."""
     allowed = serializers.BooleanField()

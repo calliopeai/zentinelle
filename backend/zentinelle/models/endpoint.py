@@ -54,6 +54,10 @@ class AgentEndpoint(Tracking):
         SPRING_AI = 'spring_ai', 'Spring AI'
         VERCEL_AI = 'vercel-ai', 'Vercel AI SDK'
         MCP = 'mcp', 'MCP Server'
+        # One key per Agent Host Protocol host, which runs many sessions
+        # across harnesses. Harness, session and chat travel in each
+        # /evaluate context instead of registering every session (#377).
+        AGENT_HOST = 'agent_host', 'Agent Host'
         CHAT = 'chat', 'Chat Agent'
         CUSTOM = 'custom', 'Custom'
 

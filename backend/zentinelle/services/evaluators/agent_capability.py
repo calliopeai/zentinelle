@@ -76,6 +76,7 @@ class AgentCapabilityEvaluator(BasePolicyEvaluator):
                             f"Action '{agent_action}' requires human approval. "
                             "Provide a valid approval_token to proceed."
                         ),
+                        approval_required=True,
                     )
                 from zentinelle.services.approvals import \
                     validate_policy_approval

@@ -12,6 +12,7 @@ Agent-facing REST endpoints:
 - POST /api/zentinelle/v1/events
 - POST /api/zentinelle/v1/heartbeat
 - POST /api/zentinelle/v1/evaluate
+- GET  /api/zentinelle/v1/approvals/requests/{request_id}   (poll a held action)
 - GET  /api/zentinelle/v1/effective-policy/{user_id}
 - GET  /api/zentinelle/v1/prompts
 - GET  /api/zentinelle/v1/prompts/{service}
@@ -79,7 +80,10 @@ from zentinelle.api.views import (AcknowledgeAlertView, AgentControlView,
                                   SystemPromptsView,
                                   TelemetryDeliveryHealthView,
                                   ViolationsListView)
-from zentinelle.api.views.approvals import ApprovalIssueView
+from zentinelle.api.views.approvals import (ApprovalIssueView,
+                                            ApprovalRequestDecisionView,
+                                            ApprovalRequestListView,
+                                            ApprovalRequestStatusView)
 from zentinelle.api.views.assistant import (AssistantChatView,
                                             AssistantExecuteToolView)
 from zentinelle.api.views.assistant_models import (AssistantModelsBulkView,
@@ -108,6 +112,11 @@ urlpatterns = [
 
     # Portal auth (session-based, httpOnly cookies)
     path('approvals', ApprovalIssueView.as_view(), name='approval-issue'),
+    # Held actions (#377): the requesting agent polls; operators list and decide.
+    path('approvals/requests', ApprovalRequestListView.as_view(), name='approval-request-list'),
+    path('approvals/requests/<uuid:request_id>', ApprovalRequestStatusView.as_view(), name='approval-request'),
+    path('approvals/requests/<uuid:request_id>/decision', ApprovalRequestDecisionView.as_view(),
+         name='approval-request-decision'),
     path('auth/csrf', CSRFTokenView.as_view(), name='auth-csrf'),
     path('auth/login', LoginView.as_view(), name='auth-login'),
     path('auth/logout', LogoutView.as_view(), name='auth-logout'),
