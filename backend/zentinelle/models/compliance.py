@@ -553,8 +553,8 @@ class ContentRule(Tracking):
             raise ValidationError(str(exc)) from exc
         # save() overwrites `enforcement` from `action`, so a new rule written
         # the pre-#396 way would silently become a `log` rule.
-        if self._state.adding and self.enforcement not in (self.Enforcement.LOG_ONLY,
-                                                            LEGACY_ENFORCEMENT_FOR_ACTION[self.action]):
+        mirrored = LEGACY_ENFORCEMENT_FOR_ACTION[self.action]
+        if self._state.adding and self.enforcement not in (self.Enforcement.LOG_ONLY, mirrored):
             raise ValidationError("a content rule's action is `action`; `enforcement` only mirrors it (#416)")
 
     def save(self, *args, **kwargs):
