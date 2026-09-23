@@ -40,6 +40,9 @@ class EvaluationResult:
     risk_score: int = 0
     risk_factors: List[Dict] = field(default_factory=list)
     coverage: Dict[str, Any] = field(default_factory=dict)
+    # Denied only for want of a human approval: every enforced failure was an
+    # approval-required result, so an approval_token could release the action.
+    approval_required: bool = False
 
 
 class PolicyEngine:
@@ -302,6 +305,8 @@ class PolicyEngine:
         results = []
         allowed = True
         denial_reason = None
+        # Cleared by any enforced failure that an approval cannot release.
+        approval_only = True
         warnings = []
         coverage_counts = {
             'enforced': 0,
@@ -339,6 +344,7 @@ class PolicyEngine:
                 if policy.enforcement == Policy.Enforcement.ENFORCE and not dry_run:
                     allowed = False
                     denial_reason = message
+                    approval_only = False
                 else:
                     warnings.append(message)
                 continue
@@ -382,6 +388,8 @@ class PolicyEngine:
                     if not dry_run:
                         allowed = False
                         denial_reason = result.message
+                        if not getattr(result, 'approval_required', False):
+                            approval_only = False
                     logger.warning(
                         f"Policy violation{'(dry-run)' if dry_run else ''}: "
                         f"{policy.name} - {result.message} "
@@ -402,6 +410,7 @@ class PolicyEngine:
             if admission_error:
                 allowed = False
                 denial_reason = admission_error
+                approval_only = False
 
         from zentinelle.services.risk_scorer import RiskScorer
         scorer = RiskScorer()
@@ -423,6 +432,7 @@ class PolicyEngine:
                            'observation_only' if coverage_counts['observation_only'] else 'unknown'),
                 'counts': coverage_counts,
             },
+            approval_required=not dry_run and not allowed and approval_only,
         )
 
         # Auto-create incidents for policy violations (skipped in dry_run mode)

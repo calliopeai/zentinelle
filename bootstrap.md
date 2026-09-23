@@ -123,6 +123,20 @@ Revisit when either becomes true:
 ### Fail-Open by Default
 If Zentinelle is unreachable, agents continue running. Circuit breaker in SDK. Set `fail_open: false` per policy for hard enforcement.
 
+### Agent Hosts: One Key per Host (#377)
+An Agent Host Protocol host runs many sessions across harnesses. It registers
+once as `agent_type=agent_host`, and every `tool_call` evaluation names its
+`harness`, `session_id`, `chat_id` and `tool_name` in `context`; sessions are
+never registered. Registering each session was rejected: session churn would
+become endpoint and key churn, every session would consume an agent
+entitlement, and the key would sit inside the harness process the gate polices.
+
+A host can keep a tool call pending, so an evaluation blocked only by a missing
+human approval answers `ask` and opens an `ApprovalRequest` that the host polls
+and an operator decides. Approving issues the ordinary single-use
+`ExecutionApproval`. Unlike the SDK default above, the host gate fails closed.
+Contract and examples: [docs/agent-host.md](docs/agent-host.md).
+
 ## Common Commands
 
 ### Backend

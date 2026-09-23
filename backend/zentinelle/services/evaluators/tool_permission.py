@@ -74,7 +74,8 @@ class ToolPermissionEvaluator(BasePolicyEvaluator):
             if not approval_token:
                 return PolicyResult(
                     passed=False,
-                    message=f"Tool '{tool_name}' requires approval. Request approval before proceeding."
+                    message=f"Tool '{tool_name}' requires approval. Request approval before proceeding.",
+                    approval_required=True,
                 )
 
             # Validate approval token
