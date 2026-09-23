@@ -32,8 +32,7 @@ class _Info:
 
 
 def _gid(rule):
-    """The Relay global id the mutations decode. A bare UUID is not one, and
-    passing one lands in `ContentRule.objects.get(pk='')`."""
+    """The Relay global id. The mutations take a bare UUID too since #407."""
     return to_global_id('ContentRuleType', str(rule.id))
 
 
@@ -58,8 +57,9 @@ class ContentRuleTenancyTest(TestCase):
         )
 
     def test_another_tenants_rule_cannot_be_deleted(self):
-        with self.assertRaises(GraphQLError):
-            content_rule_mutations.delete_content_rule(self.info, _gid(self.theirs))
+        # Refused as not found (#407), so the caller cannot tell it exists.
+        result = content_rule_mutations.delete_content_rule(self.info, _gid(self.theirs))
+        self.assertEqual((result.success, result.errors), (False, ['Rule not found']))
         self.assertTrue(
             ContentRule.objects.filter(pk=self.theirs.pk).exists(),
             "another tenant's content rule was deleted",
