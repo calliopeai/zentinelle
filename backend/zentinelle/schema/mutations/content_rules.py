@@ -14,7 +14,9 @@ from graphql_relay import from_global_id
 from strawberry.scalars import JSON
 
 from zentinelle.models import ContentRule
+from zentinelle.models.actions import CONTENT_RULE_ACTION_FROM_ENFORCEMENT
 from zentinelle.schema.auth_helpers import user_has_org_access
+from zentinelle.services.actions import validate_rule_action
 
 try:
     from billing.features import Features, require_feature_for_mutation
@@ -34,7 +36,12 @@ class CreateContentRuleInput:
     description: Optional[str] = None
     rule_type: str
     severity: Optional[str] = None
+    # Legacy (block, warn, log_only, redact, require_approval); `action` wins.
     enforcement: Optional[str] = None
+    action: Optional[str] = None
+    block_level: Optional[str] = None
+    steer_message: Optional[str] = None
+    escalation: Optional[JSON] = None
     scan_mode: Optional[str] = None
     scan_input: Optional[bool] = None
     scan_output: Optional[bool] = None
@@ -57,7 +64,12 @@ class UpdateContentRuleInput:
     description: Optional[str] = None
     rule_type: Optional[str] = None
     severity: Optional[str] = None
+    # Legacy (block, warn, log_only, redact, require_approval); `action` wins.
     enforcement: Optional[str] = None
+    action: Optional[str] = None
+    block_level: Optional[str] = None
+    steer_message: Optional[str] = None
+    escalation: Optional[JSON] = None
     scan_mode: Optional[str] = None
     scan_input: Optional[bool] = None
     scan_output: Optional[bool] = None
@@ -69,6 +81,32 @@ class UpdateContentRuleInput:
     notify_admins: Optional[bool] = None
     webhook_url: Optional[str] = None
     config: Optional[JSON] = None
+
+
+def _action_fields(input, current: Optional[ContentRule] = None) -> dict:
+    """The rule's action settings after this input, validated together (#396).
+
+    `enforcement` is the pre-#396 field, still accepted when `action` is
+    absent. Fields the input leaves out keep their current value, or the
+    model default on create. Raises ValueError saying what is wrong.
+    """
+    action = input.action
+    if action is None and input.enforcement is not None:
+        action = CONTENT_RULE_ACTION_FROM_ENFORCEMENT.get(input.enforcement)
+        if action is None:
+            raise ValueError(f'Invalid enforcement: {input.enforcement}')
+    given = {'action': action, 'block_level': input.block_level,
+             'steer_message': input.steer_message, 'escalation': input.escalation}
+    fields = {}
+    for name, value in given.items():
+        if value is not None:
+            fields[name] = value
+        elif current is not None:
+            fields[name] = getattr(current, name)
+        else:
+            fields[name] = ContentRule._meta.get_field(name).get_default()
+    fields['escalation'] = validate_rule_action(**fields)
+    return fields
 
 
 @strawberry.type
@@ -140,7 +178,7 @@ def create_content_rule(info: strawberry.types.Info, input: CreateContentRuleInp
             description=input.description or '',
             rule_type=input.rule_type,
             severity=input.severity or ContentRule.Severity.MEDIUM,
-            enforcement=input.enforcement or ContentRule.Enforcement.LOG_ONLY,
+            **_action_fields(input),
             scan_mode=input.scan_mode or ContentRule.ScanMode.REALTIME,
             scan_input=input.scan_input if input.scan_input is not None else True,
             scan_output=input.scan_output if input.scan_output is not None else True,
@@ -189,9 +227,13 @@ def update_content_rule(info: strawberry.types.Info, input: UpdateContentRuleInp
     if input.severity is not None:
         rule.severity = input.severity
         update_fields.append('severity')
-    if input.enforcement is not None:
-        rule.enforcement = input.enforcement
-        update_fields.append('enforcement')
+    try:
+        action_fields = _action_fields(input, current=rule)
+    except ValueError as exc:
+        return UpdateContentRulePayload(success=False, errors=[str(exc)])
+    for name, value in action_fields.items():
+        setattr(rule, name, value)
+    update_fields.extend(action_fields)
     if input.scan_mode is not None:
         rule.scan_mode = input.scan_mode
         update_fields.append('scan_mode')
@@ -291,7 +333,10 @@ def duplicate_content_rule(info: strawberry.types.Info, id: strawberry.ID, new_n
         description=original_rule.description,
         rule_type=original_rule.rule_type,
         severity=original_rule.severity,
-        enforcement=original_rule.enforcement,
+        action=original_rule.action,
+        block_level=original_rule.block_level,
+        steer_message=original_rule.steer_message,
+        escalation=original_rule.escalation,
         scan_mode=original_rule.scan_mode,
         scan_input=original_rule.scan_input,
         scan_output=original_rule.scan_output,

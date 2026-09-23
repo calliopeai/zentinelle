@@ -16,6 +16,7 @@ from decimal import Decimal
 
 from django.db import models
 
+from zentinelle.models.actions import Action, BlockLevel
 from zentinelle.models.base import Tracking
 
 # ============================================================================
@@ -421,6 +422,8 @@ class ContentRule(Tracking):
         HIGH = 'high', 'High'
         CRITICAL = 'critical', 'Critical'
 
+    # The vocabulary rules used before #396. Rules now store an `action`;
+    # scan and violation records, and the legacy API field, keep these values.
     class Enforcement(models.TextChoices):
         BLOCK = 'block', 'Block (Prevent action)'
         WARN = 'warn', 'Warn (Allow but notify user)'
@@ -487,11 +490,11 @@ class ContentRule(Tracking):
         choices=Severity.choices,
         default=Severity.MEDIUM
     )
-    enforcement = models.CharField(
-        max_length=20,
-        choices=Enforcement.choices,
-        default=Enforcement.LOG_ONLY
-    )
+    # What a match does (#396); see services/actions.py.
+    action = models.CharField(max_length=20, choices=Action.choices, default=Action.LOG)
+    block_level = models.CharField(max_length=20, choices=BlockLevel.choices, default=BlockLevel.TOOL_CALL)
+    steer_message = models.TextField(blank=True, default='')
+    escalation = models.JSONField(default=dict, blank=True)
     scan_mode = models.CharField(
         max_length=20,
         choices=ScanMode.choices,
@@ -523,11 +526,24 @@ class ContentRule(Tracking):
         indexes = [
             models.Index(fields=['tenant_id', 'rule_type', 'enabled']),
             models.Index(fields=['scope_type', 'enabled']),
-            models.Index(fields=['enforcement', 'enabled']),
+            models.Index(fields=['action', 'enabled']),
         ]
 
     def __str__(self):
         return f"{self.name} ({self.get_rule_type_display()})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        from zentinelle.services.actions import validate_rule_action
+        try:
+            self.escalation = validate_rule_action(self.action, self.block_level, self.steer_message, self.escalation)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        return super().save(*args, **kwargs)
 
 
 class ContentScan(Tracking):
@@ -633,6 +649,8 @@ class ContentScan(Tracking):
         blank=True,
         help_text='Content after redaction (if applicable)'
     )
+    # The decided action and its fallback chain, as /scan returned it (#396).
+    enforcement = models.JSONField(default=dict, blank=True)
 
     # Token/cost tracking
     token_count = models.IntegerField(null=True, blank=True)

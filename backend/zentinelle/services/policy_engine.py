@@ -9,6 +9,8 @@ from django.core.cache import cache
 from django.db.models import Q
 
 from zentinelle.models import AgentEndpoint, Policy
+from zentinelle.models.actions import Action, BlockLevel
+from zentinelle.services.actions import Decision, denies, summarize
 
 if TYPE_CHECKING:
     from zentinelle.services.evaluators.base import BasePolicyEvaluator
@@ -43,6 +45,9 @@ class EvaluationResult:
     # Denied only for want of a human approval: every enforced failure was an
     # approval-required result, so an approval_token could release the action.
     approval_required: bool = False
+    # The decided action, its fallback chain and the rule that decided it
+    # (services/actions.summarize, #396).
+    enforcement: Dict[str, Any] = field(default_factory=dict)
 
 
 class PolicyEngine:
@@ -253,6 +258,7 @@ class PolicyEngine:
         user_id: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
         dry_run: bool = False,
+        target_capabilities: Optional[Dict[str, bool]] = None,
     ) -> EvaluationResult:
         """
         Evaluate policies for an action.
@@ -263,24 +269,33 @@ class PolicyEngine:
         - Counter-incrementing side effects are skipped (rate limits, etc.)
         - The final result always has allowed=True
         - The result has dry_run=True so callers can distinguish
+
+        Each failed policy's action is decided from its configured action,
+        its escalation and its mode (services/actions.py, #396); the result's
+        `enforcement` is the strongest of those decisions. target_capabilities
+        is what the caller said it can honour: it picks `selected` from the
+        fallback chain, and it is the one thing that lets a `redact` decision
+        through, since only a target that redacts may pass the content on.
         """
+        from zentinelle.services.actions import refusal
         from zentinelle.services.evaluation_context import normalize_context
         try:
             context = normalize_context(context or {})
         except (ValueError, TypeError) as exc:
-            return EvaluationResult(allowed=False, reason=str(exc))
+            return EvaluationResult(allowed=False, reason=str(exc), enforcement=refusal(target_capabilities))
         from zentinelle.services.authority import normalize_authority
         authority_supplied = 'authority' in context
         try:
             authority = normalize_authority(context.get('authority'))
         except (ValueError, TypeError) as exc:
-            return EvaluationResult(allowed=False, reason=str(exc))
+            return EvaluationResult(allowed=False, reason=str(exc), enforcement=refusal(target_capabilities))
         claimed_tenant = authority.get('tenant_id')
         if claimed_tenant is not None and claimed_tenant != str(endpoint.tenant_id):
             return EvaluationResult(
                 allowed=False,
                 reason='authority tenant_id does not match authenticated endpoint',
                 context={'authority': authority},
+                enforcement=refusal(target_capabilities),
             )
         if authority_supplied:
             authority['tenant_id'] = str(endpoint.tenant_id)
@@ -303,15 +318,14 @@ class PolicyEngine:
         )
 
         results = []
-        allowed = True
-        denial_reason = None
-        # Cleared by any enforced failure that an approval cannot release.
-        approval_only = True
-        warnings = []
         coverage_counts = {
             'enforced': 0,
             'observation_only': 0,
             'unsupported': 0}
+        # Every evaluated policy, in order: (policy, result entry, evaluator
+        # result, malformed-selector message). Actions are decided once all
+        # have run, because severity escalation reads the whole evaluation.
+        outcomes = []
 
         for policy in policies:
             if policy.enforcement == Policy.Enforcement.DISABLED:
@@ -328,25 +342,22 @@ class PolicyEngine:
                     str) and ':' in item for item in selectors)):
                 message = f"Policy {
                     policy.name} has malformed taxonomy selectors"
-                results.append(
-                    {
-                        'id': str(
-                            policy.id),
-                        'version': policy.version,
-                        'name': policy.name,
-                        'type': policy.policy_type,
-                        'result': 'fail',
-                        'message': message,
-                        'matched_selectors': selectors if isinstance(
-                            selectors,
-                            list) else [],
-                        'coverage': 'enforced' if policy.enforcement == Policy.Enforcement.ENFORCE else 'observation_only'})
-                if policy.enforcement == Policy.Enforcement.ENFORCE and not dry_run:
-                    allowed = False
-                    denial_reason = message
-                    approval_only = False
-                else:
-                    warnings.append(message)
+                entry = {
+                    'id': str(
+                        policy.id),
+                    'version': policy.version,
+                    'name': policy.name,
+                    'type': policy.policy_type,
+                    'result': 'fail',
+                    'message': message,
+                    'matched_selectors': selectors if isinstance(
+                        selectors,
+                        list) else [],
+                    'coverage': 'enforced' if policy.enforcement == Policy.Enforcement.ENFORCE else 'observation_only',
+                    'action': None,
+                    'block_level': None}
+                results.append(entry)
+                outcomes.append((policy, entry, None, message))
                 continue
 
             evaluator = self._get_evaluator(policy.policy_type)
@@ -371,7 +382,7 @@ class PolicyEngine:
                     message=f"Policy evaluation error: {
                         policy.name}")
 
-            results.append({
+            entry = {
                 'id': str(policy.id),
                 'version': policy.version,
                 'name': policy.name,
@@ -381,25 +392,63 @@ class PolicyEngine:
                 'matched_selectors': policy.config.get('taxonomy_selectors', [])
                 if isinstance(policy.config, dict) else [],
                 'coverage': coverage_status,
-            })
+                'action': None,
+                'block_level': None,
+            }
+            results.append(entry)
+            outcomes.append((policy, entry, result, None))
+
+        allowed = True
+        denial_reason = None
+        # Cleared by any enforced denial that an approval cannot release.
+        approval_only = True
+        warnings = []
+        decisions = []
+        severity = self._escalation_severity(action, context, results, outcomes)
+        for policy, entry, result, malformed in outcomes:
+            if malformed is not None:
+                # A rule that cannot be read fails closed: refused under
+                # enforce, recorded under audit, and never escalated.
+                decision = self._fail_closed(policy)
+                entry['action'], entry['block_level'] = decision.action, decision.block_level
+                decisions.append(decision)
+                if policy.enforcement == Policy.Enforcement.ENFORCE and not dry_run:
+                    allowed = False
+                    denial_reason = malformed
+                    approval_only = False
+                else:
+                    warnings.append(malformed)
+                continue
 
             if not result.passed:
-                if policy.enforcement == Policy.Enforcement.ENFORCE:
-                    if not dry_run:
-                        allowed = False
-                        denial_reason = result.message
-                        if not getattr(result, 'approval_required', False):
-                            approval_only = False
-                    logger.warning(
-                        f"Policy violation{'(dry-run)' if dry_run else ''}: "
-                        f"{policy.name} - {result.message} "
-                        f"(endpoint={endpoint.agent_id}, action={action}, user={user_id})"
-                    )
-                    if dry_run:
-                        warnings.append(
-                            f"[Dry-run] Would be denied: {policy.name}: {result.message}")
-                else:  # audit mode
-                    warnings.append(f"[Audit] {policy.name}: {result.message}")
+                decision = self._decide(policy, result, endpoint, action, context, severity, dry_run)
+                if self._released_by_approval(decision, result, policy, action, user_id, context):
+                    entry['result'] = 'pass'
+                    entry['approved'] = True
+                else:
+                    entry['action'], entry['block_level'] = decision.action, decision.block_level
+                    decisions.append(decision)
+                    if policy.enforcement == Policy.Enforcement.ENFORCE:
+                        if denies(decision, target_capabilities):
+                            if not dry_run:
+                                allowed = False
+                                denial_reason = result.message
+                                if decision.action != Action.REQUIRE_APPROVAL:
+                                    approval_only = False
+                            logger.warning(
+                                f"Policy violation{'(dry-run)' if dry_run else ''}: "
+                                f"{policy.name} - {result.message} "
+                                f"(endpoint={endpoint.agent_id}, action={action}, user={user_id})"
+                            )
+                            if dry_run:
+                                warnings.append(
+                                    f"[Dry-run] Would be denied: {policy.name}: {result.message}")
+                        elif decision.action == Action.WARN:
+                            warnings.append(f"[Warn] {policy.name}: {result.message}")
+                        elif decision.action == Action.STEER:
+                            warnings.append(f"[Steer] {policy.name}: {decision.message}")
+                    else:  # audit mode
+                        warnings.append(f"[Audit] {policy.name}: {result.message}")
 
             if result.warnings:
                 warnings.extend(result.warnings)
@@ -411,6 +460,8 @@ class PolicyEngine:
                 allowed = False
                 denial_reason = admission_error
                 approval_only = False
+                decisions.append(Decision(action=Action.BLOCK.value, block_level=BlockLevel.TOOL_CALL.value,
+                                          mode=Policy.Enforcement.ENFORCE.value, configured_action=None))
 
         from zentinelle.services.risk_scorer import RiskScorer
         scorer = RiskScorer()
@@ -433,6 +484,7 @@ class PolicyEngine:
                 'counts': coverage_counts,
             },
             approval_required=not dry_run and not allowed and approval_only,
+            enforcement=summarize(decisions, target_capabilities),
         )
 
         # Auto-create incidents for policy violations (skipped in dry_run mode)
@@ -463,6 +515,26 @@ class PolicyEngine:
             except Exception as exc:
                 logger.warning("notification creation failed: %s", exc)
 
+        # An alert decision notifies the tenant's owners whether or not the
+        # call went ahead.
+        if not dry_run:
+            for decision in decisions:
+                if decision.action != Action.ALERT:
+                    continue
+                try:
+                    from zentinelle.models.notification import (
+                        Notification, create_notification)
+                    create_notification(
+                        tenant_id=endpoint.tenant_id,
+                        type=Notification.Type.POLICY_VIOLATION,
+                        subject=f"Policy alert: {decision.rule['name'][:100]}",
+                        message=next((e['message'] for e in results if e['id'] == decision.rule['id']), '') or '',
+                        metadata={'action': action, 'agent_id': endpoint.agent_id,
+                                  'policy_id': decision.rule['id']},
+                    )
+                except Exception as exc:
+                    logger.warning("notification creation failed: %s", exc)
+
         # Notify on high risk score (>= 75), even if allowed
         if not dry_run and risk_score >= 75:
             try:
@@ -479,6 +551,78 @@ class PolicyEngine:
                 logger.warning("notification creation failed: %s", exc)
 
         return evaluation_result
+
+    @staticmethod
+    def _rule_ref(policy: Policy) -> Dict[str, Any]:
+        return {'type': 'policy', 'id': str(policy.id), 'name': policy.name, 'version': policy.version}
+
+    def _fail_closed(self, policy: Policy) -> Decision:
+        if policy.enforcement == Policy.Enforcement.ENFORCE:
+            return Decision(action=Action.BLOCK.value, block_level=BlockLevel.TOOL_CALL.value,
+                            mode=policy.enforcement, configured_action=policy.action, rule=self._rule_ref(policy))
+        return Decision(action=Action.LOG.value, block_level=None, mode=policy.enforcement,
+                        configured_action=policy.action, rule=self._rule_ref(policy),
+                        capped_from=Action.BLOCK.value)
+
+    @staticmethod
+    def _escalation_severity(action, context, results, outcomes) -> Optional[str]:
+        """How severe this evaluation is, for rules that escalate by severity.
+
+        The same score-to-severity mapping incidents use, over what a live
+        evaluation would score. A dry run adds 'would be denied' warnings the
+        scorer counts; those follow from the decision, so they are left out
+        and a dry run previews the live decision.
+        """
+        if not any(result is not None and not result.passed and (policy.escalation or {}).get('severity')
+                   for policy, _entry, result, _malformed in outcomes):
+            return None
+        signals = []
+        for policy, _entry, result, _malformed in outcomes:
+            if result is None:
+                continue
+            if not result.passed and policy.enforcement == Policy.Enforcement.AUDIT:
+                signals.append(f"[Audit] {policy.name}: {result.message}")
+            signals.extend(result.warnings)
+        from zentinelle.services.incident_service import \
+            _risk_score_to_severity
+        from zentinelle.services.risk_scorer import RiskScorer
+        score, _factors = RiskScorer().compute(action, context, results, signals)
+        return _risk_score_to_severity(score)
+
+    def _decide(self, policy, result, endpoint, action, context, severity, dry_run) -> Decision:
+        from zentinelle.services.actions import (count_match, decide,
+                                                 render_steer)
+        escalation = policy.escalation or {}
+        count = None
+        if escalation.get('repeat'):
+            count = count_match(tenant_id=endpoint.tenant_id, kind='policy', rule_id=str(policy.id),
+                                scope_id=str(endpoint.id), window_seconds=escalation['window_seconds'],
+                                record=not dry_run)
+        decision = decide(action=policy.action, block_level=policy.block_level, escalation=escalation,
+                          mode=policy.enforcement, count=count, severity=severity,
+                          approval_kind=getattr(result, 'approval_required', False),
+                          rule=self._rule_ref(policy))
+        if decision.action == Action.STEER:
+            decision.message = render_steer(policy.steer_message, {
+                'rule': policy.name, 'reason': result.message, 'action': action,
+                'tool': context.get('tool_name') or context.get('tool') or '', 'agent': endpoint.agent_id,
+            })
+        return decision
+
+    @staticmethod
+    def _released_by_approval(decision, result, policy, action, user_id, context) -> bool:
+        """Whether a valid approval releases a require_approval decision.
+
+        Evaluators that ask for approval check the token themselves. A policy
+        whose own action is require_approval can match on anything, so the
+        engine checks the token for it, with the same binding to identity,
+        the exact action and the policy's version, consumed at admission.
+        """
+        if (decision.mode != Policy.Enforcement.ENFORCE or decision.action != Action.REQUIRE_APPROVAL
+                or getattr(result, 'approval_required', False) or not context.get('approval_token')):
+            return False
+        from zentinelle.services.approvals import validate_policy_approval
+        return validate_policy_approval(policy, action, user_id, context).passed
 
     def _get_evaluator(self, policy_type: str) -> 'BasePolicyEvaluator':
         """Get the appropriate evaluator for a policy type (cached)."""

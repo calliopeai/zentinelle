@@ -4,6 +4,7 @@ Tests for Zentinelle models.
 from django.test import TestCase
 
 from zentinelle.models import AgentEndpoint, ContentRule, Event, Policy
+from zentinelle.models.actions import Action
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 
@@ -136,7 +137,7 @@ class ContentRuleModelTest(TestCase):
             name='AWS Key Detection',
             rule_type=ContentRule.RuleType.SECRET_DETECTION,
             severity=ContentRule.Severity.CRITICAL,
-            enforcement=ContentRule.Enforcement.BLOCK,
+            action=Action.BLOCK,
             config={
                 'detect_aws_keys': True,
                 'detect_api_keys': True,
@@ -154,7 +155,7 @@ class ContentRuleModelTest(TestCase):
             name='PII Detection',
             rule_type=ContentRule.RuleType.PII_DETECTION,
             severity=ContentRule.Severity.HIGH,
-            enforcement=ContentRule.Enforcement.REDACT,
+            action=Action.REDACT,
             config={
                 'detect_ssn': True,
                 'detect_credit_cards': True,
@@ -163,7 +164,7 @@ class ContentRuleModelTest(TestCase):
         )
 
         self.assertEqual(rule.rule_type, ContentRule.RuleType.PII_DETECTION)
-        self.assertEqual(rule.enforcement, ContentRule.Enforcement.REDACT)
+        self.assertEqual(rule.action, Action.REDACT)
 
     def test_rule_scan_modes(self):
         """Test different scan modes."""

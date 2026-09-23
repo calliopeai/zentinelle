@@ -16,6 +16,7 @@ from zentinelle.api.serializers import (EvaluateRequestSerializer,
                                         HostToolCallContextSerializer)
 from zentinelle.models import AgentEndpoint, Event
 from zentinelle.models.compliance import InteractionLog
+from zentinelle.services.actions import refusal
 from zentinelle.services.approvals import open_approval_request
 from zentinelle.services.boundary_contract import (build_contract,
                                                    canonical_action)
@@ -67,6 +68,7 @@ class EvaluateView(APIView):
                 )
 
         trace_id = str(uuid.uuid4())
+        capabilities = data.get('target_capabilities')
         context = dict(data.get('context', {}) or {})
         if data.get('authority'):
             context['authority'] = data['authority']
@@ -88,6 +90,7 @@ class EvaluateView(APIView):
                 action=action,
                 user_id=data.get('user_id'),
                 context=context,
+                target_capabilities=capabilities,
             )
             # A host can keep the call pending, so an action blocked only for
             # want of a human approval is held for one instead of refused.
@@ -109,6 +112,7 @@ class EvaluateView(APIView):
                 'reason': 'Policy evaluation unavailable',
                 'coverage': {'status': 'unknown'},
                 'warnings': ['retry after policy service recovery'],
+                'enforcement': refusal(capabilities),
             }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         # `allowed` stays false for ask, so a client reading only that field
         # still refuses the call.
@@ -141,6 +145,11 @@ class EvaluateView(APIView):
             # Reported on every evaluation rather than only on 'llm:invoke', so
             # a caller learns it at the point it must decide whether to buffer.
             'output_filter_required': self._output_filter_required(auth_endpoint),
+            # The decided action, its fallback chain, and the rule that
+            # decided it (#396). `allowed` and `decision` stay the floor for
+            # callers that read nothing else. See "Policy actions" in
+            # bootstrap.md.
+            'enforcement': result.enforcement,
         }
         if held is not None:
             # The host polls this request until it is decided or expires, and
@@ -204,7 +213,9 @@ class EvaluateView(APIView):
             event_category = Event.Category.ALERT
         else:
             event_type = f"policy_evaluation_{request_data['action']}"
-            event_category = Event.Category.AUDIT
+            # An allowed call can still have been decided as an alert.
+            alerted = (result.enforcement or {}).get('action') == 'alert'
+            event_category = Event.Category.ALERT if alerted else Event.Category.AUDIT
 
         payload = {
             'action': request_data['action'],
@@ -216,6 +227,7 @@ class EvaluateView(APIView):
                 'policies_evaluated': result.policies_evaluated,
             },
             'trace_id': trace_id,
+            'enforcement': result.enforcement,
         }
         if held is not None:
             payload['approval_request_id'] = str(held.pk)

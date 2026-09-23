@@ -64,6 +64,16 @@ class EvaluateRequestSerializer(serializers.Serializer):
     user_id = serializers.CharField(max_length=255, required=False, allow_blank=True)
     authority = serializers.DictField(required=False, default=dict)
     context = serializers.DictField(default=dict)
+    # What the caller can honour, e.g. {"supports_steer": true} (#396). Kept
+    # out of `context` so it never changes the approval digest.
+    target_capabilities = serializers.JSONField(required=False)
+
+    def validate_target_capabilities(self, value):
+        from zentinelle.services.actions import normalize_capabilities
+        try:
+            return normalize_capabilities(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
 
 
 class HostToolCallContextSerializer(serializers.Serializer):

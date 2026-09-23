@@ -88,8 +88,12 @@ class ScanContentView(APIView):
             "violations": [...],
             "redacted_content": "...",  // if action == "redact"
             "warnings": [...],
-            "scan_duration_ms": 15
+            "scan_duration_ms": 15,
+            "enforcement": {...}        // decided action and fallback chain (#396)
         }
+
+        An optional "target_capabilities" object of booleans says what the
+        caller can honour, as on /evaluate.
         """
         # Validate request
         content = request.data.get('content')
@@ -101,6 +105,11 @@ class ScanContentView(APIView):
 
         user_id = request.data.get('user_id', 'anonymous')
         content_type = request.data.get('content_type', ContentScan.ContentType.USER_INPUT)
+        from zentinelle.services.actions import normalize_capabilities
+        try:
+            capabilities = normalize_capabilities(request.data.get('target_capabilities'))
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         # Get endpoint
         endpoint = get_endpoint_from_request(request)
@@ -121,6 +130,7 @@ class ScanContentView(APIView):
                 ip_address=self._get_client_ip(request),
                 token_count=request.data.get('token_count'),
                 estimated_cost=request.data.get('estimated_cost'),
+                target_capabilities=capabilities,
             )
         except Exception as e:
             logger.error(f"Scan failed: {e}")
@@ -138,6 +148,9 @@ class ScanContentView(APIView):
             'violation_count': len(result.violations),
             'max_severity': result.max_severity,
             'scan_duration_ms': result.scan_duration_ms,
+            # The decided action and its fallback chain (#396). `allowed` and
+            # `action` keep their legacy precedence; see bootstrap.md.
+            'enforcement': result.enforcement,
         }
 
         if result.violations:
