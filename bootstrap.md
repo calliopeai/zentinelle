@@ -533,10 +533,14 @@ Every response, including the 503 for a policy outage, carries `enforcement`:
   `target_capabilities`: the first option the target can honour, and whether
   it is not the first. Without capabilities the caller picks from the chain.
 - `allowed` and `decision` stay the floor for callers that read nothing else.
-  `block` and `require_approval` deny (an agent host still gets `ask`),
-  `redact` denies unless the target declared `supports_redact`, and `log`,
-  `alert`, `warn` and `steer` allow. Warn and steer also add `[Warn]` and
-  `[Steer]` lines to `warnings`, so an older caller still shows them.
+  `block`, `require_approval` and `redact` deny (an agent host still gets
+  `ask` for approval), and `log`, `alert`, `warn` and `steer` allow. Warn and
+  steer also add `[Warn]` and `[Steer]` lines to `warnings`, so an older
+  caller still shows them. What a caller declares never changes `allowed`.
+- No policy evaluator returns redacted content, so `/evaluate` has nothing a
+  target could pass on in place of the original: for a redact decision,
+  `selected` falls back to refusing the call even when the target declared
+  `supports_redact`. Redaction a target can honour comes from `/scan`.
 - The evaluation event's payload carries the same `enforcement`. An allowed
   call decided as `alert` is filed in the alert category.
 

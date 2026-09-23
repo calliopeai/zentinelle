@@ -274,8 +274,9 @@ class PolicyEngine:
         its escalation and its mode (services/actions.py, #396); the result's
         `enforcement` is the strongest of those decisions. target_capabilities
         is what the caller said it can honour: it picks `selected` from the
-        fallback chain, and it is the one thing that lets a `redact` decision
-        through, since only a target that redacts may pass the content on.
+        fallback chain and never changes `allowed`. A redact decision refuses
+        the call whatever the caller declares, because no evaluator returns
+        redacted content for a target to pass on in place of the original.
         """
         from zentinelle.services.actions import refusal
         from zentinelle.services.evaluation_context import normalize_context
@@ -429,7 +430,7 @@ class PolicyEngine:
                     entry['action'], entry['block_level'] = decision.action, decision.block_level
                     decisions.append(decision)
                     if policy.enforcement == Policy.Enforcement.ENFORCE:
-                        if denies(decision, target_capabilities):
+                        if denies(decision):
                             if not dry_run:
                                 allowed = False
                                 denial_reason = result.message
@@ -468,6 +469,10 @@ class PolicyEngine:
         risk_score, risk_factors = scorer.compute(
             action, context, results, warnings)
 
+        # No evaluator returns redacted content, so a target that redacts has
+        # nothing to pass on here: `selected` falls back past redact, as
+        # `allowed` already does, whatever the caller declares.
+        honourable = None if target_capabilities is None else {**target_capabilities, 'supports_redact': False}
         evaluation_result = EvaluationResult(
             allowed=True if dry_run else allowed,
             reason=None if dry_run else denial_reason,
@@ -484,7 +489,7 @@ class PolicyEngine:
                 'counts': coverage_counts,
             },
             approval_required=not dry_run and not allowed and approval_only,
-            enforcement=summarize(decisions, target_capabilities),
+            enforcement=summarize(decisions, honourable),
         )
 
         # Auto-create incidents for policy violations (skipped in dry_run mode)

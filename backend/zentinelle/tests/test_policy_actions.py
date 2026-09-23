@@ -134,13 +134,11 @@ class DecisionTests(SimpleTestCase):
     def test_what_refuses_the_call(self):
         def decision(action, mode='enforce'):
             return Decision(action=action, block_level=None, mode=mode, configured_action=action)
-        self.assertTrue(denies(decision('block'), None))
-        self.assertTrue(denies(decision('require_approval'), None))
-        self.assertTrue(denies(decision('redact'), None))
-        self.assertFalse(denies(decision('redact'), {'supports_redact': True}))
+        for action in ('block', 'require_approval', 'redact'):
+            self.assertTrue(denies(decision(action)))
         for action in ('log', 'alert', 'warn', 'steer'):
-            self.assertFalse(denies(decision(action), None))
-        self.assertFalse(denies(decision('block', mode='audit'), None))
+            self.assertFalse(denies(decision(action)))
+        self.assertFalse(denies(decision('block', mode='audit')))
 
 
 class FallbackTests(SimpleTestCase):
@@ -293,10 +291,17 @@ class EvaluateActionTests(TestCase):
         self.assertEqual(self.evaluate().json()['enforcement']['action'], 'alert')
         self.assertTrue(Notification.objects.filter(subject='Policy alert: No rm').exists())
 
-    def test_redact_passes_only_for_a_target_that_redacts(self):
+    def test_redact_refuses_the_call_whatever_the_caller_declares(self):
+        # No evaluator returns redacted content, so a caller claiming it can
+        # redact would pass the original on: the claim must not loosen anything.
         self.deny_rm(action='redact')
         self.assertEqual(self.evaluate().json()['decision'], 'deny')
-        self.assertEqual(self.evaluate(target_capabilities={'supports_redact': True}).json()['decision'], 'allow')
+        body = self.evaluate(target_capabilities={'supports_redact': True}).json()
+        self.assertEqual((body['decision'], body['allowed']), ('deny', False))
+        self.assertEqual(body['enforcement']['action'], 'redact')
+        self.assertEqual(body['enforcement']['selected'],
+                         {'action': 'block', 'block_level': 'tool_call', 'requires': None})
+        self.assertTrue(body['enforcement']['fallback'])
 
     def test_a_block_that_needs_interruption_falls_back_upward(self):
         self.deny_rm(block_level='turn')

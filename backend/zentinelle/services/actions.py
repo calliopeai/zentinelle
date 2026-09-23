@@ -241,18 +241,17 @@ def decide(*, action: str, block_level: Optional[str], escalation: Dict[str, Any
     return decision
 
 
-def denies(decision: Decision, capabilities: Optional[Dict[str, bool]]) -> bool:
+def denies(decision: Decision) -> bool:
     """Whether the call must be refused. `allowed` stays safe for callers that read nothing else.
 
-    Redact lets the call through only for a target that said it can redact.
+    What a caller declares it can honour never enters this: capabilities pick
+    an option from the fallback chain, and must not loosen the decision.
+    Redact refuses the call because a policy evaluation has no redacted
+    content to hand back in place of the original.
     """
     if decision.mode != 'enforce':
         return False
-    if decision.action in (Action.BLOCK, Action.REQUIRE_APPROVAL):
-        return True
-    if decision.action == Action.REDACT:
-        return not (capabilities or {}).get('supports_redact', False)
-    return False
+    return decision.action in (Action.BLOCK, Action.REQUIRE_APPROVAL, Action.REDACT)
 
 
 def render_steer(template: str, values: Dict[str, Any]) -> str:
