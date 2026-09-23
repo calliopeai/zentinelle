@@ -19,11 +19,14 @@ Usage:
 
 The `local` gateway belongs to the backend, which registers it for a compose
 install's shared volume, so it cannot be registered or minted for here.
+Revoking the gateway of an Astrolift cluster (#389) revokes the cluster too, so
+the install sees it revoked.
 """
 from django.core.management.base import BaseCommand, CommandError
 
 from zentinelle.auth.gateway_credential import LOCAL_GATEWAY_NAME
 from zentinelle.models import GatewayCredential, GatewayRegistration
+from zentinelle.services.astrolift_clusters import revoke_cluster
 
 
 class Command(BaseCommand):
@@ -87,7 +90,7 @@ class Command(BaseCommand):
             self.stdout.write('No gateways registered.')
             return
         for registration in registrations:
-            live = [c.key_prefix for c in registration.credentials.all() if c.revoked_at is None]
+            live = [c.key_prefix for c in registration.credentials.all() if c.is_live]
             self.stdout.write(
                 f'{registration.name}  {"active" if registration.is_active else "revoked"}  '
                 f'cluster={registration.cluster_id or "-"}  '
@@ -103,6 +106,11 @@ class Command(BaseCommand):
                 raise CommandError(f'No live credential {options["credential"]} on gateway "{registration.name}"')
             credential.revoke()
             self.stdout.write(f'Revoked credential {credential.key_prefix} of gateway "{registration.name}".')
+            return
+        if registration.astrolift_cluster_id and registration.is_active:
+            cluster = revoke_cluster(registration.astrolift_cluster, actor_id='manage.py', via='manage.py')
+            self.stdout.write(f'Revoked gateway "{registration.name}" and Astrolift cluster {cluster.external_id}: '
+                              'none of its credentials work any more.')
             return
         registration.revoke()
         self.stdout.write(f'Revoked gateway "{registration.name}": none of its credentials work any more.')

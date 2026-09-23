@@ -9,10 +9,12 @@ Supports API keys:
 Note: Deployment key auth (sk_deploy_) has been removed in standalone mode.
 Deployment operations are handled by the client-cove integration layer.
 """
+from django.utils import timezone
 from rest_framework import authentication, exceptions
 
 from zentinelle.auth.mode import is_open_mode
-from zentinelle.models import AgentEndpoint, APIKey, GatewayCredential
+from zentinelle.models import (AgentEndpoint, APIKey, AstroliftInstall,
+                               GatewayCredential)
 from zentinelle.utils.api_keys import KeyPrefixes
 
 
@@ -292,6 +294,106 @@ class GatewayAgentAuthentication(authentication.BaseAuthentication):
         if agent is None:
             raise exceptions.AuthenticationFailed('X-Zentinelle-Key is required')
         return agent[0], credential
+
+    def authenticate_header(self, request):
+        return self.keyword
+
+
+class AstroliftInstallUser:
+    """
+    Principal for a connected Astrolift install (#389).
+
+    Carries no tenant_id and no portal role: an install acts on its own
+    clusters, within the tenants it was connected for, and views read those
+    from `install`.
+    """
+
+    def __init__(self, install: AstroliftInstall):
+        self.install = install
+        self.is_authenticated = True
+        self.is_active = install.is_active
+
+    @property
+    def pk(self):
+        return self.install.pk
+
+    @property
+    def id(self):
+        return self.install.id
+
+    def __str__(self):
+        return f"Astrolift install: {self.install.name}"
+
+
+class AstroliftInstallAuthentication(authentication.BaseAuthentication):
+    """
+    Authenticate a connected Astrolift install by its credential (#389).
+
+    Usage:
+        Authorization: Bearer sk_astroinst_...
+
+    A bearer token of another kind is refused rather than handed on: these
+    endpoints take nothing else.
+    """
+
+    keyword = 'Bearer'
+
+    def authenticate(self, request):
+        header = request.META.get('HTTP_AUTHORIZATION', '')
+        if not header.startswith('Bearer '):
+            return None
+        install = AstroliftInstall.authenticate(header[len('Bearer '):].strip())
+        if install is None:
+            raise exceptions.AuthenticationFailed('Invalid Astrolift install credential')
+        AstroliftInstall.objects.filter(pk=install.pk).update(last_used_at=timezone.now())
+        return (AstroliftInstallUser(install), install)
+
+    def authenticate_header(self, request):
+        return self.keyword
+
+
+class GatewayUser:
+    """Principal for a registered gateway presenting only its own credential."""
+
+    def __init__(self, credential: GatewayCredential):
+        self.registration = credential.registration
+        self.is_authenticated = True
+        self.is_active = True
+
+    @property
+    def pk(self):
+        return self.registration.pk
+
+    @property
+    def id(self):
+        return self.registration.id
+
+    def __str__(self):
+        return f"Gateway: {self.registration.name}"
+
+
+class GatewayCredentialAuthentication(authentication.BaseAuthentication):
+    """
+    Authenticate a registered gateway by its credential alone (#389).
+
+    Usage:
+        X-Zentinelle-Gateway-Credential: sk_gateway_...
+
+    For what a gateway reports about itself, such as its cluster's heartbeat.
+    Reading a tenant's provider key also takes an agent key; that is
+    GatewayAgentAuthentication.
+    """
+
+    keyword = 'X-Zentinelle-Gateway-Credential'
+
+    def authenticate(self, request):
+        presented = request.META.get('HTTP_X_ZENTINELLE_GATEWAY_CREDENTIAL', '')
+        if not presented:
+            return None
+        credential = GatewayCredential.authenticate(presented)
+        if credential is None:
+            raise exceptions.AuthenticationFailed('Invalid gateway credential')
+        return (GatewayUser(credential), credential)
 
     def authenticate_header(self, request):
         return self.keyword

@@ -25,15 +25,24 @@ class GatewayRegistration(models.Model):
     """One gateway deployment: where it runs and which tenants it serves.
 
     cluster_id is the opaque id of the cluster the gateway runs in, the value
-    the gateway sends as X-Zentinelle-Cluster. It is the link to the cluster
-    record Zentinelle does not have yet: when that record lands, this model
-    gains a nullable foreign key to it, backfilled by matching cluster_id,
-    and the string stays as the external id.
+    the gateway sends as X-Zentinelle-Cluster. `astrolift_cluster` is the
+    cluster record (#389) of a gateway an Astrolift install registered, and
+    stays empty for one an operator registered with manage.py. When a cluster
+    registers, an operator's registration with the same cluster_id is adopted
+    only if the cluster's tenants cover all of its own: a matching string
+    alone proves nothing, because cluster ids are not namespaced per install.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255, unique=True)
     cluster_id = models.CharField(max_length=255, blank=True, default='', db_index=True)
+    # Not `cluster`: its column would be cluster_id, which the string above
+    # already is.
+    astrolift_cluster = models.ForeignKey(
+        'zentinelle.AstroliftCluster', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='gateway_registrations',
+        help_text='The Astrolift cluster this gateway runs in, when an Astrolift install registered it.',
+    )
     tenant_ids = models.JSONField(
         default=list,
         blank=True,
@@ -72,7 +81,9 @@ class GatewayCredential(models.Model):
     Hashed like APIKey: the plaintext (sk_gateway_...) exists only when it is
     minted, and the prefix finds the row to verify against. A registration can
     hold more than one, so a credential is rotated by minting the next,
-    rolling it out, then revoking the old one.
+    rolling it out, then revoking the old one. `expires_at` schedules that
+    last step: a rotation through the Astrolift API (#389) lets the earlier
+    credentials overlap for a while instead of cutting them off.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -83,6 +94,8 @@ class GatewayCredential(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     last_used_at = models.DateTimeField(null=True, blank=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(
+        null=True, blank=True, help_text='When set, the credential stops working at this time.')
 
     class Meta:
         app_label = 'zentinelle'
@@ -104,12 +117,13 @@ class GatewayCredential(models.Model):
     def authenticate(cls, presented: str):
         """The live credential `presented` matches, or None.
 
-        Revoked credentials and credentials of a revoked registration never
-        match.
+        Revoked or expired credentials and credentials of a revoked
+        registration never match.
         """
         if not presented or not presented.startswith(KeyPrefixes.GATEWAY):
             return None
         candidates = cls.objects.select_related('registration').filter(
+            models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now()),
             key_prefix=presented[:len(KeyPrefixes.GATEWAY) + 8],
             revoked_at__isnull=True,
             registration__revoked_at__isnull=True,
@@ -118,6 +132,10 @@ class GatewayCredential(models.Model):
             if verify_api_key(presented, record.key_hash, allow_legacy_sha256=False):
                 return record
         return None
+
+    @property
+    def is_live(self) -> bool:
+        return self.revoked_at is None and (self.expires_at is None or self.expires_at > timezone.now())
 
     def revoke(self):
         self.revoked_at = timezone.now()
