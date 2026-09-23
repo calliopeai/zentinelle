@@ -34,6 +34,9 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
+      # The backend registers the local gateway (this install's one tenant)
+      # and writes its credential here; the gateway reads it (#380).
+      - gateway_credential:/var/run/zentinelle
     command: >
       sh -c "
         python manage.py prepare_schemas &&
@@ -112,6 +115,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    volumes:
+      - gateway_credential:/var/run/zentinelle:ro
     ports:
       - "${GATEWAY_PORT_HOST:-8742}:8742"
 
@@ -190,3 +195,4 @@ volumes:
   postgres_data:
   redis_data:
   clickhouse_data:
+  gateway_credential:

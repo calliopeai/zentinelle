@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -35,13 +37,7 @@ func main() {
 	signal.Notify(shutdown, syscall.SIGTERM, syscall.SIGINT)
 
 	go func() {
-		logJSON("info", "gateway starting", map[string]interface{}{
-			"port":          cfg.Port,
-			"zentinelle":    cfg.ZentinelleURL,
-			"fail_open":     cfg.FailOpen,
-			"providers":     cfg.ProviderKeys(),
-			"policy_timeout": cfg.PolicyTimeout.String(),
-		})
+		logStartup(cfg)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logJSON("fatal", "server failed", map[string]interface{}{
@@ -69,6 +65,49 @@ func main() {
 	logJSON("info", "gateway stopped", nil)
 }
 
+// logStartup records how the gateway is configured, and what about that
+// configuration an operator should change.
+func logStartup(cfg *Config) {
+	credentialSource := "none"
+	switch {
+	case cfg.GatewayCredentialFile != "":
+		credentialSource = "file"
+	case cfg.GatewayCredential != "":
+		credentialSource = "env"
+	}
+
+	logJSON("info", "gateway starting", map[string]interface{}{
+		"port":                      cfg.Port,
+		"zentinelle":                cfg.ZentinelleURL,
+		"fail_open":                 cfg.FailOpen,
+		"providers":                 cfg.ProviderKeys(),
+		"policy_timeout":            cfg.PolicyTimeout.String(),
+		"tenant_provider_keys":      cfg.GatewayCredential != "",
+		"gateway_credential_source": credentialSource,
+		"env_provider_keys":         cfg.AllowEnvProviderKeys,
+	})
+
+	switch {
+	case cfg.AllowEnvProviderKeys:
+		logJSON("warn", "ALLOW_ENV_PROVIDER_KEYS is deprecated and will be removed in a future release: "+
+			"store provider keys per tenant in Zentinelle (Settings > LLM providers) instead", map[string]interface{}{
+			"providers": cfg.ProviderKeys(),
+		})
+	case len(cfg.ProviderAPIKeys) > 0:
+		logJSON("warn", "provider keys in the environment are ignored: store them per tenant in Zentinelle (Settings > LLM providers)", map[string]interface{}{
+			"providers": cfg.ProviderKeys(),
+		})
+	}
+}
+
+// logOutput is where log lines go: stderr, swapped only by tests that need to
+// read what was logged. Writes hold the lock, so a swap never races a line
+// being written from a background goroutine.
+var logOutput = struct {
+	sync.Mutex
+	w io.Writer
+}{w: os.Stderr}
+
 // logJSON writes a structured JSON log entry to stderr.
 func logJSON(level string, msg string, fields map[string]interface{}) {
 	entry := map[string]interface{}{
@@ -86,10 +125,13 @@ func logJSON(level string, msg string, fields map[string]interface{}) {
 	}
 
 	line, err := json.Marshal(entry)
+
+	logOutput.Lock()
+	defer logOutput.Unlock()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, `{"ts":"%s","level":"error","msg":"log marshal failed: %v"}`+"\n",
+		fmt.Fprintf(logOutput.w, `{"ts":"%s","level":"error","msg":"log marshal failed: %v"}`+"\n",
 			time.Now().UTC().Format(time.RFC3339Nano), err)
 		return
 	}
-	fmt.Fprintln(os.Stderr, string(line))
+	fmt.Fprintln(logOutput.w, string(line))
 }

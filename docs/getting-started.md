@@ -126,10 +126,13 @@ The Go gateway holds provider API keys; agents authenticate with
 Zentinelle keys only. Best for enforcement at scale.
 
 ```bash
-# Configure your provider key in Settings → LLM Providers
-# Then point your agent at the gateway
+# Configure your provider key in Settings → LLM Providers. The gateway reads it
+# with its own credential, which the backend writes into a shared compose
+# volume for this install's gateway; nothing to configure.
+# Then point your agent at the gateway. It sends its Zentinelle key in the
+# X-Zentinelle-Key header (see gateway/README.md); a provider key it sends is
+# dropped, and the tenant's stored key is used instead.
 export OPENAI_BASE_URL=http://localhost:8742/v1
-export OPENAI_API_KEY=sk_agent_<your-key>
 ```
 
 ## 5. Create a policy

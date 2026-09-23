@@ -26,6 +26,12 @@ Policy rollout now has a durable `PolicyChangeSet` and tenant-scoped API. Promot
 
 An AHP host is one `agent_host` endpoint with one key; harness, session and chat travel in each `/evaluate` context instead of being registered. A host receives `ask` for a call blocked only by a missing human approval and holds it on an `ApprovalRequest` until an operator decides or it expires. The approval digest no longer binds the per-call `trace_id`, which had made every approval miss its retry through `/evaluate`. Contract: `docs/agent-host.md`. Parent epic: calliopeai/calliope-vscode#790; the host-side gate is calliope-vscode#794 and host telemetry is #378.
 
+## Gateway provider keys (#380)
+
+Decided 2026-09-22 (option A): the Go gateway injects the provider key the agent's tenant stored (`LLMProviderKey`), read through `POST /api/zentinelle/v1/gateway/provider-key` with the agent key plus the gateway's credential, and cached 60s. It never forwards a client-supplied key. Env keys are a single-tenant fallback behind `ALLOW_ENV_PROVIDER_KEYS=true`, and the gateway refuses to start with no key source. The Django `/proxy/` path is to be deprecated once the company agents move to the gateway (calliopeai/astrolift-app#1851).
+
+Revised the same day (Leo): no shared gateway token. The gateway runs inside each Astrolift cluster as a data plane with Zentinelle as the control plane, and one global secret would let one leaked cluster unlock every tenant. Each gateway is a `GatewayRegistration` scoped to explicit `tenant_ids` with its own `GatewayCredential` (`sk_gateway_`, bcrypt-hashed), revocable per gateway; keys are released only for tenants in scope. `cluster_id` on the registration is the hook for the separately filed cluster concept (a nullable FK later). Standalone compose keeps zero config: the backend registers `local` for the standalone tenant and writes its credential into a shared volume. `ALLOW_ENV_PROVIDER_KEYS` is deprecated (still honoured, warns). Terraform deploys no gateway (#388 parked).
+
 ## Strategic Decisions
 
 ### Product + Business Model

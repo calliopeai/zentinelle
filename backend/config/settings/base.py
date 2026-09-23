@@ -420,6 +420,15 @@ BILLING_EXPORT_TIMEOUT = int(os.environ.get("BILLING_EXPORT_TIMEOUT", "30"))
 # for tokens they bought themselves is not a recoverable mistake.
 BILLING_MODE = os.environ.get("BILLING_MODE", "governance_only")
 
+# Where a standalone compose install's backend writes the local gateway's
+# credential (#380): a volume the gateway also mounts. When the file is missing
+# and its directory exists, the web process registers a gateway named `local`,
+# scoped to the standalone tenant, and writes a fresh credential there. Every
+# other gateway is registered by an operator (manage.py gateway_credential).
+# Empty disables it. See zentinelle/auth/gateway_credential.py.
+ZENTINELLE_GATEWAY_CREDENTIAL_FILE = os.environ.get(
+    "ZENTINELLE_GATEWAY_CREDENTIAL_FILE", "/var/run/zentinelle/gateway-credential")
+
 # Metadata-only by default; full prompt capture requires an explicit operator choice.
 CONTENT_CAPTURE_MODE = os.environ.get("CONTENT_CAPTURE_MODE", "metadata").lower()
 AUDIT_CHECKPOINT_SIGNING_KEY = os.environ.get("AUDIT_CHECKPOINT_SIGNING_KEY", SECRET_KEY)

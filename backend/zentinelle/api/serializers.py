@@ -77,6 +77,15 @@ class HostToolCallContextSerializer(serializers.Serializer):
     tool_input = serializers.JSONField(required=False)
 
 
+class GatewayProviderKeyRequestSerializer(serializers.Serializer):
+    """Which provider's key the gateway wants for the agent's tenant (#380).
+
+    Spelled as LLMProviderKey stores it: lowercase, the way the settings page
+    saves it and the gateway's routing table names it.
+    """
+    provider = serializers.RegexField(r'^[a-z0-9][a-z0-9_.-]*$', max_length=50)
+
+
 class ApprovalDecisionSerializer(serializers.Serializer):
     """An operator's decision on a held action."""
     decision = serializers.ChoiceField(choices=['approve', 'deny'])

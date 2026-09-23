@@ -12,7 +12,7 @@ Deployment operations are handled by the client-cove integration layer.
 from rest_framework import authentication, exceptions
 
 from zentinelle.auth.mode import is_open_mode
-from zentinelle.models import AgentEndpoint, APIKey
+from zentinelle.models import AgentEndpoint, APIKey, GatewayCredential
 from zentinelle.utils.api_keys import KeyPrefixes
 
 
@@ -256,6 +256,42 @@ class ZentinelleCombinedAuthentication(authentication.BaseAuthentication):
             return ZentinelleAPIKeyAuthentication().authenticate(request)
 
         raise exceptions.AuthenticationFailed('Invalid API key format')
+
+    def authenticate_header(self, request):
+        return self.keyword
+
+
+class GatewayAgentAuthentication(authentication.BaseAuthentication):
+    """
+    Require a registered gateway's credential AND an agent key (#380).
+
+    Usage:
+        X-Zentinelle-Gateway-Credential: sk_gateway_...
+        X-Zentinelle-Key: sk_agent_...
+
+    The agent key names the tenant. The gateway credential names the gateway,
+    and through its registration the tenants that gateway may read provider
+    keys for; the view holds one against the other. An agent key alone is
+    never enough, because the agent is exactly who the provider key is kept
+    from.
+
+    Returns the agent as the user and the GatewayCredential as `auth`. The
+    gateway credential is checked first, so a caller without one never learns
+    whether an agent key is valid.
+    """
+
+    keyword = 'X-Zentinelle-Gateway-Credential'
+
+    def authenticate(self, request):
+        credential = GatewayCredential.authenticate(
+            request.META.get('HTTP_X_ZENTINELLE_GATEWAY_CREDENTIAL', ''))
+        if credential is None:
+            raise exceptions.AuthenticationFailed('Invalid gateway credential')
+
+        agent = ZentinelleAPIKeyAuthentication().authenticate(request)
+        if agent is None:
+            raise exceptions.AuthenticationFailed('X-Zentinelle-Key is required')
+        return agent[0], credential
 
     def authenticate_header(self, request):
         return self.keyword

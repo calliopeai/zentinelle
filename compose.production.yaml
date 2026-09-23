@@ -45,6 +45,10 @@ services:
 
   backend:
     <<: *backend
+    # The backend registers the local gateway (this install's one tenant)
+    # and writes its credential here; the gateway reads it (#380).
+    volumes:
+      - gateway_credential:/var/run/zentinelle
     command: >-
       sh -c 'python manage.py prepare_schemas &&
         python manage.py migrate --database default --no-input &&
@@ -80,6 +84,8 @@ services:
       GATEWAY_PORT: "8742"
       FAIL_OPEN: "false"
       LOG_INTERACTIONS: ${LOG_INTERACTIONS:-false}
+    volumes:
+      - gateway_credential:/var/run/zentinelle:ro
     restart: unless-stopped
     depends_on:
       backend:
@@ -127,3 +133,4 @@ volumes:
   redis_data:
   caddy_data:
   caddy_config:
+  gateway_credential:

@@ -21,10 +21,20 @@ func TestLoadConfigDefaults(t *testing.T) {
 	for _, key := range []string{"GATEWAY_PORT", "ZENTINELLE_URL", "FAIL_OPEN", "POLICY_TIMEOUT_MS", "MAX_RESPONSE_BYTES"} {
 		os.Unsetenv(key)
 	}
+	// A key source is required, and the stored-key lookup is the one a
+	// default deployment uses.
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL", testGatewayCredential)
+	t.Setenv("ALLOW_ENV_PROVIDER_KEYS", "")
 
 	cfg, err := LoadConfig()
 	if err != nil {
 		t.Fatalf("LoadConfig() returned error: %v", err)
+	}
+	if cfg.AllowEnvProviderKeys {
+		t.Error("the env key fallback must stay off unless it is asked for")
+	}
+	if cfg.GatewayCredential != testGatewayCredential {
+		t.Error("ZENTINELLE_GATEWAY_CREDENTIAL was not read")
 	}
 
 	if cfg.Port != "8742" {
@@ -53,6 +63,8 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	os.Setenv("OPENAI_API_KEY", "sk-test-openai")
 	os.Setenv("ANTHROPIC_API_KEY", "sk-ant-test")
 	os.Setenv("GOOGLE_API_KEY", "AIza-test")
+	t.Setenv("ALLOW_ENV_PROVIDER_KEYS", "true")
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL_FILE", "")
 	defer func() {
 		for _, key := range []string{"GATEWAY_PORT", "ZENTINELLE_URL", "FAIL_OPEN", "POLICY_TIMEOUT_MS",
 			"MAX_RESPONSE_BYTES", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"} {
@@ -86,9 +98,14 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	if len(keys) != 3 {
 		t.Errorf("ProviderKeys() = %v, want 3 providers", keys)
 	}
+	if !cfg.AllowEnvProviderKeys {
+		t.Error("ALLOW_ENV_PROVIDER_KEYS=true was not read")
+	}
 }
 
 func TestLoadConfigInvalidFailOpen(t *testing.T) {
+	// A valid key source, so the only thing left to fail is FAIL_OPEN.
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL", testGatewayCredential)
 	os.Setenv("FAIL_OPEN", "not-a-bool")
 	defer os.Unsetenv("FAIL_OPEN")
 
@@ -99,6 +116,7 @@ func TestLoadConfigInvalidFailOpen(t *testing.T) {
 }
 
 func TestLoadConfigInvalidPolicyTimeout(t *testing.T) {
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL", testGatewayCredential)
 	os.Setenv("POLICY_TIMEOUT_MS", "abc")
 	defer os.Unsetenv("POLICY_TIMEOUT_MS")
 
@@ -187,8 +205,13 @@ func TestShouldForwardHeader(t *testing.T) {
 		want   bool
 	}{
 		{"Content-Type", true},
-		{"Authorization", true},
 		{"X-Custom-Header", true},
+		{"anthropic-version", true},
+		// Client credentials are never forwarded; the gateway injects its
+		// own (#380).
+		{"Authorization", false},
+		{"x-api-key", false},
+		{"X-Goog-Api-Key", false},
 		{"X-Zentinelle-Key", false},
 		{"Host", false},
 		{"Connection", false},
@@ -209,11 +232,12 @@ func TestShouldForwardHeader(t *testing.T) {
 
 func TestHealthEndpoint(t *testing.T) {
 	cfg := &Config{
-		Port:            "8742",
-		ZentinelleURL:   "http://localhost:8080",
-		FailOpen:        true,
-		PolicyTimeout:   2 * time.Second,
-		ProviderAPIKeys: map[string]string{"openai": "sk-test", "anthropic": "sk-ant-test"},
+		Port:                 "8742",
+		ZentinelleURL:        "http://localhost:8080",
+		FailOpen:             true,
+		PolicyTimeout:        2 * time.Second,
+		ProviderAPIKeys:      map[string]string{"openai": "sk-test", "anthropic": "sk-ant-test"},
+		AllowEnvProviderKeys: true,
 	}
 
 	gw := NewGateway(cfg)
@@ -708,12 +732,13 @@ func TestFullProxyFlow(t *testing.T) {
 	defer func() { providers["openai"] = origProvider }()
 
 	cfg := &Config{
-		Port:             "8742",
-		ZentinelleURL:    zentinelle.URL,
-		FailOpen:         true,
-		PolicyTimeout:    2 * time.Second,
-		MaxResponseBytes: 52428800,
-		ProviderAPIKeys:  map[string]string{"openai": "sk-real-openai-key"},
+		Port:                 "8742",
+		ZentinelleURL:        zentinelle.URL,
+		FailOpen:             true,
+		PolicyTimeout:        2 * time.Second,
+		MaxResponseBytes:     52428800,
+		ProviderAPIKeys:      map[string]string{"openai": "sk-real-openai-key"},
+		AllowEnvProviderKeys: true,
 	}
 
 	gw := NewGateway(cfg)
@@ -906,7 +931,7 @@ func TestOutputFilterWithholdsADeniedResponse(t *testing.T) {
 	cfg := &Config{
 		ZentinelleURL: control.URL, FailOpen: false,
 		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
-		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"}, AllowEnvProviderKeys: true,
 	}
 	pointOpenAIAt(t, upstream.URL)
 	gw := NewGateway(cfg)
@@ -937,7 +962,7 @@ func TestOutputFilterPassesAnAllowedResponse(t *testing.T) {
 	cfg := &Config{
 		ZentinelleURL: control.URL, FailOpen: false,
 		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
-		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"}, AllowEnvProviderKeys: true,
 	}
 	pointOpenAIAt(t, upstream.URL)
 	gw := NewGateway(cfg)
@@ -967,7 +992,7 @@ func TestNoOutputFilterMeansNoSecondCheckAndNoBuffering(t *testing.T) {
 	cfg := &Config{
 		ZentinelleURL: control.URL, FailOpen: false,
 		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
-		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"}, AllowEnvProviderKeys: true,
 	}
 	pointOpenAIAt(t, upstream.URL)
 	gw := NewGateway(cfg)
@@ -1134,7 +1159,7 @@ func TestAProxiedRequestIsCounted(t *testing.T) {
 	cfg := &Config{
 		ZentinelleURL: control.URL, FailOpen: false,
 		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
-		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"}, AllowEnvProviderKeys: true,
 	}
 	pointOpenAIAt(t, upstream.URL)
 	gw := NewGateway(cfg)
@@ -1163,7 +1188,7 @@ func TestADeniedRequestIsCountedWithoutTheReason(t *testing.T) {
 	cfg := &Config{
 		ZentinelleURL: control.URL, FailOpen: false,
 		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
-		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"}, AllowEnvProviderKeys: true,
 	}
 	gw := NewGateway(cfg)
 
@@ -1255,7 +1280,7 @@ func TestAnInteractionIsLoggedAfterTheResponse(t *testing.T) {
 	cfg := &Config{
 		ZentinelleURL: control.URL, FailOpen: false,
 		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
-		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"}, AllowEnvProviderKeys: true,
 	}
 	pointOpenAIAt(t, upstream.URL)
 	gw := NewGateway(cfg)
@@ -1299,7 +1324,7 @@ func TestInteractionLoggingCanBeTurnedOff(t *testing.T) {
 	cfg := &Config{
 		ZentinelleURL: control.URL, FailOpen: false,
 		PolicyTimeout: 5 * time.Second, MaxResponseBytes: 1 << 20,
-		ProviderAPIKeys: map[string]string{"openai": "sk-test"},
+		ProviderAPIKeys: map[string]string{"openai": "sk-test"}, AllowEnvProviderKeys: true,
 	}
 	pointOpenAIAt(t, upstream.URL)
 	gw := NewGateway(cfg)

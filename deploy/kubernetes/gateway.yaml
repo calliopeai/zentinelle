@@ -8,6 +8,19 @@
 #
 # Apply into the namespace the agents run in, or a neighbouring one the policy
 # allows them to reach.
+#
+# The gateway's credential is a Secret this file deliberately does not
+# contain. Each cluster's gateway is registered on the Zentinelle control plane
+# with the tenants it serves, and gets a credential of its own, so a leaked
+# cluster exposes only its own tenants and is revoked on its own. Register it
+# there and put the credential straight into the Secret, without it appearing
+# on screen (the pods wait for the Secret):
+#
+#   kubectl create secret generic zentinelle-gateway-credential -n zentinelle \
+#     --from-literal=credential="$(python manage.py gateway_credential register \
+#       prod-us-east-1 --cluster prod-us-east-1 --tenant acme-corp --plain)"
+#
+# The Deployment mounts it as /var/run/zentinelle/gateway-credential.
 ---
 apiVersion: v1
 kind: Namespace
@@ -15,19 +28,6 @@ metadata:
   name: zentinelle
   labels:
     app.kubernetes.io/part-of: zentinelle
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: zentinelle-gateway-providers
-  namespace: zentinelle
-type: Opaque
-stringData:
-  # One entry per provider the cluster may reach. The name after the prefix,
-  # lowercased, is the provider name in the gateway's routing table, so adding
-  # a provider is a key here rather than a rebuild.
-  PROVIDER_KEY_OPENAI: "replace-me"
-  PROVIDER_KEY_ANTHROPIC: "replace-me"
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -42,6 +42,10 @@ data:
   # these its events, evaluations and interaction logs cannot be told apart.
   ZENTINELLE_TENANT_ID: "acme-corp"
   ZENTINELLE_CLUSTER_ID: "prod-us-east-1"
+
+  # Where the gateway credential Secret is mounted, below. This is the
+  # default, stated so the path is visible next to the mount.
+  ZENTINELLE_GATEWAY_CREDENTIAL_FILE: "/var/run/zentinelle/gateway-credential"
 
   # false means a request is refused when Zentinelle cannot be reached. For a
   # cluster whose whole point is that agents cannot route around governance,
@@ -79,6 +83,18 @@ spec:
         runAsNonRoot: true
         runAsUser: 65532
         fsGroup: 65532
+      volumes:
+        # The credential Secret described at the top of this file. Mounted as
+        # a directory rather than with subPath, so a rotated credential
+        # reaches the running pod, which reads the file again when the
+        # backend refuses the old one.
+        - name: gateway-credential
+          secret:
+            secretName: zentinelle-gateway-credential
+            defaultMode: 0440
+            items:
+              - key: credential
+                path: gateway-credential
       containers:
         - name: gateway
           image: ghcr.io/calliopeai/zentinelle-gateway:latest
@@ -88,8 +104,10 @@ spec:
           envFrom:
             - configMapRef:
                 name: zentinelle-gateway
-            - secretRef:
-                name: zentinelle-gateway-providers
+          volumeMounts:
+            - name: gateway-credential
+              mountPath: /var/run/zentinelle
+              readOnly: true
           # Both probes hit /health, which reads no state and takes no
           # parameter, so a slow policy check cannot make the pod look dead.
           readinessProbe:
