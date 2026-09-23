@@ -79,6 +79,11 @@ Notable changes to Zentinelle. The format follows
 
 ### Fixed
 
+- The gateway's usage reports were all refused (#406): it posts
+  `/api/zentinelle/v1/events` with an empty `agent_id`, which the endpoint
+  required, so no gateway traffic was ever metered. The key names its agent,
+  so `agent_id` may now be left out or blank; a named one must still be the
+  key's own.
 - Two live agent keys whose stored prefix (`sk_agent_` and three characters)
   matched made every request with either key fail with a 500 on the evaluate,
   events, config, heartbeat, proxy and provider-key paths. Each candidate is

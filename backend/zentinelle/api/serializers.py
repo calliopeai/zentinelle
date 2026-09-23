@@ -192,8 +192,12 @@ class EventInputSerializer(serializers.Serializer):
 
 
 class EventsRequestSerializer(serializers.Serializer):
-    """Request to ingest batch of events."""
-    agent_id = serializers.CharField()
+    """Request to ingest batch of events.
+
+    The key names its agent, so agent_id may be left out; the gateway's usage
+    reports leave it blank (#406).
+    """
+    agent_id = serializers.CharField(required=False, allow_blank=True, default='')
     events = EventInputSerializer(many=True)
 
 
