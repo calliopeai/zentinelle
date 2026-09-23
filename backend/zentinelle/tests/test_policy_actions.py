@@ -674,6 +674,17 @@ class RollingDeployTests(TestCase):
         result = PolicyEngine().evaluate(endpoint, 'tool_call', 'user-1', {'tool_name': 'rm'})
         self.assertEqual((result.allowed, result.enforcement['action']), (False, 'block'))
 
+    def test_new_code_cannot_set_a_rule_the_old_way_and_lose_it(self):
+        # save() writes `enforcement` from `action`, so this would otherwise
+        # store a `log` rule without a word.
+        from django.core.exceptions import ValidationError
+        with self.assertRaisesRegex(ValidationError, 'only mirrors'):
+            ContentRule.objects.create(tenant_id=TENANT, name='Old way', rule_type='custom_pattern',
+                                       enforcement='block')
+        rule = ContentRule.objects.create(tenant_id=TENANT, name='New way', rule_type='custom_pattern',
+                                          action='block', enforcement='block')
+        self.assertEqual((rule.action, rule.enforcement), ('block', 'block'))
+
     def test_an_old_pod_cannot_create_a_content_rule_that_would_read_as_log(self):
         # A database default for `action` would let it through as `log`,
         # whatever its enforcement said. No old path creates rules (#407).

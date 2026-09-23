@@ -551,6 +551,11 @@ class ContentRule(Tracking):
             self.escalation = validate_rule_action(self.action, self.block_level, self.steer_message, self.escalation)
         except ValueError as exc:
             raise ValidationError(str(exc)) from exc
+        # save() overwrites `enforcement` from `action`, so a new rule written
+        # the pre-#396 way would silently become a `log` rule.
+        if self._state.adding and self.enforcement not in (self.Enforcement.LOG_ONLY,
+                                                            LEGACY_ENFORCEMENT_FOR_ACTION[self.action]):
+            raise ValidationError("a content rule's action is `action`; `enforcement` only mirrors it (#416)")
 
     def save(self, *args, **kwargs):
         self.clean()
