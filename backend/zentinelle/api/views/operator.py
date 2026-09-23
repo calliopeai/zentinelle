@@ -12,7 +12,6 @@ from rest_framework.views import APIView
 from zentinelle.api.auth import ZentinellePlatformKeyAuthentication
 from zentinelle.models import AgentEndpoint, Policy
 
-
 MAX_AGENT_KEY_TTL_SECONDS = 30 * 24 * 3600
 
 
