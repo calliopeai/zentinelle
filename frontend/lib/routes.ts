@@ -11,6 +11,7 @@ export const routeLabels: Record<string, string> = {
   incidents: "Incidents",
   compliance: "Compliance",
   "system-prompts": "System Prompts",
+  astrolift: "Astrolift",
   settings: "Settings",
   notifications: "Notifications",
   retention: "Data Retention",

@@ -7,6 +7,19 @@ Notable changes to Zentinelle. The format follows
 
 ### Added
 
+- Astrolift installs and clusters (#389). An admin generates a one-time
+  enrollment code (Settings > Astrolift, or `manage.py
+  astrolift_enrollment_code`), and Astrolift exchanges it for an install
+  credential through `POST /api/zentinelle/v1/astrolift/connect`. With that
+  credential it registers each cluster and receives the cluster gateway's
+  credential, scoped to the install's tenants or a subset of them. It can also
+  rotate a credential with an overlap, revoke a cluster, or disconnect. Gateways
+  report health, version and counters through
+  `POST .../astrolift/clusters/<id>/heartbeat`. Every change is audited per
+  tenant, without the code or any credential.
+- Gateway credentials can expire (`expires_at`). A rotation through the
+  Astrolift API uses this to let the earlier credential keep working for a
+  while.
 - Gateway: per-tenant provider keys (#380). The gateway injects the provider
   key the agent's tenant stored in Zentinelle (Settings > LLM providers), read
   through the new `POST /api/zentinelle/v1/gateway/provider-key` and cached for

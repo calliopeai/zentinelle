@@ -232,6 +232,7 @@ class AuditLog(models.Model):
         resource_name: str = '',
         changes: dict = None,
         metadata: dict = None,
+        ext_user_id: str = '',
     ) -> 'AuditLog':
         """Create audit log from a Django request."""
         # Get IP address
@@ -253,6 +254,7 @@ class AuditLog(models.Model):
             resource_type=resource_type,
             resource_id=resource_id,
             resource_name=resource_name,
+            ext_user_id=ext_user_id,
             api_key_prefix=api_key_prefix,
             ip_address=ip_address,
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],

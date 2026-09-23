@@ -13,6 +13,12 @@ Agent-facing REST endpoints:
 - POST /api/zentinelle/v1/heartbeat
 - POST /api/zentinelle/v1/evaluate
 - POST /api/zentinelle/v1/gateway/provider-key   (gateway credential + agent key)
+- POST /api/zentinelle/v1/astrolift/connect      (one-time enrollment code)
+- POST /api/zentinelle/v1/astrolift/clusters     (Astrolift install credential)
+- POST /api/zentinelle/v1/astrolift/clusters/{cluster_id}/rotate
+- DELETE /api/zentinelle/v1/astrolift/clusters/{cluster_id}
+- DELETE /api/zentinelle/v1/astrolift/install
+- POST /api/zentinelle/v1/astrolift/clusters/{cluster_id}/heartbeat   (gateway credential)
 - GET  /api/zentinelle/v1/approvals/requests/{request_id}   (poll a held action)
 - GET  /api/zentinelle/v1/effective-policy/{user_id}
 - GET  /api/zentinelle/v1/prompts
@@ -91,6 +97,11 @@ from zentinelle.api.views.assistant_models import (AssistantModelsBulkView,
                                                    AssistantModelsListView,
                                                    AssistantModelsToggleView)
 from zentinelle.api.views.assistant_providers import AssistantProvidersView
+from zentinelle.api.views.astrolift_clusters import (
+    AstroliftClusterAdminView, AstroliftClusterHeartbeatView,
+    AstroliftClusterRotateView, AstroliftClustersView, AstroliftClusterView,
+    AstroliftConnectView, AstroliftEnrollmentCodeView,
+    AstroliftInstallAdminView, AstroliftInstallView, AstroliftSettingsView)
 from zentinelle.api.views.atlas import AtlasControlMapView
 from zentinelle.api.views.auth import (CSRFTokenView, LoginView, LogoutView,
                                        MeView)
@@ -137,6 +148,14 @@ urlpatterns = [
     # LLM provider key management (encrypted at rest, per-tenant)
     path('settings/llm-providers', LLMProviderKeysView.as_view(), name='llm-provider-keys'),
     path('settings/llm-providers/<str:provider>', LLMProviderKeyDeleteView.as_view(), name='llm-provider-key-delete'),
+    # Connected Astrolift installs and clusters (#389)
+    path('settings/astrolift', AstroliftSettingsView.as_view(), name='astrolift-settings'),
+    path('settings/astrolift/enrollment-codes', AstroliftEnrollmentCodeView.as_view(),
+         name='astrolift-enrollment-codes'),
+    path('settings/astrolift/installs/<uuid:install_id>', AstroliftInstallAdminView.as_view(),
+         name='astrolift-install-admin'),
+    path('settings/astrolift/clusters/<uuid:cluster_id>', AstroliftClusterAdminView.as_view(),
+         name='astrolift-cluster-admin'),
     path('settings/runtime', RuntimeSettingsView.as_view(), name='runtime-settings'),
     path('settings/runtime/rollback', RuntimeSettingsRollbackView.as_view(), name='runtime-settings-rollback'),
     path('settings/runtime/changes', RuntimeSettingsChangesView.as_view(), name='runtime-settings-changes'),
@@ -171,6 +190,16 @@ urlpatterns = [
     path('evaluate', EvaluateView.as_view(), name='evaluate'),
     # The Go gateway reads the agent's tenant's stored provider key (#380).
     path('gateway/provider-key', GatewayProviderKeyView.as_view(), name='gateway-provider-key'),
+
+    # Astrolift installs register their clusters' gateways (#389).
+    path('astrolift/connect', AstroliftConnectView.as_view(), name='astrolift-connect'),
+    path('astrolift/install', AstroliftInstallView.as_view(), name='astrolift-install'),
+    path('astrolift/clusters', AstroliftClustersView.as_view(), name='astrolift-clusters'),
+    path('astrolift/clusters/<str:cluster_id>', AstroliftClusterView.as_view(), name='astrolift-cluster'),
+    path('astrolift/clusters/<str:cluster_id>/rotate', AstroliftClusterRotateView.as_view(),
+         name='astrolift-cluster-rotate'),
+    path('astrolift/clusters/<str:cluster_id>/heartbeat', AstroliftClusterHeartbeatView.as_view(),
+         name='astrolift-cluster-heartbeat'),
 
     # Policy endpoints
     path('effective-policy', EffectivePolicyView.as_view(), name='effective-policy'),

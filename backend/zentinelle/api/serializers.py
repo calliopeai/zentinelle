@@ -4,6 +4,9 @@ DRF Serializers for Zentinelle API.
 from rest_framework import serializers
 
 from zentinelle.models import AgentEndpoint, AuditLog, Event, Policy
+from zentinelle.services.astrolift_clusters import (CLUSTER_ID_PATTERN,
+                                                    DEFAULT_OVERLAP,
+                                                    MAX_OVERLAP)
 
 # =============================================================================
 # Agent-Facing Serializers (used by SDK)
@@ -84,6 +87,61 @@ class GatewayProviderKeyRequestSerializer(serializers.Serializer):
     saves it and the gateway's routing table names it.
     """
     provider = serializers.RegexField(r'^[a-z0-9][a-z0-9_.-]*$', max_length=50)
+
+
+class AstroliftInstallInfoSerializer(serializers.Serializer):
+    """How an Astrolift install describes itself when it connects (#389)."""
+    base_url = serializers.URLField(max_length=500)
+    name = serializers.CharField(max_length=255)
+
+    def validate_base_url(self, value):
+        if not value.lower().startswith(('https://', 'http://')):
+            raise serializers.ValidationError('base_url must be an http or https URL')
+        return value.rstrip('/')
+
+
+class AstroliftConnectSerializer(serializers.Serializer):
+    """The one-time enrollment code, and the install it connects."""
+    code = serializers.CharField(max_length=128)
+    install = AstroliftInstallInfoSerializer()
+
+
+class AstroliftClusterSerializer(serializers.Serializer):
+    """A cluster an install registers. tenant_ids may only narrow the install's."""
+    cluster_id = serializers.RegexField(CLUSTER_ID_PATTERN)
+    provider = serializers.RegexField(r'^[a-z0-9][a-z0-9_.-]*$', max_length=50, required=False, allow_blank=True,
+                                      default='')
+    region = serializers.RegexField(r'^[A-Za-z0-9][A-Za-z0-9_.-]*$', max_length=100, required=False,
+                                    allow_blank=True, default='')
+    tenant_ids = serializers.ListField(
+        child=serializers.CharField(max_length=255), required=False, min_length=1, max_length=100)
+
+
+class AstroliftRotateSerializer(serializers.Serializer):
+    """How long the credentials a rotation replaces keep working. 0 ends them now."""
+    overlap_seconds = serializers.IntegerField(
+        min_value=0, max_value=int(MAX_OVERLAP.total_seconds()), default=int(DEFAULT_OVERLAP.total_seconds()))
+
+
+class AstroliftHeartbeatCountersSerializer(serializers.Serializer):
+    """Counts since the gateway started. Counters it does not know are dropped."""
+    requests = serializers.IntegerField(min_value=0, required=False)
+    blocked = serializers.IntegerField(min_value=0, required=False)
+    agents_seen = serializers.IntegerField(min_value=0, required=False)
+
+
+class AstroliftHeartbeatSerializer(serializers.Serializer):
+    """A gateway reporting on its cluster."""
+    status = serializers.ChoiceField(choices=['healthy', 'degraded', 'unhealthy'])
+    version = serializers.CharField(max_length=64, required=False, allow_blank=True, default='')
+    counters = AstroliftHeartbeatCountersSerializer(required=False)
+
+
+class EnrollmentCodeRequestSerializer(serializers.Serializer):
+    """An admin asking for an enrollment code. No tenant_ids means the admin's own tenant."""
+    tenant_ids = serializers.ListField(
+        child=serializers.CharField(max_length=255), required=False, min_length=1, max_length=100)
+    ttl_minutes = serializers.IntegerField(min_value=1, max_value=60, default=15)
 
 
 class ApprovalDecisionSerializer(serializers.Serializer):
