@@ -12,8 +12,15 @@ OpenAI/Anthropic/Google key.
 
 The injected key is the one the agent's tenant stored in Zentinelle, so one
 gateway serves many tenants, each on its own provider account (#380). The
-gateway's own env keys are a single-tenant fallback, used only when
-`ALLOW_ENV_PROVIDER_KEYS=true` and the tenant has no stored key.
+gateway's own env keys are a deprecated single-tenant fallback, used only
+when `ALLOW_ENV_PROVIDER_KEYS=true` and the tenant has no stored key.
+
+The gateway token that authorizes the lookup is `ZENTINELLE_GATEWAY_TOKEN`, or
+else the file at `ZENTINELLE_GATEWAY_TOKEN_FILE` (default
+`/var/run/zentinelle/gateway-token`): in compose the backend mints it into a
+shared volume, on Kubernetes it is a mounted Secret. The gateway waits up to
+60 seconds at startup for the file, and reads it again when the backend
+refuses the token.
 
 ## Scaling Model
 
@@ -58,8 +65,9 @@ The gateway tier scales independently from the Django backend:
 5. Gateway resolves the provider key: the tenant's stored key via
    POST /api/zentinelle/v1/gateway/provider-key (agent key plus
    X-Zentinelle-Gateway-Token, cached 60s per agent key and provider), else
-   the env key if ALLOW_ENV_PROVIDER_KEYS=true, else 503. A failed lookup is
-   a 502 and never falls back to the env key
+   the env key if ALLOW_ENV_PROVIDER_KEYS=true (deprecated), else 503. A
+   refused token is re-read from its file and retried once; a failed lookup
+   is a 502 and never falls back to the env key
 6. Gateway drops the client's credentials, injects the key and forwards to provider
 7. Gateway streams response back to agent
 8. After response: async report usage to Zentinelle /events (fire and forget)
@@ -106,8 +114,9 @@ SSE streaming is the default for LLM responses:
 |----------|---------|-------------|
 | `GATEWAY_PORT` | `8742` | Listen port |
 | `ZENTINELLE_URL` | `http://localhost:8080` | Backend API URL |
-| `ZENTINELLE_GATEWAY_TOKEN` | — | Shared with the backend; reads each tenant's stored key. 32+ characters |
-| `ALLOW_ENV_PROVIDER_KEYS` | `false` | Single-tenant fallback to the env keys below |
+| `ZENTINELLE_GATEWAY_TOKEN` | — | Shared with the backend; reads each tenant's stored key. 32+ characters. Wins over the file |
+| `ZENTINELLE_GATEWAY_TOKEN_FILE` | `/var/run/zentinelle/gateway-token` | Token file when the variable above is unset; empty disables it |
+| `ALLOW_ENV_PROVIDER_KEYS` | `false` | Deprecated single-tenant fallback to the env keys below |
 | `OPENAI_API_KEY` | — | Fallback OpenAI key |
 | `ANTHROPIC_API_KEY` | — | Fallback Anthropic key |
 | `GOOGLE_API_KEY` | — | Fallback Google key |

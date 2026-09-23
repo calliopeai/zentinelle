@@ -126,8 +126,9 @@ The Go gateway holds provider API keys; agents authenticate with
 Zentinelle keys only. Best for enforcement at scale.
 
 ```bash
-# Configure your provider key in Settings → LLM Providers, and give the backend
-# and the gateway the same ZENTINELLE_GATEWAY_TOKEN (.env)
+# Configure your provider key in Settings → LLM Providers. The gateway reads it
+# with a token the backend mints into a shared compose volume; to pin one in
+# .env instead, run `make gateway-token` once.
 # Then point your agent at the gateway. It sends its Zentinelle key in the
 # X-Zentinelle-Key header (see gateway/README.md); a provider key it sends is
 # dropped, and the tenant's stored key is used instead.

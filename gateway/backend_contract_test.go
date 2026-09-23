@@ -21,9 +21,19 @@ func TestRealBackendEnforcementContract(t *testing.T) {
 	if backend == "" {
 		t.Skip("set CONTRACT_BACKEND_URL and CONTRACT_KEYS_FILE for the isolated integration fixture")
 	}
+	// The backend's gateway token: given to it explicitly, or minted by it at
+	// startup into the file the CI step shares with this test.
 	token := os.Getenv("ZENTINELLE_GATEWAY_TOKEN")
+	tokenFile := os.Getenv("ZENTINELLE_GATEWAY_TOKEN_FILE")
+	if token == "" && tokenFile != "" {
+		minted, err := readGatewayTokenFile(tokenFile)
+		if err != nil {
+			t.Fatalf("reading the token the backend minted: %v", err)
+		}
+		token = minted
+	}
 	if token == "" {
-		t.Fatal("set ZENTINELLE_GATEWAY_TOKEN to the value the contract backend runs with")
+		t.Fatal("set ZENTINELLE_GATEWAY_TOKEN, or ZENTINELLE_GATEWAY_TOKEN_FILE to where the contract backend mints it")
 	}
 	raw, err := os.ReadFile(os.Getenv("CONTRACT_KEYS_FILE"))
 	if err != nil {
@@ -96,4 +106,32 @@ func TestRealBackendEnforcementContract(t *testing.T) {
 			}
 		})
 	}
+
+	// The gateway's own configuration path, as a compose gateway takes it:
+	// LoadConfig finds the token in the file the backend minted.
+	t.Run("token-file-config", func(t *testing.T) {
+		if tokenFile == "" {
+			t.Skip("the backend was given ZENTINELLE_GATEWAY_TOKEN rather than a token file")
+		}
+		t.Setenv("ZENTINELLE_URL", backend)
+		t.Setenv("ZENTINELLE_GATEWAY_TOKEN", "")
+		t.Setenv("POLICY_TIMEOUT_MS", "5000")
+		fileCfg, err := LoadConfig()
+		if err != nil {
+			t.Fatalf("LoadConfig: %v", err)
+		}
+		response = `{"choices":[{"message":{"content":"safe response"}}]}`
+		body, _ := json.Marshal(map[string]interface{}{"model": "gpt-4o", "messages": []map[string]string{{"role": "user", "content": "hello"}}, "max_tokens": 16})
+		req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(string(body)))
+		req.Header.Set("X-Zentinelle-Key", keys["tenant_b"])
+		req.Header.Set("Authorization", "Bearer sk-client-supplied")
+		w := httptest.NewRecorder()
+		NewGateway(fileCfg).ServeHTTP(w, req)
+		if w.Code != 200 {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+		if got := seenAuth.Load(); got != "Bearer "+keys["openai_tenant_b"] {
+			t.Fatalf("provider saw Authorization %q, want tenant B's stored key", got)
+		}
+	})
 }

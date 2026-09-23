@@ -24,18 +24,12 @@ go build -o zentinelle-gateway .
 
 # Run. The token is shared with the backend, which sets the same value.
 export ZENTINELLE_URL=http://localhost:8080
-export ZENTINELLE_GATEWAY_TOKEN=$(openssl rand -hex 32)
+export ZENTINELLE_GATEWAY_TOKEN=<the backend's token>
 ./zentinelle-gateway
 ```
 
-A single-tenant gateway can use its own keys instead:
-
-```bash
-export ALLOW_ENV_PROVIDER_KEYS=true
-export OPENAI_API_KEY=sk-...
-export ANTHROPIC_API_KEY=sk-ant-...
-./zentinelle-gateway
-```
+In compose there is nothing to set: the backend mints the token into a volume
+both containers share (see [The gateway token](#the-gateway-token)).
 
 ### Docker
 
@@ -70,7 +64,7 @@ take as long to be picked up. Values never appear in the logs.
 | Situation | Result |
 |-----------|--------|
 | The tenant has a stored key | That key is injected |
-| No stored key, `ALLOW_ENV_PROVIDER_KEYS=true`, env key for the provider | The gateway's env key is injected |
+| No stored key, `ALLOW_ENV_PROVIDER_KEYS=true` (deprecated), env key for the provider | The gateway's env key is injected |
 | No stored key and no allowed env key | `503 no_api_key` |
 | The lookup fails (Zentinelle unreachable, wrong token, backend error) | `502 provider_key_lookup_failed`, never the env key |
 
@@ -78,19 +72,49 @@ The client's `Authorization`, `x-api-key` and `x-goog-api-key` headers, and
 Google's `key` query parameter, are dropped on every request, whichever key is
 injected.
 
-The env keys are a **single-tenant** fallback: every tenant without a stored
-key would be served on the one account they belong to. Leave
-`ALLOW_ENV_PROVIDER_KEYS` off on a gateway that serves more than one tenant.
-
 The gateway refuses to start with no key source: no token, and no allowed env
-key. Before this, a gateway configured only with env keys used them for
-everyone; such a deployment now needs `ALLOW_ENV_PROVIDER_KEYS=true` or a token.
+key.
+
+### The gateway token
+
+One random value, shared by the backend (which checks it) and the gateway
+(which presents it). It is never derived from names or other configuration.
+Each side takes it from, in order:
+
+1. `ZENTINELLE_GATEWAY_TOKEN`, when set. Explicit configuration wins.
+2. The file at `ZENTINELLE_GATEWAY_TOKEN_FILE`, by default
+   `/var/run/zentinelle/gateway-token`. Surrounding whitespace is ignored.
+
+Where each deployment gets it:
+
+| Deployment | Token |
+|------------|-------|
+| compose, zero config | The backend mints 32 random bytes into the `gateway_token` volume when it starts (file mode 0600; exclusive, so replicas agree on one), and the gateway reads it from the same volume |
+| compose, explicit | `make gateway-token` writes one into `.env`, which both services read. Idempotent: an existing value is kept |
+| Kubernetes | A Secret generated once with `openssl rand -hex 32` and mounted as the file; see `deploy/kubernetes/README.md` |
+
+At startup the gateway waits up to 60 seconds for the file to appear, logging
+while it waits, when the file's directory exists but the file does not. With
+no directory there is nothing mounted and nothing to wait for. The backend
+reads its file on every lookup, and the gateway reads its file again when the
+backend refuses the token (401 or 403), at most once every ten seconds, then
+retries once. A rotated token therefore needs no restart on either side. A
+token from the environment is never replaced from a file. The value never
+appears in either side's logs.
 
 The token reads the stored key of any tenant whose agent key it is presented
-with. It is a deployment-wide credential, so give it only to gateways the
-Zentinelle operator runs. A gateway in a cluster someone else controls, against
-a Zentinelle that serves other tenants too, should use the env fallback
-instead.
+with. It is a deployment-wide credential: give it only to gateways you would
+trust with those keys.
+
+### Deprecated: env provider keys
+
+`ALLOW_ENV_PROVIDER_KEYS=true` lets the gateway's own `PROVIDER_KEY_<NAME>`
+(or `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`) serve a tenant
+with no stored key. It still works, logs a deprecation warning at startup, and
+will be removed in a future release: per-tenant stored keys replace it. It is
+single-tenant by nature, since every tenant without a stored key would be
+served on the one account those keys belong to. Without the flag, env keys are
+ignored, with a warning.
 
 ## Route Detection
 
@@ -118,8 +142,9 @@ instead.
 |----------|---------|-------------|
 | `GATEWAY_PORT` | `8742` | Port to listen on |
 | `ZENTINELLE_URL` | `http://localhost:8080` | Zentinelle API base URL |
-| `ZENTINELLE_GATEWAY_TOKEN` | - | Shared secret for reading each tenant's stored provider key. Set the same value as `ZENTINELLE_GATEWAY_TOKEN` on the backend. At least 32 characters (`openssl rand -hex 32`). Unset disables the lookup |
-| `ALLOW_ENV_PROVIDER_KEYS` | `false` | Single-tenant only. Use the env keys below for a tenant with no stored key. Without it they are ignored |
+| `ZENTINELLE_GATEWAY_TOKEN` | - | Shared secret for reading each tenant's stored provider key; the backend holds the same value. At least 32 characters. Wins over the file below |
+| `ZENTINELLE_GATEWAY_TOKEN_FILE` | `/var/run/zentinelle/gateway-token` | Where to read the token when `ZENTINELLE_GATEWAY_TOKEN` is unset: the compose volume the backend mints into, or a mounted Secret. Empty disables it. See [The gateway token](#the-gateway-token) |
+| `ALLOW_ENV_PROVIDER_KEYS` | `false` | **Deprecated**, to be removed. Single-tenant only: use the env keys below for a tenant with no stored key. Without it they are ignored |
 | `PROVIDER_KEY_<NAME>` | - | Fallback API key for a provider, e.g. `PROVIDER_KEY_OPENAI`, `PROVIDER_KEY_MISTRAL`. `<NAME>` lowercased is the provider name. Used only with `ALLOW_ENV_PROVIDER_KEYS=true` |
 | `OPENAI_API_KEY` | - | Fallback OpenAI key (still honoured; `PROVIDER_KEY_OPENAI` wins where both are set) |
 | `ANTHROPIC_API_KEY` | - | Fallback Anthropic key (as above) |

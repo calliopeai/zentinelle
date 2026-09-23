@@ -8,6 +8,17 @@
 #
 # Apply into the namespace the agents run in, or a neighbouring one the policy
 # allows them to reach.
+#
+# The gateway token is a Secret this file deliberately does not contain: its
+# value must be random, generated once and never committed. Create it after
+# applying this file (the pods wait for it), without replacing one that exists:
+#
+#   kubectl get secret zentinelle-gateway-token -n zentinelle >/dev/null 2>&1 ||
+#     kubectl create secret generic zentinelle-gateway-token -n zentinelle \
+#       --from-literal=token="$(openssl rand -hex 32)"
+#
+# The Deployment mounts it as /var/run/zentinelle/gateway-token. The Zentinelle
+# backend needs the same value; README.md shows both ways to give it.
 ---
 apiVersion: v1
 kind: Namespace
@@ -15,28 +26,6 @@ metadata:
   name: zentinelle
   labels:
     app.kubernetes.io/part-of: zentinelle
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: zentinelle-gateway-providers
-  namespace: zentinelle
-type: Opaque
-stringData:
-  # Read with each agent's key to get the provider key that agent's tenant
-  # stored in Zentinelle, so agents and this Secret hold no provider keys. The
-  # same value is ZENTINELLE_GATEWAY_TOKEN on the Zentinelle backend. At least
-  # 32 characters: openssl rand -hex 32. It reads the stored key of any tenant
-  # whose agent key it is presented with, so only gateways the Zentinelle
-  # operator runs get it.
-  ZENTINELLE_GATEWAY_TOKEN: "replace-me"
-
-  # Single-tenant fallback, used only with ALLOW_ENV_PROVIDER_KEYS "true" and
-  # only for a tenant with no stored key. One entry per provider; the name
-  # after the prefix, lowercased, is the provider name in the gateway's routing
-  # table.
-  # PROVIDER_KEY_OPENAI: "replace-me"
-  # PROVIDER_KEY_ANTHROPIC: "replace-me"
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -52,10 +41,9 @@ data:
   ZENTINELLE_TENANT_ID: "acme-corp"
   ZENTINELLE_CLUSTER_ID: "prod-us-east-1"
 
-  # "true" lets the PROVIDER_KEY_* entries in the Secret serve a tenant with no
-  # stored key. Single-tenant clusters only: every such tenant would be served
-  # on those accounts.
-  ALLOW_ENV_PROVIDER_KEYS: "false"
+  # Where the gateway token Secret is mounted, below. This is the default,
+  # stated so the path is visible next to the mount.
+  ZENTINELLE_GATEWAY_TOKEN_FILE: "/var/run/zentinelle/gateway-token"
 
   # false means a request is refused when Zentinelle cannot be reached. For a
   # cluster whose whole point is that agents cannot route around governance,
@@ -93,6 +81,18 @@ spec:
         runAsNonRoot: true
         runAsUser: 65532
         fsGroup: 65532
+      volumes:
+        # The generated Secret described at the top of this file. Mounted as a
+        # directory rather than with subPath, so a rotated value reaches the
+        # running pod, which reads the file again when the backend refuses the
+        # old token.
+        - name: gateway-token
+          secret:
+            secretName: zentinelle-gateway-token
+            defaultMode: 0440
+            items:
+              - key: token
+                path: gateway-token
       containers:
         - name: gateway
           image: ghcr.io/calliopeai/zentinelle-gateway:latest
@@ -102,8 +102,10 @@ spec:
           envFrom:
             - configMapRef:
                 name: zentinelle-gateway
-            - secretRef:
-                name: zentinelle-gateway-providers
+          volumeMounts:
+            - name: gateway-token
+              mountPath: /var/run/zentinelle
+              readOnly: true
           # Both probes hit /health, which reads no state and takes no
           # parameter, so a slow policy check cannot make the pod look dead.
           readinessProbe:

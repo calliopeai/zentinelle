@@ -37,20 +37,7 @@ func main() {
 	signal.Notify(shutdown, syscall.SIGTERM, syscall.SIGINT)
 
 	go func() {
-		logJSON("info", "gateway starting", map[string]interface{}{
-			"port":                 cfg.Port,
-			"zentinelle":           cfg.ZentinelleURL,
-			"fail_open":            cfg.FailOpen,
-			"providers":            cfg.ProviderKeys(),
-			"policy_timeout":       cfg.PolicyTimeout.String(),
-			"tenant_provider_keys": cfg.GatewayToken != "",
-			"env_provider_keys":    cfg.AllowEnvProviderKeys,
-		})
-		if len(cfg.ProviderAPIKeys) > 0 && !cfg.AllowEnvProviderKeys {
-			logJSON("warn", "provider keys in the environment are ignored without ALLOW_ENV_PROVIDER_KEYS=true", map[string]interface{}{
-				"providers": cfg.ProviderKeys(),
-			})
-		}
+		logStartup(cfg)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logJSON("fatal", "server failed", map[string]interface{}{
@@ -76,6 +63,41 @@ func main() {
 	}
 
 	logJSON("info", "gateway stopped", nil)
+}
+
+// logStartup records how the gateway is configured, and what about that
+// configuration an operator should change.
+func logStartup(cfg *Config) {
+	tokenSource := "none"
+	switch {
+	case cfg.GatewayTokenFile != "":
+		tokenSource = "file"
+	case cfg.GatewayToken != "":
+		tokenSource = "env"
+	}
+
+	logJSON("info", "gateway starting", map[string]interface{}{
+		"port":                 cfg.Port,
+		"zentinelle":           cfg.ZentinelleURL,
+		"fail_open":            cfg.FailOpen,
+		"providers":            cfg.ProviderKeys(),
+		"policy_timeout":       cfg.PolicyTimeout.String(),
+		"tenant_provider_keys": cfg.GatewayToken != "",
+		"gateway_token_source": tokenSource,
+		"env_provider_keys":    cfg.AllowEnvProviderKeys,
+	})
+
+	switch {
+	case cfg.AllowEnvProviderKeys:
+		logJSON("warn", "ALLOW_ENV_PROVIDER_KEYS is deprecated and will be removed in a future release: "+
+			"store provider keys per tenant in Zentinelle (Settings > LLM providers) instead", map[string]interface{}{
+			"providers": cfg.ProviderKeys(),
+		})
+	case len(cfg.ProviderAPIKeys) > 0:
+		logJSON("warn", "provider keys in the environment are ignored: store them per tenant in Zentinelle (Settings > LLM providers)", map[string]interface{}{
+			"providers": cfg.ProviderKeys(),
+		})
+	}
 }
 
 // logOutput is where log lines go: stderr, swapped only by tests that need to

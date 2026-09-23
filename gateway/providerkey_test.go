@@ -28,6 +28,9 @@ type lookupStub struct {
 	failWith int
 	// failBody is the body sent with failWith.
 	failBody string
+	// token is the gateway token the stub accepts, testGatewayToken unless a
+	// test rotates it.
+	token string
 }
 
 func (s *lookupStub) callCount() int {
@@ -42,7 +45,7 @@ func (s *lookupStub) callCount() int {
 // the backend, it refuses a lookup without the gateway token.
 func controlPlaneStub(t *testing.T, stored map[string]map[string]string) (*httptest.Server, *lookupStub) {
 	t.Helper()
-	stub := &lookupStub{}
+	stub := &lookupStub{token: testGatewayToken}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -55,7 +58,7 @@ func controlPlaneStub(t *testing.T, stored map[string]map[string]string) (*httpt
 			stub.calls++
 			stub.headers = r.Header.Clone()
 			stub.body = body
-			failWith, failBody := stub.failWith, stub.failBody
+			failWith, failBody, accepted := stub.failWith, stub.failBody, stub.token
 			stub.mu.Unlock()
 
 			if failWith != 0 {
@@ -63,7 +66,7 @@ func controlPlaneStub(t *testing.T, stored map[string]map[string]string) (*httpt
 				w.Write([]byte(failBody))
 				return
 			}
-			if r.Header.Get("X-Zentinelle-Gateway-Token") != testGatewayToken {
+			if r.Header.Get("X-Zentinelle-Gateway-Token") != accepted {
 				w.WriteHeader(http.StatusUnauthorized)
 				w.Write([]byte(`{"detail": "Invalid gateway credential"}`))
 				return
@@ -435,8 +438,8 @@ func TestAFailedLookupFailsClosedAndIsNotCached(t *testing.T) {
 }
 
 func TestAnUnreachableControlPlaneFailsTheLookupClosed(t *testing.T) {
-	cfg := &Config{ZentinelleURL: "http://127.0.0.1:1", PolicyTimeout: 200 * time.Millisecond, GatewayToken: testGatewayToken}
-	if _, _, err := LookupProviderKey(context.Background(), cfg, "sk_agent_x", "openai"); err == nil {
+	cfg := &Config{ZentinelleURL: "http://127.0.0.1:1", PolicyTimeout: 200 * time.Millisecond}
+	if _, _, err := LookupProviderKey(context.Background(), cfg, testGatewayToken, "sk_agent_x", "openai"); err == nil {
 		t.Error("an unreachable control plane was not reported as a failed lookup")
 	}
 }
@@ -577,6 +580,7 @@ func TestLoadConfigRefusesToStartWithNoKeySource(t *testing.T) {
 	// Env keys without the flag are not a source: they would be ignored, and
 	// the gateway would start cleanly and refuse every request.
 	t.Setenv("ZENTINELLE_GATEWAY_TOKEN", "")
+	t.Setenv("ZENTINELLE_GATEWAY_TOKEN_FILE", "")
 	t.Setenv("ALLOW_ENV_PROVIDER_KEYS", "")
 	t.Setenv("OPENAI_API_KEY", "sk-env")
 
@@ -588,6 +592,7 @@ func TestLoadConfigRefusesToStartWithNoKeySource(t *testing.T) {
 
 func TestLoadConfigRefusesAFallbackWithNoKeys(t *testing.T) {
 	t.Setenv("ZENTINELLE_GATEWAY_TOKEN", "")
+	t.Setenv("ZENTINELLE_GATEWAY_TOKEN_FILE", "")
 	t.Setenv("ALLOW_ENV_PROVIDER_KEYS", "true")
 	for _, name := range []string{"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"} {
 		t.Setenv(name, "")

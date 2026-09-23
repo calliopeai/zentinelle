@@ -64,6 +64,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	os.Setenv("ANTHROPIC_API_KEY", "sk-ant-test")
 	os.Setenv("GOOGLE_API_KEY", "AIza-test")
 	t.Setenv("ALLOW_ENV_PROVIDER_KEYS", "true")
+	t.Setenv("ZENTINELLE_GATEWAY_TOKEN_FILE", "")
 	defer func() {
 		for _, key := range []string{"GATEWAY_PORT", "ZENTINELLE_URL", "FAIL_OPEN", "POLICY_TIMEOUT_MS",
 			"MAX_RESPONSE_BYTES", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"} {

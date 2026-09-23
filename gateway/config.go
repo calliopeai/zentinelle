@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,13 +29,21 @@ type Config struct {
 	// AllowEnvProviderKeys lets ProviderAPIKeys serve a request whose tenant
 	// has no stored key. Single-tenant only: an env key is one account's key,
 	// and every tenant without a stored key would be served on it.
+	// Deprecated: per-tenant stored keys replace it.
 	AllowEnvProviderKeys bool
 
 	// GatewayToken is presented with the agent key to read that agent's
-	// tenant's stored provider key from Zentinelle (#380). The same value is
-	// set as ZENTINELLE_GATEWAY_TOKEN on the backend. Empty disables the
-	// lookup, which leaves only the env fallback.
+	// tenant's stored provider key from Zentinelle (#380). It is
+	// ZENTINELLE_GATEWAY_TOKEN, or else the contents of GatewayTokenFile.
+	// Empty disables the lookup, which leaves only the env fallback.
 	GatewayToken string
+
+	// GatewayTokenFile is where the token is read from when
+	// ZENTINELLE_GATEWAY_TOKEN is unset: ZENTINELLE_GATEWAY_TOKEN_FILE, by
+	// default /var/run/zentinelle/gateway-token. It is read again when the
+	// backend refuses the token, so a rotated token needs no restart. Empty
+	// when the token came from the environment, or nothing is mounted there.
+	GatewayTokenFile string
 
 	// Which tenant and cluster this gateway speaks for, sent on every call to
 	// Zentinelle. In the cluster-local pattern one Zentinelle serves many
@@ -94,8 +103,28 @@ func LoadConfig() (*Config, error) {
 	}
 
 	gatewayToken := os.Getenv("ZENTINELLE_GATEWAY_TOKEN")
-	if gatewayToken != "" && len(gatewayToken) < minGatewayTokenLength {
-		return nil, fmt.Errorf("ZENTINELLE_GATEWAY_TOKEN must be at least %d characters; the backend refuses a shorter one", minGatewayTokenLength)
+	gatewayTokenFile := ""
+	if gatewayToken != "" {
+		if len(gatewayToken) < minGatewayTokenLength {
+			return nil, fmt.Errorf("ZENTINELLE_GATEWAY_TOKEN must be at least %d characters; the backend refuses a shorter one", minGatewayTokenLength)
+		}
+	} else {
+		gatewayTokenFile = defaultGatewayTokenFile
+		if v, set := os.LookupEnv("ZENTINELLE_GATEWAY_TOKEN_FILE"); set {
+			gatewayTokenFile = v
+		}
+		// A file in a directory that does not exist is not coming: nothing is
+		// mounted there, so there is nothing to wait for or read again.
+		if gatewayTokenFile != "" && !isDir(filepath.Dir(gatewayTokenFile)) {
+			gatewayTokenFile = ""
+		}
+		if gatewayTokenFile != "" {
+			token, err := waitForGatewayToken(gatewayTokenFile, gatewayTokenWait, gatewayTokenPoll)
+			if err != nil {
+				return nil, err
+			}
+			gatewayToken = token
+		}
 	}
 
 	providerKeys := loadProviderKeys(os.Environ())
@@ -103,8 +132,8 @@ func LoadConfig() (*Config, error) {
 	// A gateway with nowhere to get a provider key would start cleanly and
 	// then refuse every request, which is the failure that looks like health.
 	if gatewayToken == "" && !(allowEnvKeys && len(providerKeys) > 0) {
-		return nil, fmt.Errorf("no provider key source: set ZENTINELLE_GATEWAY_TOKEN to use the keys each tenant stores in Zentinelle, " +
-			"or ALLOW_ENV_PROVIDER_KEYS=true with PROVIDER_KEY_<NAME> for a single-tenant gateway")
+		return nil, fmt.Errorf("no provider key source: set ZENTINELLE_GATEWAY_TOKEN, or give the gateway the token file "+
+			"the backend reads (ZENTINELLE_GATEWAY_TOKEN_FILE, default %s)", defaultGatewayTokenFile)
 	}
 
 	return &Config{
@@ -113,6 +142,7 @@ func LoadConfig() (*Config, error) {
 		ProviderAPIKeys:      providerKeys,
 		AllowEnvProviderKeys: allowEnvKeys,
 		GatewayToken:         gatewayToken,
+		GatewayTokenFile:     gatewayTokenFile,
 		TenantID:             os.Getenv("ZENTINELLE_TENANT_ID"),
 		ClusterID:            os.Getenv("ZENTINELLE_CLUSTER_ID"),
 		FailOpen:             failOpen,

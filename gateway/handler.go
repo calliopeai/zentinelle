@@ -19,13 +19,15 @@ type Gateway struct {
 	cfg    *Config
 	client *http.Client
 	keys   *providerKeyCache
+	token  *gatewayToken
 }
 
 // NewGateway creates a new Gateway with the given configuration.
 func NewGateway(cfg *Config) *Gateway {
 	return &Gateway{
-		cfg:  cfg,
-		keys: newProviderKeyCache(providerKeyCacheTTL, providerKeyCacheMaxEntries),
+		cfg:   cfg,
+		keys:  newProviderKeyCache(providerKeyCacheTTL, providerKeyCacheMaxEntries),
+		token: newGatewayToken(cfg.GatewayToken, cfg.GatewayTokenFile),
 		client: &http.Client{
 			// No global timeout — streaming responses can take minutes.
 			// Per-request timeouts are handled by context.

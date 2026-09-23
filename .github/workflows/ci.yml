@@ -165,10 +165,12 @@ jobs:
           CONTRACT_BACKEND_URL: http://127.0.0.1:62592
           CELERY_BROKER_URL: memory://
           CELERY_RESULT_BACKEND: cache+memory://
-          # Test-only value shared by the contract backend and the gateway, so
-          # the gateway reads each seeded tenant's stored provider key (#380).
-          ZENTINELLE_GATEWAY_TOKEN: ci-contract-gateway-token-0123456789abcdef
+          # No token is configured: the backend mints one into this file when
+          # it starts, and the gateway reads it from there, as a compose
+          # install does with its shared volume (#380).
+          ZENTINELLE_GATEWAY_TOKEN_FILE: /tmp/zentinelle-contract-token/gateway-token
         run: |
+          mkdir -p -m 700 /tmp/zentinelle-contract-token
           python backend/manage.py prepare_schemas
           python backend/manage.py migrate --database default --no-input
           python backend/manage.py migrate --database zentinelle --no-input
@@ -176,7 +178,7 @@ jobs:
           python backend/manage.py shell < tests/integration/seed_gateway_contract.py
           python backend/manage.py runserver 127.0.0.1:62592 --noreload > /tmp/zentinelle-contract-server.log 2>&1 &
           contract_pid=$!
-          trap 'kill "$contract_pid"; rm -f "$CONTRACT_KEYS_FILE"' EXIT
+          trap 'kill "$contract_pid"; rm -rf "$CONTRACT_KEYS_FILE" /tmp/zentinelle-contract-token' EXIT
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:62592/api/zentinelle/v1/health > /dev/null; then break; fi
             sleep 1

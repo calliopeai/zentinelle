@@ -305,7 +305,7 @@ they differ in what else they do and in what they can see.
 | Output filtering | yes, since #218 | yes |
 | Interaction logging | usage only | full `InteractionLog` |
 | Providers | ~20, config-driven | anthropic, openai, google, vertex |
-| Provider key | the agent's tenant's stored `LLMProviderKey` (#380); env keys only with `ALLOW_ENV_PROVIDER_KEYS` | `MANAGED_*`/env key, else the client's own |
+| Provider key | the agent's tenant's stored `LLMProviderKey` (#380); env keys only with the deprecated `ALLOW_ENV_PROVIDER_KEYS` | `MANAGED_*`/env key, else the client's own |
 
 The gateway holds an agent key, not a database. That is the whole reason for
 the split: it cannot query `Policy`, so anything it must decide has to be
@@ -333,9 +333,19 @@ rather than a field on the evaluate response because a decision is made per
 request and never cached, while a key is stable and can be; and the evaluate
 response is the most widely read and logged payload in the system. Each release
 writes an `access` audit record without the value. The gateway's env keys
-remain only as a single-tenant fallback behind `ALLOW_ENV_PROVIDER_KEYS`, and a
-failed lookup never falls back to them. The token is deployment-wide, so it
-goes only to gateways the Zentinelle operator runs.
+remain only as a deprecated single-tenant fallback behind
+`ALLOW_ENV_PROVIDER_KEYS`, and a failed lookup never falls back to them.
+
+The token is one random value, never derived from names or configuration, and
+deployment-wide, so it goes only to gateways trusted with every tenant's keys.
+Both sides take `ZENTINELLE_GATEWAY_TOKEN` if set, else the file at
+`ZENTINELLE_GATEWAY_TOKEN_FILE` (default `/var/run/zentinelle/gateway-token`).
+Compose needs no configuration: the backend mints the file into a volume both
+containers mount when it starts (exclusive create, so replicas agree), and
+`make gateway-token` pins one in `.env` instead. On Kubernetes it is a
+generated Secret mounted as the file. The backend reads the file on every
+lookup and the gateway reads it again when refused, so rotation needs no
+restart.
 
 ```
 Agent SDK → local proxy (port 8742) → Zentinelle /proxy/<provider>/ → provider API

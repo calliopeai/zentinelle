@@ -24,7 +24,8 @@ import (
 //
 // The gateway's env keys remain as a fallback for a tenant with no stored
 // key, and only when ALLOW_ENV_PROVIDER_KEYS is set. That fallback is
-// single-tenant by nature: it serves whoever reaches it on one account.
+// single-tenant by nature, since it serves whoever reaches it on one account,
+// and it is deprecated: per-tenant stored keys replace it.
 
 const (
 	// A minute: long enough that a busy agent does not look its key up on
@@ -47,6 +48,10 @@ const (
 // answer, and must not lead to the env fallback.
 const providerKeyNotFoundCode = "provider_key_not_found"
 
+// errLookupRefused is a 401 or 403 from the lookup: the backend did not accept
+// the credentials, which after a rotation means the token this gateway holds.
+var errLookupRefused = errors.New("provider key lookup refused the gateway credentials")
+
 // providerKeyError is a request that cannot be sent because no provider key
 // could be settled on. cause is for the log and never holds a key.
 type providerKeyError struct {
@@ -65,11 +70,16 @@ type providerKeyError struct {
 // tenant on another account's key because Zentinelle was unreachable is a
 // silent cross-tenant bill, not a recovery.
 func (g *Gateway) resolveProviderKey(ctx context.Context, agentKey, provider string) (string, string, *providerKeyError) {
-	if g.cfg.GatewayToken != "" {
+	if token := g.token.current(); token != "" {
 		key, found, cached := g.keys.get(agentKey, provider)
 		if !cached {
 			var err error
-			key, found, err = LookupProviderKey(ctx, g.cfg, agentKey, provider)
+			key, found, err = LookupProviderKey(ctx, g.cfg, token, agentKey, provider)
+			// A refused token may have been rotated: read its file again and,
+			// if that gives a different token, retry once with it.
+			if errors.Is(err, errLookupRefused) && g.token.reread() {
+				key, found, err = LookupProviderKey(ctx, g.cfg, g.token.current(), agentKey, provider)
+			}
 			if err != nil {
 				return "", "", &providerKeyError{
 					status: http.StatusBadGateway,
@@ -98,10 +108,11 @@ func (g *Gateway) resolveProviderKey(ctx context.Context, agentKey, provider str
 	}
 }
 
-// LookupProviderKey asks Zentinelle for the stored key of the agent's tenant.
-// found is false, with no error, only when Zentinelle answers that the tenant
-// has no usable key for this provider. Errors never carry a response body.
-func LookupProviderKey(ctx context.Context, cfg *Config, agentKey, provider string) (key string, found bool, err error) {
+// LookupProviderKey asks Zentinelle for the stored key of the agent's tenant,
+// presenting token as the gateway credential. found is false, with no error,
+// only when Zentinelle answers that the tenant has no usable key for this
+// provider. Errors never carry a response body.
+func LookupProviderKey(ctx context.Context, cfg *Config, token, agentKey, provider string) (key string, found bool, err error) {
 	reqBody, err := json.Marshal(map[string]string{"provider": provider})
 	if err != nil {
 		return "", false, fmt.Errorf("failed to marshal provider key request: %w", err)
@@ -117,7 +128,7 @@ func LookupProviderKey(ctx context.Context, cfg *Config, agentKey, provider stri
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Zentinelle-Key", agentKey)
-	req.Header.Set("X-Zentinelle-Gateway-Token", cfg.GatewayToken)
+	req.Header.Set("X-Zentinelle-Gateway-Token", token)
 	cfg.ApplyIdentityHeaders(req)
 
 	resp, err := policyClient.Do(req)
@@ -149,6 +160,8 @@ func LookupProviderKey(ctx context.Context, cfg *Config, agentKey, provider stri
 			return "", false, nil
 		}
 		return "", false, errors.New("provider key lookup returned status 404 without an answer")
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return "", false, fmt.Errorf("%w (status %d)", errLookupRefused, resp.StatusCode)
 	default:
 		return "", false, fmt.Errorf("provider key lookup returned status %d", resp.StatusCode)
 	}

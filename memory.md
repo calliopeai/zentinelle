@@ -30,6 +30,8 @@ An AHP host is one `agent_host` endpoint with one key; harness, session and chat
 
 Decided 2026-09-22 (option A): the Go gateway injects the provider key the agent's tenant stored (`LLMProviderKey`), read through `POST /api/zentinelle/v1/gateway/provider-key` with the agent key plus the deployment-wide `ZENTINELLE_GATEWAY_TOKEN`, and cached 60s. It never forwards a client-supplied key. Env keys are a single-tenant fallback behind `ALLOW_ENV_PROVIDER_KEYS=true`, and the gateway refuses to start with no key source. A shared secret was chosen over an `sk_service_` key because service keys are tenant-bound and one gateway serves many tenants. The Django `/proxy/` path is to be deprecated once the company agents move to the gateway (calliopeai/astrolift-app#1851).
 
+Follow-up the same day (Leo): the token is minted by default. Both sides read `ZENTINELLE_GATEWAY_TOKEN`, else `ZENTINELLE_GATEWAY_TOKEN_FILE`; the compose backend mints the file into a shared volume at startup, `make gateway-token` pins one in `.env`, and Kubernetes mounts a generated Secret. `ALLOW_ENV_PROVIDER_KEYS` is deprecated (still honoured, warns at startup) and will be removed. Terraform deploys no gateway, so it gets no token.
+
 ## Strategic Decisions
 
 ### Product + Business Model

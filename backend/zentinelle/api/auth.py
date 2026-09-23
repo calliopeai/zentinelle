@@ -10,21 +10,13 @@ Note: Deployment key auth (sk_deploy_) has been removed in standalone mode.
 Deployment operations are handled by the client-cove integration layer.
 """
 import hmac
-import logging
 
-from django.conf import settings
 from rest_framework import authentication, exceptions
 
+from zentinelle.auth.gateway_token import gateway_token
 from zentinelle.auth.mode import is_open_mode
 from zentinelle.models import AgentEndpoint, APIKey
 from zentinelle.utils.api_keys import KeyPrefixes
-
-logger = logging.getLogger(__name__)
-
-# Shorter than this and the gateway token is refused outright. Together with
-# one agent key it reads that tenant's raw provider keys, so it must not be
-# guessable.
-GATEWAY_TOKEN_MIN_LENGTH = 32
 
 
 class ZentinelleAPIKeyAuthentication(authentication.BaseAuthentication):
@@ -277,12 +269,14 @@ class GatewayAgentAuthentication(authentication.BaseAuthentication):
     Require the gateway's shared token AND an agent key (#380).
 
     Usage:
-        X-Zentinelle-Gateway-Token: <ZENTINELLE_GATEWAY_TOKEN>
+        X-Zentinelle-Gateway-Token: <the gateway token>
         X-Zentinelle-Key: sk_agent_...
 
     The agent key names the tenant; the gateway token is what entitles the
     caller to that tenant's raw provider key. An agent key alone is never
     enough, because the agent is exactly who the provider key is kept from.
+    The expected token comes from zentinelle.auth.gateway_token: the
+    environment, else a file the backend may have minted.
 
     The token is checked first. It is a constant-time comparison where the
     agent key is a bcrypt verification, so a caller without the token never
@@ -292,14 +286,8 @@ class GatewayAgentAuthentication(authentication.BaseAuthentication):
     keyword = 'X-Zentinelle-Gateway-Token'
 
     def authenticate(self, request):
-        expected = getattr(settings, 'ZENTINELLE_GATEWAY_TOKEN', '') or ''
-        if len(expected) < GATEWAY_TOKEN_MIN_LENGTH:
-            if expected:
-                logger.error(
-                    'ZENTINELLE_GATEWAY_TOKEN is shorter than %d characters; '
-                    'gateway provider-key lookup is disabled',
-                    GATEWAY_TOKEN_MIN_LENGTH,
-                )
+        expected = gateway_token()
+        if not expected:
             raise exceptions.PermissionDenied('Gateway provider-key lookup is not configured')
 
         presented = request.META.get('HTTP_X_ZENTINELLE_GATEWAY_TOKEN', '')

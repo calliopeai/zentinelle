@@ -1,4 +1,4 @@
-.PHONY: up down build migrate createsuperuser test lint schema compile shell logs kf-docs kf-list kf-check
+.PHONY: up down build gateway-token migrate createsuperuser test lint schema compile shell logs kf-docs kf-list kf-check
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 up:
@@ -9,6 +9,11 @@ down:
 
 build:
 	docker compose build
+
+# One random token shared by the backend and the gateway, written to .env.
+# Idempotent. Optional: without it the backend mints one into a shared volume.
+gateway-token:
+	sh scripts/gateway-token.sh .env
 
 # ── Backend ───────────────────────────────────────────────────────────────────
 migrate:

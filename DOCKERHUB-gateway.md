@@ -31,10 +31,11 @@ key sent by the client is always dropped, never forwarded.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ZENTINELLE_URL` | `http://localhost:8080` | Zentinelle backend base URL |
-| `ZENTINELLE_GATEWAY_TOKEN` | - | Shared secret for reading each tenant's stored provider key. Set the same value as `ZENTINELLE_GATEWAY_TOKEN` on the backend. At least 32 characters. Give it only to gateways the Zentinelle operator runs |
-| `ALLOW_ENV_PROVIDER_KEYS` | `false` | Single-tenant only: use `PROVIDER_KEY_<NAME>` (or `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`) for a tenant with no stored key |
+| `ZENTINELLE_GATEWAY_TOKEN` | - | Shared secret for reading each tenant's stored provider key; the backend holds the same value. At least 32 characters. Give it only to gateways you would trust with those keys |
+| `ZENTINELLE_GATEWAY_TOKEN_FILE` | `/var/run/zentinelle/gateway-token` | Read the token from this file when the variable above is unset. In compose the backend mints it into a volume both containers mount; on Kubernetes it is a mounted Secret. The gateway waits up to 60s for it at startup and reads it again after a rotation |
+| `ALLOW_ENV_PROVIDER_KEYS` | `false` | **Deprecated**, to be removed: per-tenant stored keys replace it. Single-tenant only: use `PROVIDER_KEY_<NAME>` (or `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`) for a tenant with no stored key |
 
-The container refuses to start with neither a token nor an allowed env key.
+The container refuses to start with no token (variable or file) and no allowed env key.
 Full reference: [gateway/README.md](https://github.com/calliopeai/zentinelle/blob/main/gateway/README.md).
 
 ## Tags
