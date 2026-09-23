@@ -36,6 +36,10 @@ Revised the same day (Leo): no shared gateway token. The gateway runs inside eac
 
 Decided 2026-09-23 (Leo): Astrolift connects from its own UI with this Zentinelle's URL and a one-time enrollment code an admin generates here. It receives an install credential and registers its clusters, and each cluster gets a gateway credential that no human sees. Slice 1 (backend, portal page, command) adds the `EnrollmentCode`, `AstroliftInstall` and `AstroliftCluster` models, a nullable `GatewayRegistration.astrolift_cluster`, and `GatewayCredential.expires_at` for rotation overlap. Heartbeats aren't audited, because they are telemetry. An operator's registration is adopted by `cluster_id` only when its tenants fall within the cluster's scope. RBAC per group lives on the Astrolift side. Server-side filtering by Astrolift project/team scopes (#390) and the gateway's heartbeat sender (#391) are follow-ups.
 
+## One action set (#396)
+
+Decided 2026-09-23: policies and content rules share `log < alert < warn < steer < redact < require_approval < block`, with block levels `tool_call < turn < revoke_key < stop < quarantine` (the #394 table). The policy mode stays the ceiling. Audit policies keep `action=block` and the ceiling records them as `log`, so switching one to enforce still blocks; audit performs only the `log`/`alert` steps a rule reached. `ContentRule.enforcement` was replaced by `action` (GraphQL still accepts and returns `enforcement` as a legacy alias). Severity escalation reads the evaluation's risk score through the incident severity mapping, because policies carry no severity of their own. Fallback never weakens what a rule meant to stop: a block falls back upward and then to refusing the call; steer falls back to warn. `allowed` stays the capability-agnostic floor. Only `redact` changes it, and only for a target that declares `supports_redact`. Existing rules are proven unchanged by a golden file recorded on main before the change and replayed through the real migration. Delivery of steer and stop is Astrolift's (#394, astrolift-app#1903). Follow-ups: #401, #404, #407.
+
 ## Strategic Decisions
 
 ### Product + Business Model
