@@ -22,6 +22,10 @@ The existing policy hierarchy is organization → sub-organization (OU/team) →
 
 Policy rollout now has a durable `PolicyChangeSet` and tenant-scoped API. Promotion checks captured base versions transactionally, records pre-promotion snapshots, requires administrator authority, and supports audited rollback with version advancement. Endpoint/gateway acknowledgement and replay-backed rollout evidence remain open in #335.
 
+## Agent Host Protocol (#377)
+
+An AHP host is one `agent_host` endpoint with one key; harness, session and chat travel in each `/evaluate` context instead of being registered. A host receives `ask` for a call blocked only by a missing human approval and holds it on an `ApprovalRequest` until an operator decides or it expires. The approval digest no longer binds the per-call `trace_id`, which had made every approval miss its retry through `/evaluate`. Contract: `docs/agent-host.md`. Parent epic: calliopeai/calliope-vscode#790; the host-side gate is calliope-vscode#794 and host telemetry is #378.
+
 ## Strategic Decisions
 
 ### Product + Business Model

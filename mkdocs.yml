@@ -49,6 +49,7 @@ nav:
     - Overview: wiki/Home.md
     - Architecture: wiki/Architecture.md
     - API Reference: wiki/API-Reference.md
+    - Agent Host Contract: agent-host.md
     - Policy Reference: wiki/Policy-Reference.md
     - SDK Guide: wiki/SDK-Guide.md
     - Compliance Frameworks: wiki/Compliance-Frameworks.md
