@@ -144,6 +144,7 @@ urlpatterns = [
 
     # Token-authenticated operator automation
     path('operator/agents', OperatorAgentView.as_view(), name='operator-agents'),
+    path('operator/agents/<slug:agent_id>', OperatorAgentView.as_view(), name='operator-agent'),
     path('operator/policies', OperatorPolicyView.as_view(), name='operator-policies'),
     path('operator/policies/<uuid:policy_id>', OperatorPolicyView.as_view(), name='operator-policy'),
 

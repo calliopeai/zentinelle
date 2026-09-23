@@ -55,6 +55,9 @@ class ZentinelleAPIKeyAuthentication(authentication.BaseAuthentication):
         if endpoint.status == AgentEndpoint.Status.SUSPENDED:
             raise exceptions.AuthenticationFailed('Endpoint is suspended')
 
+        if endpoint.api_key_expired():
+            raise exceptions.AuthenticationFailed('API key expired')
+
         # Return (user, auth) tuple - we use endpoint as the "user"
         return (ZentinelleAgentUser(endpoint), api_key)
 
