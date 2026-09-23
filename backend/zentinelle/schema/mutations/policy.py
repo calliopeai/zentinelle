@@ -15,6 +15,7 @@ from zentinelle.models import AgentEndpoint, Policy
 from zentinelle.schema.auth_helpers import (get_request_tenant_id,
                                             user_has_org_access)
 from zentinelle.schema.types import PolicyType
+from zentinelle.services.actions import validate_rule_action
 
 
 def _decode_id(global_or_raw_id):
@@ -46,6 +47,10 @@ class CreatePolicyInput:
     non_overridable: Optional[bool] = None
     priority: Optional[int] = None
     enforcement: Optional[str] = None
+    action: Optional[str] = None
+    block_level: Optional[str] = None
+    steer_message: Optional[str] = None
+    escalation: Optional[JSON] = None
     enabled: Optional[bool] = None
 
 
@@ -59,7 +64,30 @@ class UpdatePolicyInput:
     non_overridable: Optional[bool] = None
     priority: Optional[int] = None
     enforcement: Optional[str] = None
+    action: Optional[str] = None
+    block_level: Optional[str] = None
+    steer_message: Optional[str] = None
+    escalation: Optional[JSON] = None
     enabled: Optional[bool] = None
+
+
+def _action_fields(input, current: Optional[Policy] = None) -> dict:
+    """The rule's action settings after this input, validated together (#396).
+
+    Fields the input leaves out keep their current value, or the model
+    default on create. Raises ValueError saying what is wrong.
+    """
+    fields = {}
+    for name in ('action', 'block_level', 'steer_message', 'escalation'):
+        given = getattr(input, name)
+        if given is not None:
+            fields[name] = given
+        elif current is not None:
+            fields[name] = getattr(current, name)
+        else:
+            fields[name] = Policy._meta.get_field(name).get_default()
+    fields['escalation'] = validate_rule_action(**fields)
+    return fields
 
 
 @strawberry.type
@@ -171,6 +199,10 @@ def create_policy(info: strawberry.types.Info, organization_id: uuid.UUID, input
         if input.enforcement not in valid_enforcement:
             return CreatePolicyPayload(success=False, error=f"Invalid enforcement: {input.enforcement}")
         policy_data['enforcement'] = input.enforcement
+    try:
+        policy_data.update(_action_fields(input))
+    except ValueError as exc:
+        return CreatePolicyPayload(success=False, error=str(exc))
 
     try:
         policy = Policy.objects.create(**policy_data)
@@ -212,6 +244,11 @@ def update_policy(info: strawberry.types.Info, input: UpdatePolicyInput) -> Upda
         if input.enforcement not in valid_enforcement:
             return UpdatePolicyPayload(success=False, error=f"Invalid enforcement: {input.enforcement}")
         policy.enforcement = input.enforcement
+    try:
+        for name, value in _action_fields(input, current=policy).items():
+            setattr(policy, name, value)
+    except ValueError as exc:
+        return UpdatePolicyPayload(success=False, error=str(exc))
 
     try:
         policy.save()
@@ -266,6 +303,10 @@ def duplicate_policy(info: strawberry.types.Info, id: strawberry.ID, new_name: O
         override_group=original.override_group,
         non_overridable=original.non_overridable,
         enforcement=original.enforcement,
+        action=original.action,
+        block_level=original.block_level,
+        steer_message=original.steer_message,
+        escalation=original.escalation,
         enabled=False,
     )
 

@@ -204,7 +204,7 @@ compose file — all operations degrade gracefully to no-ops.
 | Model | Key Fields | Notes |
 |-------|-----------|-------|
 | `AgentEndpoint` | `agent_id` (SlugField), `api_key_hash`, `api_key_prefix`, `tenant_id`, `agent_type`, `status`, `health`, `capabilities` | `agent_type`: claude_code, gemini, codex, junohub, langchain, langgraph, mcp, chat, custom |
-| `Policy` | `scope_type`, `policy_type`, `config`, `tenant_id`, `enabled`, `enforcement` | `enforcement`: enforce, audit, disabled. `scope_type` = target, not location |
+| `Policy` | `scope_type`, `policy_type`, `config`, `tenant_id`, `enabled`, `enforcement`, `action`, `block_level`, `escalation` | `enforcement` (the mode, and the ceiling on `action`): enforce, audit, disabled. See Policy Actions. `scope_type` = target, not location |
 | `Event` | `endpoint`, `event_type`, `event_category`, `payload`, `tenant_id`, `occurred_at` | High volume — write-optimized. Categories: telemetry, audit, alert |
 | `ContentScan` | `endpoint`, `content_type`, `status`, `has_violations`, `was_blocked` | |
 | `InteractionLog` | `endpoint`, `ai_provider`, `ai_model`, `input_content`, `output_content`, `tool_calls`, `occurred_at` | Created by evaluate endpoint and proxy. Feeds monitoring dashboard |
@@ -424,6 +424,169 @@ All evaluators live in `zentinelle/services/evaluators/`. The policy engine runs
 | `SecretAccessEvaluator` | `allowed_bundles`, `denied_providers` | Bundle slug and provider from context |
 
 Cache invalidation: versioned cache keys. Policy CRUD mutations bump version, next evaluate call misses cache and re-queries.
+
+## Policy Actions (#396)
+
+Policies and content rules share one ordered action set. A rule names what
+happens when it matches:
+
+| Action | What happens |
+|---|---|
+| `log` | recorded as evidence only |
+| `alert` | recorded, and the tenant's owners are notified |
+| `warn` | the call goes ahead with a visible warning |
+| `steer` | the call goes ahead and the rule's message is injected into the session |
+| `redact` | the matched content is removed before it goes on |
+| `require_approval` | the call is held until a person approves it |
+| `block` | the offending action is stopped, at a block level: `tool_call`, `turn`, `revoke_key`, `stop`, `quarantine` |
+
+The order is `log < alert < warn < steer < redact < require_approval < block`,
+and block levels order the blocks. `Policy` and `ContentRule` store `action`,
+`block_level`, `steer_message` and `escalation`; the logic is in
+`services/actions.py`.
+
+**Deciding.** A match starts at the rule's action. A match that an approval
+can release (an evaluator's own approval list) starts no higher than
+`require_approval`. Escalation raises it:
+
+```json
+{"window_seconds": 3600,
+ "repeat": [{"count": 2, "action": "steer"},
+            {"count": 3, "action": "block", "block_level": "turn"}],
+ "severity": [{"min_severity": "critical", "action": "block", "block_level": "stop"}]}
+```
+
+- Repeat steps count this rule's matches for the same endpoint, in a window
+  that opens at the first match. Dry runs and after-the-fact scans read the
+  count without adding to it.
+- Severity steps compare a policy match with the evaluation's risk score
+  mapped to severity (the mapping incidents use), and a content-rule match
+  with the severity of its detections.
+- For a policy, severity escalation is advisory. The risk score reads flags
+  the caller declares in `context` (`data_contains_pii`, `is_pii_access`,
+  `data_type`, `datasource`), so a caller that leaves them out keeps the
+  score low. Anything that must hold belongs in the rule's own action or in
+  repeat steps, which Zentinelle counts itself.
+- Steps only go up. Saving refuses a step that is not stronger than the one
+  before it, and a rule that can steer but has no message.
+
+A rule that cannot be evaluated fails closed: a stored selector that cannot
+be read, or an evaluator that raises. Neither says whether the rule matched,
+so the rule's action does not apply. Under enforce the call is refused
+(`block` at `tool_call`) whatever the action, as every failure was before
+#396. Under audit it is recorded as `log`. It is never escalated or released
+by an approval.
+
+A policy's mode (`enforcement`) is the ceiling. `enforce` allows every action.
+`audit` performs only the `log` and `alert` steps the rule reached and records
+the rest as `log`, with `capped_from` saying what it would have done.
+`disabled` rules are not evaluated. Content rules have no mode; `enabled`
+turns them on and off.
+
+Steer templates take `{rule}`, `{reason}`, `{action}`, `{tool}` and `{agent}`,
+and nothing else. `{tool}` and `{reason}` carry what the caller sent into a
+message the harness trusts, so every value goes in as one quoted line:
+control characters, line breaks and format characters (bidi overrides, zero
+widths) become spaces, quotes inside it are escaped, and it is cut at 200
+characters.
+
+**Existing rules.** Migration 0062 gave every policy `block` at `tool_call`,
+which is what an enforced failure did before. Audit policies keep `block` too:
+the audit ceiling records them as `log`, and switching one to enforce blocks
+as it always did. Content rules moved value for value, with `log_only`
+becoming `log`. `test_action_equivalence.py` runs a fixture set of existing
+rules through the real migration and then `/evaluate`, the engine and `/scan`,
+and compares everything they produce with a golden file recorded before the
+change.
+
+**Rolling deploys.** The backend migrates at startup while the previous
+release's tasks still serve, so 0062 leaves that release working:
+
+- `ContentRule.enforcement` stays, written from `action` on every save as the
+  nearest legacy value, because the old models read it on every rule lookup.
+  #416 drops it once no environment runs, or could roll back to, the old
+  release.
+- The new `Policy` columns and `ContentScan.enforcement` have database
+  defaults, so an old pod's policy create and `/scan` still insert. A policy
+  it creates takes `block` at `tool_call`, which is what it meant.
+- The new content-rule columns have no database default on purpose. An old
+  pod has no working way to create a rule (#407), and one without an action
+  would read as `log`.
+
+### The evaluate contract
+
+`POST /api/zentinelle/v1/evaluate` may carry `target_capabilities`, an object
+of booleans saying what the caller can honour:
+
+| Capability | Honours |
+|---|---|
+| `supports_steer` | `steer` |
+| `supports_redact` | `redact` |
+| `supports_approval` | `require_approval` (holding the call) |
+| `supports_interrupt` | `block` at `turn` |
+| `supports_revoke_key` | `block` at `revoke_key` |
+| `supports_stop` | `block` at `stop` |
+| `supports_quarantine` | `block` at `quarantine` |
+
+Other names are ignored, and a value that is not a boolean is a 400. It is
+kept out of `context`, so it never changes an approval's digest.
+
+Every response, including the 503 for a policy outage, carries `enforcement`:
+
+```json
+"enforcement": {
+  "action": "block", "block_level": "turn", "message": null,
+  "rule": {"type": "policy", "id": "...", "name": "No rm", "version": 3},
+  "mode": "enforce", "configured_action": "warn",
+  "escalation": {"by": "repeat", "count": 3, "window_seconds": 3600},
+  "capped_from": null,
+  "fallback_chain": [
+    {"action": "block", "block_level": "turn", "requires": "supports_interrupt"},
+    {"action": "block", "block_level": "revoke_key", "requires": "supports_revoke_key"},
+    {"action": "block", "block_level": "stop", "requires": "supports_stop"},
+    {"action": "block", "block_level": "quarantine", "requires": "supports_quarantine"},
+    {"action": "block", "block_level": "tool_call", "requires": null}],
+  "selected": {"action": "block", "block_level": "revoke_key", "requires": "supports_revoke_key"},
+  "fallback": true
+}
+```
+
+- `action` is the strongest decision across the matched rules, and `null` when
+  nothing matched. `rule` is the rule that decided it; it is `null` when a
+  budget admission, bad input or an outage refused the call. Each
+  `policies_evaluated` entry carries its own `action` and `block_level`.
+- `fallback_chain` is what to try, in order. A block falls back upward through
+  the stronger levels, then to refusing the call; steer falls back to warn;
+  redact and approval fall back to refusing the call. Every chain ends with an
+  option any caller can honour (`requires: null`).
+- `selected` and `fallback` are set when the request carried
+  `target_capabilities`: the first option the target can honour, and whether
+  it is not the first. Without capabilities the caller picks from the chain.
+- `allowed` and `decision` stay the floor for callers that read nothing else.
+  `block`, `require_approval` and `redact` deny (an agent host still gets
+  `ask` for approval), and `log`, `alert`, `warn` and `steer` allow. Warn and
+  steer also add `[Warn]` and `[Steer]` lines to `warnings`, so an older
+  caller still shows them. What a caller declares never changes `allowed`.
+- No policy evaluator returns redacted content, so `/evaluate` has nothing a
+  target could pass on in place of the original: for a redact decision,
+  `selected` falls back to refusing the call even when the target declared
+  `supports_redact`. Redaction a target can honour comes from `/scan`.
+- The evaluation event's payload carries the same `enforcement`. An allowed
+  call decided as `alert` is filed in the alert category.
+
+`POST /api/zentinelle/v1/scan` takes the same `target_capabilities` and returns
+the same `enforcement` for content rules, with `redacted_content` inside it
+when the decision is `redact`; the decision is stored on the `ContentScan`.
+The legacy `action` and `allowed` keep their old precedence (block, then warn,
+then redact; `log`, `alert` and `require_approval` change nothing there), so
+for a caller reading only `action` a warn rule still wins over a redact rule,
+and a `require_approval` rule holds nothing (#408). A rule that escalation
+raises into `require_approval` reads as `block` there instead: a legacy
+caller cannot hold a call, and escalating must not undo the warn or redact the
+rule applied before it.
+
+Delivering a steer or a stop to a running agent is the target's job
+(Astrolift: #394, calliopeai/astrolift-app#1903).
 
 ## Astrolift Integration
 
