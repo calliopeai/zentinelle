@@ -7,6 +7,10 @@ export interface PolicyData {
   config: Record<string, unknown> | null;
   priority: number;
   enforcement: string;
+  action: string;
+  blockLevel: string;
+  steerMessage: string;
+  escalation: Record<string, unknown> | null;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -71,6 +75,10 @@ export interface CreatePolicyInput {
   config?: Record<string, unknown> | null;
   priority?: number | null;
   enforcement?: string | null;
+  action?: string | null;
+  blockLevel?: string | null;
+  steerMessage?: string | null;
+  escalation?: Record<string, unknown> | null;
   enabled?: boolean | null;
 }
 
@@ -87,6 +95,10 @@ export interface UpdatePolicyInput {
   config?: Record<string, unknown> | null;
   priority?: number | null;
   enforcement?: string | null;
+  action?: string | null;
+  blockLevel?: string | null;
+  steerMessage?: string | null;
+  escalation?: Record<string, unknown> | null;
   enabled?: boolean | null;
 }
 

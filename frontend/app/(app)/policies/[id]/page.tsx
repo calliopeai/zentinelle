@@ -31,6 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useConfirm } from "@/hooks/use-confirm";
+import { ACTIONS, BLOCK_LEVELS } from "@/components/policy-action-fields";
 import { EditPolicyDialog } from "../edit-policy-dialog";
 import { PolicyHistoryDialog } from "../history-dialog";
 
@@ -212,10 +213,19 @@ export default function PolicyDetailPage() {
               {policy.scopeName ?? policy.scopeType}
             </span>
           </Field>
-          <Field label="Enforcement">
+          <Field label="Mode">
             <Badge variant={enforcementVariant(policy.enforcement)}>
               {policy.enforcement}
             </Badge>
+          </Field>
+          <Field label="Action">
+            <span className="text-sm">
+              {ACTIONS.find((a) => a.value === policy.action)?.label ?? policy.action}
+              {policy.action === "block"
+                ? `: ${BLOCK_LEVELS.find((b) => b.value === policy.blockLevel)?.label ?? policy.blockLevel}`
+                : ""}
+              {policy.escalation && Object.keys(policy.escalation).length > 0 ? ", escalates" : ""}
+            </span>
           </Field>
           <Field label="Priority">
             <span className="text-sm">{policy.priority}</span>

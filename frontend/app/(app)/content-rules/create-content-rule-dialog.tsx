@@ -20,6 +20,12 @@ import type {
   UpdateContentRulePayload,
 } from "@/graphql/content-rules/types";
 
+import {
+  ActionFields,
+  actionInput,
+  actionValueFrom,
+} from "@/components/policy-action-fields";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,18 +71,12 @@ const SEVERITY_OPTIONS = [
   { value: "critical", label: "Critical" },
 ];
 
-const ENFORCEMENT_OPTIONS = [
-  { value: "block", label: "Block" },
-  { value: "warn", label: "Warn" },
-  { value: "log_only", label: "Log Only" },
-  { value: "redact", label: "Redact" },
-  { value: "require_approval", label: "Require Approval" },
-];
-
+// The scanner's own values (ContentRule.ScanMode). A rule saved with anything
+// else never matches a scan, which is what "input"/"output" here did (#407).
 const SCAN_MODE_OPTIONS = [
-  { value: "input", label: "Input only — what the agent sends" },
-  { value: "output", label: "Output only — what the model returns" },
-  { value: "both", label: "Both directions" },
+  { value: "realtime", label: "Real-time, inline with the call" },
+  { value: "async", label: "Async, in the background" },
+  { value: "both", label: "Both" },
 ];
 
 const SCOPE_OPTIONS = [
@@ -90,7 +90,6 @@ const contentRuleSchema = z.object({
   description: z.string().optional(),
   ruleType: z.string().min(1, "Rule type is required"),
   severity: z.string(),
-  enforcement: z.string(),
   config: z
     .string()
     .optional()
@@ -143,6 +142,9 @@ export function CreateContentRuleDialog({
     updateContentRule: UpdateContentRulePayload;
   }>(UPDATE_CONTENT_RULE);
   const submitting = creating || updating;
+  // What the rule does on a match (#396), kept beside the form: its steps
+  // are a list, and the backend validates the whole ladder on save.
+  const [actionValue, setActionValue] = useState(() => actionValueFrom(null, "log"));
 
   // Trying a rule against a sample before trusting it. The mutation takes a
   // saved rule's id, so this is offered on edit only; a new rule has nothing
@@ -181,7 +183,6 @@ export function CreateContentRuleDialog({
       description: "",
       ruleType: "",
       severity: "medium",
-      enforcement: "log_only",
       config: "",
       enabled: true,
     },
@@ -197,7 +198,6 @@ export function CreateContentRuleDialog({
           description: editRule.description || "",
           ruleType: editRule.ruleType,
           severity: editRule.severity,
-          enforcement: editRule.enforcement,
           config: editRule.config
             ? JSON.stringify(editRule.config, null, 2)
             : "",
@@ -206,19 +206,20 @@ export function CreateContentRuleDialog({
           priority: editRule.priority ?? 100,
           enabled: editRule.enabled,
         });
+        setActionValue(actionValueFrom(editRule, "log"));
       } else {
         reset({
           name: "",
           description: "",
           ruleType: "",
           severity: "medium",
-          enforcement: "log_only",
           config: "",
           scanMode: "both",
           scopeType: "organization",
           priority: 100,
           enabled: true,
         });
+        setActionValue(actionValueFrom(null, "log"));
       }
     }
   }, [open, editRule, reset]);
@@ -246,7 +247,7 @@ export function CreateContentRuleDialog({
               description: values.description || null,
               ruleType: values.ruleType,
               severity: values.severity,
-              enforcement: values.enforcement,
+              ...actionInput(actionValue),
               scanMode: values.scanMode,
               scopeType: values.scopeType,
               priority: values.priority,
@@ -272,7 +273,7 @@ export function CreateContentRuleDialog({
               description: values.description || null,
               ruleType: values.ruleType,
               severity: values.severity,
-              enforcement: values.enforcement,
+              ...actionInput(actionValue),
               scanMode: values.scanMode,
               scopeType: values.scopeType,
               priority: values.priority,
@@ -384,28 +385,9 @@ export function CreateContentRuleDialog({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Enforcement</Label>
-              <Controller
-                control={control}
-                name="enforcement"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ENFORCEMENT_OPTIONS.map((e) => (
-                        <SelectItem key={e.value} value={e.value}>
-                          {e.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
           </div>
+
+          <ActionFields value={actionValue} onChange={setActionValue} />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">

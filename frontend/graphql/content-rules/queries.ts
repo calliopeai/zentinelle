@@ -11,6 +11,11 @@ const CONTENT_RULE_FIELDS = `
   severityDisplay
   enforcement
   enforcementDisplay
+  action
+  actionDisplay
+  blockLevel
+  steerMessage
+  escalation
   scanMode
   scanInput
   scanOutput

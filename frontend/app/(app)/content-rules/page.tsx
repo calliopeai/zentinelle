@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/hooks/use-confirm";
+import { ACTIONS } from "@/components/policy-action-fields";
 import { CreateContentRuleDialog } from "./create-content-rule-dialog";
 
 const SCAN_MODE_LABELS: Record<string, string> = {
@@ -55,18 +56,16 @@ function severityVariant(severity: string) {
   }
 }
 
-function enforcementVariant(enforcement: string) {
-  switch (enforcement) {
+function actionVariant(action: string) {
+  switch (action) {
     case "block":
-      return "destructive";
     case "redact":
+    case "require_approval":
       return "destructive";
     case "warn":
+    case "steer":
+    case "alert":
       return "secondary";
-    case "flag":
-      return "secondary";
-    case "log_only":
-      return "outline";
     default:
       return "outline";
   }
@@ -220,13 +219,14 @@ export default function ContentRulesPage() {
       ),
     },
     {
-      accessorKey: "enforcement",
+      accessorKey: "action",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Enforcement" />
+        <DataTableColumnHeader column={column} title="Action" />
       ),
       cell: ({ row }) => (
-        <Badge variant={enforcementVariant(row.original.enforcement)}>
-          {row.original.enforcementDisplay ?? row.original.enforcement}
+        <Badge variant={actionVariant(row.original.action)}>
+          {ACTIONS.find((a) => a.value === row.original.action)?.label ?? row.original.action}
+          {row.original.escalation && Object.keys(row.original.escalation).length > 0 ? " +" : ""}
         </Badge>
       ),
     },
