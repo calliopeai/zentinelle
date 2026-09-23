@@ -23,11 +23,20 @@ metadata:
   namespace: zentinelle
 type: Opaque
 stringData:
-  # One entry per provider the cluster may reach. The name after the prefix,
-  # lowercased, is the provider name in the gateway's routing table, so adding
-  # a provider is a key here rather than a rebuild.
-  PROVIDER_KEY_OPENAI: "replace-me"
-  PROVIDER_KEY_ANTHROPIC: "replace-me"
+  # Read with each agent's key to get the provider key that agent's tenant
+  # stored in Zentinelle, so agents and this Secret hold no provider keys. The
+  # same value is ZENTINELLE_GATEWAY_TOKEN on the Zentinelle backend. At least
+  # 32 characters: openssl rand -hex 32. It reads the stored key of any tenant
+  # whose agent key it is presented with, so only gateways the Zentinelle
+  # operator runs get it.
+  ZENTINELLE_GATEWAY_TOKEN: "replace-me"
+
+  # Single-tenant fallback, used only with ALLOW_ENV_PROVIDER_KEYS "true" and
+  # only for a tenant with no stored key. One entry per provider; the name
+  # after the prefix, lowercased, is the provider name in the gateway's routing
+  # table.
+  # PROVIDER_KEY_OPENAI: "replace-me"
+  # PROVIDER_KEY_ANTHROPIC: "replace-me"
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -42,6 +51,11 @@ data:
   # these its events, evaluations and interaction logs cannot be told apart.
   ZENTINELLE_TENANT_ID: "acme-corp"
   ZENTINELLE_CLUSTER_ID: "prod-us-east-1"
+
+  # "true" lets the PROVIDER_KEY_* entries in the Secret serve a tenant with no
+  # stored key. Single-tenant clusters only: every such tenant would be served
+  # on those accounts.
+  ALLOW_ENV_PROVIDER_KEYS: "false"
 
   # false means a request is refused when Zentinelle cannot be reached. For a
   # cluster whose whole point is that agents cannot route around governance,

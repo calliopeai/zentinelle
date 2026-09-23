@@ -23,9 +23,12 @@ kubectl apply -f network-policy-cilium.yaml    # or -vanilla, see below
 kubectl label pod -n agents -l app=my-agent zentinelle.ai/governed=true
 ```
 
-Edit the ConfigMap and Secret in `gateway.yaml` first — `ZENTINELLE_URL`,
-`ZENTINELLE_TENANT_ID`, `ZENTINELLE_CLUSTER_ID`, and one
-`PROVIDER_KEY_<NAME>` per provider the cluster may reach.
+Edit the ConfigMap and Secret in `gateway.yaml` first: `ZENTINELLE_URL`,
+`ZENTINELLE_TENANT_ID`, `ZENTINELLE_CLUSTER_ID`, and `ZENTINELLE_GATEWAY_TOKEN`,
+the same value the Zentinelle backend runs with. Provider keys are stored per
+tenant in Zentinelle. A single-tenant cluster can set
+`ALLOW_ENV_PROVIDER_KEYS: "true"` and one `PROVIDER_KEY_<NAME>` per provider
+instead. The gateway refuses to start with neither.
 
 ## The label is the enrolment
 
@@ -52,8 +55,10 @@ agent legitimately needs has to be listed by CIDR, and CIDRs go stale quietly.
 Policy is evaluated before the request is forwarded, and again on the response
 when the tenant has an output filter — in which case the response is buffered
 and nothing reaches the caller until the filter has seen all of it. Provider
-keys live in the Secret above rather than in any agent, so an agent that
-somehow reached a provider directly would have nothing to authenticate with.
+keys come from Zentinelle, per tenant, and live only in the gateway's memory
+(cached for a minute), never in any agent, so an agent that somehow reached a
+provider directly would have nothing to authenticate with. A provider key an
+agent sends is dropped rather than forwarded.
 
 `/metrics` is Prometheus text format on the same port, unauthenticated, for
 in-cluster scraping only. The Deployment carries the usual scrape annotations.

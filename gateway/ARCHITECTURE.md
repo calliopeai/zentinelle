@@ -10,6 +10,11 @@ organization. Agents authenticate with Zentinelle keys — the gateway holds
 and injects real provider API keys. No agent ever sees or needs a real
 OpenAI/Anthropic/Google key.
 
+The injected key is the one the agent's tenant stored in Zentinelle, so one
+gateway serves many tenants, each on its own provider account (#380). The
+gateway's own env keys are a single-tenant fallback, used only when
+`ALLOW_ENV_PROVIDER_KEYS=true` and the tenant has no stored key.
+
 ## Scaling Model
 
 The gateway tier scales independently from the Django backend:
@@ -33,10 +38,13 @@ The gateway tier scales independently from the Django backend:
 ```
 
 **Key properties:**
-- **Stateless** — no local state, no sessions, no cache. Any instance can handle any request.
-- **N+1 redundancy** — lose one instance, traffic routes to others.
-- **Independent scaling** — scale gateway tier based on request volume, backend based on policy complexity.
-- **Zero shared state** — provider keys come from env vars (injected by orchestrator).
+- **Stateless**: no sessions and no durable state. The only local state is a
+  60-second in-memory cache of provider-key lookups, which any instance can
+  rebuild. Any instance can handle any request.
+- **N+1 redundancy**: lose one instance, traffic routes to others.
+- **Independent scaling**: scale gateway tier based on request volume, backend based on policy complexity.
+- **Zero shared state**: provider keys come from Zentinelle per tenant, or
+  from env vars for the single-tenant fallback (injected by orchestrator).
 
 ## Request Flow
 
@@ -47,8 +55,12 @@ The gateway tier scales independently from the Django backend:
    - Timeout: 2 seconds (configurable)
    - On timeout or non-success response: fail-closed; unsafe `FAIL_OPEN=true` is rejected at startup
 4. If denied: return 403 with policy reason
-5. Gateway looks up real provider API key from config
-6. Gateway swaps auth header and forwards to provider
+5. Gateway resolves the provider key: the tenant's stored key via
+   POST /api/zentinelle/v1/gateway/provider-key (agent key plus
+   X-Zentinelle-Gateway-Token, cached 60s per agent key and provider), else
+   the env key if ALLOW_ENV_PROVIDER_KEYS=true, else 503. A failed lookup is
+   a 502 and never falls back to the env key
+6. Gateway drops the client's credentials, injects the key and forwards to provider
 7. Gateway streams response back to agent
 8. After response: async report usage to Zentinelle /events (fire and forget)
 ```
@@ -75,8 +87,10 @@ Auto-detect provider from request path:
 | Anthropic | `x-api-key` | `{key}` |
 | Google | `x-goog-api-key` | `{key}` |
 
-The gateway strips `X-Zentinelle-Key` before forwarding. The agent's
-Authorization header (if any) is replaced with the real provider key.
+The gateway strips `X-Zentinelle-Key` before forwarding. The client's
+`Authorization`, `x-api-key` and `x-goog-api-key` headers and Google's `key`
+query parameter are dropped on every request, whatever the provider, and the
+real provider key is set in the provider's own header.
 
 ## Streaming
 
@@ -92,9 +106,11 @@ SSE streaming is the default for LLM responses:
 |----------|---------|-------------|
 | `GATEWAY_PORT` | `8742` | Listen port |
 | `ZENTINELLE_URL` | `http://localhost:8080` | Backend API URL |
-| `OPENAI_API_KEY` | — | Real OpenAI key |
-| `ANTHROPIC_API_KEY` | — | Real Anthropic key |
-| `GOOGLE_API_KEY` | — | Real Google key |
+| `ZENTINELLE_GATEWAY_TOKEN` | — | Shared with the backend; reads each tenant's stored key. 32+ characters |
+| `ALLOW_ENV_PROVIDER_KEYS` | `false` | Single-tenant fallback to the env keys below |
+| `OPENAI_API_KEY` | — | Fallback OpenAI key |
+| `ANTHROPIC_API_KEY` | — | Fallback Anthropic key |
+| `GOOGLE_API_KEY` | — | Fallback Google key |
 | `FAIL_OPEN` | `true` | Allow on policy check timeout |
 | `POLICY_TIMEOUT_MS` | `2000` | Policy check timeout |
 | `MAX_RESPONSE_BYTES` | `52428800` | 50MB response cap |

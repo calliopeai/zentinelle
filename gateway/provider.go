@@ -1,6 +1,9 @@
 package main
 
-import "strings"
+import (
+	"net/url"
+	"strings"
+)
 
 // Provider describes an upstream LLM API provider.
 type Provider struct {
@@ -101,7 +104,44 @@ var hopByHopHeaders = map[string]bool{
 	"x-forwarded-host":    true,
 }
 
+// clientCredentialHeaders carry a provider credential, and the client's are
+// never forwarded (#380). The gateway sets the provider's auth header itself.
+// All three are dropped whatever the provider: an Anthropic request carrying
+// an Authorization bearer, or an OpenAI one carrying x-api-key, would
+// otherwise reach the provider with the client's credential beside the
+// injected one. Every AuthHeader in the providers table must be listed here,
+// and a test holds the table to that.
+var clientCredentialHeaders = map[string]bool{
+	"authorization":  true,
+	"x-api-key":      true,
+	"x-goog-api-key": true,
+}
+
 // ShouldForwardHeader returns true if the header should be forwarded upstream.
 func ShouldForwardHeader(name string) bool {
-	return !hopByHopHeaders[strings.ToLower(name)]
+	lower := strings.ToLower(name)
+	return !hopByHopHeaders[lower] && !clientCredentialHeaders[lower]
+}
+
+// withoutKeyParam drops the `key` query parameter, which is how Google takes
+// an API key in the URL, so a client-supplied key cannot ride along in the
+// query string either. None of the routed providers uses `key` for anything
+// else. Every other parameter is kept exactly as sent, encoding and order
+// included.
+func withoutKeyParam(rawQuery string) string {
+	if rawQuery == "" {
+		return ""
+	}
+	kept := make([]string, 0, strings.Count(rawQuery, "&")+1)
+	for _, part := range strings.Split(rawQuery, "&") {
+		name, _, _ := strings.Cut(part, "=")
+		if unescaped, err := url.QueryUnescape(name); err == nil {
+			name = unescaped
+		}
+		if name == "key" {
+			continue
+		}
+		kept = append(kept, part)
+	}
+	return strings.Join(kept, "&")
 }

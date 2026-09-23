@@ -165,6 +165,9 @@ jobs:
           CONTRACT_BACKEND_URL: http://127.0.0.1:62592
           CELERY_BROKER_URL: memory://
           CELERY_RESULT_BACKEND: cache+memory://
+          # Test-only value shared by the contract backend and the gateway, so
+          # the gateway reads each seeded tenant's stored provider key (#380).
+          ZENTINELLE_GATEWAY_TOKEN: ci-contract-gateway-token-0123456789abcdef
         run: |
           python backend/manage.py prepare_schemas
           python backend/manage.py migrate --database default --no-input

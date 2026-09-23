@@ -20,7 +20,21 @@ type Config struct {
 	// Azure OpenAI, Mistral, an on-prem endpoint — needed a code change and a
 	// rebuild to configure, in a service whose provider table is otherwise
 	// data (#226).
+	//
+	// Used only when AllowEnvProviderKeys is set, and only for a tenant with
+	// no key stored in Zentinelle (#380).
 	ProviderAPIKeys map[string]string
+
+	// AllowEnvProviderKeys lets ProviderAPIKeys serve a request whose tenant
+	// has no stored key. Single-tenant only: an env key is one account's key,
+	// and every tenant without a stored key would be served on it.
+	AllowEnvProviderKeys bool
+
+	// GatewayToken is presented with the agent key to read that agent's
+	// tenant's stored provider key from Zentinelle (#380). The same value is
+	// set as ZENTINELLE_GATEWAY_TOKEN on the backend. Empty disables the
+	// lookup, which leaves only the env fallback.
+	GatewayToken string
 
 	// Which tenant and cluster this gateway speaks for, sent on every call to
 	// Zentinelle. In the cluster-local pattern one Zentinelle serves many
@@ -70,15 +84,40 @@ func LoadConfig() (*Config, error) {
 		maxBytes = parsed
 	}
 
+	allowEnvKeys := false
+	if v := os.Getenv("ALLOW_ENV_PROVIDER_KEYS"); v != "" {
+		parsed, err := strconv.ParseBool(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ALLOW_ENV_PROVIDER_KEYS value %q: %w", v, err)
+		}
+		allowEnvKeys = parsed
+	}
+
+	gatewayToken := os.Getenv("ZENTINELLE_GATEWAY_TOKEN")
+	if gatewayToken != "" && len(gatewayToken) < minGatewayTokenLength {
+		return nil, fmt.Errorf("ZENTINELLE_GATEWAY_TOKEN must be at least %d characters; the backend refuses a shorter one", minGatewayTokenLength)
+	}
+
+	providerKeys := loadProviderKeys(os.Environ())
+
+	// A gateway with nowhere to get a provider key would start cleanly and
+	// then refuse every request, which is the failure that looks like health.
+	if gatewayToken == "" && !(allowEnvKeys && len(providerKeys) > 0) {
+		return nil, fmt.Errorf("no provider key source: set ZENTINELLE_GATEWAY_TOKEN to use the keys each tenant stores in Zentinelle, " +
+			"or ALLOW_ENV_PROVIDER_KEYS=true with PROVIDER_KEY_<NAME> for a single-tenant gateway")
+	}
+
 	return &Config{
-		Port:             port,
-		ZentinelleURL:    zentinelleURL,
-		ProviderAPIKeys:  loadProviderKeys(os.Environ()),
-		TenantID:         os.Getenv("ZENTINELLE_TENANT_ID"),
-		ClusterID:        os.Getenv("ZENTINELLE_CLUSTER_ID"),
-		FailOpen:         failOpen,
-		PolicyTimeout:    time.Duration(policyTimeoutMs) * time.Millisecond,
-		MaxResponseBytes: maxBytes,
+		Port:                 port,
+		ZentinelleURL:        zentinelleURL,
+		ProviderAPIKeys:      providerKeys,
+		AllowEnvProviderKeys: allowEnvKeys,
+		GatewayToken:         gatewayToken,
+		TenantID:             os.Getenv("ZENTINELLE_TENANT_ID"),
+		ClusterID:            os.Getenv("ZENTINELLE_CLUSTER_ID"),
+		FailOpen:             failOpen,
+		PolicyTimeout:        time.Duration(policyTimeoutMs) * time.Millisecond,
+		MaxResponseBytes:     maxBytes,
 	}, nil
 }
 

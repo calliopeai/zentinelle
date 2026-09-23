@@ -420,6 +420,12 @@ BILLING_EXPORT_TIMEOUT = int(os.environ.get("BILLING_EXPORT_TIMEOUT", "30"))
 # for tokens they bought themselves is not a recoverable mistake.
 BILLING_MODE = os.environ.get("BILLING_MODE", "governance_only")
 
+# Shared secret the Go gateway presents, alongside an agent key, to read that
+# agent's tenant's stored provider key (#380). Unset disables the lookup. It is
+# a deployment-wide credential, not a tenant-scoped one, because one gateway
+# serves many tenants: give it only to gateways the Zentinelle operator runs.
+ZENTINELLE_GATEWAY_TOKEN = os.environ.get("ZENTINELLE_GATEWAY_TOKEN", "")
+
 # Metadata-only by default; full prompt capture requires an explicit operator choice.
 CONTENT_CAPTURE_MODE = os.environ.get("CONTENT_CAPTURE_MODE", "metadata").lower()
 AUDIT_CHECKPOINT_SIGNING_KEY = os.environ.get("AUDIT_CHECKPOINT_SIGNING_KEY", SECRET_KEY)

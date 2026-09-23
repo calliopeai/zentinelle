@@ -18,12 +18,14 @@ import (
 type Gateway struct {
 	cfg    *Config
 	client *http.Client
+	keys   *providerKeyCache
 }
 
 // NewGateway creates a new Gateway with the given configuration.
 func NewGateway(cfg *Config) *Gateway {
 	return &Gateway{
-		cfg: cfg,
+		cfg:  cfg,
+		keys: newProviderKeyCache(providerKeyCacheTTL, providerKeyCacheMaxEntries),
 		client: &http.Client{
 			// No global timeout — streaming responses can take minutes.
 			// Per-request timeouts are handled by context.
@@ -64,11 +66,18 @@ func (g *Gateway) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Env keys the gateway will actually use. Without the fallback they are
+	// ignored, and listing them would say otherwise.
+	envProviders := []string{}
+	if g.cfg.AllowEnvProviderKeys {
+		envProviders = g.cfg.ProviderKeys()
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":    "ok",
-		"providers": g.cfg.ProviderKeys(),
+		"providers": envProviders,
 	})
 }
 
@@ -154,21 +163,27 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 6. Look up provider API key
-	apiKey := g.cfg.KeyForProvider(provider.Name)
-	if apiKey == "" {
-		logJSON("error", "no api key configured for provider", map[string]interface{}{
+	// 6. Resolve the provider key: the tenant's stored key, or the gateway's
+	// own where that fallback is allowed. Never the client's (#380).
+	apiKey, keySource, keyErr := g.resolveProviderKey(r.Context(), agentKey, provider.Name)
+	if keyErr != nil {
+		fields := map[string]interface{}{
 			"request_id": requestID,
 			"provider":   provider.Name,
-		})
-		writeJSONError(w, http.StatusServiceUnavailable, "no_api_key", fmt.Sprintf("no API key configured for provider %s", provider.Name))
+			"error":      keyErr.code,
+		}
+		if keyErr.cause != nil {
+			fields["cause"] = keyErr.cause.Error()
+		}
+		logJSON("error", "no provider key for request", fields)
+		writeJSONError(w, keyErr.status, keyErr.code, keyErr.detail)
 		return
 	}
 
 	// 7. Build upstream URL
 	upstreamURL := provider.BaseURL + upstreamPath
-	if r.URL.RawQuery != "" {
-		upstreamURL += "?" + r.URL.RawQuery
+	if query := withoutKeyParam(r.URL.RawQuery); query != "" {
+		upstreamURL += "?" + query
 	}
 
 	// 8. Build upstream request
@@ -188,7 +203,8 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		upstreamReq.ContentLength = int64(len(body))
 	}
 
-	// Copy headers, stripping hop-by-hop and zentinelle-specific ones
+	// Copy headers, stripping hop-by-hop, zentinelle-specific and client
+	// credential ones
 	for key, vals := range r.Header {
 		if ShouldForwardHeader(key) {
 			for _, val := range vals {
@@ -220,6 +236,7 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		"method":     r.Method,
 		"upstream":   upstreamURL,
 		"streaming":  streaming,
+		"key_source": keySource,
 	})
 
 	upstreamResp, err := g.client.Do(upstreamReq)

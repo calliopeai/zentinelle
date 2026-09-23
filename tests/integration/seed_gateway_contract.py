@@ -4,9 +4,10 @@ Run with manage.py shell. Never point this fixture at an existing deployment.
 """
 import json
 import os
+import secrets
 from pathlib import Path
 
-from zentinelle.models import AgentEndpoint, Policy
+from zentinelle.models import AgentEndpoint, LLMProviderKey, Policy
 
 if os.environ.get('ZENTINELLE_CONTRACT_TEST') != '1':
     raise RuntimeError('This fixture requires an explicitly opted-in disposable test database')
@@ -28,6 +29,23 @@ for name, kind, config in [
         'policy_type': kind, 'scope_type': 'organization', 'enforcement': 'enforce',
         'enabled': True, 'config': config,
     })
+# A second tenant behind the same gateway, and each tenant's own stored OpenAI
+# key (#380). The values are random, so the gateway test can only match them
+# by reading them back through the provider-key lookup.
+second_tenant = '00000000-0000-0000-0000-000000000002'
+key, hashed, prefix = AgentEndpoint.generate_api_key()
+AgentEndpoint.objects.update_or_create(
+    tenant_id=second_tenant, agent_id='wire-tenant-b',
+    defaults={'name': 'tenant-b', 'status': 'active', 'api_key_hash': hashed, 'api_key_prefix': prefix},
+)
+keys['tenant_b'] = key
+for name, tenant_id in [('openai_allow', tenant), ('openai_tenant_b', second_tenant)]:
+    stored = 'sk-contract-' + secrets.token_hex(16)
+    record, _ = LLMProviderKey.objects.get_or_create(tenant_id=tenant_id, provider='openai')
+    record.set_key(stored)
+    record.is_active = True
+    record.save()
+    keys[name] = stored
 path = Path(os.environ['CONTRACT_KEYS_FILE'])
 path.write_text(json.dumps(keys))
 path.chmod(0o600)

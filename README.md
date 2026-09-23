@@ -172,7 +172,10 @@ The Go gateway handles policy enforcement and credential injection at the edge.
 Agents authenticate with Zentinelle keys; the gateway swaps in the real provider key.
 
 ```bash
-# Configure provider keys (encrypted in Zentinelle, env-var fallback)
+# Configure provider keys, encrypted in Zentinelle per tenant. The gateway reads
+# them with ZENTINELLE_GATEWAY_TOKEN, set to the same value for the backend and
+# the gateway (.env). Single-tenant alternative: ALLOW_ENV_PROVIDER_KEYS=true
+# and PROVIDER_KEY_<NAME> on the gateway.
 docker compose exec backend python manage.py shell -c "
 from zentinelle.models import LLMProviderKey
 k = LLMProviderKey.objects.create(tenant_id='...', provider='openai')
@@ -181,7 +184,7 @@ k.save()"
 
 # Or via the portal: Settings → LLM Providers
 
-# Point your agent at the gateway
+# Point your agent at the gateway; it sends its Zentinelle key as X-Zentinelle-Key
 export OPENAI_BASE_URL=http://localhost:8742/v1
 ```
 

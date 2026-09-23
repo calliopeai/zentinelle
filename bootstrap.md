@@ -305,6 +305,7 @@ they differ in what else they do and in what they can see.
 | Output filtering | yes, since #218 | yes |
 | Interaction logging | usage only | full `InteractionLog` |
 | Providers | ~20, config-driven | anthropic, openai, google, vertex |
+| Provider key | the agent's tenant's stored `LLMProviderKey` (#380); env keys only with `ALLOW_ENV_PROVIDER_KEYS` | `MANAGED_*`/env key, else the client's own |
 
 The gateway holds an agent key, not a database. That is the whole reason for
 the split: it cannot query `Policy`, so anything it must decide has to be
@@ -321,6 +322,20 @@ is conditional on a filter existing rather than always on.
 
 The Django proxy stays canonical for anything needing the database in the
 request path: full interaction logging, and the multimodal request scan.
+
+Provider keys are the second thing carried to the gateway (#380). Once policy
+passes, it asks `POST /api/zentinelle/v1/gateway/provider-key` for the key the
+agent's tenant stored, presenting the agent key (which names the tenant) and
+`ZENTINELLE_GATEWAY_TOKEN` (which entitles it to raw keys; an agent key alone
+reads nothing). It caches the answer for 60 seconds per agent key and provider,
+and it always drops whatever key the client sent. This is a separate endpoint
+rather than a field on the evaluate response because a decision is made per
+request and never cached, while a key is stable and can be; and the evaluate
+response is the most widely read and logged payload in the system. Each release
+writes an `access` audit record without the value. The gateway's env keys
+remain only as a single-tenant fallback behind `ALLOW_ENV_PROVIDER_KEYS`, and a
+failed lookup never falls back to them. The token is deployment-wide, so it
+goes only to gateways the Zentinelle operator runs.
 
 ```
 Agent SDK → local proxy (port 8742) → Zentinelle /proxy/<provider>/ → provider API

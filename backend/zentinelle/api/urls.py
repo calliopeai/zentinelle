@@ -12,6 +12,7 @@ Agent-facing REST endpoints:
 - POST /api/zentinelle/v1/events
 - POST /api/zentinelle/v1/heartbeat
 - POST /api/zentinelle/v1/evaluate
+- POST /api/zentinelle/v1/gateway/provider-key   (gateway token + agent key)
 - GET  /api/zentinelle/v1/approvals/requests/{request_id}   (poll a held action)
 - GET  /api/zentinelle/v1/effective-policy/{user_id}
 - GET  /api/zentinelle/v1/prompts
@@ -93,6 +94,7 @@ from zentinelle.api.views.assistant_providers import AssistantProvidersView
 from zentinelle.api.views.atlas import AtlasControlMapView
 from zentinelle.api.views.auth import (CSRFTokenView, LoginView, LogoutView,
                                        MeView)
+from zentinelle.api.views.gateway_provider_key import GatewayProviderKeyView
 from zentinelle.api.views.health import HealthView, ReadyView
 from zentinelle.api.views.llm_provider_keys import (LLMProviderKeyDeleteView,
                                                     LLMProviderKeysView)
@@ -167,6 +169,8 @@ urlpatterns = [
     path('events', EventsView.as_view(), name='events'),
     path('heartbeat', HeartbeatView.as_view(), name='heartbeat'),
     path('evaluate', EvaluateView.as_view(), name='evaluate'),
+    # The Go gateway reads the agent's tenant's stored provider key (#380).
+    path('gateway/provider-key', GatewayProviderKeyView.as_view(), name='gateway-provider-key'),
 
     # Policy endpoints
     path('effective-policy', EffectivePolicyView.as_view(), name='effective-policy'),
