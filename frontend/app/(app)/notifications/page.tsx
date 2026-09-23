@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { type ColumnDef } from "@tanstack/react-table";
+import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import { toast } from "sonner";
 import {
   BellIcon,
@@ -245,7 +245,7 @@ export default function NotificationsPage() {
           </span>
         </div>
       ),
-      sortingFn: (a, b) =>
+      sortFn: (a, b) =>
         new Date(a.original.createdAt).getTime() -
         new Date(b.original.createdAt).getTime(),
     },

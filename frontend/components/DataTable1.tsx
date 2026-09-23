@@ -1,6 +1,6 @@
 "use client";
 
-import { type ColumnDef } from "@tanstack/react-table";
+import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";

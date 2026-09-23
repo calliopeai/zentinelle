@@ -10,7 +10,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from zentinelle.models import AgentEndpoint, AuditLog, Event, Policy
-from zentinelle.models.risk import Risk
+from zentinelle.models.risk import Incident, Risk
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 
@@ -182,6 +182,8 @@ class HeartbeatViewTest(ZentinelleAPITestMixin, TestCase):
 class EvaluateViewTest(ZentinelleAPITestMixin, TestCase):
     """Tests for the evaluate endpoint."""
 
+    databases = '__all__'
+
     def test_evaluate_unauthenticated(self):
         """Test that unauthenticated requests are rejected."""
         response = self.client.post(
@@ -314,6 +316,53 @@ class EvaluateViewTest(ZentinelleAPITestMixin, TestCase):
         # Verify event was created
         events = Event.objects.filter(endpoint=self.endpoint)
         self.assertEqual(events.count(), 1)
+
+    def test_evaluate_auto_incident_on_denied_tool_creates_incident_with_occurred_at(self):
+        """
+        Test that auto_incident=True creates an Incident with occurred_at set.
+
+        Regression test for #401: incident_service._maybe_create_incident was
+        omitting the occurred_at field, causing IntegrityError inside transactions.
+        """
+        # Create a tool_permission policy with auto_incident enabled
+        Policy.objects.create(
+            tenant_id=STANDALONE_TENANT,
+            name='Deny rm tool',
+            policy_type=Policy.PolicyType.TOOL_PERMISSION,
+            scope_type=Policy.ScopeType.ORGANIZATION,
+            enforcement=Policy.Enforcement.ENFORCE,
+            config={'denied_tools': ['rm'], 'auto_incident': True},
+        )
+
+        self.authenticate()
+        response = self.client.post(
+            reverse('zentinelle:evaluate'),
+            data={
+                'agent_id': self.endpoint.agent_id,
+                'action': 'tool_call',
+                'tool_name': 'rm',
+                'user_id': 'user123',
+            },
+            format='json',
+        )
+
+        # Should not be a 500 error
+        self.assertNotEqual(
+            response.status_code, 500,
+            f"Expected non-500 status, got {response.status_code}: {response.content}"
+        )
+
+        # Should have created exactly one incident
+        incidents = Incident.objects.filter(tenant_id=STANDALONE_TENANT)
+        self.assertEqual(
+            incidents.count(), 1,
+            f"Expected 1 incident, found {incidents.count()}"
+        )
+
+        # Verify the incident has occurred_at set
+        incident = incidents.first()
+        self.assertIsNotNone(incident.occurred_at)
+        self.assertTrue(isinstance(incident.occurred_at, type(timezone.now())))
 
 
 class EventsViewTest(ZentinelleAPITestMixin, TestCase):
