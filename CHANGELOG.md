@@ -13,9 +13,13 @@ Notable changes to Zentinelle. The format follows
   it while the workload runs (`POST .../agents/<agent_id>/renew`) and revokes
   it when it stops (`DELETE .../agents/<agent_id>`). Keys are minted in one of
   the install's tenants, only the install that minted an agent can renew or
-  revoke it, and disconnecting the install terminates them all. The gateway
-  releases the tenant's provider key to such a key like to any agent's, so no
-  provider key has to enter the pod.
+  revoke it, and disconnecting the install terminates them all. A key never
+  works longer than `ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS` (default 7
+  days) after its mint, an expired key is not renewed, and an agent that
+  anyone but its install stopped (portal, kill switch, operator API,
+  deregister) is not brought back by a mint (`409 agent_suspended`). The
+  gateway releases the tenant's provider key to such a key like to any
+  agent's, so no provider key has to enter the pod.
 - Gateway: cluster heartbeats (#391). With `ZENTINELLE_CLUSTER_ID` and its
   credential set, the gateway reports to
   `POST /api/zentinelle/v1/astrolift/clusters/<id>/heartbeat` at start and then

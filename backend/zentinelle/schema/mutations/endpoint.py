@@ -252,6 +252,9 @@ def suspend_agent_endpoint(info: strawberry.types.Info, id: strawberry.ID, reaso
         return SuspendAgentEndpointPayload(success=False, error="Endpoint already suspended")
 
     endpoint.status = AgentEndpoint.Status.SUSPENDED
+    # An administrator's stop: the minting Astrolift install may not undo it
+    # by minting again (#400).
+    endpoint.astrolift_revoked_at = None
     if reason:
         endpoint.metadata['suspension_reason'] = reason
     endpoint.save()
@@ -311,6 +314,9 @@ def update_endpoint_status(info: strawberry.types.Info, endpoint_id: strawberry.
             return UpdateEndpointStatusPayload(success=False, error=f"Invalid status: {status}")
 
         endpoint.status = status
+        # An administrator set the status, which supersedes an Astrolift
+        # install's own revoke (#400).
+        endpoint.astrolift_revoked_at = None
         endpoint.save()
 
         return UpdateEndpointStatusPayload(success=True, endpoint=endpoint)

@@ -36,7 +36,8 @@ import logging
 import re
 from datetime import timedelta
 
-from django.db import router, transaction
+from django.conf import settings
+from django.db import IntegrityError, router, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -301,7 +302,7 @@ def disconnect_install(install, request=None, actor_id='', via='astrolift'):
         agents = AgentEndpoint.objects.filter(
             tenant_id__in=install.tenant_ids, astrolift_install=install,
         ).exclude(status=AgentEndpoint.Status.TERMINATED).update(
-            status=AgentEndpoint.Status.TERMINATED, updated_at=now)
+            status=AgentEndpoint.Status.TERMINATED, astrolift_revoked_at=None, updated_at=now)
         install.revoked_at = now
         install.save(update_fields=['revoked_at', 'updated_at'])
         _audit(request, install.tenant_ids, 'astrolift.install.disconnected', 'astrolift_install', install.id,
@@ -341,14 +342,49 @@ def _one_install_agent(agents, agent_id):
     return found[0]
 
 
+def _agent_key_lifetime():
+    return timedelta(seconds=int(getattr(settings, 'ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS', 7 * 24 * 3600)))
+
+
+def lifetime_ends_at(agent):
+    """When an install-minted key stops working however it is renewed."""
+    return (agent.api_key_issued_at or agent.registered_at) + _agent_key_lifetime()
+
+
+def _existing_agent(tenant, agent_id):
+    """The agent `agent_id` in `tenant`, locked, or None."""
+    return AgentEndpoint.objects.select_for_update().filter(tenant_id=tenant, agent_id=agent_id).first()
+
+
+def _stopped_by_others(agent):
+    """Whether the agent was stopped by anyone but its install's own revoke.
+
+    An administrator's suspend or revoke, the operator API, the kill switch
+    and the agent's own deregister all leave a stopped agent without
+    `astrolift_revoked_at`, and such a stop stands.
+    """
+    if agent.status == AgentEndpoint.Status.ACTIVE:
+        return False
+    return not (agent.status == AgentEndpoint.Status.TERMINATED and agent.astrolift_revoked_at is not None)
+
+
+def _agent_suspended(agent):
+    return AstroliftError(
+        'agent_suspended',
+        f'Agent {agent.agent_id} was stopped in Zentinelle ({agent.status}) by someone other than this install, '
+        'and it stays stopped.', status=409)
+
+
 def mint_agent_key(install, agent_id, ttl, tenant_id='', name='', deployment_id='', request=None):
     """Mint the key of agent `agent_id` for one of the install's tasks or boxes.
 
-    Returns (agent, plaintext key, created). The key expires after `ttl`.
-    Minting again for an agent this install minted replaces its key, so the
-    previous one stops working, and makes the agent active again: a retried
-    spawn has to get a key, and a restarted box keeps its agent. An agent the
-    install did not mint is never taken over.
+    Returns (agent, plaintext key, created). The key expires after `ttl`, or
+    at the end of its lifetime (ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS)
+    when that comes first. Minting again for an agent this install minted
+    replaces its key and starts a new lifetime: a retried spawn has to get a
+    key, and a restarted box keeps its agent. It brings back an agent only
+    this install's own revoke stopped. An agent the install did not mint is
+    never taken over, and one someone else stopped stays stopped.
     """
     if not timedelta(seconds=1) <= ttl <= MAX_AGENT_KEY_TTL:
         raise AstroliftError('invalid_ttl', 'ttl_seconds must be between 1 and 2592000.')
@@ -359,27 +395,36 @@ def mint_agent_key(install, agent_id, ttl, tenant_id='', name='', deployment_id=
         # cannot miss one minted beside it.
         install = _locked_install(install)
         tenant = _agent_tenant(install, tenant_id)
-        agent = AgentEndpoint.objects.select_for_update().filter(tenant_id=tenant, agent_id=agent_id).first()
+        agent = _existing_agent(tenant, agent_id)
         if agent is not None and agent.astrolift_install_id != install.pk:
-            raise AstroliftError(
-                'agent_id_taken', f'Agent {agent_id} exists in this tenant and was not minted by this install.',
-                status=409)
-        expires_at = timezone.now() + ttl
+            raise _agent_id_taken(agent_id)
+        if agent is not None and _stopped_by_others(agent):
+            raise _agent_suspended(agent)
+        now = timezone.now()
+        expires_at = min(now + ttl, now + _agent_key_lifetime())
         created = agent is None
         if created:
-            agent = AgentEndpoint.objects.create(
-                tenant_id=tenant, agent_id=agent_id, name=name or agent_id,
-                agent_type=AgentEndpoint.AgentType.CUSTOM, api_key_hash=key_hash, api_key_prefix=key_prefix,
-                api_key_expires_at=expires_at, deployment_id_ext=deployment_id, astrolift_install=install,
-                status=AgentEndpoint.Status.ACTIVE, health=AgentEndpoint.Health.UNKNOWN)
+            try:
+                # A savepoint: another install minting the same agent id first
+                # makes this insert fail, and that is a refusal, not a 500.
+                with transaction.atomic(using=_using()):
+                    agent = AgentEndpoint.objects.create(
+                        tenant_id=tenant, agent_id=agent_id, name=name or agent_id,
+                        agent_type=AgentEndpoint.AgentType.CUSTOM, api_key_hash=key_hash,
+                        api_key_prefix=key_prefix, api_key_issued_at=now, api_key_expires_at=expires_at,
+                        deployment_id_ext=deployment_id, astrolift_install=install,
+                        status=AgentEndpoint.Status.ACTIVE, health=AgentEndpoint.Health.UNKNOWN)
+            except IntegrityError:
+                raise _agent_id_taken(agent_id) from None
         else:
             agent.api_key_hash, agent.api_key_prefix = key_hash, key_prefix
-            agent.api_key_expires_at = expires_at
+            agent.api_key_issued_at, agent.api_key_expires_at = now, expires_at
             agent.status = AgentEndpoint.Status.ACTIVE
+            agent.astrolift_revoked_at = None
             agent.name = name or agent.name
             agent.deployment_id_ext = deployment_id
-            agent.save(update_fields=['api_key_hash', 'api_key_prefix', 'api_key_expires_at', 'status', 'name',
-                                      'deployment_id_ext', 'updated_at'])
+            agent.save(update_fields=['api_key_hash', 'api_key_prefix', 'api_key_issued_at', 'api_key_expires_at',
+                                      'status', 'astrolift_revoked_at', 'name', 'deployment_id_ext', 'updated_at'])
         _audit(request, [tenant], 'astrolift.agent_key.minted', 'agent_endpoint', agent.id, agent.agent_id,
                {'install_id': str(install.id), 'install': install.name, 'key_prefix': key_prefix,
                 'expires_at': expires_at.isoformat(), 'new': created, 'deployment_id': deployment_id})
@@ -388,22 +433,35 @@ def mint_agent_key(install, agent_id, ttl, tenant_id='', name='', deployment_id=
     return agent, plaintext, created
 
 
-def renew_agent_key(install, agent_id, ttl, tenant_id=''):
-    """Let the live key of an agent this install minted work for `ttl` from now. Returns the agent.
+def _agent_id_taken(agent_id):
+    return AstroliftError(
+        'agent_id_taken', f'Agent {agent_id} exists in this tenant and was not minted by this install.', status=409)
 
-    Not audited, like a heartbeat: a box in use renews about twice an hour,
-    and the mint and the revocation already bracket the key's life.
+
+def renew_agent_key(install, agent_id, ttl, tenant_id=''):
+    """Let the live key of an agent this install minted work for `ttl` more. Returns the agent.
+
+    Never past the key's lifetime, and never for a key that already expired
+    or was stopped: those need a fresh mint. Not audited, like a heartbeat:
+    a box in use renews about twice an hour, and the mint and the revocation
+    already bracket the key's life.
     """
     if not timedelta(seconds=1) <= ttl <= MAX_AGENT_KEY_TTL:
         raise AstroliftError('invalid_ttl', 'ttl_seconds must be between 1 and 2592000.')
     agent = _one_install_agent(_install_agents(install, agent_id, tenant_id), agent_id)
+    if _stopped_by_others(agent):
+        raise _agent_suspended(agent)
+    if agent.status != AgentEndpoint.Status.ACTIVE:
+        raise AstroliftError('agent_not_found', f'Agent {agent_id} was revoked; mint a new key.', status=404)
     now = timezone.now()
-    # Conditional, so a key terminated meanwhile (revoked, or its install
-    # disconnected) is never extended.
-    renewed = AgentEndpoint.objects.filter(pk=agent.pk, status=AgentEndpoint.Status.ACTIVE).update(
-        api_key_expires_at=now + ttl, updated_at=now)
+    expires_at = min(now + ttl, lifetime_ends_at(agent))
+    # Conditional, so a key that expired, or was stopped meanwhile, is never
+    # brought back: that takes a fresh mint.
+    renewed = AgentEndpoint.objects.filter(
+        pk=agent.pk, status=AgentEndpoint.Status.ACTIVE, api_key_expires_at__gt=now,
+    ).update(api_key_expires_at=expires_at, updated_at=now)
     if not renewed:
-        raise AstroliftError('agent_not_found', f'Agent {agent_id} is terminated; mint a new key.', status=404)
+        raise AstroliftError('agent_key_expired', f'The key of agent {agent_id} expired; mint a new one.', status=409)
     agent.refresh_from_db()
     logger.info('Renewed the key of agent %s for Astrolift install %s until %s',
                 agent.agent_id, install.name, agent.api_key_expires_at.isoformat())
@@ -413,14 +471,17 @@ def renew_agent_key(install, agent_id, ttl, tenant_id=''):
 def revoke_agent_key(install, agent_id, tenant_id='', request=None):
     """Terminate an agent this install minted: its key is refused from the next request. Returns it.
 
-    Revoking a terminated agent changes nothing and records nothing.
+    Only a live agent changes. One that is already stopped, whether by this
+    install or by someone else, is left as it is, so an administrator's stop
+    is never turned into one this install could undo.
     """
     with transaction.atomic(using=_using()):
         agent = _one_install_agent(_install_agents(install, agent_id, tenant_id).select_for_update(), agent_id)
-        if agent.status == AgentEndpoint.Status.TERMINATED:
+        if agent.status != AgentEndpoint.Status.ACTIVE:
             return agent
         agent.status = AgentEndpoint.Status.TERMINATED
-        agent.save(update_fields=['status', 'updated_at'])
+        agent.astrolift_revoked_at = timezone.now()
+        agent.save(update_fields=['status', 'astrolift_revoked_at', 'updated_at'])
         _audit(request, [agent.tenant_id], 'astrolift.agent_key.revoked', 'agent_endpoint', agent.id,
                agent.agent_id, {'install_id': str(install.id), 'install': install.name,
                                 'key_prefix': agent.api_key_prefix})

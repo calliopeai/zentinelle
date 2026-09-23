@@ -157,6 +157,13 @@ class AgentEndpoint(Tracking):
         on_delete=models.PROTECT,
         related_name='agents',
     )
+    # When the key was minted: an install-minted key never works longer than
+    # ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS after this, however renewed.
+    api_key_issued_at = models.DateTimeField(null=True, blank=True)
+    # Set only when the minting install revoked the agent, the one stop that
+    # install may undo by minting again. Every other stop (an administrator,
+    # the operator API, the agent itself) clears it, so it stays stopped.
+    astrolift_revoked_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['tenant_id', 'name']

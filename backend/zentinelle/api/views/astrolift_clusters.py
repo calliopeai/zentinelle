@@ -51,6 +51,7 @@ from zentinelle.schema.auth_helpers import (get_request_tenant_id,
 from zentinelle.services.astrolift_clusters import (AstroliftError, connect,
                                                     disconnect_install,
                                                     issue_enrollment_code,
+                                                    lifetime_ends_at,
                                                     mint_agent_key,
                                                     record_heartbeat,
                                                     register_cluster,
@@ -124,6 +125,7 @@ def _agent_json(agent):
         'status': agent.status,
         'deployment_id': agent.deployment_id_ext,
         'expires_at': _iso(agent.api_key_expires_at),
+        'lifetime_ends_at': _iso(lifetime_ends_at(agent)),
     }
 
 

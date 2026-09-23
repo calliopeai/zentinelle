@@ -110,9 +110,11 @@ class OperatorAgentView(APIView):
 
     def delete(self, request, agent_id=None):
         """Revoke an agent: its key is refused from the next request on."""
+        # An operator's stop: the minting Astrolift install may not undo it by
+        # minting again (#400).
         updated = AgentEndpoint.objects.filter(
             tenant_id=request.user.tenant_id, agent_id=agent_id,
-        ).update(status=AgentEndpoint.Status.TERMINATED, updated_at=timezone.now())
+        ).update(status=AgentEndpoint.Status.TERMINATED, astrolift_revoked_at=None, updated_at=timezone.now())
         if not updated:
             return Response({'error': 'agent not found'}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
