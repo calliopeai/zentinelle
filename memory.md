@@ -32,6 +32,10 @@ Decided 2026-09-22 (option A): the Go gateway injects the provider key the agent
 
 Revised the same day (Leo): no shared gateway token. The gateway runs inside each Astrolift cluster as a data plane with Zentinelle as the control plane, and one global secret would let one leaked cluster unlock every tenant. Each gateway is a `GatewayRegistration` scoped to explicit `tenant_ids` with its own `GatewayCredential` (`sk_gateway_`, bcrypt-hashed), revocable per gateway; keys are released only for tenants in scope. `cluster_id` on the registration is the hook for the separately filed cluster concept (a nullable FK later). Standalone compose keeps zero config: the backend registers `local` for the standalone tenant and writes its credential into a shared volume. `ALLOW_ENV_PROVIDER_KEYS` is deprecated (still honoured, warns). Terraform deploys no gateway (#388 parked).
 
+## Astrolift clusters (#389)
+
+Decided 2026-09-23 (Leo): Astrolift connects from its own UI with this Zentinelle's URL and a one-time enrollment code an admin generates here. It receives an install credential and registers its clusters, and each cluster gets a gateway credential that no human sees. Slice 1 (backend, portal page, command) adds the `EnrollmentCode`, `AstroliftInstall` and `AstroliftCluster` models, a nullable `GatewayRegistration.astrolift_cluster`, and `GatewayCredential.expires_at` for rotation overlap. Heartbeats aren't audited, because they are telemetry. An operator's registration is adopted by `cluster_id` only when its tenants fall within the cluster's scope. RBAC per group lives on the Astrolift side. Server-side filtering by Astrolift project/team scopes (#390) and the gateway's heartbeat sender (#391) are follow-ups.
+
 ## Strategic Decisions
 
 ### Product + Business Model

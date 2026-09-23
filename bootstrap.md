@@ -346,8 +346,8 @@ is in the gateway's scope; a registration or a single credential is revoked on
 its own; rotation is a second credential, then revoking the first. Operators
 use `manage.py gateway_credential` (register, mint, scope, list, revoke). The
 registration carries the opaque `cluster_id` the gateway sends as
-X-Zentinelle-Cluster; when Zentinelle gains a cluster record, the registration
-gets a nullable foreign key to it, backfilled by that id.
+X-Zentinelle-Cluster. A gateway that an Astrolift install registered also links
+to its `AstroliftCluster` (see "Connected installs and clusters" below).
 
 The gateway reads its credential from `ZENTINELLE_GATEWAY_CREDENTIAL`, else the
 file at `ZENTINELLE_GATEWAY_CREDENTIAL_FILE` (default
@@ -505,6 +505,74 @@ The `TenantResolver` route was rejected for now: it only pays off if
 Zentinelle ends up embedded in Astrolift's Django process, and it couples the
 two services tightly for no gain while they stay separate. Portal SSO stays
 open; deeplinks currently land on Zentinelle's own auth.
+
+### Connected installs and clusters (#389)
+
+The Go gateway runs inside each Astrolift cluster as a data plane, and
+Zentinelle is the control plane for one or many of them. Astrolift connects
+itself, and nobody copies a gateway credential by hand:
+
+1. A Zentinelle admin generates a one-time **enrollment code** (Settings >
+   Astrolift, or `manage.py astrolift_enrollment_code --tenant <id>`). It is
+   scoped to tenants (the admin's own by default), works once, and expires
+   after 15 minutes (at most 60). Only its SHA-256 is stored. The code carries
+   192 random bits, so a fast hash costs nothing, and it lets a single
+   conditional UPDATE consume the code, which keeps it single use under a
+   race.
+2. The Astrolift admin pastes this Zentinelle's URL and the code into Astrolift,
+   which calls `POST /api/zentinelle/v1/astrolift/connect`
+   `{"code", "install": {"base_url", "name"}}`. That creates an
+   `AstroliftInstall` for the code's tenants and returns the install's
+   credential (`sk_astroinst_...`, bcrypt-hashed) once. An unknown, expired or
+   used code gets the same `400 invalid_enrollment_code`. Lost the response?
+   Disconnect the orphan and generate a new code.
+3. With `Authorization: Bearer sk_astroinst_...`, Astrolift registers each
+   cluster: `POST .../astrolift/clusters` `{"cluster_id", "provider", "region",
+   "tenant_ids"?}`. `cluster_id` is Astrolift's id for the cluster and the
+   gateway's `ZENTINELLE_CLUSTER_ID`. `tenant_ids` may narrow the install's
+   scope, never widen it. The response carries the gateway's
+   `GatewayCredential` once. Astrolift writes it into the cluster's Secret and
+   no human sees it. Registering a live cluster again mints a fresh credential,
+   so an installer that lost one can always register.
+4. `POST .../astrolift/clusters/<cluster_id>/rotate` `{"overlap_seconds"}`
+   mints the next credential. The earlier ones keep working for the overlap
+   (default 600, 0 to 86400), then expire (`GatewayCredential.expires_at`).
+   The gateway rereads its credential file only when it is refused, so an
+   overlap longer than Secret propagation switches it over with no failed
+   request. An overlap of 0 is for a leaked credential.
+5. `DELETE .../astrolift/clusters/<cluster_id>` revokes the cluster and its
+   gateway registration. `DELETE .../astrolift/install` disconnects the
+   install: its credential, its clusters and their gateways. Revoked rows
+   stay as history. The same cluster id registered again is a new row with a
+   new registration, which is also how a leaked gateway is recovered. To stop
+   an install from registering anything, disconnect it.
+6. The gateway reports `POST .../astrolift/clusters/<cluster_id>/heartbeat`
+   with `X-Zentinelle-Gateway-Credential`: `{"status": healthy|degraded|
+   unhealthy, "version", "counters": {"requests", "blocked", "agents_seen"}}`.
+   Counters are running totals since the gateway started; unknown counters
+   are dropped. The answer asks for the next heartbeat in 60 seconds. A cluster
+   that hasn't reported yet is `pending`, and one silent for five minutes is
+   `stale`.
+
+The portal (admins only) lists the installs serving the admin's tenant with
+their clusters, and can revoke a cluster or disconnect an install. A change
+that touches an install needs access to every tenant the install serves.
+
+Every change writes one `AuditLog` record per tenant in scope (actions
+`astrolift.*`), so each tenant's chain shows what touched it. No record holds a
+code or a credential. Heartbeats are telemetry and are not audited.
+
+An operator's registration from `manage.py gateway_credential register
+--cluster <id>` is adopted by the Astrolift cluster with that id only when it
+is the one live, unlinked registration for that id and every tenant it serves
+is within the cluster's scope. A matching string alone proves nothing, since
+cluster ids are not namespaced per install. Its old credentials overlap like a
+rotation. Revoking an Astrolift gateway with `gateway_credential revoke`
+revokes its cluster too.
+
+Not yet: filtering usage, audit and policy reads by Astrolift project and team
+scopes, which needs those ids on events (#390), and the gateway's heartbeat
+sender (#391).
 
 ## Wiki
 
