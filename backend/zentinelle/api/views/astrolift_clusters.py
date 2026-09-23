@@ -9,6 +9,9 @@ Astrolift-facing, never a portal session:
     DELETE astrolift/clusters/<cluster_id>            install credential
     DELETE astrolift/install                          install credential
     POST   astrolift/clusters/<cluster_id>/heartbeat  gateway credential
+    POST   astrolift/agents                           install credential, {agent_id, ttl_seconds, ...}
+    POST   astrolift/agents/<agent_id>/renew          install credential, {ttl_seconds}
+    DELETE astrolift/agents/<agent_id>                install credential
 
 The install credential is `Authorization: Bearer sk_astroinst_...`; the
 gateway's is `X-Zentinelle-Gateway-Credential`. `cluster_id` is Astrolift's id
@@ -34,7 +37,9 @@ from rest_framework.views import APIView
 from zentinelle.api.auth import (AstroliftInstallAuthentication,
                                  GatewayCredentialAuthentication)
 from zentinelle.api.permissions import PORTAL_AUTH, PortalAdminAccess
-from zentinelle.api.serializers import (AstroliftClusterSerializer,
+from zentinelle.api.serializers import (AstroliftAgentKeySerializer,
+                                        AstroliftAgentRenewSerializer,
+                                        AstroliftClusterSerializer,
                                         AstroliftConnectSerializer,
                                         AstroliftHeartbeatSerializer,
                                         AstroliftRotateSerializer,
@@ -46,8 +51,11 @@ from zentinelle.schema.auth_helpers import (get_request_tenant_id,
 from zentinelle.services.astrolift_clusters import (AstroliftError, connect,
                                                     disconnect_install,
                                                     issue_enrollment_code,
+                                                    mint_agent_key,
                                                     record_heartbeat,
                                                     register_cluster,
+                                                    renew_agent_key,
+                                                    revoke_agent_key,
                                                     revoke_cluster,
                                                     rotate_cluster)
 
@@ -105,6 +113,17 @@ def _install_json(install, visible=None):
         'connected_at': _iso(install.connected_at),
         'last_used_at': _iso(install.last_used_at),
         'revoked_at': _iso(install.revoked_at),
+    }
+
+
+def _agent_json(agent):
+    return {
+        'id': str(agent.id),
+        'agent_id': agent.agent_id,
+        'tenant_id': agent.tenant_id,
+        'status': agent.status,
+        'deployment_id': agent.deployment_id_ext,
+        'expires_at': _iso(agent.api_key_expires_at),
     }
 
 
@@ -204,6 +223,51 @@ class AstroliftInstallView(_InstallView):
     def delete(self, request):
         install = disconnect_install(self.install, request=request, via='astrolift')
         return Response({'install': _install_json(install)})
+
+
+class AstroliftAgentsView(_InstallView):
+    """Mint the key of an agent for one of this install's tasks or boxes (#400)."""
+
+    def post(self, request):
+        serializer = AstroliftAgentKeySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            agent, plaintext, created = mint_agent_key(
+                self.install, data['agent_id'], timedelta(seconds=data['ttl_seconds']),
+                tenant_id=data['tenant_id'], name=data['name'], deployment_id=data['deployment_id'],
+                request=request)
+        except AstroliftError as error:
+            return _refusal(error)
+        return _no_store(Response({'agent': _agent_json(agent), 'api_key': plaintext},
+                                  status=status.HTTP_201_CREATED if created else status.HTTP_200_OK))
+
+
+class AstroliftAgentRenewView(_InstallView):
+    """Move the expiry of a live key this install minted."""
+
+    def post(self, request, agent_id):
+        serializer = AstroliftAgentRenewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            agent = renew_agent_key(self.install, agent_id, timedelta(seconds=data['ttl_seconds']),
+                                    tenant_id=data['tenant_id'])
+        except AstroliftError as error:
+            return _refusal(error)
+        return Response({'agent': _agent_json(agent)})
+
+
+class AstroliftAgentView(_InstallView):
+    """Terminate an agent this install minted; its key is refused from the next request."""
+
+    def delete(self, request, agent_id):
+        try:
+            revoke_agent_key(self.install, agent_id, tenant_id=request.query_params.get('tenant_id', ''),
+                             request=request)
+        except AstroliftError as error:
+            return _refusal(error)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AstroliftClusterHeartbeatView(APIView):

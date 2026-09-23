@@ -6,6 +6,7 @@ from rest_framework import serializers
 from zentinelle.models import AgentEndpoint, AuditLog, Event, Policy
 from zentinelle.services.astrolift_clusters import (CLUSTER_ID_PATTERN,
                                                     DEFAULT_OVERLAP,
+                                                    MAX_AGENT_KEY_TTL,
                                                     MAX_OVERLAP)
 
 # =============================================================================
@@ -121,6 +122,24 @@ class AstroliftRotateSerializer(serializers.Serializer):
     """How long the credentials a rotation replaces keep working. 0 ends them now."""
     overlap_seconds = serializers.IntegerField(
         min_value=0, max_value=int(MAX_OVERLAP.total_seconds()), default=int(DEFAULT_OVERLAP.total_seconds()))
+
+
+class AstroliftAgentKeySerializer(serializers.Serializer):
+    """An agent key an install mints for one of its tasks or boxes (#400).
+
+    No tenant_id means the install's only tenant.
+    """
+    agent_id = serializers.SlugField(max_length=100)
+    ttl_seconds = serializers.IntegerField(min_value=1, max_value=int(MAX_AGENT_KEY_TTL.total_seconds()))
+    tenant_id = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+    name = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+    deployment_id = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+
+
+class AstroliftAgentRenewSerializer(serializers.Serializer):
+    """How long from now an agent key minted by the install keeps working."""
+    ttl_seconds = serializers.IntegerField(min_value=1, max_value=int(MAX_AGENT_KEY_TTL.total_seconds()))
+    tenant_id = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
 
 
 class AstroliftHeartbeatCountersSerializer(serializers.Serializer):

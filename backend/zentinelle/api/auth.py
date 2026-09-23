@@ -38,19 +38,16 @@ class ZentinelleAPIKeyAuthentication(authentication.BaseAuthentication):
         if not api_key.startswith('sk_agent_'):
             raise exceptions.AuthenticationFailed('Invalid API key format')
 
-        # Look up endpoint by key prefix first (fast lookup)
+        # The stored prefix is `sk_agent_` and three random characters, so two
+        # live keys can share it (#400): check each one's hash.
         key_prefix = api_key[:12]
-
-        try:
-            endpoint = AgentEndpoint.objects.get(
-                api_key_prefix=key_prefix,
-                status__in=[AgentEndpoint.Status.ACTIVE, AgentEndpoint.Status.PROVISIONING],
-            )
-        except AgentEndpoint.DoesNotExist:
-            raise exceptions.AuthenticationFailed('Invalid API key')
-
-        # Verify full key hash
-        if not AgentEndpoint.verify_api_key(api_key, endpoint.api_key_hash):
+        candidates = AgentEndpoint.objects.filter(
+            api_key_prefix=key_prefix,
+            status__in=[AgentEndpoint.Status.ACTIVE, AgentEndpoint.Status.PROVISIONING],
+        )
+        endpoint = next(
+            (c for c in candidates if AgentEndpoint.verify_api_key(api_key, c.api_key_hash)), None)
+        if endpoint is None:
             raise exceptions.AuthenticationFailed('Invalid API key')
 
         # Check if endpoint is suspended

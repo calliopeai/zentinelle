@@ -556,6 +556,24 @@ itself, and nobody copies a gateway credential by hand:
    credential are set (`HEARTBEAT_INTERVAL_SECONDS=0` turns it off), judges
    its status from its own calls to Zentinelle since the last beat, and after
    a 404 sends nothing until its credential file changes (#391).
+7. Each agent task and box gets its own agent key, so its pod carries no
+   provider key (#400, calliopeai/astrolift-app#1851):
+   `POST .../astrolift/agents` `{"agent_id", "ttl_seconds", "tenant_id"?,
+   "name"?, "deployment_id"?}` answers with the key once, and `expires_at`.
+   `ttl_seconds` is required (1 to 2,592,000), and the key is refused after
+   it. `tenant_id` defaults to the install's only tenant and must be one of
+   the install's. Astrolift sends `deployment_id` = the agent's slug, so a
+   deployment-scoped policy covers every run of that agent. Minting again for
+   an agent the install minted replaces its key and makes it active again (a
+   retried spawn, a restarted box); an `agent_id` the install did not mint
+   gets `409 agent_id_taken`. `POST .../astrolift/agents/<agent_id>/renew`
+   `{"ttl_seconds"}` moves a live key's expiry (a box still in use, a task
+   whose deadline grew while it waited for a human); a terminated agent gets
+   404. `DELETE .../astrolift/agents/<agent_id>` terminates the agent, and
+   its key is refused from the next request. Only the install that minted an
+   agent can renew or revoke it, and disconnecting the install terminates all
+   of them. Mint and revoke are audited in the key's tenant with its prefix;
+   renewals are not, for the reason heartbeats are not.
 
 The portal (admins only) lists the installs serving the admin's tenant with
 their clusters, and can revoke a cluster or disconnect an install. A change

@@ -148,6 +148,16 @@ class AgentEndpoint(Tracking):
         related_name='agents',
     )
 
+    # The Astrolift install that minted this agent's key for one of its tasks
+    # or boxes (#400). Only that install may mint it again, renew or revoke
+    # it, and disconnecting the install terminates it.
+    astrolift_install = models.ForeignKey(
+        'zentinelle.AstroliftInstall',
+        null=True, blank=True,
+        on_delete=models.PROTECT,
+        related_name='agents',
+    )
+
     class Meta:
         ordering = ['tenant_id', 'name']
         unique_together = [('tenant_id', 'agent_id')]
