@@ -242,6 +242,13 @@ class AgentHostHoldTests(AgentHostTestCase):
         self.assertEqual(body['decision'], 'ask')
         self.assertEqual(body['approval']['timeout_seconds'], 60)
 
+    def test_a_capability_approval_also_holds(self):
+        Policy.objects.create(
+            tenant_id=TENANT, name='Tool calls need a human',
+            policy_type=Policy.PolicyType.AGENT_CAPABILITY, config={'require_approval': ['tool_call']},
+        )
+        self.assertEqual(self.evaluate(host_tool_call()).json()['decision'], 'ask')
+
     def test_a_hard_deny_is_never_turned_into_ask(self):
         self.require_approval_for('Bash')
         Policy.objects.create(
