@@ -39,6 +39,19 @@ released only for those tenants.
 | `ALLOW_ENV_PROVIDER_KEYS` | `false` | **Deprecated**, to be removed: per-tenant stored keys replace it. Single-tenant only: use `PROVIDER_KEY_<NAME>` (or `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`) for a tenant with no stored key |
 
 The container refuses to start with no credential (variable or file) and no allowed env key.
+
+### Cluster heartbeat
+
+A gateway that Astrolift registered for a cluster reports on it to Zentinelle:
+a status judged from its own calls to Zentinelle, the image version, and
+running totals of requests, blocked requests and distinct agents. It sends one
+at start, then as often as Zentinelle asks (every 60 seconds today).
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ZENTINELLE_CLUSTER_ID` | - | The cluster this gateway speaks for and reports on. The heartbeat needs it and a credential |
+| `HEARTBEAT_INTERVAL_SECONDS` | `60` | Seconds between heartbeats until Zentinelle's answer names its own interval, which then wins. `0` turns them off; otherwise 10 to 3600 |
+
 Full reference: [gateway/README.md](https://github.com/calliopeai/zentinelle/blob/main/gateway/README.md).
 
 ## Tags

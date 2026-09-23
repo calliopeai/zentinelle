@@ -36,9 +36,8 @@ func main() {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGTERM, syscall.SIGINT)
 
+	logStartup(cfg)
 	go func() {
-		logStartup(cfg)
-
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logJSON("fatal", "server failed", map[string]interface{}{
 				"error": err.Error(),
@@ -46,6 +45,9 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+
+	heartbeatCtx, stopHeartbeat := context.WithCancel(context.Background())
+	heartbeatStopped := gateway.startHeartbeat(heartbeatCtx)
 
 	sig := <-shutdown
 	logJSON("info", "shutdown signal received", map[string]interface{}{
@@ -55,11 +57,16 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
+	stopHeartbeat()
 	if err := server.Shutdown(ctx); err != nil {
 		logJSON("error", "shutdown error", map[string]interface{}{
 			"error": err.Error(),
 		})
 		os.Exit(1)
+	}
+	select {
+	case <-heartbeatStopped:
+	case <-ctx.Done():
 	}
 
 	logJSON("info", "gateway stopped", nil)
@@ -77,6 +84,7 @@ func logStartup(cfg *Config) {
 	}
 
 	logJSON("info", "gateway starting", map[string]interface{}{
+		"version":                   version,
 		"port":                      cfg.Port,
 		"zentinelle":                cfg.ZentinelleURL,
 		"fail_open":                 cfg.FailOpen,

@@ -126,6 +126,47 @@ single-tenant by nature, since every tenant without a stored key would be
 served on the one account those keys belong to. Without the flag, env keys are
 ignored, with a warning.
 
+## Cluster Heartbeat
+
+A gateway that Astrolift registered for a cluster reports on it to Zentinelle,
+whose portal shows the cluster as `pending` until the first heartbeat and
+`stale` after five silent minutes. The heartbeat runs when
+`ZENTINELLE_CLUSTER_ID` is set, the gateway has a credential (the variable or
+the file), and `HEARTBEAT_INTERVAL_SECONDS` is not `0`.
+
+The gateway sends one at start, then as often as Zentinelle's answer asks
+(`next_heartbeat_seconds`, 60 today), each wait moved by up to a tenth either
+way so replicas started together do not report together:
+`POST /api/zentinelle/v1/astrolift/clusters/<ZENTINELLE_CLUSTER_ID>/heartbeat`
+with `X-Zentinelle-Gateway-Credential` and
+
+```json
+{"status": "healthy", "version": "1.4.2", "counters": {"requests": 1200, "blocked": 7, "agents_seen": 12}}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `status` | Judged from the gateway's own calls to Zentinelle since the last delivered heartbeat: `unhealthy` when every policy check got no answer (unreachable, timed out, 5xx) or every provider-key lookup failed, `degraded` when some did, `healthy` otherwise. An agent key Zentinelle refuses is that agent's problem and does not count |
+| `version` | The image's version, `dev` for a local build |
+| `requests` | Requests the gateway received, not counting `/health` and `/metrics` |
+| `blocked` | Requests refused on the policy check, fail-closed refusals included, or withheld by the output filter |
+| `agents_seen` | Distinct agent keys Zentinelle made a decision on, held as SHA-256 digests and never as keys. It stops growing at 100,000 |
+
+The counters are running totals since the gateway started. Zentinelle stores
+each heartbeat's counters as they are, so a heartbeat never resets them and a
+failed one loses nothing. Each replica reports for itself and Zentinelle keeps
+the latest, so with several replicas the counters are one replica's.
+
+A failed heartbeat is retried after 10 seconds, doubling to at most five
+minutes. A 401 or 403 makes the gateway read its credential file again, as the
+provider-key lookup does, and retry once if the file holds a new one. A 404
+means Zentinelle has no Astrolift cluster with that id for this credential: the
+compose `local` gateway, an operator's `gateway_credential register`, or a
+mistyped `ZENTINELLE_CLUSTER_ID`. The gateway logs that once and sends nothing
+more until its credential file changes, which is what Astrolift registering or
+adopting the gateway does. No redirect is followed, and no log line holds a
+credential or an agent key.
+
 ## Route Detection
 
 | Path | Provider | Upstream |
@@ -160,7 +201,8 @@ ignored, with a warning.
 | `ANTHROPIC_API_KEY` | - | Fallback Anthropic key (as above) |
 | `GOOGLE_API_KEY` | - | Fallback Google key (as above) |
 | `ZENTINELLE_TENANT_ID` | - | Tenant this gateway speaks for; sent as `X-Zentinelle-Tenant`. Omit for a single-tenant deployment |
-| `ZENTINELLE_CLUSTER_ID` | - | Cluster this gateway speaks for; sent as `X-Zentinelle-Cluster`. Omit for a single-cluster deployment |
+| `ZENTINELLE_CLUSTER_ID` | - | Cluster this gateway speaks for; sent as `X-Zentinelle-Cluster`, and the Astrolift cluster its heartbeat reports on. Omit for a single-cluster deployment |
+| `HEARTBEAT_INTERVAL_SECONDS` | `60` | Seconds between cluster heartbeats until Zentinelle's answer names its own interval, which then wins. `0` turns heartbeats off; otherwise 10 to 3600. See [Cluster Heartbeat](#cluster-heartbeat) |
 | `LOG_INTERACTIONS` | `false` | Send the prompt and completion to Zentinelle after each request, so they appear as reasoning traces. Set `false` where prompt text must not leave the cluster. An unparseable value is treated as `false` |
 | `FAIL_OPEN` | `false` | Policy/authentication failures deny access; `true` is rejected |
 | `POLICY_TIMEOUT_MS` | `2000` | Max time (ms) to wait for the policy check, and for the provider-key lookup |

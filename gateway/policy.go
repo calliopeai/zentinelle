@@ -26,7 +26,25 @@ type PolicyResult struct {
 	// connected through the SDK proxy bypassed output filtering that applied
 	// to everyone on the Django path (#218).
 	OutputFilterRequired bool `json:"output_filter_required"`
+
+	// outcome is how Zentinelle answered, which the cluster heartbeat reports
+	// on (#391). CheckPolicy sets it; the zero value is a check that got no
+	// usable answer, so every fallback is counted as one by construction.
+	outcome policyOutcome
 }
+
+type policyOutcome int
+
+const (
+	// policyUnanswered: Zentinelle could not be reached, timed out, failed
+	// (5xx), or sent something unreadable.
+	policyUnanswered policyOutcome = iota
+	// policyRefused: Zentinelle refused the agent's key or request (4xx). That
+	// is an answer, and says nothing against Zentinelle's health.
+	policyRefused
+	// policyDecided: Zentinelle knew the agent and allowed or denied the request.
+	policyDecided
+)
 
 // PolicyRequest is the body sent to Zentinelle's evaluate endpoint.
 type PolicyRequest struct {
@@ -85,7 +103,11 @@ func CheckPolicy(ctx context.Context, cfg *Config, agentKey string, provider str
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return policyFallback(cfg, fmt.Sprintf("policy check returned status %d", resp.StatusCode))
+		result := policyFallback(cfg, fmt.Sprintf("policy check returned status %d", resp.StatusCode))
+		if resp.StatusCode >= http.StatusBadRequest && resp.StatusCode < http.StatusInternalServerError {
+			result.outcome = policyRefused
+		}
+		return result
 	}
 
 	var result PolicyResult
@@ -93,6 +115,7 @@ func CheckPolicy(ctx context.Context, cfg *Config, agentKey string, provider str
 		return policyFallback(cfg, fmt.Sprintf("failed to parse policy response: %v", err))
 	}
 
+	result.outcome = policyDecided
 	return result
 }
 

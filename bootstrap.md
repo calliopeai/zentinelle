@@ -552,7 +552,10 @@ itself, and nobody copies a gateway credential by hand:
    Counters are running totals since the gateway started; unknown counters
    are dropped. The answer asks for the next heartbeat in 60 seconds. A cluster
    that hasn't reported yet is `pending`, and one silent for five minutes is
-   `stale`.
+   `stale`. The gateway sends it whenever `ZENTINELLE_CLUSTER_ID` and its
+   credential are set (`HEARTBEAT_INTERVAL_SECONDS=0` turns it off), judges
+   its status from its own calls to Zentinelle since the last beat, and after
+   a 404 sends nothing until its credential file changes (#391).
 
 The portal (admins only) lists the installs serving the admin's tenant with
 their clusters, and can revoke a cluster or disconnect an install. A change
@@ -571,8 +574,8 @@ rotation. Revoking an Astrolift gateway with `gateway_credential revoke`
 revokes its cluster too.
 
 Not yet: filtering usage, audit and policy reads by Astrolift project and team
-scopes, which needs those ids on events (#390), and the gateway's heartbeat
-sender (#391).
+scopes, which needs those ids on events (#390), and counters per gateway
+replica: every replica reports for its cluster and the latest heartbeat wins.
 
 ## Wiki
 

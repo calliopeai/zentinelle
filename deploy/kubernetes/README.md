@@ -35,7 +35,10 @@ Edit the ConfigMap in `gateway.yaml` first: `ZENTINELLE_URL`,
 `ZENTINELLE_TENANT_ID` and `ZENTINELLE_CLUSTER_ID`. The gateway pods wait for
 the Secret, then read the credential from `/var/run/zentinelle/gateway-credential`.
 Provider keys are stored per tenant in Zentinelle, so neither the gateway nor
-any agent holds one.
+any agent holds one. With `ZENTINELLE_CLUSTER_ID` set the gateway also sends a
+cluster heartbeat; a gateway registered by hand rather than by Astrolift logs
+once that Zentinelle has no Astrolift cluster for it and sends no more. Set
+`HEARTBEAT_INTERVAL_SECONDS: "0"` to skip it.
 
 ### One credential per gateway
 

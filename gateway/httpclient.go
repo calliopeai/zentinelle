@@ -63,6 +63,16 @@ var usageClient = &http.Client{
 	Timeout:   5 * time.Second,
 }
 
+// heartbeatClient reports on the cluster (#391), with a deadline from its
+// context. It follows no redirect: the credential header would go along to
+// wherever one pointed, and a redirected heartbeat is not one Zentinelle took.
+var heartbeatClient = &http.Client{
+	Transport: controlPlaneTransport,
+	CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
+
 // providerTransport carries the proxied traffic. Idle connections are pooled
 // per provider host; a deployment talks to a small number of them, so the
 // per-host figure is the one that matters and the total is generous.
