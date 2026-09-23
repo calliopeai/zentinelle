@@ -253,6 +253,24 @@ class AgentHostHoldTests(AgentHostTestCase):
         self.assertNotIn('approval', body)
         self.assertFalse(ApprovalRequest.objects.exists())
 
+    def test_a_corrupt_policy_is_never_turned_into_ask(self):
+        # bulk_create skips Policy.save validation, as a corrupt row would.
+        Policy.objects.bulk_create([Policy(
+            tenant_id=TENANT, name='Corrupt selector', policy_type=Policy.PolicyType.TOOL_PERMISSION,
+            config={'taxonomy_selectors': ['function:coding', 42]},
+        )])
+        body = self.evaluate(host_tool_call()).json()
+        self.assertEqual(body['decision'], 'deny')
+        self.assertIn('malformed taxonomy', body['reason'])
+        self.assertFalse(ApprovalRequest.objects.exists())
+
+    @patch('zentinelle.services.budgets.admit', return_value='Approval has already been used or expired')
+    def test_an_admission_refusal_is_never_turned_into_ask(self, _admit):
+        body = self.evaluate(host_tool_call()).json()
+        self.assertEqual(body['decision'], 'deny')
+        self.assertEqual(body['reason'], 'Approval has already been used or expired')
+        self.assertFalse(ApprovalRequest.objects.exists())
+
     def test_only_agent_hosts_are_held(self):
         self.require_approval_for('Bash')
         _, key = self.make_endpoint('claude-hook', AgentEndpoint.AgentType.CLAUDE_CODE)
