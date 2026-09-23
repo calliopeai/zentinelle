@@ -64,6 +64,7 @@ import {
   UploadIcon,
   ShieldCheckIcon,
   CoinsIcon,
+  ServerIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -155,6 +156,7 @@ const sections: NavSection[] = [
       { title: "General", url: "/settings", icon: <SettingsIcon /> },
       { title: "API Keys", url: "/settings/api-keys", icon: <KeyIcon /> },
       { title: "LLM Providers", url: "/settings/llm-providers", icon: <SparklesIcon /> },
+      { title: "Astrolift", url: "/settings/astrolift", icon: <ServerIcon /> },
       { title: "Network Policies", url: "/network", icon: <NetworkIcon /> },
       { title: "Data Retention", url: "/retention", icon: <ArchiveIcon /> },
       { title: "Legal Holds", url: "/retention/legal-holds", icon: <ShieldAlertIcon /> },
