@@ -42,7 +42,7 @@ Registering each session through `/register` was rejected. Sessions are short-li
 | `context.chat_id` | no | The chat within the session. |
 | `context.tool_call_id` | no | The pending tool call. Recommended: it binds an approval to this one call. |
 | `context.tool_name` | yes | The tool, as the harness names it. |
-| `context.tool_input` | no | The tool's arguments. Evaluated and bound into approvals; stored only when content capture allows. |
+| `context.tool_input` | no | The tool's arguments. Bound into approvals and stored only when content capture allows. No shipped policy type inspects them yet. |
 
 ```json
 {
@@ -154,7 +154,7 @@ Only the host whose call is held can read the request; any other key receives `4
   "status": "approved",
   "expires_at": "2026-09-22T20:05:00.412345Z",
   "approval_token": "IjRlMTIy...:1x9CZZ:r4sgb8...",
-  "approval_expires_at": "2026-09-22T20:07:12.004211Z"
+  "approval_expires_at": "2026-09-22T20:06:12.004211Z"
 }
 ```
 
@@ -229,7 +229,7 @@ Anything other than a `200` with `decision: allow` means the call does not run:
 | Response | Meaning |
 |---|---|
 | `400` | The request or the host context is invalid. |
-| `401` | The key is missing, unknown, suspended or revoked. |
+| `401` | The key is missing, unknown, expired, suspended or revoked. |
 | `403` | `agent_id` in the body does not match the key. |
 | `503` | Policy evaluation is unavailable. The body is a structured `deny` with `reason: "Policy evaluation unavailable"`. |
 | No response in time | Zentinelle is unreachable. The host denies. |
