@@ -9,13 +9,14 @@ import re
 from typing import Optional
 
 import strawberry
+from django.core.exceptions import ValidationError
 from graphql import GraphQLError
 from graphql_relay import from_global_id
 from strawberry.scalars import JSON
 
-from zentinelle.models import ContentRule
+from zentinelle.models import AgentEndpoint, ContentRule
 from zentinelle.models.actions import CONTENT_RULE_ACTION_FROM_ENFORCEMENT
-from zentinelle.schema.auth_helpers import user_has_org_access
+from zentinelle.schema.auth_helpers import get_request_tenant_id
 from zentinelle.services.actions import validate_rule_action
 
 try:
@@ -81,6 +82,32 @@ class UpdateContentRuleInput:
     notify_admins: Optional[bool] = None
     webhook_url: Optional[str] = None
     config: Optional[JSON] = None
+
+
+def _decode_id(global_or_raw_id):
+    """A relay global id's raw id, or the id as given (the portal sends raw UUIDs)."""
+    try:
+        _type, raw_id = from_global_id(global_or_raw_id)
+        if raw_id:
+            return raw_id
+    except Exception:
+        pass
+    return global_or_raw_id
+
+
+def _rule_for_caller(info, rule_id) -> ContentRule:
+    """The rule this caller may act on, or DoesNotExist.
+
+    Looked up inside the caller's tenant, so another tenant's rule is
+    indistinguishable from one that does not exist (#407).
+    """
+    tenant_id = get_request_tenant_id(info.context.request.user)
+    if not tenant_id:
+        raise ContentRule.DoesNotExist()
+    try:
+        return ContentRule.objects.get(pk=_decode_id(rule_id), tenant_id=str(tenant_id))
+    except (ValueError, ValidationError) as exc:
+        raise ContentRule.DoesNotExist() from exc
 
 
 def _action_fields(input, current: Optional[ContentRule] = None) -> dict:
@@ -156,24 +183,21 @@ def create_content_rule(info: strawberry.types.Info, input: CreateContentRuleInp
     if not user.is_authenticated:
         raise GraphQLError("Authentication required")
 
+    # The caller's tenant: rules are read by tenant_id, so a rule written
+    # anywhere else would govern someone else's agents (#407).
+    tenant_id = get_request_tenant_id(user)
+    if not tenant_id:
+        return CreateContentRulePayload(success=False, errors=["No tenant for this caller"])
+
     try:
-        from deployments.models import Deployment
-
-        from zentinelle.models import AgentEndpoint
-
-        scope_deployment = None
         scope_endpoint = None
-
-        if input.scope_deployment_id:
-            _, dep_pk = from_global_id(input.scope_deployment_id)
-            scope_deployment = Deployment.objects.get(pk=dep_pk)
-
         if input.scope_endpoint_id:
-            _, ep_pk = from_global_id(input.scope_endpoint_id)
-            scope_endpoint = AgentEndpoint.objects.get(pk=ep_pk)
+            scope_endpoint = AgentEndpoint.objects.get(pk=_decode_id(input.scope_endpoint_id),
+                                                       tenant_id=str(tenant_id))
 
         rule = ContentRule.objects.create(
-            organization=user.organization,
+            tenant_id=str(tenant_id),
+            user_id=str(getattr(user, 'id', '') or ''),
             name=input.name,
             description=input.description or '',
             rule_type=input.rule_type,
@@ -184,7 +208,7 @@ def create_content_rule(info: strawberry.types.Info, input: CreateContentRuleInp
             scan_output=input.scan_output if input.scan_output is not None else True,
             scan_context=input.scan_context if input.scan_context is not None else False,
             scope_type=input.scope_type or ContentRule.ScopeType.ORGANIZATION,
-            scope_deployment=scope_deployment,
+            scope_deployment_id_ext=_decode_id(input.scope_deployment_id) if input.scope_deployment_id else '',
             scope_endpoint=scope_endpoint,
             priority=input.priority or 0,
             enabled=input.enabled if input.enabled is not None else True,
@@ -194,8 +218,11 @@ def create_content_rule(info: strawberry.types.Info, input: CreateContentRuleInp
             config=input.config or {},
         )
         return CreateContentRulePayload(success=True, rule_id=str(rule.id))
-    except Exception as e:
-        return CreateContentRulePayload(success=False, errors=[str(e)])
+    except (AgentEndpoint.DoesNotExist, ValueError, ValidationError) as exc:
+        message = 'Endpoint not found' if isinstance(exc, AgentEndpoint.DoesNotExist) else str(exc)
+        if isinstance(exc, ValidationError):
+            message = '; '.join(exc.messages)
+        return CreateContentRulePayload(success=False, errors=[message])
 
 
 @require_feature_for_mutation(Features.MONITORING_CUSTOM_RULES)
@@ -205,13 +232,9 @@ def update_content_rule(info: strawberry.types.Info, input: UpdateContentRuleInp
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(input.id)
-        rule = ContentRule.objects.get(pk=pk)
-    except (ValueError, ContentRule.DoesNotExist):
+        rule = _rule_for_caller(info, input.id)
+    except ContentRule.DoesNotExist:
         return UpdateContentRulePayload(success=False, errors=["Rule not found"])
-
-    if not user_has_org_access(user, rule.tenant_id):
-        raise GraphQLError("Access denied")
 
     update_fields = ['updated_at']
 
@@ -279,13 +302,9 @@ def delete_content_rule(info: strawberry.types.Info, id: strawberry.ID) -> Delet
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(id)
-        rule = ContentRule.objects.get(pk=pk)
-    except (ValueError, ContentRule.DoesNotExist):
+        rule = _rule_for_caller(info, id)
+    except ContentRule.DoesNotExist:
         return DeleteContentRulePayload(success=False, errors=["Rule not found"])
-
-    if not user_has_org_access(user, rule.tenant_id):
-        raise GraphQLError("Access denied")
 
     rule.delete()
     return DeleteContentRulePayload(success=True)
@@ -298,13 +317,9 @@ def toggle_content_rule_enabled(info: strawberry.types.Info, id: strawberry.ID, 
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(id)
-        rule = ContentRule.objects.get(pk=pk)
-    except (ValueError, ContentRule.DoesNotExist):
+        rule = _rule_for_caller(info, id)
+    except ContentRule.DoesNotExist:
         raise GraphQLError("Rule not found")
-
-    if not user_has_org_access(user, rule.tenant_id):
-        raise GraphQLError("Access denied")
 
     rule.enabled = enabled
     rule.save(update_fields=['enabled', 'updated_at'])
@@ -319,16 +334,13 @@ def duplicate_content_rule(info: strawberry.types.Info, id: strawberry.ID, new_n
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(id)
-        original_rule = ContentRule.objects.get(pk=pk)
-    except (ValueError, ContentRule.DoesNotExist):
+        original_rule = _rule_for_caller(info, id)
+    except ContentRule.DoesNotExist:
         return DuplicateContentRulePayload(success=False, errors=["Rule not found"])
 
-    if not user_has_org_access(user, original_rule.tenant_id):
-        raise GraphQLError("Access denied")
-
     new_rule = ContentRule.objects.create(
-        organization=original_rule.organization,
+        tenant_id=original_rule.tenant_id,
+        user_id=str(getattr(user, 'id', '') or ''),
         name=new_name or f"{original_rule.name} (Copy)",
         description=original_rule.description,
         rule_type=original_rule.rule_type,
@@ -342,7 +354,7 @@ def duplicate_content_rule(info: strawberry.types.Info, id: strawberry.ID, new_n
         scan_output=original_rule.scan_output,
         scan_context=original_rule.scan_context,
         scope_type=original_rule.scope_type,
-        scope_deployment=original_rule.scope_deployment,
+        scope_deployment_id_ext=original_rule.scope_deployment_id_ext,
         scope_endpoint=original_rule.scope_endpoint,
         priority=original_rule.priority,
         enabled=False,
@@ -362,13 +374,9 @@ def test_content_rule(info: strawberry.types.Info, id: strawberry.ID, test_conte
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(id)
-        rule = ContentRule.objects.get(pk=pk)
-    except (ValueError, ContentRule.DoesNotExist):
+        rule = _rule_for_caller(info, id)
+    except ContentRule.DoesNotExist:
         return TestContentRulePayload(success=False, errors=["Rule not found"])
-
-    if not user_has_org_access(user, rule.tenant_id):
-        raise GraphQLError("Access denied")
 
     matches = []
     matched = False
