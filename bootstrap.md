@@ -472,7 +472,11 @@ the rest as `log`, with `capped_from` saying what it would have done.
 turns them on and off.
 
 Steer templates take `{rule}`, `{reason}`, `{action}`, `{tool}` and `{agent}`,
-and nothing else.
+and nothing else. `{tool}` and `{reason}` carry what the caller sent into a
+message the harness trusts, so every value goes in as one quoted line:
+control characters, line breaks and format characters (bidi overrides, zero
+widths) become spaces, quotes inside it are escaped, and it is cut at 200
+characters.
 
 **Existing rules.** Migration 0062 gave every policy `block` at `tool_call`,
 which is what an enforced failure did before. Audit policies keep `block` too:

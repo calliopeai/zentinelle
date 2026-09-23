@@ -15,6 +15,8 @@ A policy or content rule names an action from one ordered set (see
    honour an action (steering and interruption depend on the harness) takes
    the first entry it can. Every chain ends with one any caller can honour.
 """
+import json
+import unicodedata
 from dataclasses import dataclass
 from string import Formatter
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -29,7 +31,12 @@ MAX_REPEAT_COUNT = 10000
 MAX_WINDOW_SECONDS = 7 * 24 * 3600
 MAX_STEER_MESSAGE = 2000
 MAX_RENDERED_STEER = 4000
+MAX_STEER_VALUE = 200
 STEER_FIELDS = ('rule', 'reason', 'action', 'tool', 'agent')
+# Characters that break a line or hide text: controls (newlines included),
+# format characters such as bidi overrides, surrogates, and the Unicode line
+# and paragraph separators.
+UNPRINTABLE_CATEGORIES = frozenset({'Cc', 'Cf', 'Cs', 'Zl', 'Zp'})
 
 # What a target has to support to honour an action. Anything absent here
 # every caller can do: log and alert happen in Zentinelle, a warning travels
@@ -254,12 +261,25 @@ def denies(decision: Decision) -> bool:
     return decision.action in (Action.BLOCK, Action.REQUIRE_APPROVAL, Action.REDACT)
 
 
+def _steer_value(value: Any) -> str:
+    """One substituted value: a single quoted line of bounded length.
+
+    The values carry text the caller controls (a tool name, an evaluator's
+    reason that quotes it) into a message the harness trusts, so none may
+    start a new line, hide text or run on. Quoting with escapes keeps the
+    value from closing its own quotes.
+    """
+    text = ''.join(' ' if unicodedata.category(char) in UNPRINTABLE_CATEGORIES else char
+                   for char in str(value or ''))
+    return json.dumps(' '.join(text.split())[:MAX_STEER_VALUE], ensure_ascii=False)
+
+
 def render_steer(template: str, values: Dict[str, Any]) -> str:
     parts = []
     for literal, name, _spec, _conversion in Formatter().parse(template):
         parts.append(literal)
         if name is not None:
-            parts.append(str(values.get(name) or ''))
+            parts.append(_steer_value(values.get(name)))
     return ''.join(parts)[:MAX_RENDERED_STEER]
 
 
