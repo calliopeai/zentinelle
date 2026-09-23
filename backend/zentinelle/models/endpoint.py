@@ -98,6 +98,9 @@ class AgentEndpoint(Tracking):
         max_length=12,
         help_text='First 8 chars of API key for identification'
     )
+    # Null means the key never expires. Short-lived keys are minted per task
+    # by platforms such as Astrolift and refused once past this time.
+    api_key_expires_at = models.DateTimeField(null=True, blank=True)
     registered_at = models.DateTimeField(auto_now_add=True)
     last_heartbeat = models.DateTimeField(null=True, blank=True)
 
@@ -175,6 +178,9 @@ class AgentEndpoint(Tracking):
         Uses constant-time comparison to prevent timing attacks.
         """
         return _verify_api_key(api_key, key_hash, allow_legacy_sha256=True)
+
+    def api_key_expired(self) -> bool:
+        return self.api_key_expires_at is not None and self.api_key_expires_at <= timezone.now()
 
     def rotate_api_key(self) -> str:
         """

@@ -1,6 +1,9 @@
 """Token-authenticated operator API for automation and deployment tooling."""
 
+from datetime import timedelta
+
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
@@ -8,6 +11,20 @@ from rest_framework.views import APIView
 
 from zentinelle.api.auth import ZentinellePlatformKeyAuthentication
 from zentinelle.models import AgentEndpoint, Policy
+
+MAX_AGENT_KEY_TTL_SECONDS = 30 * 24 * 3600
+
+
+def _ttl_seconds(value):
+    """Parse ``ttl_seconds``: None when absent, else an int in range, else raise."""
+    if value is None or value == '':
+        return None
+    if isinstance(value, bool):
+        raise ValueError
+    ttl = int(value)
+    if not 1 <= ttl <= MAX_AGENT_KEY_TTL_SECONDS:
+        raise ValueError
+    return ttl
 
 
 class IsPlatformOperator(BasePermission):
@@ -48,6 +65,14 @@ class OperatorAgentView(APIView):
                 {'error': 'agent_id, name, and a valid agent_type are required'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        try:
+            ttl = _ttl_seconds(data.get('ttl_seconds'))
+        except (TypeError, ValueError):
+            return Response(
+                {'error': f'ttl_seconds must be an integer from 1 to {MAX_AGENT_KEY_TTL_SECONDS}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        expires_at = timezone.now() + timedelta(seconds=ttl) if ttl else None
         if AgentEndpoint.objects.filter(
                 tenant_id=request.user.tenant_id, agent_id=agent_id).exists():
             return Response({'error': 'agent_id already exists'}, status=status.HTTP_409_CONFLICT)
@@ -61,6 +86,7 @@ class OperatorAgentView(APIView):
                 agent_type=agent_type,
                 api_key_hash=key_hash,
                 api_key_prefix=key_prefix,
+                api_key_expires_at=expires_at,
                 capabilities=data.get('capabilities', []),
                 metadata=data.get('metadata', {}),
                 config=data.get('config', {}),
@@ -73,10 +99,23 @@ class OperatorAgentView(APIView):
         except (TypeError, ValueError, IntegrityError):
             return Response({'error': 'invalid agent payload'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(
-            {'agent_id': endpoint.agent_id, 'id': str(
-                endpoint.id), 'api_key': api_key},
+            {
+                'agent_id': endpoint.agent_id,
+                'id': str(endpoint.id),
+                'api_key': api_key,
+                'expires_at': expires_at.isoformat() if expires_at else None,
+            },
             status=status.HTTP_201_CREATED,
         )
+
+    def delete(self, request, agent_id=None):
+        """Revoke an agent: its key is refused from the next request on."""
+        updated = AgentEndpoint.objects.filter(
+            tenant_id=request.user.tenant_id, agent_id=agent_id,
+        ).update(status=AgentEndpoint.Status.TERMINATED, updated_at=timezone.now())
+        if not updated:
+            return Response({'error': 'agent not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class OperatorPolicyView(APIView):
