@@ -7,6 +7,8 @@ engine focused on evaluation rather than side-effects.
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List
 
+from django.utils import timezone
+
 if TYPE_CHECKING:
     from zentinelle.services.policy_engine import EvaluationResult
 
@@ -71,6 +73,7 @@ def _maybe_create_incident(
                 status=Incident.Status.OPEN,
                 source=Incident.Source.POLICY_VIOLATION,
                 source_ref=policy_id or '',
+                occurred_at=timezone.now(),
             )
             logger.info(
                 "Auto-created incident %s for policy violation: %s (tenant=%s)",
