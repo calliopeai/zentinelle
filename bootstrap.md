@@ -462,8 +462,20 @@ can release (an evaluator's own approval list) starts no higher than
 - Severity steps compare a policy match with the evaluation's risk score
   mapped to severity (the mapping incidents use), and a content-rule match
   with the severity of its detections.
+- For a policy, severity escalation is advisory. The risk score reads flags
+  the caller declares in `context` (`data_contains_pii`, `is_pii_access`,
+  `data_type`, `datasource`), so a caller that leaves them out keeps the
+  score low. Anything that must hold belongs in the rule's own action or in
+  repeat steps, which Zentinelle counts itself.
 - Steps only go up. Saving refuses a step that is not stronger than the one
   before it, and a rule that can steer but has no message.
+
+A rule that cannot be evaluated fails closed: a stored selector that cannot
+be read, or an evaluator that raises. Neither says whether the rule matched,
+so the rule's action does not apply. Under enforce the call is refused
+(`block` at `tool_call`) whatever the action, as every failure was before
+#396. Under audit it is recorded as `log`. It is never escalated or released
+by an approval.
 
 A policy's mode (`enforcement`) is the ceiling. `enforce` allows every action.
 `audit` performs only the `log` and `alert` steps the rule reached and records

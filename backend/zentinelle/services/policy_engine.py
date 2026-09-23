@@ -28,6 +28,9 @@ class PolicyResult:
     passed: bool
     message: Optional[str] = None
     warnings: List[str] = field(default_factory=list)
+    # The evaluator raised, so nothing says whether the rule matched. The
+    # rule fails closed instead of taking its action, which may allow.
+    error: bool = False
 
 
 @dataclass
@@ -381,7 +384,8 @@ class PolicyEngine:
                 result = PolicyResult(
                     passed=False,
                     message=f"Policy evaluation error: {
-                        policy.name}")
+                        policy.name}",
+                    error=True)
 
             entry = {
                 'id': str(policy.id),
@@ -422,7 +426,12 @@ class PolicyEngine:
                 continue
 
             if not result.passed:
-                decision = self._decide(policy, result, endpoint, action, context, severity, dry_run)
+                if getattr(result, 'error', False):
+                    # Refused under enforce whatever the policy's action, as
+                    # before #396; recorded under audit; never escalated.
+                    decision = self._fail_closed(policy)
+                else:
+                    decision = self._decide(policy, result, endpoint, action, context, severity, dry_run)
                 if self._released_by_approval(decision, result, policy, action, user_id, context):
                     entry['result'] = 'pass'
                     entry['approved'] = True

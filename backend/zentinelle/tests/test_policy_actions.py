@@ -4,6 +4,8 @@ What a rule does on a match: its action, escalation by repeats and severity,
 the mode ceiling, and the fallback chain a target picks from. Existing rules
 deciding as before is proven separately in test_action_equivalence.py.
 """
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import IntegrityError, connection, transaction
@@ -393,6 +395,26 @@ class EvaluateActionTests(TestCase):
         }, format='json').json()
         self.assertEqual((body['decision'], body['enforcement']['action']), ('ask', 'require_approval'))
         self.assertIn('approval', body)
+
+    @patch('zentinelle.services.policy_engine.PolicyEngine._get_evaluator')
+    def test_an_evaluator_that_raises_refuses_the_call_whatever_the_action(self, get_evaluator):
+        # The action applies to a match, and a crash says nothing about one:
+        # it must not log, alert, warn or steer the call through, or hold it
+        # for an approval that could then release it.
+        get_evaluator.return_value.evaluate.side_effect = RuntimeError('evaluator crashed')
+        policy = self.deny_rm(steer_message='Stop.')
+        engine = PolicyEngine()
+        for action in ('log', 'alert', 'warn', 'steer', 'require_approval'):
+            with self.subTest(action=action):
+                policy.action = action
+                policy.save()
+                result = engine.evaluate(self.endpoint, 'tool_call', 'user-1', {'tool_name': 'rm'})
+                self.assertEqual((result.allowed, result.approval_required, result.reason),
+                                 (False, False, 'Policy evaluation error: No rm'))
+                self.assertEqual((result.enforcement['action'], result.enforcement['block_level']),
+                                 ('block', 'tool_call'))
+                preview = engine.evaluate(self.endpoint, 'tool_call', 'user-1', {'tool_name': 'rm'}, dry_run=True)
+                self.assertEqual(preview.warnings, ['[Dry-run] Would be denied: No rm: Policy evaluation error: No rm'])
 
     def test_capabilities_that_are_not_booleans_are_refused(self):
         self.deny_rm()
