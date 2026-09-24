@@ -91,11 +91,15 @@ class AgentControlView(APIView):
                 return JsonResponse({'error': 'Agent not found'}, status=404)
             if action == 'suspend':
                 endpoint.status = AgentEndpoint.Status.SUSPENDED
-                endpoint.save(update_fields=['status', 'updated_at'])
+                # An administrator's stop: the minting Astrolift install may
+                # not undo it by minting again (#400).
+                endpoint.astrolift_revoked_at = None
+                endpoint.save(update_fields=['status', 'astrolift_revoked_at', 'updated_at'])
             elif action in ('revoke', 'emergency_stop'):
                 endpoint.status = AgentEndpoint.Status.TERMINATED
                 endpoint.api_key_hash = ''
-                endpoint.save(update_fields=['status', 'api_key_hash', 'updated_at'])
+                endpoint.astrolift_revoked_at = None
+                endpoint.save(update_fields=['status', 'api_key_hash', 'astrolift_revoked_at', 'updated_at'])
             elif action == 'contain_tools':
                 metadata = {**(endpoint.metadata or {}), 'containment': {'denied_tools': sorted(set(containment_tools))}}
                 endpoint.metadata = metadata

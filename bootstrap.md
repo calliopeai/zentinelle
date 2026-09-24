@@ -719,6 +719,34 @@ itself, and nobody copies a gateway credential by hand:
    credential are set (`HEARTBEAT_INTERVAL_SECONDS=0` turns it off), judges
    its status from its own calls to Zentinelle since the last beat, and after
    a 404 sends nothing until its credential file changes (#391).
+7. Each agent task and box gets its own agent key, so its pod carries no
+   provider key (#400, calliopeai/astrolift-app#1851):
+   `POST .../astrolift/agents` `{"agent_id", "ttl_seconds", "tenant_id"?,
+   "name"?, "deployment_id"?}` answers with the key once, with `expires_at`
+   and `lifetime_ends_at`. `ttl_seconds` is required (1 to 2,592,000), and
+   the key is refused after it. No key works longer than
+   `ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS` (default 7 days) after its mint:
+   a longer `ttl_seconds` or renewal stops at `lifetime_ends_at`, and a run
+   that needs longer mints a fresh key. `tenant_id` defaults to the install's
+   only tenant and must be one of the install's. Astrolift sends
+   `deployment_id` = the agent's slug, so a deployment-scoped policy covers
+   every run of that agent. Minting again for an agent the install minted
+   replaces its key and starts a new lifetime (a retried spawn, a restarted
+   box). It brings back only an agent the install's own revoke stopped: one
+   stopped by anyone else (the portal's suspend or status change, the kill
+   switch, the operator API, the agent's own deregister) stays stopped, and
+   the mint gets `409 agent_suspended`. An `agent_id` the install did not
+   mint gets `409 agent_id_taken`, also when another install creates it at
+   the same moment. `POST .../astrolift/agents/<agent_id>/renew`
+   `{"ttl_seconds"}` moves a live, unexpired key's expiry (a box still in
+   use, a task whose deadline grew while it waited for a human); an expired
+   key gets `409 agent_key_expired`, a revoked one 404, a stopped one
+   `409 agent_suspended`. `DELETE .../astrolift/agents/<agent_id>` terminates
+   a live agent, and its key is refused from the next request; an agent that
+   is already stopped is left as it is. Only the install that minted an agent
+   can renew or revoke it, and disconnecting the install terminates all of
+   them. Mint and revoke are audited in the key's tenant with its prefix;
+   renewals are not, for the reason heartbeats are not.
 
 The portal (admins only) lists the installs serving the admin's tenant with
 their clusters, and can revoke a cluster or disconnect an install. A change

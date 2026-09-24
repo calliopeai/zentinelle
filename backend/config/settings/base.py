@@ -348,6 +348,13 @@ CELERY_BEAT_SCHEDULE = {
 
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")
 
+# The longest an agent key that an Astrolift install mints for one of its
+# tasks or boxes keeps working after its mint, however often it is renewed
+# (#400). A run that needs longer gets a fresh key.
+ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS = int(
+    os.environ.get("ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS", str(7 * 24 * 3600))
+)
+
 # =============================================================================
 # REST Framework
 # =============================================================================

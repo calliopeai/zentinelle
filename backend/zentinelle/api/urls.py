@@ -19,6 +19,9 @@ Agent-facing REST endpoints:
 - DELETE /api/zentinelle/v1/astrolift/clusters/{cluster_id}
 - DELETE /api/zentinelle/v1/astrolift/install
 - POST /api/zentinelle/v1/astrolift/clusters/{cluster_id}/heartbeat   (gateway credential)
+- POST /api/zentinelle/v1/astrolift/agents      (install credential: a task's agent key)
+- POST /api/zentinelle/v1/astrolift/agents/{agent_id}/renew
+- DELETE /api/zentinelle/v1/astrolift/agents/{agent_id}
 - GET  /api/zentinelle/v1/approvals/requests/{request_id}   (poll a held action)
 - GET  /api/zentinelle/v1/effective-policy/{user_id}
 - GET  /api/zentinelle/v1/prompts
@@ -98,6 +101,7 @@ from zentinelle.api.views.assistant_models import (AssistantModelsBulkView,
                                                    AssistantModelsToggleView)
 from zentinelle.api.views.assistant_providers import AssistantProvidersView
 from zentinelle.api.views.astrolift_clusters import (
+    AstroliftAgentRenewView, AstroliftAgentsView, AstroliftAgentView,
     AstroliftClusterAdminView, AstroliftClusterHeartbeatView,
     AstroliftClusterRotateView, AstroliftClustersView, AstroliftClusterView,
     AstroliftConnectView, AstroliftEnrollmentCodeView,
@@ -200,6 +204,11 @@ urlpatterns = [
          name='astrolift-cluster-rotate'),
     path('astrolift/clusters/<str:cluster_id>/heartbeat', AstroliftClusterHeartbeatView.as_view(),
          name='astrolift-cluster-heartbeat'),
+    # ...and mint a short-lived agent key per task or box (#400).
+    path('astrolift/agents', AstroliftAgentsView.as_view(), name='astrolift-agents'),
+    path('astrolift/agents/<slug:agent_id>', AstroliftAgentView.as_view(), name='astrolift-agent'),
+    path('astrolift/agents/<slug:agent_id>/renew', AstroliftAgentRenewView.as_view(),
+         name='astrolift-agent-renew'),
 
     # Policy endpoints
     path('effective-policy', EffectivePolicyView.as_view(), name='effective-policy'),

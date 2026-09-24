@@ -82,7 +82,9 @@ class DeregisterView(View):
         # 4. Mark endpoint as terminated.
         endpoint.status = AgentEndpoint.Status.TERMINATED
         endpoint.health = AgentEndpoint.Health.UNKNOWN
-        endpoint.save(update_fields=['status', 'health', 'updated_at'])
+        # The agent stopped itself; its Astrolift install may not restart it (#400).
+        endpoint.astrolift_revoked_at = None
+        endpoint.save(update_fields=['status', 'health', 'astrolift_revoked_at', 'updated_at'])
 
         logger.info("Deregistered agent: %s (tenant: %s)", endpoint.agent_id, endpoint.tenant_id)
 

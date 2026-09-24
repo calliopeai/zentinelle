@@ -487,6 +487,52 @@ class EventsViewTest(ZentinelleAPITestMixin, TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.json()['event_ids'], ['producer-event-2'])
 
+    def _gateway_usage_report(self, **fields):
+        """The body the Go gateway posts after each proxied request (gateway/usage.go)."""
+        from django.utils import timezone
+        return {
+            'agent_id': '',
+            'events': [{
+                'type': 'llm:usage',
+                'timestamp': timezone.now().isoformat(),
+                'category': 'telemetry',
+                'payload': {'provider': 'anthropic', 'model': 'claude-sonnet-4-6', 'prompt_tokens': 12,
+                            'completion_tokens': 3, 'total_tokens': 15, 'latency_ms': 840,
+                            'request_id': 'gw-req-1', 'source': 'gateway'},
+            }],
+            **fields,
+        }
+
+    def test_a_gateway_usage_report_is_recorded_for_the_keys_agent(self):
+        """#406: the gateway sends no agent_id; the key says whose usage it is."""
+        self.authenticate()
+
+        response = self.client.post(reverse('zentinelle:events'), data=self._gateway_usage_report(), format='json')
+
+        self.assertEqual(response.status_code, 202, response.content)
+        [event] = Event.objects.filter(endpoint=self.endpoint, event_type='llm:usage')
+        self.assertEqual(event.tenant_id, self.endpoint.tenant_id)
+        self.assertEqual(event.payload['total_tokens'], 15)
+
+    def test_an_omitted_agent_id_is_the_keys_agent(self):
+        self.authenticate()
+        body = self._gateway_usage_report()
+        del body['agent_id']
+
+        response = self.client.post(reverse('zentinelle:events'), data=body, format='json')
+
+        self.assertEqual(response.status_code, 202, response.content)
+        self.assertEqual(Event.objects.filter(endpoint=self.endpoint).count(), 1)
+
+    def test_a_named_agent_must_still_be_the_keys_own(self):
+        self.authenticate()
+
+        response = self.client.post(
+            reverse('zentinelle:events'), data=self._gateway_usage_report(agent_id='another-agent'), format='json')
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Event.objects.filter(event_type='llm:usage').exists())
+
 
 class APIKeyAuthenticationTest(ZentinelleAPITestMixin, TestCase):
     """Tests for API key authentication."""
