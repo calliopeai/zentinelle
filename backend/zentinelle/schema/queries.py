@@ -734,9 +734,10 @@ class Query:
         }
 
         # Enforcement level descriptions
+        # The mode is the ceiling on the policy's action (#396).
         enforcement_descriptions = {
-            'enforce': 'Block actions that violate this policy',
-            'audit': 'Allow but log violations for review',
+            'enforce': "Apply the policy's action when it matches",
+            'audit': 'Record matches without disrupting the agent; alert steps still alert',
             'disabled': 'Policy is inactive',
         }
 
@@ -1977,6 +1978,7 @@ class Query:
         severity: Optional[str] = None,
         enforcement: Optional[str] = None,
         enabled: Optional[bool] = None,
+        action: Optional[str] = None,
     ) -> list[ContentRuleType]:
         if not info.context.request.user.is_authenticated:
             return ContentRule.objects.none()
@@ -1991,7 +1993,12 @@ class Query:
         if severity:
             qs = qs.filter(severity=severity)
         if enforcement:
-            qs = qs.filter(enforcement=enforcement)
+            # The legacy value each action reads back as (#396).
+            from zentinelle.models.actions import LEGACY_ENFORCEMENT_FOR_ACTION
+            qs = qs.filter(action__in=[value for value, legacy in LEGACY_ENFORCEMENT_FOR_ACTION.items()
+                                       if legacy == enforcement])
+        if action:
+            qs = qs.filter(action=action)
         if enabled is not None:
             qs = qs.filter(enabled=enabled)
 

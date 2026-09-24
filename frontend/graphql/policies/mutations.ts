@@ -9,6 +9,8 @@ export const CREATE_POLICY = gql`
         policyType
         scopeType
         enforcement
+        action
+        blockLevel
         enabled
         createdAt
       }
@@ -28,6 +30,10 @@ export const UPDATE_POLICY = gql`
         config
         priority
         enforcement
+        action
+        blockLevel
+        steerMessage
+        escalation
         enabled
         updatedAt
       }

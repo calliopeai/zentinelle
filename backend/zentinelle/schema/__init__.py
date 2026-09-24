@@ -212,20 +212,20 @@ class Mutation:
         return m.create_content_rule(info, input)
 
     @strawberry.mutation
-    def update_content_rule(self, info: strawberry.types.Info, id: strawberry.ID, input: m.UpdateContentRuleInput) -> m.UpdateContentRulePayload:
-        return m.update_content_rule(info, id, input)
+    def update_content_rule(self, info: strawberry.types.Info, input: m.UpdateContentRuleInput) -> m.UpdateContentRulePayload:
+        return m.update_content_rule(info, input)
 
     @strawberry.mutation
     def delete_content_rule(self, info: strawberry.types.Info, id: strawberry.ID) -> m.DeleteContentRulePayload:
         return m.delete_content_rule(info, id)
 
     @strawberry.mutation
-    def toggle_content_rule_enabled(self, info: strawberry.types.Info, id: strawberry.ID) -> m.ToggleContentRuleEnabledPayload:
-        return m.toggle_content_rule_enabled(info, id)
+    def toggle_content_rule_enabled(self, info: strawberry.types.Info, id: strawberry.ID, enabled: bool) -> m.ToggleContentRuleEnabledPayload:
+        return m.toggle_content_rule_enabled(info, id, enabled)
 
     @strawberry.mutation
-    def duplicate_content_rule(self, info: strawberry.types.Info, id: strawberry.ID) -> m.DuplicateContentRulePayload:
-        return m.duplicate_content_rule(info, id)
+    def duplicate_content_rule(self, info: strawberry.types.Info, id: strawberry.ID, new_name: Optional[str] = None) -> m.DuplicateContentRulePayload:
+        return m.duplicate_content_rule(info, id, new_name)
 
     @strawberry.mutation
     def test_content_rule(self, info: strawberry.types.Info, id: strawberry.ID, content: str) -> m.TestContentRulePayload:
