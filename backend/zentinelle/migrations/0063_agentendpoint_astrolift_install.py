@@ -5,7 +5,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("zentinelle", "0061_astrolift_install_cluster"),
+        ("zentinelle", "0062_policy_actions"),
     ]
 
     operations = [

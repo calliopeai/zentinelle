@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("zentinelle", "0062_agentendpoint_astrolift_install"),
+        ("zentinelle", "0063_agentendpoint_astrolift_install"),
     ]
 
     operations = [
