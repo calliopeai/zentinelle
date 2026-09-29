@@ -51,6 +51,8 @@ func TestOutputCheckUsesCanonicalContentField(t *testing.T) {
 }
 
 func TestFailOpenConfigurationIsRejected(t *testing.T) {
+	// A valid key source, so the only thing left to reject is FAIL_OPEN.
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL", testGatewayCredential)
 	t.Setenv("FAIL_OPEN", "true")
 	if _, err := LoadConfig(); err == nil {
 		t.Fatal("unsafe authentication fallback accepted")

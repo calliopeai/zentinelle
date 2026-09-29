@@ -4,6 +4,10 @@ DRF Serializers for Zentinelle API.
 from rest_framework import serializers
 
 from zentinelle.models import AgentEndpoint, AuditLog, Event, Policy
+from zentinelle.services.astrolift_clusters import (CLUSTER_ID_PATTERN,
+                                                    DEFAULT_OVERLAP,
+                                                    MAX_AGENT_KEY_TTL,
+                                                    MAX_OVERLAP)
 
 # =============================================================================
 # Agent-Facing Serializers (used by SDK)
@@ -61,6 +65,118 @@ class EvaluateRequestSerializer(serializers.Serializer):
     user_id = serializers.CharField(max_length=255, required=False, allow_blank=True)
     authority = serializers.DictField(required=False, default=dict)
     context = serializers.DictField(default=dict)
+    # What the caller can honour, e.g. {"supports_steer": true} (#396). Kept
+    # out of `context` so it never changes the approval digest.
+    target_capabilities = serializers.JSONField(required=False)
+
+    def validate_target_capabilities(self, value):
+        from zentinelle.services.actions import normalize_capabilities
+        try:
+            return normalize_capabilities(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+
+
+class HostToolCallContextSerializer(serializers.Serializer):
+    """What an agent host's tool_call context must say (#377).
+
+    One host key serves many sessions, so each call names its harness, session
+    and tool. Validation only: the context is evaluated as sent.
+    """
+    harness = serializers.RegexField(r'^[a-z0-9][a-z0-9_.-]*$', max_length=50)
+    session_id = serializers.CharField(max_length=255)
+    chat_id = serializers.CharField(max_length=255, required=False)
+    tool_call_id = serializers.CharField(max_length=255, required=False)
+    tool_name = serializers.CharField(max_length=255)
+    tool_input = serializers.JSONField(required=False)
+
+
+class GatewayProviderKeyRequestSerializer(serializers.Serializer):
+    """Which provider's key the gateway wants for the agent's tenant (#380).
+
+    Spelled as LLMProviderKey stores it: lowercase, the way the settings page
+    saves it and the gateway's routing table names it.
+    """
+    provider = serializers.RegexField(r'^[a-z0-9][a-z0-9_.-]*$', max_length=50)
+
+
+class AstroliftInstallInfoSerializer(serializers.Serializer):
+    """How an Astrolift install describes itself when it connects (#389)."""
+    base_url = serializers.URLField(max_length=500)
+    name = serializers.CharField(max_length=255)
+
+    def validate_base_url(self, value):
+        if not value.lower().startswith(('https://', 'http://')):
+            raise serializers.ValidationError('base_url must be an http or https URL')
+        return value.rstrip('/')
+
+
+class AstroliftConnectSerializer(serializers.Serializer):
+    """The one-time enrollment code, and the install it connects."""
+    code = serializers.CharField(max_length=128)
+    install = AstroliftInstallInfoSerializer()
+
+
+class AstroliftClusterSerializer(serializers.Serializer):
+    """A cluster an install registers. tenant_ids may only narrow the install's."""
+    cluster_id = serializers.RegexField(CLUSTER_ID_PATTERN)
+    provider = serializers.RegexField(r'^[a-z0-9][a-z0-9_.-]*$', max_length=50, required=False, allow_blank=True,
+                                      default='')
+    region = serializers.RegexField(r'^[A-Za-z0-9][A-Za-z0-9_.-]*$', max_length=100, required=False,
+                                    allow_blank=True, default='')
+    tenant_ids = serializers.ListField(
+        child=serializers.CharField(max_length=255), required=False, min_length=1, max_length=100)
+
+
+class AstroliftRotateSerializer(serializers.Serializer):
+    """How long the credentials a rotation replaces keep working. 0 ends them now."""
+    overlap_seconds = serializers.IntegerField(
+        min_value=0, max_value=int(MAX_OVERLAP.total_seconds()), default=int(DEFAULT_OVERLAP.total_seconds()))
+
+
+class AstroliftAgentKeySerializer(serializers.Serializer):
+    """An agent key an install mints for one of its tasks or boxes (#400).
+
+    No tenant_id means the install's only tenant.
+    """
+    agent_id = serializers.SlugField(max_length=100)
+    ttl_seconds = serializers.IntegerField(min_value=1, max_value=int(MAX_AGENT_KEY_TTL.total_seconds()))
+    tenant_id = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+    name = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+    deployment_id = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+
+
+class AstroliftAgentRenewSerializer(serializers.Serializer):
+    """How long from now an agent key minted by the install keeps working."""
+    ttl_seconds = serializers.IntegerField(min_value=1, max_value=int(MAX_AGENT_KEY_TTL.total_seconds()))
+    tenant_id = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+
+
+class AstroliftHeartbeatCountersSerializer(serializers.Serializer):
+    """Counts since the gateway started. Counters it does not know are dropped."""
+    requests = serializers.IntegerField(min_value=0, required=False)
+    blocked = serializers.IntegerField(min_value=0, required=False)
+    agents_seen = serializers.IntegerField(min_value=0, required=False)
+
+
+class AstroliftHeartbeatSerializer(serializers.Serializer):
+    """A gateway reporting on its cluster."""
+    status = serializers.ChoiceField(choices=['healthy', 'degraded', 'unhealthy'])
+    version = serializers.CharField(max_length=64, required=False, allow_blank=True, default='')
+    counters = AstroliftHeartbeatCountersSerializer(required=False)
+
+
+class EnrollmentCodeRequestSerializer(serializers.Serializer):
+    """An admin asking for an enrollment code. No tenant_ids means the admin's own tenant."""
+    tenant_ids = serializers.ListField(
+        child=serializers.CharField(max_length=255), required=False, min_length=1, max_length=100)
+    ttl_minutes = serializers.IntegerField(min_value=1, max_value=60, default=15)
+
+
+class ApprovalDecisionSerializer(serializers.Serializer):
+    """An operator's decision on a held action."""
+    decision = serializers.ChoiceField(choices=['approve', 'deny'])
+    reason = serializers.CharField(max_length=1000, allow_blank=True, default='')
 
 
 class EvaluateResponseSerializer(serializers.Serializer):
@@ -86,8 +202,12 @@ class EventInputSerializer(serializers.Serializer):
 
 
 class EventsRequestSerializer(serializers.Serializer):
-    """Request to ingest batch of events."""
-    agent_id = serializers.CharField()
+    """Request to ingest batch of events.
+
+    The key names its agent, so agent_id may be left out; the gateway's usage
+    reports leave it blank (#406).
+    """
+    agent_id = serializers.CharField(required=False, allow_blank=True, default='')
     events = EventInputSerializer(many=True)
 
 

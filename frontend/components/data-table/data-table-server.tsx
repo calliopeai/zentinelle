@@ -2,14 +2,19 @@
 
 import * as React from "react";
 import {
-  type ColumnDef,
   type ColumnFiltersState,
   flexRender,
+  type RowData,
+  type SortingState,
+} from "@tanstack/react-table";
+// See components/data-table/use-data-table.ts for why this uses the v9
+// legacy compatibility layer instead of useReactTable.
+import {
+  type LegacyColumnDef as ColumnDef,
   getCoreRowModel,
   getSortedRowModel,
-  type SortingState,
-  useReactTable,
-} from "@tanstack/react-table";
+  useLegacyTable,
+} from "@tanstack/react-table/legacy";
 import type { ErrorLike } from "@apollo/client";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,7 +42,7 @@ const PAGE_SIZES = [5, 10, 20, 50];
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type DataTableServerProps<TData> = {
+type DataTableServerProps<TData extends RowData> = {
   data: TData[];
   columns: ColumnDef<TData, unknown>[];
   getRowId?: (row: TData) => string;
@@ -70,7 +75,7 @@ type DataTableServerProps<TData> = {
 
 // ─── component ────────────────────────────────────────────────────────────────
 
-export const DataTableServer = <TData,>({
+export const DataTableServer = <TData extends RowData>({
   data,
   columns,
   getRowId,
@@ -120,7 +125,7 @@ export const DataTableServer = <TData,>({
     onSortingChange?.(next);
   };
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data,
     columns,
     getRowId,

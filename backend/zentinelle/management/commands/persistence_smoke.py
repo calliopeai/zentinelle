@@ -34,7 +34,20 @@ class Command(BaseCommand):
                 with connection.cursor() as cursor:
                     cursor.execute('SET statement_timeout = 5000')
                     tables = set(connection.introspection.table_names())
+                    cursor.execute(
+                        "SELECT name FROM django_migrations "
+                        "WHERE app = %s ORDER BY id DESC LIMIT 1",
+                        ["zentinelle"],
+                    )
+                    latest_row = cursor.fetchone()
+                    latest_migration = latest_row[0] if latest_row else None
                 alias_checks = {}
+                alias_checks['migration'] = {
+                    'ok': latest_migration is not None,
+                    'latest': latest_migration,
+                }
+                if latest_migration is None:
+                    errors.append(f'{alias}.migration: no zentinelle migration ledger')
                 for name, model in models.items():
                     table = model._meta.db_table
                     if table not in tables:

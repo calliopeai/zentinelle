@@ -49,14 +49,17 @@ class EventsView(APIView):
         # Get authenticated endpoint
         auth_endpoint = get_endpoint_from_request(request)
 
-        # Verify agent_id matches
-        if auth_endpoint.agent_id != data['agent_id']:
+        # A named agent must be the key's own; unnamed, the events are the key's.
+        if data['agent_id'] and auth_endpoint.agent_id != data['agent_id']:
             return Response(
                 {'error': 'Agent ID mismatch'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        events = data['events']
+        return self.ingest(auth_endpoint, data['events'])
+
+    def ingest(self, auth_endpoint, events):
+        """The common authenticated ingest path for REST events and OTLP."""
         batch_id = f"batch_{uuid.uuid4().hex[:16]}"
 
         # Create event records. Producer IDs opt a delivery into durable

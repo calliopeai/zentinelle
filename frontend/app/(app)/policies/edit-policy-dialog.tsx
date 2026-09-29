@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@apollo/client/react";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
@@ -11,6 +11,12 @@ import { Loader2Icon } from "lucide-react";
 import { usePolicyOptions } from "@/graphql/policies/hooks";
 import { UPDATE_POLICY } from "@/graphql/policies/mutations";
 import type { PolicyData, UpdatePolicyPayload } from "@/graphql/policies/types";
+
+import {
+  ActionFields,
+  actionInput,
+  actionValueFrom,
+} from "@/components/policy-action-fields";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +78,7 @@ export function EditPolicyDialog({
   const [updatePolicy, { loading: submitting }] = useMutation<{
     updatePolicy: UpdatePolicyPayload;
   }>(UPDATE_POLICY);
+  const [actionValue, setActionValue] = useState(() => actionValueFrom(null));
 
   const {
     register,
@@ -101,6 +108,7 @@ export function EditPolicyDialog({
         enabled: policy.enabled,
         priority: policy.priority,
       });
+      setActionValue(actionValueFrom(policy));
     }
   }, [policy, open, reset]);
 
@@ -120,6 +128,7 @@ export function EditPolicyDialog({
             name: values.name,
             description: values.description || null,
             enforcement: values.enforcement || null,
+            ...actionInput(actionValue),
             config: configObj,
             enabled: values.enabled,
             priority: values.priority,
@@ -141,7 +150,7 @@ export function EditPolicyDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Policy</DialogTitle>
           <DialogDescription>
@@ -165,14 +174,14 @@ export function EditPolicyDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Enforcement</Label>
+              <Label>Mode</Label>
               <Controller
                 control={control}
                 name="enforcement"
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select enforcement" />
+                      <SelectValue placeholder="Select mode" />
                     </SelectTrigger>
                     <SelectContent>
                       {options?.enforcementLevels.map((el) => (
@@ -201,6 +210,8 @@ export function EditPolicyDialog({
               )}
             </div>
           </div>
+
+          <ActionFields value={actionValue} onChange={setActionValue} />
 
           <div className="space-y-2">
             <Label htmlFor="edit-config">Config (JSON)</Label>

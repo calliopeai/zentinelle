@@ -9,6 +9,11 @@ export interface ContentRuleData {
   severityDisplay: string | null;
   enforcement: string;
   enforcementDisplay: string | null;
+  action: string;
+  actionDisplay: string | null;
+  blockLevel: string;
+  steerMessage: string;
+  escalation: Record<string, unknown> | null;
   scanMode: string;
   scanInput: boolean;
   scanOutput: boolean;
@@ -56,7 +61,10 @@ export interface CreateContentRuleInput {
   description?: string | null;
   ruleType: string;
   severity?: string | null;
-  enforcement?: string | null;
+  action?: string | null;
+  blockLevel?: string | null;
+  steerMessage?: string | null;
+  escalation?: Record<string, unknown> | null;
   scanMode?: string | null;
   scanInput?: boolean | null;
   scanOutput?: boolean | null;
@@ -82,7 +90,10 @@ export interface UpdateContentRuleInput {
   description?: string | null;
   ruleType?: string | null;
   severity?: string | null;
-  enforcement?: string | null;
+  action?: string | null;
+  blockLevel?: string | null;
+  steerMessage?: string | null;
+  escalation?: Record<string, unknown> | null;
   scanMode?: string | null;
   scanInput?: boolean | null;
   scanOutput?: boolean | null;

@@ -169,12 +169,12 @@ class Command(BaseCommand):
              {"keywords": ["DAN mode", "jailbreak", "developer mode"]}),
         ]
         result = []
-        for name, rtype, severity, enforcement, config in specs:
+        for name, rtype, severity, action, config in specs:
             obj, _ = ContentRule.objects.get_or_create(
                 tenant_id=tenant, name=name,
                 defaults={
                     "rule_type": rtype, "severity": severity,
-                    "enforcement": enforcement, "config": config,
+                    "action": action, "config": config,
                     "enabled": True,
                 },
             )

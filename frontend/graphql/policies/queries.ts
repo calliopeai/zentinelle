@@ -9,6 +9,10 @@ const POLICY_FIELDS = `
   config
   priority
   enforcement
+  action
+  blockLevel
+  steerMessage
+  escalation
   enabled
   createdAt
   updatedAt

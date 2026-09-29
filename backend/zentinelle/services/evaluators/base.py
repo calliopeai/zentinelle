@@ -14,6 +14,9 @@ class PolicyResult:
     passed: bool
     message: Optional[str] = None
     warnings: List[str] = field(default_factory=list)
+    # The only failure is a missing human approval, so a valid approval_token
+    # would pass it. Lets /evaluate answer `ask` rather than `deny` (#377).
+    approval_required: bool = False
 
 
 class BasePolicyEvaluator(ABC):

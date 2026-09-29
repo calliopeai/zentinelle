@@ -99,6 +99,7 @@ class HumanOversightEvaluator(BasePolicyEvaluator):
                     f"Human approval required for: {conditions_str}. "
                     "Surface this to a human approver and retry with a valid approval_token."
                 ),
+                approval_required=True,
             )
 
         # 5. Allow

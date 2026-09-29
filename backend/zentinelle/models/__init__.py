@@ -20,6 +20,10 @@ from zentinelle.models.ai_provider import AIProvider, load_provider_fixtures
 from zentinelle.models.api_key import APIKey
 from zentinelle.models.astrolift import (  # noqa: E402,F401
     AstroliftAuditDelivery, AstroliftIntegration)
+# Connected Astrolift installs and clusters (#389)
+from zentinelle.models.astrolift_cluster import (AstroliftCluster,
+                                                 AstroliftInstall,
+                                                 EnrollmentCode)
 from zentinelle.models.audit import AuditChainHead, AuditLog
 # Bootstrap Tokens
 from zentinelle.models.bootstrap_token import BootstrapToken
@@ -35,6 +39,8 @@ from zentinelle.models.control_evidence import ControlEvidence
 from zentinelle.models.endpoint import AgentEndpoint
 from zentinelle.models.event import Event
 from zentinelle.models.event_outbox import EventDeliveryOutbox
+# Registered gateways (#380)
+from zentinelle.models.gateway import GatewayCredential, GatewayRegistration
 # Client Cove Integration
 from zentinelle.models.integration import ClientCoveIntegration
 # Zentinelle License & Agent Entitlements
@@ -77,13 +83,14 @@ from zentinelle.models.usage import (LicenseComplianceReport,
                                      LicensedUser, MonthlyUserCount,
                                      Subscription, UsageAggregate, UsageMetric)
 
-from .approval import ExecutionApproval
+from .approval import ApprovalRequest, ExecutionApproval
 from .audit import AuditRetentionProof
 from .budget import BudgetAccount, BudgetCharge
 
 __all__ = [
     # Agent-level
     'AgentEndpoint',
+    'ApprovalRequest',
     'ExecutionApproval',
     'AuditRetentionProof',
     'BudgetAccount',
@@ -165,4 +172,11 @@ __all__ = [
     'ClientCoveIntegration',
     # Bootstrap Tokens
     'BootstrapToken',
+    # Registered gateways
+    'GatewayRegistration',
+    'GatewayCredential',
+    # Connected Astrolift installs and clusters
+    'EnrollmentCode',
+    'AstroliftInstall',
+    'AstroliftCluster',
 ]

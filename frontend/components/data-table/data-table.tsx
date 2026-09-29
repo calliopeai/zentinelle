@@ -1,6 +1,7 @@
 "use client";
 
-import { type ColumnDef, flexRender } from "@tanstack/react-table";
+import { flexRender, type RowData } from "@tanstack/react-table";
+import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import { useTranslations } from "next-intl";
 import {
   Table,
@@ -15,7 +16,7 @@ import { DataTableToolbar } from "./data-table-toolbar";
 import { DataTablePagination } from "./data-table-pagination";
 import { type FilterConfig } from "./types";
 
-type DataTableProps<TData> = {
+type DataTableProps<TData extends RowData> = {
   data: TData[];
   columns: ColumnDef<TData, unknown>[];
   getRowId?: (row: TData) => string;
@@ -25,7 +26,7 @@ type DataTableProps<TData> = {
   onRowClick?: (row: TData) => void;
 };
 
-export const DataTable = <TData,>({
+export const DataTable = <TData extends RowData>({
   data,
   columns,
   getRowId,

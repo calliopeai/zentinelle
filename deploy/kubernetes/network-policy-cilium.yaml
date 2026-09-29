@@ -104,10 +104,10 @@ spec:
             dns:
               - matchPattern: "*"
 
-    # The providers this cluster is allowed to reach. Keep this list and the
-    # PROVIDER_KEY_* entries in the Secret in step with each other: a key with
-    # no rule cannot connect, and a rule with no key reaches a provider that
-    # refuses it.
+    # The providers this cluster is allowed to reach. Keep this list in step
+    # with the providers the cluster's tenants store keys for in Zentinelle (and
+    # any PROVIDER_KEY_* fallback entries in the Secret): a key with no rule
+    # cannot connect, and a rule with no key reaches a provider that refuses it.
     - toFQDNs:
         - matchName: "api.openai.com"
         - matchName: "api.anthropic.com"

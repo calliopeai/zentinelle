@@ -86,3 +86,6 @@ class KeyPrefixes:
     DEPLOY = 'sk_deploy_'
     ZENTINELLE = 'znt_'
     SERVICE = 'sk_service_'
+    GATEWAY = 'sk_gateway_'
+    ASTROLIFT_INSTALL = 'sk_astroinst_'
+    ENROLLMENT = 'zen_enroll_'

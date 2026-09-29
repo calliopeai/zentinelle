@@ -16,14 +16,20 @@ import (
 // Gateway is the main HTTP handler that proxies requests to LLM providers
 // with Zentinelle policy enforcement.
 type Gateway struct {
-	cfg    *Config
-	client *http.Client
+	cfg        *Config
+	client     *http.Client
+	keys       *providerKeyCache
+	credential *gatewayCredential
+	stats      *gatewayStats
 }
 
 // NewGateway creates a new Gateway with the given configuration.
 func NewGateway(cfg *Config) *Gateway {
 	return &Gateway{
-		cfg: cfg,
+		cfg:        cfg,
+		keys:       newProviderKeyCache(providerKeyCacheTTL, providerKeyCacheMaxEntries),
+		credential: newGatewayCredential(cfg.GatewayCredential, cfg.GatewayCredentialFile),
+		stats:      newGatewayStats(maxAgentsSeen),
 		client: &http.Client{
 			// No global timeout — streaming responses can take minutes.
 			// Per-request timeouts are handled by context.
@@ -54,6 +60,7 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// own traffic, and a gauge that included them would never read zero.
 	atomic.AddInt64(&metricActiveConnections, 1)
 	defer atomic.AddInt64(&metricActiveConnections, -1)
+	g.stats.requests.Add(1)
 
 	g.handleProxy(w, r)
 }
@@ -64,11 +71,18 @@ func (g *Gateway) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Env keys the gateway will actually use. Without the fallback they are
+	// ignored, and listing them would say otherwise.
+	envProviders := []string{}
+	if g.cfg.AllowEnvProviderKeys {
+		envProviders = g.cfg.ProviderKeys()
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":    "ok",
-		"providers": g.cfg.ProviderKeys(),
+		"providers": envProviders,
 	})
 }
 
@@ -133,6 +147,7 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 	policyStart := time.Now()
 	policyResult := CheckPolicy(r.Context(), g.cfg, agentKey, provider.Name, model, map[string]interface{}{"input_text": string(body), "request_id": requestID, "request_body": string(body)})
 	metricPolicyCheckDuration.observe("", time.Since(policyStart).Seconds())
+	g.stats.policyChecked(r.Context(), agentKey, policyResult)
 
 	logJSON("info", "policy check completed", map[string]interface{}{
 		"request_id": requestID,
@@ -150,25 +165,32 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 			"reason":     policyResult.Reason,
 		})
 		metricPolicyDenied.inc(labels("provider", provider.Name))
+		g.stats.blocked.Add(1)
 		writeJSONError(w, http.StatusForbidden, "policy_denied", policyResult.Reason)
 		return
 	}
 
-	// 6. Look up provider API key
-	apiKey := g.cfg.KeyForProvider(provider.Name)
-	if apiKey == "" {
-		logJSON("error", "no api key configured for provider", map[string]interface{}{
+	// 6. Resolve the provider key: the tenant's stored key, or the gateway's
+	// own where that fallback is allowed. Never the client's (#380).
+	apiKey, keySource, keyErr := g.resolveProviderKey(r.Context(), agentKey, provider.Name)
+	if keyErr != nil {
+		fields := map[string]interface{}{
 			"request_id": requestID,
 			"provider":   provider.Name,
-		})
-		writeJSONError(w, http.StatusServiceUnavailable, "no_api_key", fmt.Sprintf("no API key configured for provider %s", provider.Name))
+			"error":      keyErr.code,
+		}
+		if keyErr.cause != nil {
+			fields["cause"] = keyErr.cause.Error()
+		}
+		logJSON("error", "no provider key for request", fields)
+		writeJSONError(w, keyErr.status, keyErr.code, keyErr.detail)
 		return
 	}
 
 	// 7. Build upstream URL
 	upstreamURL := provider.BaseURL + upstreamPath
-	if r.URL.RawQuery != "" {
-		upstreamURL += "?" + r.URL.RawQuery
+	if query := withoutKeyParam(r.URL.RawQuery); query != "" {
+		upstreamURL += "?" + query
 	}
 
 	// 8. Build upstream request
@@ -188,7 +210,8 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		upstreamReq.ContentLength = int64(len(body))
 	}
 
-	// Copy headers, stripping hop-by-hop and zentinelle-specific ones
+	// Copy headers, stripping hop-by-hop, zentinelle-specific and client
+	// credential ones
 	for key, vals := range r.Header {
 		if ShouldForwardHeader(key) {
 			for _, val := range vals {
@@ -220,6 +243,7 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		"method":     r.Method,
 		"upstream":   upstreamURL,
 		"streaming":  streaming,
+		"key_source": keySource,
 	})
 
 	upstreamResp, err := g.client.Do(upstreamReq)
@@ -267,6 +291,7 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 				})
 				// Nothing has been written yet, so this is a clean refusal
 				// rather than a truncated answer.
+				g.stats.blocked.Add(1)
 				writeJSONError(w, http.StatusForbidden, "output_filtered", outcome.Reason)
 				return
 			}

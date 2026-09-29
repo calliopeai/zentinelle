@@ -12,6 +12,17 @@ Agent-facing REST endpoints:
 - POST /api/zentinelle/v1/events
 - POST /api/zentinelle/v1/heartbeat
 - POST /api/zentinelle/v1/evaluate
+- POST /api/zentinelle/v1/gateway/provider-key   (gateway credential + agent key)
+- POST /api/zentinelle/v1/astrolift/connect      (one-time enrollment code)
+- POST /api/zentinelle/v1/astrolift/clusters     (Astrolift install credential)
+- POST /api/zentinelle/v1/astrolift/clusters/{cluster_id}/rotate
+- DELETE /api/zentinelle/v1/astrolift/clusters/{cluster_id}
+- DELETE /api/zentinelle/v1/astrolift/install
+- POST /api/zentinelle/v1/astrolift/clusters/{cluster_id}/heartbeat   (gateway credential)
+- POST /api/zentinelle/v1/astrolift/agents      (install credential: a task's agent key)
+- POST /api/zentinelle/v1/astrolift/agents/{agent_id}/renew
+- DELETE /api/zentinelle/v1/astrolift/agents/{agent_id}
+- GET  /api/zentinelle/v1/approvals/requests/{request_id}   (poll a held action)
 - GET  /api/zentinelle/v1/effective-policy/{user_id}
 - GET  /api/zentinelle/v1/prompts
 - GET  /api/zentinelle/v1/prompts/{service}
@@ -79,20 +90,31 @@ from zentinelle.api.views import (AcknowledgeAlertView, AgentControlView,
                                   SystemPromptsView,
                                   TelemetryDeliveryHealthView,
                                   ViolationsListView)
-from zentinelle.api.views.approvals import ApprovalIssueView
+from zentinelle.api.views.approvals import (ApprovalIssueView,
+                                            ApprovalRequestDecisionView,
+                                            ApprovalRequestListView,
+                                            ApprovalRequestStatusView)
 from zentinelle.api.views.assistant import (AssistantChatView,
                                             AssistantExecuteToolView)
 from zentinelle.api.views.assistant_models import (AssistantModelsBulkView,
                                                    AssistantModelsListView,
                                                    AssistantModelsToggleView)
 from zentinelle.api.views.assistant_providers import AssistantProvidersView
+from zentinelle.api.views.astrolift_clusters import (
+    AstroliftAgentRenewView, AstroliftAgentsView, AstroliftAgentView,
+    AstroliftClusterAdminView, AstroliftClusterHeartbeatView,
+    AstroliftClusterRotateView, AstroliftClustersView, AstroliftClusterView,
+    AstroliftConnectView, AstroliftEnrollmentCodeView,
+    AstroliftInstallAdminView, AstroliftInstallView, AstroliftSettingsView)
 from zentinelle.api.views.atlas import AtlasControlMapView
 from zentinelle.api.views.auth import (CSRFTokenView, LoginView, LogoutView,
                                        MeView)
+from zentinelle.api.views.gateway_provider_key import GatewayProviderKeyView
 from zentinelle.api.views.health import HealthView, ReadyView
 from zentinelle.api.views.llm_provider_keys import (LLMProviderKeyDeleteView,
                                                     LLMProviderKeysView)
 from zentinelle.api.views.operator import OperatorAgentView, OperatorPolicyView
+from zentinelle.api.views.otlp import OtlpTracesView
 from zentinelle.api.views.runtime_settings import (
     RuntimeSettingsChangesView, RuntimeSettingsChangeTransitionView,
     RuntimeSettingsRollbackView, RuntimeSettingsView)
@@ -108,6 +130,11 @@ urlpatterns = [
 
     # Portal auth (session-based, httpOnly cookies)
     path('approvals', ApprovalIssueView.as_view(), name='approval-issue'),
+    # Held actions (#377): the requesting agent polls; operators list and decide.
+    path('approvals/requests', ApprovalRequestListView.as_view(), name='approval-request-list'),
+    path('approvals/requests/<uuid:request_id>', ApprovalRequestStatusView.as_view(), name='approval-request'),
+    path('approvals/requests/<uuid:request_id>/decision', ApprovalRequestDecisionView.as_view(),
+         name='approval-request-decision'),
     path('auth/csrf', CSRFTokenView.as_view(), name='auth-csrf'),
     path('auth/login', LoginView.as_view(), name='auth-login'),
     path('auth/logout', LogoutView.as_view(), name='auth-logout'),
@@ -126,6 +153,14 @@ urlpatterns = [
     # LLM provider key management (encrypted at rest, per-tenant)
     path('settings/llm-providers', LLMProviderKeysView.as_view(), name='llm-provider-keys'),
     path('settings/llm-providers/<str:provider>', LLMProviderKeyDeleteView.as_view(), name='llm-provider-key-delete'),
+    # Connected Astrolift installs and clusters (#389)
+    path('settings/astrolift', AstroliftSettingsView.as_view(), name='astrolift-settings'),
+    path('settings/astrolift/enrollment-codes', AstroliftEnrollmentCodeView.as_view(),
+         name='astrolift-enrollment-codes'),
+    path('settings/astrolift/installs/<uuid:install_id>', AstroliftInstallAdminView.as_view(),
+         name='astrolift-install-admin'),
+    path('settings/astrolift/clusters/<uuid:cluster_id>', AstroliftClusterAdminView.as_view(),
+         name='astrolift-cluster-admin'),
     path('settings/runtime', RuntimeSettingsView.as_view(), name='runtime-settings'),
     path('settings/runtime/rollback', RuntimeSettingsRollbackView.as_view(), name='runtime-settings-rollback'),
     path('settings/runtime/changes', RuntimeSettingsChangesView.as_view(), name='runtime-settings-changes'),
@@ -144,6 +179,7 @@ urlpatterns = [
 
     # Token-authenticated operator automation
     path('operator/agents', OperatorAgentView.as_view(), name='operator-agents'),
+    path('operator/agents/<slug:agent_id>', OperatorAgentView.as_view(), name='operator-agent'),
     path('operator/policies', OperatorPolicyView.as_view(), name='operator-policies'),
     path('operator/policies/<uuid:policy_id>', OperatorPolicyView.as_view(), name='operator-policy'),
 
@@ -155,8 +191,26 @@ urlpatterns = [
     path('secrets', SecretsView.as_view(), name='secrets'),
     path('secrets/<str:agent_id>', SecretsView.as_view(), name='secrets-agent'),
     path('events', EventsView.as_view(), name='events'),
+    path('otlp/v1/traces', OtlpTracesView.as_view(), name='otlp-traces'),
     path('heartbeat', HeartbeatView.as_view(), name='heartbeat'),
     path('evaluate', EvaluateView.as_view(), name='evaluate'),
+    # The Go gateway reads the agent's tenant's stored provider key (#380).
+    path('gateway/provider-key', GatewayProviderKeyView.as_view(), name='gateway-provider-key'),
+
+    # Astrolift installs register their clusters' gateways (#389).
+    path('astrolift/connect', AstroliftConnectView.as_view(), name='astrolift-connect'),
+    path('astrolift/install', AstroliftInstallView.as_view(), name='astrolift-install'),
+    path('astrolift/clusters', AstroliftClustersView.as_view(), name='astrolift-clusters'),
+    path('astrolift/clusters/<str:cluster_id>', AstroliftClusterView.as_view(), name='astrolift-cluster'),
+    path('astrolift/clusters/<str:cluster_id>/rotate', AstroliftClusterRotateView.as_view(),
+         name='astrolift-cluster-rotate'),
+    path('astrolift/clusters/<str:cluster_id>/heartbeat', AstroliftClusterHeartbeatView.as_view(),
+         name='astrolift-cluster-heartbeat'),
+    # ...and mint a short-lived agent key per task or box (#400).
+    path('astrolift/agents', AstroliftAgentsView.as_view(), name='astrolift-agents'),
+    path('astrolift/agents/<slug:agent_id>', AstroliftAgentView.as_view(), name='astrolift-agent'),
+    path('astrolift/agents/<slug:agent_id>/renew', AstroliftAgentRenewView.as_view(),
+         name='astrolift-agent-renew'),
 
     # Policy endpoints
     path('effective-policy', EffectivePolicyView.as_view(), name='effective-policy'),

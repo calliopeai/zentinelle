@@ -4,6 +4,7 @@ from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+from zentinelle.models.actions import Action, BlockLevel
 from zentinelle.models.base import Tracking
 
 
@@ -60,6 +61,8 @@ class Policy(Tracking):
         SAFETY_SETTINGS = 'safety_settings', 'Safety Settings (Gemini)'
         MULTIMODAL_POLICY = 'multimodal_policy', 'Multimodal Content Policy'
 
+    # The mode, and the ceiling on the rule's action: enforce allows every
+    # action, audit only logs or alerts, disabled is not evaluated (#396).
     class Enforcement(models.TextChoices):
         ENFORCE = 'enforce', 'Enforce'
         AUDIT = 'audit', 'Audit Only'
@@ -125,6 +128,17 @@ class Policy(Tracking):
         choices=Enforcement.choices,
         default=Enforcement.ENFORCE
     )
+    # What a match does under enforce. Block is what every policy did before
+    # #396, so it is the default; see services/actions.py for escalation,
+    # the mode ceiling and fallback. The database defaults are the same
+    # values, so a policy created by a pod of the release before #396 during
+    # a rolling deploy is written, and does what that pod meant.
+    action = models.CharField(max_length=20, choices=Action.choices, default=Action.BLOCK,
+                              db_default=Action.BLOCK)
+    block_level = models.CharField(max_length=20, choices=BlockLevel.choices, default=BlockLevel.TOOL_CALL,
+                                   db_default=BlockLevel.TOOL_CALL)
+    steer_message = models.TextField(blank=True, default='', db_default='')
+    escalation = models.JSONField(default=dict, blank=True, db_default={})
 
     # Audit fields
     # TODO: decouple - created_by FK removed (use user_id field)
@@ -156,6 +170,12 @@ class Policy(Tracking):
             for selector in selectors:
                 if selector.count(':') != 1 or any(not part.strip() for part in selector.split(':', 1)):
                     raise ValidationError('Each taxonomy selector must use dimension:value syntax.')
+
+        from zentinelle.services.actions import validate_rule_action
+        try:
+            self.escalation = validate_rule_action(self.action, self.block_level, self.steer_message, self.escalation)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
 
         if self.scope_type == self.ScopeType.ORGANIZATION:
             if self.scope_sub_organization_id_ext or self.scope_deployment_id_ext or self.scope_endpoint or self.scope_user_id_ext:
@@ -294,6 +314,10 @@ def create_policy_revision(sender, instance, created, **kwargs):
         'scope_user_id_ext': instance.scope_user_id_ext,
         'override_group': instance.override_group,
         'non_overridable': instance.non_overridable,
+        'action': instance.action,
+        'block_level': instance.block_level,
+        'steer_message': instance.steer_message,
+        'escalation': instance.escalation,
     }
     PolicyHistory.objects.get_or_create(
         policy=instance,

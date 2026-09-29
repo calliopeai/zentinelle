@@ -10,7 +10,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from zentinelle.models import AgentEndpoint, AuditLog, Event, Policy
-from zentinelle.models.risk import Risk
+from zentinelle.models.risk import Incident, Risk
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
 
@@ -182,6 +182,8 @@ class HeartbeatViewTest(ZentinelleAPITestMixin, TestCase):
 class EvaluateViewTest(ZentinelleAPITestMixin, TestCase):
     """Tests for the evaluate endpoint."""
 
+    databases = '__all__'
+
     def test_evaluate_unauthenticated(self):
         """Test that unauthenticated requests are rejected."""
         response = self.client.post(
@@ -315,6 +317,53 @@ class EvaluateViewTest(ZentinelleAPITestMixin, TestCase):
         events = Event.objects.filter(endpoint=self.endpoint)
         self.assertEqual(events.count(), 1)
 
+    def test_evaluate_auto_incident_on_denied_tool_creates_incident_with_occurred_at(self):
+        """
+        Test that auto_incident=True creates an Incident with occurred_at set.
+
+        Regression test for #401: incident_service._maybe_create_incident was
+        omitting the occurred_at field, causing IntegrityError inside transactions.
+        """
+        # Create a tool_permission policy with auto_incident enabled
+        Policy.objects.create(
+            tenant_id=STANDALONE_TENANT,
+            name='Deny rm tool',
+            policy_type=Policy.PolicyType.TOOL_PERMISSION,
+            scope_type=Policy.ScopeType.ORGANIZATION,
+            enforcement=Policy.Enforcement.ENFORCE,
+            config={'denied_tools': ['rm'], 'auto_incident': True},
+        )
+
+        self.authenticate()
+        response = self.client.post(
+            reverse('zentinelle:evaluate'),
+            data={
+                'agent_id': self.endpoint.agent_id,
+                'action': 'tool_call',
+                'tool_name': 'rm',
+                'user_id': 'user123',
+            },
+            format='json',
+        )
+
+        # Should not be a 500 error
+        self.assertNotEqual(
+            response.status_code, 500,
+            f"Expected non-500 status, got {response.status_code}: {response.content}"
+        )
+
+        # Should have created exactly one incident
+        incidents = Incident.objects.filter(tenant_id=STANDALONE_TENANT)
+        self.assertEqual(
+            incidents.count(), 1,
+            f"Expected 1 incident, found {incidents.count()}"
+        )
+
+        # Verify the incident has occurred_at set
+        incident = incidents.first()
+        self.assertIsNotNone(incident.occurred_at)
+        self.assertTrue(isinstance(incident.occurred_at, type(timezone.now())))
+
 
 class EventsViewTest(ZentinelleAPITestMixin, TestCase):
     """Tests for the events endpoint."""
@@ -437,6 +486,52 @@ class EventsViewTest(ZentinelleAPITestMixin, TestCase):
         )
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.json()['event_ids'], ['producer-event-2'])
+
+    def _gateway_usage_report(self, **fields):
+        """The body the Go gateway posts after each proxied request (gateway/usage.go)."""
+        from django.utils import timezone
+        return {
+            'agent_id': '',
+            'events': [{
+                'type': 'llm:usage',
+                'timestamp': timezone.now().isoformat(),
+                'category': 'telemetry',
+                'payload': {'provider': 'anthropic', 'model': 'claude-sonnet-4-6', 'prompt_tokens': 12,
+                            'completion_tokens': 3, 'total_tokens': 15, 'latency_ms': 840,
+                            'request_id': 'gw-req-1', 'source': 'gateway'},
+            }],
+            **fields,
+        }
+
+    def test_a_gateway_usage_report_is_recorded_for_the_keys_agent(self):
+        """#406: the gateway sends no agent_id; the key says whose usage it is."""
+        self.authenticate()
+
+        response = self.client.post(reverse('zentinelle:events'), data=self._gateway_usage_report(), format='json')
+
+        self.assertEqual(response.status_code, 202, response.content)
+        [event] = Event.objects.filter(endpoint=self.endpoint, event_type='llm:usage')
+        self.assertEqual(event.tenant_id, self.endpoint.tenant_id)
+        self.assertEqual(event.payload['total_tokens'], 15)
+
+    def test_an_omitted_agent_id_is_the_keys_agent(self):
+        self.authenticate()
+        body = self._gateway_usage_report()
+        del body['agent_id']
+
+        response = self.client.post(reverse('zentinelle:events'), data=body, format='json')
+
+        self.assertEqual(response.status_code, 202, response.content)
+        self.assertEqual(Event.objects.filter(endpoint=self.endpoint).count(), 1)
+
+    def test_a_named_agent_must_still_be_the_keys_own(self):
+        self.authenticate()
+
+        response = self.client.post(
+            reverse('zentinelle:events'), data=self._gateway_usage_report(agent_id='another-agent'), format='json')
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Event.objects.filter(event_type='llm:usage').exists())
 
 
 class APIKeyAuthenticationTest(ZentinelleAPITestMixin, TestCase):

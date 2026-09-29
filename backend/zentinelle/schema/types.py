@@ -85,6 +85,10 @@ class PolicyType:
     config: auto
     priority: auto
     enforcement: auto
+    action: auto
+    block_level: auto
+    steer_message: auto
+    escalation: auto
     enabled: auto
     created_at: auto
     updated_at: auto
@@ -413,7 +417,10 @@ class ContentRuleType:
     rule_type: auto
     config: auto
     severity: auto
-    enforcement: auto
+    action: auto
+    block_level: auto
+    steer_message: auto
+    escalation: auto
     scan_mode: auto
     scan_input: auto
     scan_output: auto
@@ -435,9 +442,21 @@ class ContentRuleType:
     def severity_display(self) -> Optional[str]:
         return self.get_severity_display()
 
+    # `enforcement` was the stored field before #396; it is now derived from
+    # the action, for clients that still read it.
+    @strawberry.field
+    def enforcement(self) -> Optional[str]:
+        from zentinelle.models.actions import LEGACY_ENFORCEMENT_FOR_ACTION
+        return LEGACY_ENFORCEMENT_FOR_ACTION.get(self.action)
+
     @strawberry.field
     def enforcement_display(self) -> Optional[str]:
-        return self.get_enforcement_display()
+        from zentinelle.models.actions import LEGACY_ENFORCEMENT_FOR_ACTION
+        return dict(ContentRule.Enforcement.choices).get(LEGACY_ENFORCEMENT_FOR_ACTION.get(self.action))
+
+    @strawberry.field
+    def action_display(self) -> Optional[str]:
+        return self.get_action_display()
 
     @strawberry.field
     def scope_name(self) -> Optional[str]:

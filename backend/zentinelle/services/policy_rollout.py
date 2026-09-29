@@ -9,6 +9,7 @@ _MUTABLE_FIELDS = {
     'enforcement', 'scope_type', 'scope_sub_organization_id_ext',
     'scope_deployment_id_ext', 'scope_user_id_ext', 'override_group',
     'non_overridable', 'scope_endpoint_id',
+    'action', 'block_level', 'steer_message', 'escalation',
 }
 
 
@@ -29,6 +30,10 @@ def _snapshot(policy):
         'scope_user_id_ext': policy.scope_user_id_ext,
         'override_group': policy.override_group,
         'non_overridable': policy.non_overridable,
+        'action': policy.action,
+        'block_level': policy.block_level,
+        'steer_message': policy.steer_message,
+        'escalation': policy.escalation,
         'version': policy.version,
     }
 

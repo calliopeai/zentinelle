@@ -90,7 +90,8 @@ def evaluate_boundary(*, endpoint, action, user_id='', context=None, dry_run=Fal
         return {**contract, 'trace_id': trace_id,
                 'decision': 'allow' if result.allowed else 'deny', 'allowed': result.allowed,
                 'reason': result.reason, 'policies_evaluated': result.policies_evaluated,
-                'coverage': result.coverage, 'warnings': result.warnings}
+                'coverage': result.coverage, 'warnings': result.warnings,
+                'enforcement': result.enforcement}
     except Exception as exc:
         return {'contract_version': CONTRACT_VERSION, 'action': str(action or ''),
                 'decision': 'deny', 'allowed': False,

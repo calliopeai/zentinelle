@@ -54,6 +54,10 @@ class AgentEndpoint(Tracking):
         SPRING_AI = 'spring_ai', 'Spring AI'
         VERCEL_AI = 'vercel-ai', 'Vercel AI SDK'
         MCP = 'mcp', 'MCP Server'
+        # One key per Agent Host Protocol host, which runs many sessions
+        # across harnesses. Harness, session and chat travel in each
+        # /evaluate context instead of registering every session (#377).
+        AGENT_HOST = 'agent_host', 'Agent Host'
         CHAT = 'chat', 'Chat Agent'
         CUSTOM = 'custom', 'Custom'
 
@@ -94,6 +98,9 @@ class AgentEndpoint(Tracking):
         max_length=12,
         help_text='First 8 chars of API key for identification'
     )
+    # Null means the key never expires. Short-lived keys are minted per task
+    # by platforms such as Astrolift and refused once past this time.
+    api_key_expires_at = models.DateTimeField(null=True, blank=True)
     registered_at = models.DateTimeField(auto_now_add=True)
     last_heartbeat = models.DateTimeField(null=True, blank=True)
 
@@ -141,6 +148,23 @@ class AgentEndpoint(Tracking):
         related_name='agents',
     )
 
+    # The Astrolift install that minted this agent's key for one of its tasks
+    # or boxes (#400). Only that install may mint it again, renew or revoke
+    # it, and disconnecting the install terminates it.
+    astrolift_install = models.ForeignKey(
+        'zentinelle.AstroliftInstall',
+        null=True, blank=True,
+        on_delete=models.PROTECT,
+        related_name='agents',
+    )
+    # When the key was minted: an install-minted key never works longer than
+    # ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS after this, however renewed.
+    api_key_issued_at = models.DateTimeField(null=True, blank=True)
+    # Set only when the minting install revoked the agent, the one stop that
+    # install may undo by minting again. Every other stop (an administrator,
+    # the operator API, the agent itself) clears it, so it stays stopped.
+    astrolift_revoked_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ['tenant_id', 'name']
         unique_together = [('tenant_id', 'agent_id')]
@@ -171,6 +195,9 @@ class AgentEndpoint(Tracking):
         Uses constant-time comparison to prevent timing attacks.
         """
         return _verify_api_key(api_key, key_hash, allow_legacy_sha256=True)
+
+    def api_key_expired(self) -> bool:
+        return self.api_key_expires_at is not None and self.api_key_expires_at <= timezone.now()
 
     def rotate_api_key(self) -> str:
         """

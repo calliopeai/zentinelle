@@ -2,6 +2,7 @@
 
 import { withPermissionAuthenticationRequired } from "@/components/PermissionGuard";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@apollo/client/react";
 import { useForm, Controller } from "react-hook-form";
@@ -14,6 +15,12 @@ import Link from "next/link";
 import { usePolicyOptions } from "@/graphql/policies/hooks";
 import { CREATE_POLICY } from "@/graphql/policies/mutations";
 import type { CreatePolicyPayload } from "@/graphql/policies/types";
+
+import {
+  ActionFields,
+  actionInput,
+  actionValueFrom,
+} from "@/components/policy-action-fields";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +66,7 @@ function CreatePolicyPage() {
   const [createPolicy, { loading: submitting }] = useMutation<{
     createPolicy: CreatePolicyPayload;
   }>(CREATE_POLICY);
+  const [actionValue, setActionValue] = useState(() => actionValueFrom(null));
 
   const {
     register,
@@ -94,6 +102,7 @@ function CreatePolicyPage() {
             policyType: values.policyType,
             scopeType: values.scopeType || null,
             enforcement: values.enforcement || null,
+            ...actionInput(actionValue),
             config: configObj,
             enabled: values.enabled,
             priority: values.priority,
@@ -211,14 +220,14 @@ function CreatePolicyPage() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label>Enforcement</Label>
+            <Label>Mode</Label>
             <Controller
               control={control}
               name="enforcement"
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select enforcement" />
+                    <SelectValue placeholder="Select mode" />
                   </SelectTrigger>
                   <SelectContent>
                     {options?.enforcementLevels.map((el) => (
@@ -247,6 +256,8 @@ function CreatePolicyPage() {
             )}
           </div>
         </div>
+
+        <ActionFields value={actionValue} onChange={setActionValue} />
 
         <div className="space-y-2">
           <Label htmlFor="config">Config (JSON)</Label>

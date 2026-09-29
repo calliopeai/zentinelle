@@ -138,8 +138,10 @@ class TestDeregisterView(unittest.TestCase):
         # Endpoint should be saved with TERMINATED status
         self.assertEqual(endpoint.status, 'terminated')
         self.assertEqual(endpoint.health, 'unknown')
+        # The agent stopped itself, which its Astrolift install may not undo (#400).
+        self.assertIsNone(endpoint.astrolift_revoked_at)
         endpoint.save.assert_called_once_with(
-            update_fields=['status', 'health', 'updated_at']
+            update_fields=['status', 'health', 'astrolift_revoked_at', 'updated_at']
         )
 
         # Cache keys for this agent should be deleted

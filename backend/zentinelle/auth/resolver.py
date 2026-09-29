@@ -177,6 +177,8 @@ class StandaloneTenantResolver(TenantResolver):
             )
 
             for endpoint in candidates:
+                if endpoint.api_key_expired():
+                    continue
                 if AgentEndpoint.verify_api_key(raw, endpoint.api_key_hash):
                     return AuthContext(
                         valid=True,

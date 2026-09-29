@@ -5,6 +5,7 @@ from django.test import TestCase
 
 from zentinelle.models import (AgentEndpoint, ComplianceAlert, ContentRule,
                                ContentScan)
+from zentinelle.models.actions import Action
 from zentinelle.services.content_scanner import ContentScanner, DetectionResult
 
 STANDALONE_TENANT = '00000000-0000-0000-0000-000000000001'
@@ -22,7 +23,7 @@ class ContentScannerSecretDetectionTest(TestCase):
             name='Secret Detection',
             rule_type=ContentRule.RuleType.SECRET_DETECTION,
             severity=ContentRule.Severity.CRITICAL,
-            enforcement=ContentRule.Enforcement.BLOCK,
+            action=Action.BLOCK,
             config={
                 'detect_aws_keys': True,
                 'detect_api_keys': True,
@@ -109,7 +110,7 @@ class ContentScannerPIIDetectionTest(TestCase):
             name='PII Detection',
             rule_type=ContentRule.RuleType.PII_DETECTION,
             severity=ContentRule.Severity.HIGH,
-            enforcement=ContentRule.Enforcement.REDACT,
+            action=Action.REDACT,
             config={
                 'detect_emails': True,
                 'detect_phones': True,
@@ -183,7 +184,7 @@ class ContentScannerPromptInjectionTest(TestCase):
             name='Prompt Injection Detection',
             rule_type=ContentRule.RuleType.PROMPT_INJECTION,
             severity=ContentRule.Severity.HIGH,
-            enforcement=ContentRule.Enforcement.BLOCK,
+            action=Action.BLOCK,
             config={'sensitivity': 'medium'},
         )
 
@@ -235,7 +236,7 @@ class ContentScannerJailbreakTest(TestCase):
             name='Jailbreak Detection',
             rule_type=ContentRule.RuleType.JAILBREAK_ATTEMPT,
             severity=ContentRule.Severity.HIGH,
-            enforcement=ContentRule.Enforcement.BLOCK,
+            action=Action.BLOCK,
             config={},
         )
 
@@ -280,7 +281,7 @@ class ContentScannerKeywordBlockTest(TestCase):
             name='Keyword Block',
             rule_type=ContentRule.RuleType.KEYWORD_BLOCK,
             severity=ContentRule.Severity.MEDIUM,
-            enforcement=ContentRule.Enforcement.BLOCK,
+            action=Action.BLOCK,
             config={
                 'keywords': ['confidential', 'secret', 'classified'],
                 'phrases': ['do not share', 'internal only'],
@@ -335,7 +336,7 @@ class ContentScannerFullScanTest(TestCase):
             name='Secret Detection',
             rule_type=ContentRule.RuleType.SECRET_DETECTION,
             severity=ContentRule.Severity.CRITICAL,
-            enforcement=ContentRule.Enforcement.BLOCK,
+            action=Action.BLOCK,
             config={'detect_api_keys': True},
         )
 
@@ -357,7 +358,7 @@ class ContentScannerFullScanTest(TestCase):
             name='Secret Detection',
             rule_type=ContentRule.RuleType.SECRET_DETECTION,
             severity=ContentRule.Severity.CRITICAL,
-            enforcement=ContentRule.Enforcement.BLOCK,
+            action=Action.BLOCK,
             config={'detect_api_keys': True},
         )
 
@@ -379,7 +380,7 @@ class ContentScannerFullScanTest(TestCase):
             name='PII Detection',
             rule_type=ContentRule.RuleType.PII_DETECTION,
             severity=ContentRule.Severity.HIGH,
-            enforcement=ContentRule.Enforcement.REDACT,
+            action=Action.REDACT,
             config={'detect_emails': True},
         )
 
@@ -402,7 +403,7 @@ class ContentScannerFullScanTest(TestCase):
             name='Keyword Watch',
             rule_type=ContentRule.RuleType.KEYWORD_BLOCK,
             severity=ContentRule.Severity.LOW,
-            enforcement=ContentRule.Enforcement.WARN,
+            action=Action.WARN,
             config={'keywords': ['urgent']},
         )
 
@@ -423,7 +424,7 @@ class ContentScannerFullScanTest(TestCase):
             name='Secret Detection',
             rule_type=ContentRule.RuleType.SECRET_DETECTION,
             severity=ContentRule.Severity.CRITICAL,
-            enforcement=ContentRule.Enforcement.BLOCK,
+            action=Action.BLOCK,
             config={'detect_api_keys': True},
         )
 

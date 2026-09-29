@@ -22,6 +22,20 @@ from django.utils import timezone
 
 from zentinelle.models import (AgentEndpoint, ComplianceAlert, ContentRule,
                                ContentScan, ContentViolation)
+from zentinelle.models.actions import (LEGACY_ENFORCEMENT_FOR_ACTION,
+                                       SEVERITY_ORDER, Action)
+
+# How a rule's decided action reaches the legacy `action` of a scan, whose
+# precedence is block, then warn, then redact. Log, alert and a rule's own
+# require_approval had no effect there before #396 and still have none;
+# `enforcement` carries them. Escalation into require_approval reads as block
+# (ContentScanner._legacy_action).
+LEGACY_SCAN_ACTION = {
+    Action.BLOCK: 'block',
+    Action.WARN: 'warn',
+    Action.STEER: 'warn',
+    Action.REDACT: 'redact',
+}
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +64,8 @@ class ScanResult:
     redacted_content: Optional[str] = None
     scan_duration_ms: int = 0
     max_severity: str = None
+    # The decided action across matched rules and its fallback chain (#396).
+    enforcement: Dict[str, Any] = field(default_factory=dict)
 
 
 class ContentScanner:
@@ -209,14 +225,21 @@ class ContentScanner:
         ip_address: str = None,
         token_count: int = None,
         estimated_cost: float = None,
+        target_capabilities: Optional[Dict[str, bool]] = None,
     ) -> Tuple[ScanResult, ContentScan]:
         """
         Scan content against all applicable rules.
+
+        Each matched rule's action is decided as a policy's is (escalation by
+        repeats per endpoint and by the match's severity, no mode ceiling),
+        see services/actions.py. Only a realtime scan counts toward repeats.
 
         Returns:
             Tuple of (ScanResult, ContentScan record)
         """
         import time
+
+        from zentinelle.services.actions import summarize
         start_time = time.time()
 
         # Get applicable rules
@@ -243,27 +266,31 @@ class ContentScanner:
 
         # Run detections
         violations = []
+        matched = []
         for rule in rules:
-            detections = self._run_detector(rule, content)
-            for detection in detections:
-                if detection.detected:
-                    violations.append(detection)
+            detections = [d for d in self._run_detector(rule, content) if d.detected]
+            if detections:
+                matched.append((rule, detections))
+                violations.extend(detections)
 
-                    # Create violation record
-                    ContentViolation.objects.create(
-                        scan=scan,
-                        rule=rule,
-                        rule_type=detection.rule_type,
-                        severity=detection.severity,
-                        enforcement=rule.enforcement,
-                        matched_pattern=detection.matched_pattern,
-                        matched_text=self._redact_sensitive(detection.matched_text),
-                        match_start=detection.match_start,
-                        match_end=detection.match_end,
-                        confidence=detection.confidence,
-                        category=detection.category,
-                        metadata=detection.metadata,
-                    )
+        decisions = {rule.id: self._decide(rule, detections, endpoint, content_type, scan_mode)
+                     for rule, detections in matched}
+        for rule, detections in matched:
+            for detection in detections:
+                ContentViolation.objects.create(
+                    scan=scan,
+                    rule=rule,
+                    rule_type=detection.rule_type,
+                    severity=detection.severity,
+                    enforcement=LEGACY_ENFORCEMENT_FOR_ACTION[decisions[rule.id].action],
+                    matched_pattern=detection.matched_pattern,
+                    matched_text=self._redact_sensitive(detection.matched_text),
+                    match_start=detection.match_start,
+                    match_end=detection.match_end,
+                    confidence=detection.confidence,
+                    category=detection.category,
+                    metadata=detection.metadata,
+                )
 
         # Determine action and max severity
         action = 'allow'
@@ -274,11 +301,12 @@ class ContentScanner:
             # Find the rule that triggered this violation
             rule = next((r for r in rules if r.rule_type == v.rule_type), None)
             if rule:
-                if rule.enforcement == ContentRule.Enforcement.BLOCK:
+                legacy = self._legacy_action(decisions[rule.id])
+                if legacy == 'block':
                     action = 'block'
-                elif rule.enforcement == ContentRule.Enforcement.WARN and action != 'block':
+                elif legacy == 'warn' and action != 'block':
                     action = 'warn'
-                elif rule.enforcement == ContentRule.Enforcement.REDACT and action not in ['block', 'warn']:
+                elif legacy == 'redact' and action not in ['block', 'warn']:
                     action = 'redact'
 
             # Track max severity
@@ -291,6 +319,8 @@ class ContentScanner:
         redacted_content = None
         if action == 'redact':
             redacted_content = self._redact_content(content, violations)
+
+        enforcement = summarize([decisions[rule.id] for rule, _detections in matched], target_capabilities)
 
         # Calculate duration
         duration_ms = int((time.time() - start_time) * 1000)
@@ -307,12 +337,18 @@ class ContentScanner:
         scan.was_redacted = action == 'redact'
         if redacted_content:
             scan.redacted_content = redacted_content
+        scan.enforcement = enforcement
         scan.save()
 
         # Create alerts for critical violations
         if max_severity in ['high', 'critical']:
             self._create_alert(scan, violations)
+        self._notify_alerts(scan, matched, decisions, endpoint)
 
+        if enforcement['action'] == Action.REDACT:
+            # Redact outranks warn in the action set, though not in the legacy
+            # precedence above, so the redacted text travels with the decision.
+            enforcement = {**enforcement, 'redacted_content': self._redact_content(content, violations)}
         result = ScanResult(
             has_violations=len(violations) > 0,
             violations=violations,
@@ -320,9 +356,71 @@ class ContentScanner:
             redacted_content=redacted_content,
             scan_duration_ms=duration_ms,
             max_severity=max_severity,
+            enforcement=enforcement,
         )
 
         return result, scan
+
+    def _decide(self, rule: ContentRule, detections: List[DetectionResult],
+                endpoint: Optional[AgentEndpoint], content_type: str, scan_mode: str):
+        """The action a matched rule takes for this scan."""
+        from zentinelle.services.actions import (count_match, decide,
+                                                 render_steer)
+        escalation = rule.escalation or {}
+        count = None
+        if escalation.get('repeat') and endpoint is not None:
+            count = count_match(tenant_id=self.tenant_id, kind='content_rule', rule_id=str(rule.id),
+                                scope_id=str(endpoint.id), window_seconds=escalation['window_seconds'],
+                                record=scan_mode == ContentRule.ScanMode.REALTIME)
+        severity = max((d.severity for d in detections if d.severity in SEVERITY_ORDER),
+                       key=SEVERITY_ORDER.index, default=None)
+        decision = decide(action=rule.action, block_level=rule.block_level, escalation=escalation,
+                          mode='enforce', count=count, severity=severity,
+                          rule={'type': 'content_rule', 'id': str(rule.id), 'name': rule.name})
+        if decision.action == Action.STEER:
+            decision.message = render_steer(rule.steer_message, {
+                'rule': rule.name, 'reason': self._reason(rule, detections), 'action': content_type,
+                'tool': '', 'agent': endpoint.agent_id if endpoint else '',
+            })
+        return decision
+
+    @staticmethod
+    def _legacy_action(decision) -> Optional[str]:
+        """What a rule's decision reads as to a caller that knows only block, warn and redact.
+
+        A rule configured as require_approval holds nothing there, as before
+        #396 (#408 decides whether it should). Escalating into
+        require_approval must not undo the warn or redact the rule applied
+        before it, and a legacy caller cannot hold a call, so it reads as
+        block: where require_approval's fallback chain ends.
+        """
+        if decision.action == Action.REQUIRE_APPROVAL and decision.configured_action != Action.REQUIRE_APPROVAL:
+            return 'block'
+        return LEGACY_SCAN_ACTION.get(decision.action)
+
+    @staticmethod
+    def _reason(rule: ContentRule, detections: List[DetectionResult]) -> str:
+        categories = sorted({d.category for d in detections if d.category})
+        return f"{rule.get_rule_type_display()}: {', '.join(categories)}" if categories else rule.get_rule_type_display()
+
+    def _notify_alerts(self, scan: ContentScan, matched, decisions, endpoint: Optional[AgentEndpoint]):
+        """An alert decision notifies the tenant's owners."""
+        for rule, detections in matched:
+            if decisions[rule.id].action != Action.ALERT:
+                continue
+            try:
+                from zentinelle.models.notification import (
+                    Notification, create_notification)
+                create_notification(
+                    tenant_id=self.tenant_id,
+                    type=Notification.Type.POLICY_VIOLATION,
+                    subject=f"Content alert: {rule.name[:100]}",
+                    message=self._reason(rule, detections),
+                    metadata={'rule_id': str(rule.id), 'scan_id': str(scan.id),
+                              'agent_id': endpoint.agent_id if endpoint else ''},
+                )
+            except Exception as exc:
+                logger.warning("notification creation failed: %s", exc)
 
     def _run_detector(self, rule: ContentRule, content: str) -> List[DetectionResult]:
         """Run the appropriate detector for a rule type."""

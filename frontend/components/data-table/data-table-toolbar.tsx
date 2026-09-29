@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { type Table } from "@tanstack/react-table";
+import { type RowData } from "@tanstack/react-table";
+import { type LegacyReactTable as Table } from "@tanstack/react-table/legacy";
 import { ListFilterIcon, XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +32,7 @@ const toFilterValue = (f: FilterConfig, v: string) => (isActive(f, v) ? v : unde
 
 // ─── filter chips ─────────────────────────────────────────────────────────────
 
-const FilterChips = <TData,>({
+const FilterChips = <TData extends RowData>({
   table,
   filters,
 }: {
@@ -70,7 +71,7 @@ const FilterChips = <TData,>({
 
 // ─── filter panel ─────────────────────────────────────────────────────────────
 
-const FilterPanel = <TData,>({
+const FilterPanel = <TData extends RowData>({
   table,
   filters,
 }: {
@@ -196,13 +197,13 @@ const FilterPanel = <TData,>({
 
 // ─── toolbar ──────────────────────────────────────────────────────────────────
 
-type DataTableToolbarProps<TData> = {
+type DataTableToolbarProps<TData extends RowData> = {
   table: Table<TData>;
   filters?: FilterConfig[];
   searchPlaceholder?: string;
 };
 
-export const DataTableToolbar = <TData,>({
+export const DataTableToolbar = <TData extends RowData>({
   table,
   filters = [],
   searchPlaceholder,

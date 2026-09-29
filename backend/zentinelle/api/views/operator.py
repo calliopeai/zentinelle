@@ -1,6 +1,10 @@
 """Token-authenticated operator API for automation and deployment tooling."""
 
+from datetime import timedelta
+
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
@@ -8,6 +12,22 @@ from rest_framework.views import APIView
 
 from zentinelle.api.auth import ZentinellePlatformKeyAuthentication
 from zentinelle.models import AgentEndpoint, Policy
+
+MAX_AGENT_KEY_TTL_SECONDS = 30 * 24 * 3600
+# What a policy does on a match (#396); Policy.clean() validates them together.
+ACTION_FIELDS = ('action', 'block_level', 'steer_message', 'escalation')
+
+
+def _ttl_seconds(value):
+    """Parse ``ttl_seconds``: None when absent, else an int in range, else raise."""
+    if value is None or value == '':
+        return None
+    if isinstance(value, bool):
+        raise ValueError
+    ttl = int(value)
+    if not 1 <= ttl <= MAX_AGENT_KEY_TTL_SECONDS:
+        raise ValueError
+    return ttl
 
 
 class IsPlatformOperator(BasePermission):
@@ -48,6 +68,14 @@ class OperatorAgentView(APIView):
                 {'error': 'agent_id, name, and a valid agent_type are required'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        try:
+            ttl = _ttl_seconds(data.get('ttl_seconds'))
+        except (TypeError, ValueError):
+            return Response(
+                {'error': f'ttl_seconds must be an integer from 1 to {MAX_AGENT_KEY_TTL_SECONDS}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        expires_at = timezone.now() + timedelta(seconds=ttl) if ttl else None
         if AgentEndpoint.objects.filter(
                 tenant_id=request.user.tenant_id, agent_id=agent_id).exists():
             return Response({'error': 'agent_id already exists'}, status=status.HTTP_409_CONFLICT)
@@ -61,6 +89,7 @@ class OperatorAgentView(APIView):
                 agent_type=agent_type,
                 api_key_hash=key_hash,
                 api_key_prefix=key_prefix,
+                api_key_expires_at=expires_at,
                 capabilities=data.get('capabilities', []),
                 metadata=data.get('metadata', {}),
                 config=data.get('config', {}),
@@ -73,10 +102,25 @@ class OperatorAgentView(APIView):
         except (TypeError, ValueError, IntegrityError):
             return Response({'error': 'invalid agent payload'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(
-            {'agent_id': endpoint.agent_id, 'id': str(
-                endpoint.id), 'api_key': api_key},
+            {
+                'agent_id': endpoint.agent_id,
+                'id': str(endpoint.id),
+                'api_key': api_key,
+                'expires_at': expires_at.isoformat() if expires_at else None,
+            },
             status=status.HTTP_201_CREATED,
         )
+
+    def delete(self, request, agent_id=None):
+        """Revoke an agent: its key is refused from the next request on."""
+        # An operator's stop: the minting Astrolift install may not undo it by
+        # minting again (#400).
+        updated = AgentEndpoint.objects.filter(
+            tenant_id=request.user.tenant_id, agent_id=agent_id,
+        ).update(status=AgentEndpoint.Status.TERMINATED, astrolift_revoked_at=None, updated_at=timezone.now())
+        if not updated:
+            return Response({'error': 'agent not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class OperatorPolicyView(APIView):
@@ -95,6 +139,7 @@ class OperatorPolicyView(APIView):
             'scope_sub_organization_id_ext', 'scope_deployment_id_ext',
             'scope_endpoint_id', 'scope_user_id_ext', 'config', 'override_group',
             'non_overridable', 'priority', 'enabled', 'enforcement', 'version',
+            'action', 'block_level', 'steer_message', 'escalation',
         )
         return Response({'policies': list(rows)})
 
@@ -107,18 +152,23 @@ class OperatorPolicyView(APIView):
         valid_scopes = {value for value, _ in Policy.ScopeType.choices}
         if data['policy_type'] not in valid_types or data['scope_type'] not in valid_scopes:
             return Response({'error': 'invalid policy_type or scope_type'}, status=400)
-        policy = Policy.objects.create(
-            tenant_id=request.user.tenant_id,
-            name=str(data['name']).strip(),
-            description=str(data.get('description', ''))[:10000],
-            policy_type=data['policy_type'], scope_type=data['scope_type'],
-            config=data.get('config', {}), priority=int(data.get('priority', 0)),
-            enabled=bool(data.get('enabled', True)),
-            enforcement=data.get('enforcement', Policy.Enforcement.ENFORCE),
-            override_group=str(data.get('override_group', '')),
-            non_overridable=bool(data.get('non_overridable', False)),
-            user_id=str(getattr(request.user, 'id', '')),
-        )
+        action_fields = {name: data[name] for name in ACTION_FIELDS if name in data}
+        try:
+            policy = Policy.objects.create(
+                tenant_id=request.user.tenant_id,
+                name=str(data['name']).strip(),
+                description=str(data.get('description', ''))[:10000],
+                policy_type=data['policy_type'], scope_type=data['scope_type'],
+                config=data.get('config', {}), priority=int(data.get('priority', 0)),
+                enabled=bool(data.get('enabled', True)),
+                enforcement=data.get('enforcement', Policy.Enforcement.ENFORCE),
+                override_group=str(data.get('override_group', '')),
+                non_overridable=bool(data.get('non_overridable', False)),
+                user_id=str(getattr(request.user, 'id', '')),
+                **action_fields,
+            )
+        except ValidationError as exc:
+            return Response({'error': '; '.join(exc.messages)}, status=400)
         return Response({'id': str(policy.id), 'version': policy.version}, status=201)
 
     def patch(self, request, policy_id=None):
@@ -130,10 +180,13 @@ class OperatorPolicyView(APIView):
             return Response({'error': 'policy not found'}, status=404)
         allowed = {
             'name', 'description', 'config', 'priority', 'enabled', 'enforcement',
-            'override_group', 'non_overridable',
+            'override_group', 'non_overridable', *ACTION_FIELDS,
         }
         for key in allowed.intersection(request.data.keys()):
             setattr(policy, key, request.data[key])
         policy.user_id = str(getattr(request.user, 'id', ''))
-        policy.save()
+        try:
+            policy.save()
+        except ValidationError as exc:
+            return Response({'error': '; '.join(exc.messages)}, status=400)
         return Response({'id': str(policy.id), 'version': policy.version})

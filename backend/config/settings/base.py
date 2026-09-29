@@ -348,6 +348,13 @@ CELERY_BEAT_SCHEDULE = {
 
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")
 
+# The longest an agent key that an Astrolift install mints for one of its
+# tasks or boxes keeps working after its mint, however often it is renewed
+# (#400). A run that needs longer gets a fresh key.
+ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS = int(
+    os.environ.get("ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS", str(7 * 24 * 3600))
+)
+
 # =============================================================================
 # REST Framework
 # =============================================================================
@@ -419,6 +426,15 @@ BILLING_EXPORT_TIMEOUT = int(os.environ.get("BILLING_EXPORT_TIMEOUT", "30"))
 # The default is the one that under-bills if wrong. Charging a BYOK customer
 # for tokens they bought themselves is not a recoverable mistake.
 BILLING_MODE = os.environ.get("BILLING_MODE", "governance_only")
+
+# Where a standalone compose install's backend writes the local gateway's
+# credential (#380): a volume the gateway also mounts. When the file is missing
+# and its directory exists, the web process registers a gateway named `local`,
+# scoped to the standalone tenant, and writes a fresh credential there. Every
+# other gateway is registered by an operator (manage.py gateway_credential).
+# Empty disables it. See zentinelle/auth/gateway_credential.py.
+ZENTINELLE_GATEWAY_CREDENTIAL_FILE = os.environ.get(
+    "ZENTINELLE_GATEWAY_CREDENTIAL_FILE", "/var/run/zentinelle/gateway-credential")
 
 # Metadata-only by default; full prompt capture requires an explicit operator choice.
 CONTENT_CAPTURE_MODE = os.environ.get("CONTENT_CAPTURE_MODE", "metadata").lower()

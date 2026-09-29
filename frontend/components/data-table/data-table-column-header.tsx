@@ -1,15 +1,16 @@
 "use client";
 
-import { type Column } from "@tanstack/react-table";
+import { type RowData } from "@tanstack/react-table";
+import { type LegacyColumn as Column } from "@tanstack/react-table/legacy";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type DataTableColumnHeaderProps<TData, TValue> = {
+type DataTableColumnHeaderProps<TData extends RowData, TValue> = {
   column: Column<TData, TValue>;
   title: string;
 };
 
-export const DataTableColumnHeader = <TData, TValue>({
+export const DataTableColumnHeader = <TData extends RowData, TValue>({
   column,
   title,
 }: DataTableColumnHeaderProps<TData, TValue>) => {

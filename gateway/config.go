@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,7 +21,33 @@ type Config struct {
 	// Azure OpenAI, Mistral, an on-prem endpoint — needed a code change and a
 	// rebuild to configure, in a service whose provider table is otherwise
 	// data (#226).
+	//
+	// Used only when AllowEnvProviderKeys is set, and only for a tenant with
+	// no key stored in Zentinelle (#380).
 	ProviderAPIKeys map[string]string
+
+	// AllowEnvProviderKeys lets ProviderAPIKeys serve a request whose tenant
+	// has no stored key. Single-tenant only: an env key is one account's key,
+	// and every tenant without a stored key would be served on it.
+	// Deprecated: per-tenant stored keys replace it.
+	AllowEnvProviderKeys bool
+
+	// GatewayCredential is this gateway's own registered credential
+	// (sk_gateway_...), presented with the agent key to read that agent's
+	// tenant's stored provider key (#380). Zentinelle releases a key only for
+	// the tenants this gateway is registered for. It is
+	// ZENTINELLE_GATEWAY_CREDENTIAL, or else the contents of
+	// GatewayCredentialFile. Empty disables the lookup, which leaves only the
+	// env fallback.
+	GatewayCredential string
+
+	// GatewayCredentialFile is where the credential is read from when
+	// ZENTINELLE_GATEWAY_CREDENTIAL is unset: ZENTINELLE_GATEWAY_CREDENTIAL_FILE,
+	// by default /var/run/zentinelle/gateway-credential. It is read again when
+	// the backend refuses the credential, so a rotated one needs no restart.
+	// Empty when the credential came from the environment, or nothing is
+	// mounted there.
+	GatewayCredentialFile string
 
 	// Which tenant and cluster this gateway speaks for, sent on every call to
 	// Zentinelle. In the cluster-local pattern one Zentinelle serves many
@@ -29,6 +56,11 @@ type Config struct {
 	// case no header is sent at all.
 	TenantID  string
 	ClusterID string
+
+	// HeartbeatInterval is how often the gateway reports on its cluster to
+	// Zentinelle (#391) until an answer names the interval Zentinelle wants:
+	// HEARTBEAT_INTERVAL_SECONDS, 60 by default. Zero turns heartbeats off.
+	HeartbeatInterval time.Duration
 
 	FailOpen         bool
 	PolicyTimeout    time.Duration
@@ -70,15 +102,75 @@ func LoadConfig() (*Config, error) {
 		maxBytes = parsed
 	}
 
+	heartbeatInterval := defaultHeartbeatInterval
+	if v := os.Getenv("HEARTBEAT_INTERVAL_SECONDS"); v != "" {
+		least, most := int(minHeartbeatInterval/time.Second), int(maxHeartbeatInterval/time.Second)
+		seconds, err := strconv.Atoi(v)
+		if err != nil || (seconds != 0 && (seconds < least || seconds > most)) {
+			return nil, fmt.Errorf("invalid HEARTBEAT_INTERVAL_SECONDS value %q: 0 turns heartbeats off, otherwise %d to %d",
+				v, least, most)
+		}
+		heartbeatInterval = time.Duration(seconds) * time.Second
+	}
+
+	allowEnvKeys := false
+	if v := os.Getenv("ALLOW_ENV_PROVIDER_KEYS"); v != "" {
+		parsed, err := strconv.ParseBool(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ALLOW_ENV_PROVIDER_KEYS value %q: %w", v, err)
+		}
+		allowEnvKeys = parsed
+	}
+
+	gatewayCredential := os.Getenv("ZENTINELLE_GATEWAY_CREDENTIAL")
+	gatewayCredentialFile := ""
+	if gatewayCredential != "" {
+		if !validGatewayCredential(gatewayCredential) {
+			return nil, fmt.Errorf("ZENTINELLE_GATEWAY_CREDENTIAL is not a gateway credential (%s...); "+
+				"mint one with manage.py gateway_credential", gatewayCredentialPrefix)
+		}
+	} else {
+		gatewayCredentialFile = defaultGatewayCredentialFile
+		if v, set := os.LookupEnv("ZENTINELLE_GATEWAY_CREDENTIAL_FILE"); set {
+			gatewayCredentialFile = v
+		}
+		// A file in a directory that does not exist is not coming: nothing is
+		// mounted there, so there is nothing to wait for or read again.
+		if gatewayCredentialFile != "" && !isDir(filepath.Dir(gatewayCredentialFile)) {
+			gatewayCredentialFile = ""
+		}
+		if gatewayCredentialFile != "" {
+			credential, err := waitForGatewayCredential(gatewayCredentialFile, gatewayCredentialWait, gatewayCredentialPoll)
+			if err != nil {
+				return nil, err
+			}
+			gatewayCredential = credential
+		}
+	}
+
+	providerKeys := loadProviderKeys(os.Environ())
+
+	// A gateway with nowhere to get a provider key would start cleanly and
+	// then refuse every request, which is the failure that looks like health.
+	if gatewayCredential == "" && !(allowEnvKeys && len(providerKeys) > 0) {
+		return nil, fmt.Errorf("no provider key source: give the gateway its registered credential, as "+
+			"ZENTINELLE_GATEWAY_CREDENTIAL or in the file at ZENTINELLE_GATEWAY_CREDENTIAL_FILE (default %s)",
+			defaultGatewayCredentialFile)
+	}
+
 	return &Config{
-		Port:             port,
-		ZentinelleURL:    zentinelleURL,
-		ProviderAPIKeys:  loadProviderKeys(os.Environ()),
-		TenantID:         os.Getenv("ZENTINELLE_TENANT_ID"),
-		ClusterID:        os.Getenv("ZENTINELLE_CLUSTER_ID"),
-		FailOpen:         failOpen,
-		PolicyTimeout:    time.Duration(policyTimeoutMs) * time.Millisecond,
-		MaxResponseBytes: maxBytes,
+		Port:                  port,
+		ZentinelleURL:         zentinelleURL,
+		ProviderAPIKeys:       providerKeys,
+		AllowEnvProviderKeys:  allowEnvKeys,
+		GatewayCredential:     gatewayCredential,
+		GatewayCredentialFile: gatewayCredentialFile,
+		TenantID:              os.Getenv("ZENTINELLE_TENANT_ID"),
+		ClusterID:             os.Getenv("ZENTINELLE_CLUSTER_ID"),
+		HeartbeatInterval:     heartbeatInterval,
+		FailOpen:              failOpen,
+		PolicyTimeout:         time.Duration(policyTimeoutMs) * time.Millisecond,
+		MaxResponseBytes:      maxBytes,
 	}, nil
 }
 

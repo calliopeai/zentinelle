@@ -123,6 +123,20 @@ Revisit when either becomes true:
 ### Fail-Open by Default
 If Zentinelle is unreachable, agents continue running. Circuit breaker in SDK. Set `fail_open: false` per policy for hard enforcement.
 
+### Agent Hosts: One Key per Host (#377)
+An Agent Host Protocol host runs many sessions across harnesses. It registers
+once as `agent_type=agent_host`, and every `tool_call` evaluation names its
+`harness`, `session_id`, `chat_id` and `tool_name` in `context`; sessions are
+never registered. Registering each session was rejected: session churn would
+become endpoint and key churn, every session would consume an agent
+entitlement, and the key would sit inside the harness process the gate polices.
+
+A host can keep a tool call pending, so an evaluation blocked only by a missing
+human approval answers `ask` and opens an `ApprovalRequest` that the host polls
+and an operator decides. Approving issues the ordinary single-use
+`ExecutionApproval`. Unlike the SDK default above, the host gate fails closed.
+Contract and examples: [docs/agent-host.md](docs/agent-host.md).
+
 ## Common Commands
 
 ### Backend
@@ -190,7 +204,7 @@ compose file — all operations degrade gracefully to no-ops.
 | Model | Key Fields | Notes |
 |-------|-----------|-------|
 | `AgentEndpoint` | `agent_id` (SlugField), `api_key_hash`, `api_key_prefix`, `tenant_id`, `agent_type`, `status`, `health`, `capabilities` | `agent_type`: claude_code, gemini, codex, junohub, langchain, langgraph, mcp, chat, custom |
-| `Policy` | `scope_type`, `policy_type`, `config`, `tenant_id`, `enabled`, `enforcement` | `enforcement`: enforce, audit, disabled. `scope_type` = target, not location |
+| `Policy` | `scope_type`, `policy_type`, `config`, `tenant_id`, `enabled`, `enforcement`, `action`, `block_level`, `escalation` | `enforcement` (the mode, and the ceiling on `action`): enforce, audit, disabled. See Policy Actions. `scope_type` = target, not location |
 | `Event` | `endpoint`, `event_type`, `event_category`, `payload`, `tenant_id`, `occurred_at` | High volume — write-optimized. Categories: telemetry, audit, alert |
 | `ContentScan` | `endpoint`, `content_type`, `status`, `has_violations`, `was_blocked` | |
 | `InteractionLog` | `endpoint`, `ai_provider`, `ai_model`, `input_content`, `output_content`, `tool_calls`, `occurred_at` | Created by evaluate endpoint and proxy. Feeds monitoring dashboard |
@@ -291,6 +305,7 @@ they differ in what else they do and in what they can see.
 | Output filtering | yes, since #218 | yes |
 | Interaction logging | usage only | full `InteractionLog` |
 | Providers | ~20, config-driven | anthropic, openai, google, vertex |
+| Provider key | the agent's tenant's stored `LLMProviderKey` (#380); env keys only with the deprecated `ALLOW_ENV_PROVIDER_KEYS` | `MANAGED_*`/env key, else the client's own |
 
 The gateway holds an agent key, not a database. That is the whole reason for
 the split: it cannot query `Policy`, so anything it must decide has to be
@@ -307,6 +322,40 @@ is conditional on a filter existing rather than always on.
 
 The Django proxy stays canonical for anything needing the database in the
 request path: full interaction logging, and the multimodal request scan.
+
+Provider keys are the second thing carried to the gateway (#380). Once policy
+passes, it asks `POST /api/zentinelle/v1/gateway/provider-key` for the key the
+agent's tenant stored, presenting the agent key (which names the tenant) and
+its own registered credential (which names the gateway; an agent key alone
+reads nothing). It caches the answer for 60 seconds per agent key and provider,
+and it always drops whatever key the client sent. This is a separate endpoint
+rather than a field on the evaluate response because a decision is made per
+request and never cached, while a key is stable and can be; and the evaluate
+response is the most widely read and logged payload in the system. Each release
+writes an `access` audit record without the value. The gateway's env keys
+remain only as a deprecated single-tenant fallback behind
+`ALLOW_ENV_PROVIDER_KEYS`, and a failed lookup never falls back to them.
+
+The gateway runs inside each cluster that hosts agents (a data plane), with
+Zentinelle as the control plane for one or many of them, so there is no shared
+secret between them: a single one would let one leaked cluster unlock every
+tenant. Each gateway is a `GatewayRegistration` scoped to an explicit set of
+`tenant_ids`, holding its own `GatewayCredential` (`sk_gateway_...`, stored as
+a bcrypt hash like an API key). A key is released only when the agent's tenant
+is in the gateway's scope; a registration or a single credential is revoked on
+its own; rotation is a second credential, then revoking the first. Operators
+use `manage.py gateway_credential` (register, mint, scope, list, revoke). The
+registration carries the opaque `cluster_id` the gateway sends as
+X-Zentinelle-Cluster. A gateway that an Astrolift install registered also links
+to its `AstroliftCluster` (see "Connected installs and clusters" below).
+
+The gateway reads its credential from `ZENTINELLE_GATEWAY_CREDENTIAL`, else the
+file at `ZENTINELLE_GATEWAY_CREDENTIAL_FILE` (default
+`/var/run/zentinelle/gateway-credential`): a mounted Secret on Kubernetes. A
+standalone compose install needs no configuration: its backend registers a
+gateway named `local` for the standalone tenant and writes its credential into
+a volume both containers mount (exclusive create, so replicas leave one). The
+gateway reads the file again when refused, so rotation needs no restart.
 
 ```
 Agent SDK → local proxy (port 8742) → Zentinelle /proxy/<provider>/ → provider API
@@ -375,6 +424,169 @@ All evaluators live in `zentinelle/services/evaluators/`. The policy engine runs
 | `SecretAccessEvaluator` | `allowed_bundles`, `denied_providers` | Bundle slug and provider from context |
 
 Cache invalidation: versioned cache keys. Policy CRUD mutations bump version, next evaluate call misses cache and re-queries.
+
+## Policy Actions (#396)
+
+Policies and content rules share one ordered action set. A rule names what
+happens when it matches:
+
+| Action | What happens |
+|---|---|
+| `log` | recorded as evidence only |
+| `alert` | recorded, and the tenant's owners are notified |
+| `warn` | the call goes ahead with a visible warning |
+| `steer` | the call goes ahead and the rule's message is injected into the session |
+| `redact` | the matched content is removed before it goes on |
+| `require_approval` | the call is held until a person approves it |
+| `block` | the offending action is stopped, at a block level: `tool_call`, `turn`, `revoke_key`, `stop`, `quarantine` |
+
+The order is `log < alert < warn < steer < redact < require_approval < block`,
+and block levels order the blocks. `Policy` and `ContentRule` store `action`,
+`block_level`, `steer_message` and `escalation`; the logic is in
+`services/actions.py`.
+
+**Deciding.** A match starts at the rule's action. A match that an approval
+can release (an evaluator's own approval list) starts no higher than
+`require_approval`. Escalation raises it:
+
+```json
+{"window_seconds": 3600,
+ "repeat": [{"count": 2, "action": "steer"},
+            {"count": 3, "action": "block", "block_level": "turn"}],
+ "severity": [{"min_severity": "critical", "action": "block", "block_level": "stop"}]}
+```
+
+- Repeat steps count this rule's matches for the same endpoint, in a window
+  that opens at the first match. Dry runs and after-the-fact scans read the
+  count without adding to it.
+- Severity steps compare a policy match with the evaluation's risk score
+  mapped to severity (the mapping incidents use), and a content-rule match
+  with the severity of its detections.
+- For a policy, severity escalation is advisory. The risk score reads flags
+  the caller declares in `context` (`data_contains_pii`, `is_pii_access`,
+  `data_type`, `datasource`), so a caller that leaves them out keeps the
+  score low. Anything that must hold belongs in the rule's own action or in
+  repeat steps, which Zentinelle counts itself.
+- Steps only go up. Saving refuses a step that is not stronger than the one
+  before it, and a rule that can steer but has no message.
+
+A rule that cannot be evaluated fails closed: a stored selector that cannot
+be read, or an evaluator that raises. Neither says whether the rule matched,
+so the rule's action does not apply. Under enforce the call is refused
+(`block` at `tool_call`) whatever the action, as every failure was before
+#396. Under audit it is recorded as `log`. It is never escalated or released
+by an approval.
+
+A policy's mode (`enforcement`) is the ceiling. `enforce` allows every action.
+`audit` performs only the `log` and `alert` steps the rule reached and records
+the rest as `log`, with `capped_from` saying what it would have done.
+`disabled` rules are not evaluated. Content rules have no mode; `enabled`
+turns them on and off.
+
+Steer templates take `{rule}`, `{reason}`, `{action}`, `{tool}` and `{agent}`,
+and nothing else. `{tool}` and `{reason}` carry what the caller sent into a
+message the harness trusts, so every value goes in as one quoted line:
+control characters, line breaks and format characters (bidi overrides, zero
+widths) become spaces, quotes inside it are escaped, and it is cut at 200
+characters.
+
+**Existing rules.** Migration 0062 gave every policy `block` at `tool_call`,
+which is what an enforced failure did before. Audit policies keep `block` too:
+the audit ceiling records them as `log`, and switching one to enforce blocks
+as it always did. Content rules moved value for value, with `log_only`
+becoming `log`. `test_action_equivalence.py` runs a fixture set of existing
+rules through the real migration and then `/evaluate`, the engine and `/scan`,
+and compares everything they produce with a golden file recorded before the
+change.
+
+**Rolling deploys.** The backend migrates at startup while the previous
+release's tasks still serve, so 0062 leaves that release working:
+
+- `ContentRule.enforcement` stays, written from `action` on every save as the
+  nearest legacy value, because the old models read it on every rule lookup.
+  #416 drops it once no environment runs, or could roll back to, the old
+  release.
+- The new `Policy` columns and `ContentScan.enforcement` have database
+  defaults, so an old pod's policy create and `/scan` still insert. A policy
+  it creates takes `block` at `tool_call`, which is what it meant.
+- The new content-rule columns have no database default on purpose. An old
+  pod has no working way to create a rule (#407), and one without an action
+  would read as `log`.
+
+### The evaluate contract
+
+`POST /api/zentinelle/v1/evaluate` may carry `target_capabilities`, an object
+of booleans saying what the caller can honour:
+
+| Capability | Honours |
+|---|---|
+| `supports_steer` | `steer` |
+| `supports_redact` | `redact` |
+| `supports_approval` | `require_approval` (holding the call) |
+| `supports_interrupt` | `block` at `turn` |
+| `supports_revoke_key` | `block` at `revoke_key` |
+| `supports_stop` | `block` at `stop` |
+| `supports_quarantine` | `block` at `quarantine` |
+
+Other names are ignored, and a value that is not a boolean is a 400. It is
+kept out of `context`, so it never changes an approval's digest.
+
+Every response, including the 503 for a policy outage, carries `enforcement`:
+
+```json
+"enforcement": {
+  "action": "block", "block_level": "turn", "message": null,
+  "rule": {"type": "policy", "id": "...", "name": "No rm", "version": 3},
+  "mode": "enforce", "configured_action": "warn",
+  "escalation": {"by": "repeat", "count": 3, "window_seconds": 3600},
+  "capped_from": null,
+  "fallback_chain": [
+    {"action": "block", "block_level": "turn", "requires": "supports_interrupt"},
+    {"action": "block", "block_level": "revoke_key", "requires": "supports_revoke_key"},
+    {"action": "block", "block_level": "stop", "requires": "supports_stop"},
+    {"action": "block", "block_level": "quarantine", "requires": "supports_quarantine"},
+    {"action": "block", "block_level": "tool_call", "requires": null}],
+  "selected": {"action": "block", "block_level": "revoke_key", "requires": "supports_revoke_key"},
+  "fallback": true
+}
+```
+
+- `action` is the strongest decision across the matched rules, and `null` when
+  nothing matched. `rule` is the rule that decided it; it is `null` when a
+  budget admission, bad input or an outage refused the call. Each
+  `policies_evaluated` entry carries its own `action` and `block_level`.
+- `fallback_chain` is what to try, in order. A block falls back upward through
+  the stronger levels, then to refusing the call; steer falls back to warn;
+  redact and approval fall back to refusing the call. Every chain ends with an
+  option any caller can honour (`requires: null`).
+- `selected` and `fallback` are set when the request carried
+  `target_capabilities`: the first option the target can honour, and whether
+  it is not the first. Without capabilities the caller picks from the chain.
+- `allowed` and `decision` stay the floor for callers that read nothing else.
+  `block`, `require_approval` and `redact` deny (an agent host still gets
+  `ask` for approval), and `log`, `alert`, `warn` and `steer` allow. Warn and
+  steer also add `[Warn]` and `[Steer]` lines to `warnings`, so an older
+  caller still shows them. What a caller declares never changes `allowed`.
+- No policy evaluator returns redacted content, so `/evaluate` has nothing a
+  target could pass on in place of the original: for a redact decision,
+  `selected` falls back to refusing the call even when the target declared
+  `supports_redact`. Redaction a target can honour comes from `/scan`.
+- The evaluation event's payload carries the same `enforcement`. An allowed
+  call decided as `alert` is filed in the alert category.
+
+`POST /api/zentinelle/v1/scan` takes the same `target_capabilities` and returns
+the same `enforcement` for content rules, with `redacted_content` inside it
+when the decision is `redact`; the decision is stored on the `ContentScan`.
+The legacy `action` and `allowed` keep their old precedence (block, then warn,
+then redact; `log`, `alert` and `require_approval` change nothing there), so
+for a caller reading only `action` a warn rule still wins over a redact rule,
+and a `require_approval` rule holds nothing (#408). A rule that escalation
+raises into `require_approval` reads as `block` there instead: a legacy
+caller cannot hold a call, and escalating must not undo the warn or redact the
+rule applied before it.
+
+Delivering a steer or a stop to a running agent is the target's job
+(Astrolift: #394, calliopeai/astrolift-app#1903).
 
 ## Astrolift Integration
 
@@ -456,6 +668,105 @@ The `TenantResolver` route was rejected for now: it only pays off if
 Zentinelle ends up embedded in Astrolift's Django process, and it couples the
 two services tightly for no gain while they stay separate. Portal SSO stays
 open; deeplinks currently land on Zentinelle's own auth.
+
+### Connected installs and clusters (#389)
+
+The Go gateway runs inside each Astrolift cluster as a data plane, and
+Zentinelle is the control plane for one or many of them. Astrolift connects
+itself, and nobody copies a gateway credential by hand:
+
+1. A Zentinelle admin generates a one-time **enrollment code** (Settings >
+   Astrolift, or `manage.py astrolift_enrollment_code --tenant <id>`). It is
+   scoped to tenants (the admin's own by default), works once, and expires
+   after 15 minutes (at most 60). Only its SHA-256 is stored. The code carries
+   192 random bits, so a fast hash costs nothing, and it lets a single
+   conditional UPDATE consume the code, which keeps it single use under a
+   race.
+2. The Astrolift admin pastes this Zentinelle's URL and the code into Astrolift,
+   which calls `POST /api/zentinelle/v1/astrolift/connect`
+   `{"code", "install": {"base_url", "name"}}`. That creates an
+   `AstroliftInstall` for the code's tenants and returns the install's
+   credential (`sk_astroinst_...`, bcrypt-hashed) once. An unknown, expired or
+   used code gets the same `400 invalid_enrollment_code`. Lost the response?
+   Disconnect the orphan and generate a new code.
+3. With `Authorization: Bearer sk_astroinst_...`, Astrolift registers each
+   cluster: `POST .../astrolift/clusters` `{"cluster_id", "provider", "region",
+   "tenant_ids"?}`. `cluster_id` is Astrolift's id for the cluster and the
+   gateway's `ZENTINELLE_CLUSTER_ID`. `tenant_ids` may narrow the install's
+   scope, never widen it. The response carries the gateway's
+   `GatewayCredential` once. Astrolift writes it into the cluster's Secret and
+   no human sees it. Registering a live cluster again mints a fresh credential,
+   so an installer that lost one can always register.
+4. `POST .../astrolift/clusters/<cluster_id>/rotate` `{"overlap_seconds"}`
+   mints the next credential. The earlier ones keep working for the overlap
+   (default 600, 0 to 86400), then expire (`GatewayCredential.expires_at`).
+   The gateway rereads its credential file only when it is refused, so an
+   overlap longer than Secret propagation switches it over with no failed
+   request. An overlap of 0 is for a leaked credential.
+5. `DELETE .../astrolift/clusters/<cluster_id>` revokes the cluster and its
+   gateway registration. `DELETE .../astrolift/install` disconnects the
+   install: its credential, its clusters and their gateways. Revoked rows
+   stay as history. The same cluster id registered again is a new row with a
+   new registration, which is also how a leaked gateway is recovered. To stop
+   an install from registering anything, disconnect it.
+6. The gateway reports `POST .../astrolift/clusters/<cluster_id>/heartbeat`
+   with `X-Zentinelle-Gateway-Credential`: `{"status": healthy|degraded|
+   unhealthy, "version", "counters": {"requests", "blocked", "agents_seen"}}`.
+   Counters are running totals since the gateway started; unknown counters
+   are dropped. The answer asks for the next heartbeat in 60 seconds. A cluster
+   that hasn't reported yet is `pending`, and one silent for five minutes is
+   `stale`. The gateway sends it whenever `ZENTINELLE_CLUSTER_ID` and its
+   credential are set (`HEARTBEAT_INTERVAL_SECONDS=0` turns it off), judges
+   its status from its own calls to Zentinelle since the last beat, and after
+   a 404 sends nothing until its credential file changes (#391).
+7. Each agent task and box gets its own agent key, so its pod carries no
+   provider key (#400, calliopeai/astrolift-app#1851):
+   `POST .../astrolift/agents` `{"agent_id", "ttl_seconds", "tenant_id"?,
+   "name"?, "deployment_id"?}` answers with the key once, with `expires_at`
+   and `lifetime_ends_at`. `ttl_seconds` is required (1 to 2,592,000), and
+   the key is refused after it. No key works longer than
+   `ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS` (default 7 days) after its mint:
+   a longer `ttl_seconds` or renewal stops at `lifetime_ends_at`, and a run
+   that needs longer mints a fresh key. `tenant_id` defaults to the install's
+   only tenant and must be one of the install's. Astrolift sends
+   `deployment_id` = the agent's slug, so a deployment-scoped policy covers
+   every run of that agent. Minting again for an agent the install minted
+   replaces its key and starts a new lifetime (a retried spawn, a restarted
+   box). It brings back only an agent the install's own revoke stopped: one
+   stopped by anyone else (the portal's suspend or status change, the kill
+   switch, the operator API, the agent's own deregister) stays stopped, and
+   the mint gets `409 agent_suspended`. An `agent_id` the install did not
+   mint gets `409 agent_id_taken`, also when another install creates it at
+   the same moment. `POST .../astrolift/agents/<agent_id>/renew`
+   `{"ttl_seconds"}` moves a live, unexpired key's expiry (a box still in
+   use, a task whose deadline grew while it waited for a human); an expired
+   key gets `409 agent_key_expired`, a revoked one 404, a stopped one
+   `409 agent_suspended`. `DELETE .../astrolift/agents/<agent_id>` terminates
+   a live agent, and its key is refused from the next request; an agent that
+   is already stopped is left as it is. Only the install that minted an agent
+   can renew or revoke it, and disconnecting the install terminates all of
+   them. Mint and revoke are audited in the key's tenant with its prefix;
+   renewals are not, for the reason heartbeats are not.
+
+The portal (admins only) lists the installs serving the admin's tenant with
+their clusters, and can revoke a cluster or disconnect an install. A change
+that touches an install needs access to every tenant the install serves.
+
+Every change writes one `AuditLog` record per tenant in scope (actions
+`astrolift.*`), so each tenant's chain shows what touched it. No record holds a
+code or a credential. Heartbeats are telemetry and are not audited.
+
+An operator's registration from `manage.py gateway_credential register
+--cluster <id>` is adopted by the Astrolift cluster with that id only when it
+is the one live, unlinked registration for that id and every tenant it serves
+is within the cluster's scope. A matching string alone proves nothing, since
+cluster ids are not namespaced per install. Its old credentials overlap like a
+rotation. Revoking an Astrolift gateway with `gateway_credential revoke`
+revokes its cluster too.
+
+Not yet: filtering usage, audit and policy reads by Astrolift project and team
+scopes, which needs those ids on events (#390), and counters per gateway
+replica: every replica reports for its cluster and the latest heartbeat wins.
 
 ## Wiki
 
