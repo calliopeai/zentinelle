@@ -262,3 +262,20 @@ and `OTEL_EXPORTER_OTLP_HEADERS=X-Zentinelle-Key=<agent-host-key>`.
 Keep `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=false` unless the
 operator explicitly enables content capture. This receiver needs no separate
 collector, observer or process; it uses the existing tenant event pipeline.
+
+## Astrolift pre-approval channel
+
+The minting install evaluates tool calls at
+`POST /api/zentinelle/v1/astrolift/agents/{agent_id}/evaluate` with `tenant_id`,
+`action: tool_call`, the task initiator's `user_id`, and host context. The endpoint
+must belong to that install and tenant; revoked or expired agent credentials
+refuse evaluation. No agent key is distributed to the host.
+
+An `ask` result identifies a held approval request. Astrolift checks its current
+controller permission before posting `tenant_id`, `decision: approve|deny`,
+`actor_id`, and an optional reason to
+`/astrolift/agents/{agent_id}/approvals/{request_id}/decision`. The decision is
+bound to the endpoint and exact tool context, audited with the install and
+controller identities, and identical retries reuse the single-use grant.
+Astrolift evaluates again with the returned `approval_token`; current policies
+can still deny. Network failures keep the runner blocked.

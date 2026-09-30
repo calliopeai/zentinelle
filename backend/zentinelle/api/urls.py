@@ -100,6 +100,8 @@ from zentinelle.api.views.assistant_models import (AssistantModelsBulkView,
                                                    AssistantModelsListView,
                                                    AssistantModelsToggleView)
 from zentinelle.api.views.assistant_providers import AssistantProvidersView
+from zentinelle.api.views.astrolift_agent_policy import (
+    AstroliftAgentApprovalView, AstroliftAgentEvaluateView)
 from zentinelle.api.views.astrolift_clusters import (
     AstroliftAgentRenewView, AstroliftAgentsView, AstroliftAgentView,
     AstroliftClusterAdminView, AstroliftClusterHeartbeatView,
@@ -192,6 +194,8 @@ urlpatterns = [
     path('secrets/<str:agent_id>', SecretsView.as_view(), name='secrets-agent'),
     path('events', EventsView.as_view(), name='events'),
     path('otlp/v1/traces', OtlpTracesView.as_view(), name='otlp-traces'),
+    path('astrolift/agents/<str:agent_id>/evaluate', AstroliftAgentEvaluateView.as_view(), name='astrolift-agent-evaluate'),
+    path('astrolift/agents/<str:agent_id>/approvals/<uuid:request_id>/decision', AstroliftAgentApprovalView.as_view(), name='astrolift-agent-approval'),
     path('heartbeat', HeartbeatView.as_view(), name='heartbeat'),
     path('evaluate', EvaluateView.as_view(), name='evaluate'),
     # The Go gateway reads the agent's tenant's stored provider key (#380).

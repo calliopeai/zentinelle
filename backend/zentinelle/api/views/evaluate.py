@@ -37,6 +37,9 @@ class EvaluateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        return self.evaluate(request, get_endpoint_from_request(request))
+
+    def evaluate(self, request, auth_endpoint, *, host_approval=False):
         serializer = EvaluateRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -46,9 +49,8 @@ class EvaluateView(APIView):
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         # Get authenticated endpoint
-        auth_endpoint = get_endpoint_from_request(request)
         # One agent host key serves many sessions across harnesses (#377).
-        is_host = auth_endpoint.agent_type == AgentEndpoint.AgentType.AGENT_HOST
+        is_host = host_approval or auth_endpoint.agent_type == AgentEndpoint.AgentType.AGENT_HOST
 
         # Verify agent_id matches
         if data.get('agent_id') and auth_endpoint.agent_id != data['agent_id']:
