@@ -311,3 +311,17 @@ with `tenant_id` and `outcome`. Status is `applied`, `observed`, `refused` or
 Evidence and policy links accompany the audit record. Other installs cannot read
 or acknowledge the action. These endpoints are install operations, not AHP
 client events or user authorization grants.
+
+## Hub tap identity (#415)
+
+A multiuser hub keeps its agent-host key in the hub tap. Configure the trusted
+AgentEndpoint `config.hub_identity` with `hub_id` and `api_url` (the hub's
+`/hub/api` URL). The tap forwards the caller's hub token as
+`X-JupyterHub-User-Token`. Zentinelle verifies it against that configured hub
+on every evaluation, refuses service tokens and tokens without access to the
+user's own server, and replaces claimed user/context fields with the verified
+`hub:<hub_id>:<username>` identity. Missing, revoked, redirected, or unreachable
+identity checks refuse the evaluation; there is no cache or claimed-ID fallback.
+Use TLS between services outside a trusted private network. A hub header on an
+endpoint without this administrative binding is also refused. Single-user
+agent-host endpoints without a binding retain their existing contract.

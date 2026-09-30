@@ -43,6 +43,11 @@ class EvaluateView(APIView):
         serializer = EvaluateRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        identity = getattr(request, 'verified_hub_identity', None)
+        if identity:
+            data['user_id'] = identity['user_id']
+            data['context'] = {**(data.get('context') or {}),
+                               'hub_id': identity['hub_id'], 'hub_user': identity['hub_user']}
         try:
             action = canonical_action(data['action'])
         except ValueError as exc:

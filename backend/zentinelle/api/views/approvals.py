@@ -89,9 +89,12 @@ class ApprovalRequestStatusView(APIView):
 
     def get(self, request, request_id):
         endpoint = get_endpoint_from_request(request)
-        held = ApprovalRequest.objects.filter(
-            tenant_id=endpoint.tenant_id, endpoint_id_ext=str(endpoint.pk), pk=request_id,
-        ).select_related('approval').first()
+        filters = {'tenant_id': endpoint.tenant_id, 'endpoint_id_ext': str(endpoint.pk),
+                   'pk': request_id}
+        identity = getattr(request, 'verified_hub_identity', None)
+        if identity:
+            filters['subject'] = identity['user_id']
+        held = ApprovalRequest.objects.filter(**filters).select_related('approval').first()
         if held is None:
             return Response({'error': 'Approval request not found'}, status=404)
         current = held.current_status()

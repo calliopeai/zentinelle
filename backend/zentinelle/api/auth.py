@@ -57,6 +57,10 @@ class ZentinelleAPIKeyAuthentication(authentication.BaseAuthentication):
         if endpoint.api_key_expired():
             raise exceptions.AuthenticationFailed('API key expired')
 
+        from zentinelle.services.hub_identity import verified_hub_identity
+
+        request.verified_hub_identity = verified_hub_identity(endpoint, request)
+
         # Return (user, auth) tuple - we use endpoint as the "user"
         return (ZentinelleAgentUser(endpoint), api_key)
 

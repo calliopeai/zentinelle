@@ -11,7 +11,8 @@ class OtlpTracesView(EventsView):
     parser_classes = [JSONParser]
 
     def post(self, request):
-        response = self.ingest(get_endpoint_from_request(request), trace_events(request.data))
+        response = self.ingest(get_endpoint_from_request(request), trace_events(request.data),
+                               identity=getattr(request, 'verified_hub_identity', None))
         # OTLP's ExportTraceServiceResponse is an empty JSON object on success.
         if response.status_code == 202:
             return Response({})

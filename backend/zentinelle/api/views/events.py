@@ -56,9 +56,10 @@ class EventsView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        return self.ingest(auth_endpoint, data['events'])
+        return self.ingest(auth_endpoint, data['events'],
+                           identity=getattr(request, 'verified_hub_identity', None))
 
-    def ingest(self, auth_endpoint, events):
+    def ingest(self, auth_endpoint, events, *, identity=None):
         """The common authenticated ingest path for REST events and OTLP."""
         batch_id = f"batch_{uuid.uuid4().hex[:16]}"
 
@@ -78,7 +79,7 @@ class EventsView(APIView):
                 event_type=event_data['type'],
                 event_category=event_data.get('category', Event.Category.TELEMETRY),
                 payload=capture_payload(event_data.get('payload', {}), auth_endpoint.tenant_id),
-                user_identifier=event_data.get('user_id', ''),
+                user_identifier=identity['user_id'] if identity else event_data.get('user_id', ''),
                 occurred_at=occurred_at,
                 status=Event.Status.PENDING,
                 correlation_id=batch_id,

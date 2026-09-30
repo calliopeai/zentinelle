@@ -1,11 +1,13 @@
 """Content capture is an operator setting, applied before durable writes."""
 import re
+import uuid
 
 from django.conf import settings
 
 CONTENT_KEYS = {'input', 'output', 'input_text', 'output_text', 'input_content', 'output_content',
                 'request_body', 'response_body', 'messages', 'prompt', 'system_prompt', 'tool_args',
                 'tool_input', 'tool_calls', 'tool_outputs', 'rag_context', 'extracted_text', 'content'}
+UUID_REFERENCE_KEYS = {'approval_request_id', 'trace_id', 'evidence_id', 'event_id', 'action_id'}
 SECRET_KEYS = {'api_key', 'apikey', 'authorization', 'password', 'secret', 'token', 'approval_token'}
 
 
@@ -53,6 +55,13 @@ def capture_payload(value, tenant_id=None, _mode=None):
                 continue
             if key.lower() in CONTENT_KEYS and mode == 'metadata':
                 continue
+            if key in UUID_REFERENCE_KEYS and isinstance(item, str):
+                try:
+                    if str(uuid.UUID(item)) == item.lower():
+                        result[key] = item
+                        continue
+                except ValueError:
+                    pass
             result[key] = capture_payload(item, tenant_id, mode)
         return result
     if isinstance(value, list):
