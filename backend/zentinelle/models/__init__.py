@@ -24,6 +24,7 @@ from zentinelle.models.astrolift import (  # noqa: E402,F401
 from zentinelle.models.astrolift_cluster import (AstroliftCluster,
                                                  AstroliftInstall,
                                                  EnrollmentCode)
+from zentinelle.models.astrolift_enforcement import AstroliftEnforcement
 from zentinelle.models.audit import AuditChainHead, AuditLog
 # Bootstrap Tokens
 from zentinelle.models.bootstrap_token import BootstrapToken
@@ -88,6 +89,7 @@ from .audit import AuditRetentionProof
 from .budget import BudgetAccount, BudgetCharge
 
 __all__ = [
+    "AstroliftEnforcement",
     # Agent-level
     'AgentEndpoint',
     'ApprovalRequest',

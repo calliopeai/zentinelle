@@ -279,3 +279,35 @@ bound to the endpoint and exact tool context, audited with the install and
 controller identities, and identical retries reuse the single-use grant.
 Astrolift evaluates again with the returned `approval_token`; current policies
 can still deny. Network failures keep the runner blocked.
+
+## Observed sessions and enforcement receipts
+
+The durable Astrolift `AUDIT.agent.session.event` bridge carries recorded runner
+events, scoped to the enrolled install, tenant, registered cluster and minted
+agent endpoint. Task, turn, tool, team and project identities preserve evidence
+correlation. Declared agent/spec/tool-preset intent accompanies observed tool
+names. Prompt, tool-input and output content is omitted by the bridge; Zentinelle
+also applies its content-capture settings before persisting evidence.
+
+Observed tool input and reported approval holds run through the existing policy
+engine and shared action set. A decision produces an install-scoped durable
+action, without pretending the observed event preceded execution. Audit policy
+mode limits the action to observation. Unsupported runtime controls must report
+the actual fallback and outcome.
+
+An install polls `GET /api/zentinelle/v1/astrolift/agents/{agent_id}/enforcements`
+with its enrollment Bearer credential and `tenant_id` query parameter. Pending
+actions have a fresh nonce and 60-second expiry on each delivery. The signature
+is `sha256=` followed by HMAC-SHA256 over UTF-8 JSON (sorted keys, compact
+separators, no NaN), using SHA256 of the presented install credential as the key.
+The body binds the action ID, install, tenant, cluster, agent and task/box target.
+Zentinelle stores the credential hash, and signs only on that authenticated
+polling channel; it does not recover or retain plaintext enrollment credentials.
+
+The install reports a bounded terminal outcome to
+`POST /api/zentinelle/v1/astrolift/agents/{agent_id}/enforcements/{action_id}/outcome`
+with `tenant_id` and `outcome`. Status is `applied`, `observed`, `refused` or
+`failed`. An identical receipt is idempotent; a conflicting receipt returns 409.
+Evidence and policy links accompany the audit record. Other installs cannot read
+or acknowledge the action. These endpoints are install operations, not AHP
+client events or user authorization grants.

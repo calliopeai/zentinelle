@@ -108,6 +108,8 @@ from zentinelle.api.views.astrolift_clusters import (
     AstroliftClusterRotateView, AstroliftClustersView, AstroliftClusterView,
     AstroliftConnectView, AstroliftEnrollmentCodeView,
     AstroliftInstallAdminView, AstroliftInstallView, AstroliftSettingsView)
+from zentinelle.api.views.astrolift_enforcement import (
+    AstroliftEnforcementOutcomeView, AstroliftEnforcementView)
 from zentinelle.api.views.atlas import AtlasControlMapView
 from zentinelle.api.views.auth import (CSRFTokenView, LoginView, LogoutView,
                                        MeView)
@@ -194,6 +196,8 @@ urlpatterns = [
     path('secrets/<str:agent_id>', SecretsView.as_view(), name='secrets-agent'),
     path('events', EventsView.as_view(), name='events'),
     path('otlp/v1/traces', OtlpTracesView.as_view(), name='otlp-traces'),
+    path('astrolift/agents/<str:agent_id>/enforcements', AstroliftEnforcementView.as_view(), name='astrolift-enforcements'),
+    path('astrolift/agents/<str:agent_id>/enforcements/<uuid:action_id>/outcome', AstroliftEnforcementOutcomeView.as_view(), name='astrolift-enforcement-outcome'),
     path('astrolift/agents/<str:agent_id>/evaluate', AstroliftAgentEvaluateView.as_view(), name='astrolift-agent-evaluate'),
     path('astrolift/agents/<str:agent_id>/approvals/<uuid:request_id>/decision', AstroliftAgentApprovalView.as_view(), name='astrolift-agent-approval'),
     path('heartbeat', HeartbeatView.as_view(), name='heartbeat'),

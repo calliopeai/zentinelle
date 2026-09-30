@@ -81,6 +81,7 @@ KNOWN_EVENT_TYPES = frozenset({
     "AUDIT.agent.workflow.stage_changed",
     "AUDIT.agent.workflow.gate_decided",
     "AUDIT.agent.model_spend",
+    "AUDIT.agent.session.event",
 })
 
 # Astrolift's event vocabulary is finer-grained than AuditLog.Action, so the
@@ -108,6 +109,7 @@ _ACTION_BY_EVENT = {
     "AUDIT.agent.workflow.stage_changed": AuditLog.Action.UPDATE,
     "AUDIT.agent.workflow.gate_decided": AuditLog.Action.UPDATE,
     "AUDIT.agent.model_spend": AuditLog.Action.ACCESS,
+    "AUDIT.agent.session.event": AuditLog.Action.ACCESS,
 }
 
 _RESOURCE_BY_EVENT_PREFIX = {
@@ -239,6 +241,16 @@ def astrolift_audit_webhook(request):
     tenant_id = integration.tenant_id
     actor = envelope.get("actor_user_id")
 
+    session_endpoint = None
+    if event_type == "AUDIT.agent.session.event":
+        from zentinelle.services.astrolift_sessions import validate_evidence
+        try:
+            session_endpoint = validate_evidence(tenant_id, envelope["payload"])
+            if not integration.astrolift_url or integration.astrolift_url.rstrip('/') != session_endpoint.astrolift_install.base_url.rstrip('/'):
+                raise ValueError("Session install does not match the integration URL")
+        except (ValueError, TypeError, KeyError):
+            return _error("bad_session_scope", "Session evidence is malformed or outside the integration scope", 400)
+
     # The delivery marker and the evidence row live on different database
     # aliases (the router sends AuditLog to `analytics`), so no single atomic
     # block covers both. The marker is claimed first to keep concurrent
@@ -262,6 +274,9 @@ def astrolift_audit_webhook(request):
     envelope["payload"]
     try:
         entry = _write_evidence(request, tenant_id, envelope, event_type, org_id, actor)
+        if session_endpoint is not None:
+            from zentinelle.services.astrolift_sessions import observe
+            observe(tenant_id, envelope, session_endpoint, str(entry.pk))
     except Exception:
         delivery.delete()
         logger.exception(
@@ -289,6 +304,13 @@ def astrolift_audit_webhook(request):
 
 def _write_evidence(request, tenant_id, envelope, event_type, org_id, actor):
     payload = envelope["payload"]
+    if event_type == "AUDIT.agent.session.event":
+        from zentinelle.services.content_capture import capture_payload
+        existing = AuditLog.objects.filter(tenant_id=tenant_id, resource_id=str(envelope["event_id"]),
+                                           metadata__astrolift_event_type=event_type).first()
+        if existing is not None:
+            return existing
+        payload = capture_payload(payload, tenant_id)
     return AuditLog.log(
         tenant_id=tenant_id,
         action=_ACTION_BY_EVENT.get(event_type, AuditLog.Action.UPDATE),
