@@ -8,6 +8,7 @@ Required env vars:
 - DATABASE_URL            — postgres connection string
 
 Optional but recommended:
+- TEMPORAL_ADDRESS        — host:port of the Temporal frontend (no background work without it)
 - CORS_ALLOWED_ORIGINS    — comma-separated list (default: empty, lockdown)
 - SECURE_SSL_REDIRECT     — default true; set false behind a TLS-terminating LB
 - ZENTINELLE_BOOTSTRAP_SECRET — for HMAC bootstrap tokens
@@ -48,6 +49,15 @@ if len(os.environ.get("ZENTINELLE_BOOTSTRAP_SECRET", "")) < 32:
         "agent bootstrap tokens. Generate: python -c \"import secrets; "
         "print(secrets.token_hex(32))\""
     )
+
+# Every background job and schedule runs on Temporal. The web process still
+# boots without an address, so rolling this image out ahead of the Temporal
+# server never takes policy evaluation down: enqueues are skipped with a
+# warning, events wait as PENDING for the retry sweep, and
+# `manage.py temporal_worker` refuses to start. Never fall back to base's
+# localhost default here.
+if not os.environ.get("TEMPORAL_ADDRESS"):
+    TEMPORAL_ADDRESS = ""
 
 # ──────────────────────────────────────────────────────────────────────────
 # Hostnames — must be explicit in production

@@ -1,27 +1,22 @@
 """
-Celery tasks for processing Zentinelle events.
+Background tasks for processing Zentinelle events.
 """
 import logging
 from datetime import timedelta
 
-from celery import shared_task
 from django.db.models import F
 from django.utils import timezone
 
 from zentinelle.services.event_store import (EventEnvelope, dead_letter_queue,
                                              event_store)
+from zentinelle.temporal.client import start_task
+from zentinelle.temporal.registry import task
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_backoff_max=600,
-    max_retries=5,
-)
-def process_event_batch(self, event_ids: list[str], category: str):
+@task(retries=5)
+def process_event_batch(event_ids: list[str], category: str):
     """
     Process a batch of events.
 
@@ -48,7 +43,7 @@ def process_event_batch(self, event_ids: list[str], category: str):
             if dead_letter_queue.should_retry(event):
                 delay = dead_letter_queue.get_retry_delay(event.retry_count)
                 logger.info(f"Scheduling retry for event {event.id} in {delay}s")
-                raise  # Let Celery handle retry
+                raise  # Let the activity retry policy handle it
             else:
                 dead_letter_queue.move_to_dlq(event, str(e))
 
@@ -210,31 +205,26 @@ def _record_ai_usage(event):
         logger.warning(f"Failed to record AI usage for event {event.id}: {e}")
 
 
-@shared_task
+@task
 def process_telemetry_event(event_id: str):
     """Process a single telemetry event."""
-    process_event_batch.delay([event_id], 'telemetry')
+    start_task(process_event_batch, [event_id], 'telemetry', workflow_id=event_id)
 
 
-@shared_task
+@task
 def process_audit_event(event_id: str):
     """Process a single audit event."""
-    process_event_batch.delay([event_id], 'audit')
+    start_task(process_event_batch, [event_id], 'audit', workflow_id=event_id)
 
 
-@shared_task(priority=9)
+@task
 def process_alert_event(event_id: str):
     """Process a single alert event with high priority."""
-    process_event_batch.delay([event_id], 'alert')
+    start_task(process_event_batch, [event_id], 'alert', workflow_id=event_id)
 
 
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    max_retries=3,
-)
-def apply_event_projections(self, event_id: str, envelope_data: dict, outbox_id: str = None):
+@task(retries=3)
+def apply_event_projections(event_id: str, envelope_data: dict, outbox_id: str = None):
     """
     Apply registered projections to an event.
 
@@ -276,7 +266,7 @@ def apply_event_projections(self, event_id: str, envelope_data: dict, outbox_id:
         raise
 
 
-@shared_task
+@task
 def dispatch_event_outbox(limit: int = 100):
     """Requeue due durable projection deliveries after broker interruptions."""
     from zentinelle.models import EventDeliveryOutbox
@@ -292,7 +282,7 @@ def dispatch_event_outbox(limit: int = 100):
             row.status = EventDeliveryOutbox.Status.QUEUED
             row.next_attempt_at = now + timedelta(minutes=min(60, 2 ** row.attempts))
             row.save(update_fields=['attempts', 'status', 'next_attempt_at'])
-            apply_event_projections.apply_async(args=[str(row.event_id), row.envelope, str(row.id)])
+            start_task(apply_event_projections, str(row.event_id), row.envelope, str(row.id), workflow_id=str(row.id))
             dispatched += 1
         except Exception as exc:
             row.status = EventDeliveryOutbox.Status.PENDING
@@ -301,7 +291,7 @@ def dispatch_event_outbox(limit: int = 100):
     return {'dispatched': dispatched, 'scanned': len(rows)}
 
 
-@shared_task
+@task
 def process_dead_letter_queue(organization_id: str):
     """
     Process events in the dead letter queue.
@@ -328,7 +318,7 @@ def process_dead_letter_queue(organization_id: str):
     )
 
 
-@shared_task
+@task
 def replay_events_for_projection(
     organization_id: str,
     projection_name: str,

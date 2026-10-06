@@ -12,6 +12,8 @@ from django.utils import timezone
 if TYPE_CHECKING:
     from zentinelle.services.policy_engine import EvaluationResult
 
+from zentinelle.temporal.client import start_task
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,7 +42,7 @@ def _maybe_create_incident(
     - Only triggered for policies that appear in ``result.policies_evaluated``
       with ``result='fail'`` AND whose config contains ``auto_incident=True``.
     - Severity is derived from ``result.risk_score``.
-    - A Celery notification task is queued after creation (best-effort).
+    - A notification task is queued after creation (best-effort).
     """
     if result.dry_run:
         return
@@ -100,7 +102,7 @@ def _maybe_create_incident(
             try:
                 from zentinelle.tasks.notifications import \
                     send_incident_notification
-                send_incident_notification.delay(incident.id)
+                start_task(send_incident_notification, incident.id, workflow_id=str(incident.id))
             except Exception as exc:
                 logger.warning("Failed to queue incident notification: %s", exc)
 

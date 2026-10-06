@@ -29,8 +29,9 @@ YAML_TO_ENV = {
     ("auth", "client_cove", "api_url"): "CALLIOPE_INTERNAL_API_URL",
     ("auth", "client_cove", "api_key"): "CALLIOPE_INTERNAL_API_KEY",
     ("auth", "client_cove", "cache_ttl"): "CALLIOPE_TENANT_CACHE_TTL",
-    ("celery", "broker_url"): "CELERY_BROKER_URL",
-    ("celery", "result_backend"): "CELERY_RESULT_BACKEND",
+    ("temporal", "address"): "TEMPORAL_ADDRESS",
+    ("temporal", "namespace"): "TEMPORAL_NAMESPACE",
+    ("temporal", "task_queue"): "TEMPORAL_TASK_QUEUE",
     ("django", "secret_key"): "SECRET_KEY",
     ("django", "debug"): "DEBUG",
     ("django", "allowed_hosts"): "ALLOWED_HOSTS",  # list → comma-joined string

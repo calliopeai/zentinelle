@@ -8,7 +8,7 @@
 | Framework | Django 5 | REST API, ORM, admin |
 | API | Django REST Framework | Agent-facing REST endpoints |
 | GraphQL | Strawberry GraphQL | Management portal API |
-| Task queue | Celery + Celery Beat | Async event processing, scheduled compliance checks |
+| Background jobs | Temporal | Async event processing, scheduled compliance checks (Temporal Schedules) |
 | Cache | Redis 7 | Policy cache, rate limit counters, session store |
 | Database | PostgreSQL 16 | Primary data store, isolated `zentinelle` + `zentinelle_analytics` schemas |
 | Encryption | Fernet (cryptography lib) | LLM provider keys at rest (AES-128 + HMAC-SHA256) |
@@ -30,7 +30,8 @@ backend/zentinelle/
 │   └── audit_chain.py        # Tamper-evident hash-chained audit logs
 ├── models/                   # AgentEndpoint, Policy, Risk, Incident, Event,
 │                             # InteractionLog, AuditLog, LLMProviderKey, ...
-├── tasks/                    # Celery: event processing, retention enforcement
+├── tasks/                    # Temporal activities: event processing, retention enforcement
+├── temporal/                 # Task registry, workflow, worker, schedules
 └── auth/                     # TenantResolver, OIDC views, RBAC
 ```
 

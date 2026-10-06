@@ -1,8 +1,8 @@
 # -----------------------------------------------------------------------------
 # ECS Fargate Container Runtime — Zentinelle
 #
-# 4 services: backend (Django), celery (worker), celery-beat (scheduler),
-# frontend (Next.js). ALB routes /api/*, /gql/* and /proxy/* to backend, everything
+# 3 services: backend (Django), temporal-worker (background jobs and
+# schedules), frontend (Next.js). ALB routes /api/*, /gql/* and /proxy/* to backend, everything
 # else to frontend.
 #
 # Called by container_runtime.tf when enable_ecs = true.
@@ -22,12 +22,12 @@ terraform {
 # =============================================================================
 
 locals {
-  # ssl_cert_reqs is not optional on a rediss:// URL: celery's redis backend
-  # refuses to construct without it —
+  # ssl_cert_reqs stays explicit on the rediss:// URL. Celery's redis backend
+  # refused to construct without it —
   #   "A rediss:// URL must have parameter ssl_cert_reqs and this must be set
   #    to CERT_REQUIRED, CERT_OPTIONAL, or CERT_NONE"
-  # — so the worker died emitting its own startup banner. ElastiCache presents
-  # a valid cert, so require it rather than weakening to CERT_NONE.
+  # — and Celery is gone (Redis is now only the Django cache), but ElastiCache
+  # presents a valid cert, so require it rather than weakening to CERT_NONE.
   redis_url = "rediss://${var.redis_endpoint}:${var.redis_port}/0?ssl_cert_reqs=required"
 }
 
@@ -652,8 +652,8 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "POSTGRES_DB", value = var.db_name },
       { name = "POSTGRES_USER", value = var.db_username },
       { name = "REDIS_URL", value = local.redis_url },
-      { name = "CELERY_BROKER_URL", value = local.redis_url },
-      { name = "CELERY_RESULT_BACKEND", value = local.redis_url },
+      { name = "TEMPORAL_ADDRESS", value = var.temporal_address },
+      { name = "TEMPORAL_NAMESPACE", value = var.temporal_namespace },
       # localhost is not cosmetic: the container healthCheck below probes
       # loopback, and without it Django answers 400, the probe fails, and ECS
       # kills a task that is serving the ALB perfectly well.
@@ -726,23 +726,23 @@ resource "aws_ecs_service" "backend" {
 }
 
 # =============================================================================
-# Celery Worker Service
+# Temporal Worker Service (runs every background job and owns the schedules)
 # =============================================================================
 
-resource "aws_ecs_task_definition" "celery" {
-  family                   = "${var.name}-celery"
+resource "aws_ecs_task_definition" "temporal_worker" {
+  family                   = "${var.name}-temporal-worker"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = var.celery_cpu
-  memory                   = var.celery_memory
+  cpu                      = var.temporal_worker_cpu
+  memory                   = var.temporal_worker_memory
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
-    name      = "celery"
+    name      = "temporal-worker"
     image     = var.backend_image
     essential = true
-    command   = ["celery", "-A", "config.celery", "worker", "--loglevel=info", "--concurrency=2"]
+    command   = ["python", "manage.py", "temporal_worker"]
     environment = [
       { name = "ENVIRONMENT", value = var.env },
       { name = "AWS_REGION", value = var.region },
@@ -752,16 +752,16 @@ resource "aws_ecs_task_definition" "celery" {
       # the worker raises on import and the container exits.
       { name = "AUTH_MODE", value = var.auth_mode },
       # Required by prod settings even for workers, which import the same
-      # settings module: without it Django raises on import and the celery
-      # container exits before it ever connects to the broker.
+      # settings module: without it Django raises on import and the worker
+      # container exits before it ever connects to Temporal.
       { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name, "localhost", "127.0.0.1"], var.extra_allowed_hosts)) },
       { name = "POSTGRES_HOST", value = var.db_host },
       { name = "POSTGRES_PORT", value = tostring(var.db_port) },
       { name = "POSTGRES_DB", value = var.db_name },
       { name = "POSTGRES_USER", value = var.db_username },
       { name = "REDIS_URL", value = local.redis_url },
-      { name = "CELERY_BROKER_URL", value = local.redis_url },
-      { name = "CELERY_RESULT_BACKEND", value = local.redis_url },
+      { name = "TEMPORAL_ADDRESS", value = var.temporal_address },
+      { name = "TEMPORAL_NAMESPACE", value = var.temporal_namespace },
     ]
     secrets = [
       { name = "POSTGRES_PASSWORD", valueFrom = "${var.db_credentials_arn}:password::" },
@@ -774,7 +774,7 @@ resource "aws_ecs_task_definition" "celery" {
       options = {
         "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
         "awslogs-region"        = var.region
-        "awslogs-stream-prefix" = "celery"
+        "awslogs-stream-prefix" = "temporal-worker"
       }
     }
   }])
@@ -786,10 +786,10 @@ resource "aws_ecs_task_definition" "celery" {
   tags = var.tags
 }
 
-resource "aws_ecs_service" "celery" {
-  name            = "${var.name}-celery"
+resource "aws_ecs_service" "temporal_worker" {
+  name            = "${var.name}-temporal-worker"
   cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.celery.arn
+  task_definition = aws_ecs_task_definition.temporal_worker.arn
   desired_count   = 1
   launch_type     = "FARGATE"
 
@@ -801,90 +801,6 @@ resource "aws_ecs_service" "celery" {
 
   lifecycle {
     ignore_changes = [task_definition, desired_count]
-  }
-
-  tags = var.tags
-}
-
-# =============================================================================
-# Celery Beat Service (scheduler — always exactly 1 replica)
-# =============================================================================
-
-resource "aws_ecs_task_definition" "celery_beat" {
-  family                   = "${var.name}-celery-beat"
-  requires_compatibilities = ["FARGATE"]
-  network_mode             = "awsvpc"
-  cpu                      = var.celery_beat_cpu
-  memory                   = var.celery_beat_memory
-  execution_role_arn       = aws_iam_role.ecs_execution.arn
-  task_role_arn            = aws_iam_role.ecs_task.arn
-
-  container_definitions = jsonencode([{
-    name      = "celery-beat"
-    image     = var.backend_image
-    essential = true
-    command   = ["celery", "-A", "config.celery", "beat", "--loglevel=info"]
-    environment = [
-      { name = "ENVIRONMENT", value = var.env },
-      { name = "AWS_REGION", value = var.region },
-      { name = "DJANGO_SETTINGS_MODULE", value = "config.settings.prod" },
-      # Django refuses to start under prod settings with AUTH_MODE=open,
-      # which is the default when the variable is absent. Not a warning:
-      # the worker raises on import and the container exits.
-      { name = "AUTH_MODE", value = var.auth_mode },
-      # Required by prod settings even for workers, which import the same
-      # settings module: without it Django raises on import and the celery
-      # container exits before it ever connects to the broker.
-      { name = "ALLOWED_HOSTS", value = join(",", concat(["${var.domain}", "*.${var.domain}", aws_lb.app.dns_name, "localhost", "127.0.0.1"], var.extra_allowed_hosts)) },
-      { name = "POSTGRES_HOST", value = var.db_host },
-      { name = "POSTGRES_PORT", value = tostring(var.db_port) },
-      { name = "POSTGRES_DB", value = var.db_name },
-      { name = "POSTGRES_USER", value = var.db_username },
-      { name = "REDIS_URL", value = local.redis_url },
-      { name = "CELERY_BROKER_URL", value = local.redis_url },
-      { name = "CELERY_RESULT_BACKEND", value = local.redis_url },
-    ]
-    secrets = [
-      { name = "POSTGRES_PASSWORD", valueFrom = "${var.db_credentials_arn}:password::" },
-      { name = "SECRET_KEY", valueFrom = "${var.app_secrets_arn}:SECRET_KEY::" },
-      { name = "ZENTINELLE_SECRET_KEY", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_SECRET_KEY::" },
-      # celery-beat imports the same settings as the others, and prod
-      # settings raise without this too. It was the only one of the three
-      # missing it, so it alone died on import.
-      { name = "ZENTINELLE_BOOTSTRAP_SECRET", valueFrom = "${var.app_secrets_arn}:ZENTINELLE_BOOTSTRAP_SECRET::" },
-    ]
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
-        "awslogs-region"        = var.region
-        "awslogs-stream-prefix" = "celery-beat"
-      }
-    }
-  }])
-
-  lifecycle {
-    ignore_changes = [container_definitions]
-  }
-
-  tags = var.tags
-}
-
-resource "aws_ecs_service" "celery_beat" {
-  name            = "${var.name}-celery-beat"
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.celery_beat.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = var.private_subnets
-    security_groups  = [aws_security_group.ecs.id]
-    assign_public_ip = false
-  }
-
-  lifecycle {
-    ignore_changes = [task_definition]
   }
 
   tags = var.tags
@@ -978,7 +894,7 @@ resource "aws_ecs_service" "frontend" {
 }
 
 # =============================================================================
-# Auto-Scaling (backend only — celery scales independently)
+# Auto-Scaling (backend only — the worker scales independently)
 # =============================================================================
 
 resource "aws_appautoscaling_target" "backend" {
@@ -1023,21 +939,21 @@ resource "aws_appautoscaling_policy" "backend_memory" {
   }
 }
 
-# Celery auto-scaling (independent from backend)
-resource "aws_appautoscaling_target" "celery" {
+# Temporal worker auto-scaling (independent from backend)
+resource "aws_appautoscaling_target" "temporal_worker" {
   max_capacity       = 4
   min_capacity       = 1
-  resource_id        = "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.celery.name}"
+  resource_id        = "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.temporal_worker.name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
 }
 
-resource "aws_appautoscaling_policy" "celery_cpu" {
-  name               = "${var.name}-celery-cpu-autoscaling"
+resource "aws_appautoscaling_policy" "temporal_worker_cpu" {
+  name               = "${var.name}-temporal-worker-cpu-autoscaling"
   policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.celery.resource_id
-  scalable_dimension = aws_appautoscaling_target.celery.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.celery.service_namespace
+  resource_id        = aws_appautoscaling_target.temporal_worker.resource_id
+  scalable_dimension = aws_appautoscaling_target.temporal_worker.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.temporal_worker.service_namespace
 
   target_tracking_scaling_policy_configuration {
     predefined_metric_specification {

@@ -1,20 +1,22 @@
 """
-Scheduled Celery tasks for Zentinelle.
+Scheduled background tasks for Zentinelle.
 """
 import logging
 from datetime import timedelta
 
-from celery import shared_task
 from django.utils import timezone
+
+from zentinelle.temporal.client import start_task
+from zentinelle.temporal.registry import task
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task
+@task
 def check_endpoint_health():
     """
     Check endpoint health based on heartbeat timestamps.
-    Run every minute via Celery Beat.
+    Run every minute via a Temporal Schedule.
 
     Marks endpoints as unhealthy if no heartbeat received
     within the threshold period.
@@ -72,18 +74,18 @@ def check_endpoint_health():
     }
 
 
-@shared_task
+@task
 def cleanup_old_events():
     """Compatibility entry point; all cleanup uses the same hold-aware service."""
     from zentinelle.services.retention import enforce_retention
     return enforce_retention()
 
 
-@shared_task
+@task
 def sync_deployment_health():
     """
     Sync deployment health status.
-    Run every 5 minutes via Celery Beat.
+    Run every 5 minutes via a Temporal Schedule.
 
     Checks all active deployments:
     - Verifies secrets connectivity
@@ -183,11 +185,11 @@ def sync_deployment_health():
     return results
 
 
-@shared_task
+@task
 def update_agent_baselines(window_days: int = 14, batch_size: int = 200):
     """
     Recompute behavioral baselines for all active agents.
-    Run every 15 minutes via Celery Beat.
+    Run every 15 minutes via a Temporal Schedule.
 
     Discovers active agents from the last 24h of events, then recomputes
     rolling p95 stats for each. Results are stored in Redis with a 48h TTL.
@@ -231,29 +233,38 @@ def update_agent_baselines(window_days: int = 14, batch_size: int = 200):
     return {'updated': updated, 'skipped': skipped}
 
 
-@shared_task(name='zentinelle.enforce_retention_policies')
+@task(name='zentinelle.enforce_retention_policies')
 def enforce_retention_policies():
     """Apply tenant retention without mutating immutable audit records."""
     from zentinelle.services.retention import enforce_retention
     return enforce_retention()
 
 
-@shared_task
-def retry_failed_events():
+# Far longer than process_event_batch's own retries take, so a PENDING event
+# this old has no live workflow left behind it.
+STALE_PENDING_AFTER = timedelta(minutes=10)
+
+
+@task
+def retry_failed_events(batch_size: int = 500):
     """
-    Retry failed events that haven't exceeded max retries.
-    Run every 15 minutes via Celery Beat.
+    Retry failed events that haven't exceeded max retries, and requeue events
+    left PENDING for over STALE_PENDING_AFTER (their start was dropped while
+    Temporal was unreachable, or at the Celery cut-over).
+    Run every 5 minutes via a Temporal Schedule.
     """
+    from django.db.models import Q
+
     from zentinelle.models import Event
     from zentinelle.tasks.events import process_event_batch
 
     max_retries = 5
+    stale_before = timezone.now() - STALE_PENDING_AFTER
 
-    # Find failed events that can be retried
     failed_events = Event.objects.filter(
-        status=Event.Status.FAILED,
-        retry_count__lt=max_retries,
-    ).order_by('received_at')[:100]  # Limit batch size
+        Q(status=Event.Status.FAILED, retry_count__lt=max_retries)
+        | Q(status=Event.Status.PENDING, received_at__lt=stale_before)
+    ).order_by('received_at')[:batch_size]
 
     if not failed_events:
         return {'retried': 0}
@@ -265,8 +276,9 @@ def retry_failed_events():
 
     for event in failed_events:
         # Reset status to pending
-        event.status = Event.Status.PENDING
-        event.save(update_fields=['status'])
+        if event.status != Event.Status.PENDING:
+            event.status = Event.Status.PENDING
+            event.save(update_fields=['status'])
 
         event_id = str(event.id)
         if event.event_category == Event.Category.TELEMETRY:
@@ -278,19 +290,13 @@ def retry_failed_events():
 
     # Re-queue
     if telemetry_ids:
-        process_event_batch.apply_async(
-            args=[telemetry_ids, 'telemetry'],
-        )
+        start_task(process_event_batch, telemetry_ids, 'telemetry')
 
     if audit_ids:
-        process_event_batch.apply_async(
-            args=[audit_ids, 'audit'],
-        )
+        start_task(process_event_batch, audit_ids, 'audit')
 
     if alert_ids:
-        process_event_batch.apply_async(
-            args=[alert_ids, 'alert'],
-        )
+        start_task(process_event_batch, alert_ids, 'alert')
 
     total = len(telemetry_ids) + len(audit_ids) + len(alert_ids)
     logger.info(f"Retrying {total} failed events")
@@ -298,7 +304,7 @@ def retry_failed_events():
     return {'retried': total}
 
 
-@shared_task(name='zentinelle.sync_model_registry')
+@task(name='zentinelle.sync_model_registry')
 def sync_model_registry():
     """Daily: sync AI model registry from provider APIs."""
     from zentinelle.services.model_sync import sync_all_providers

@@ -2,7 +2,7 @@
 Sync AI model registry from live provider APIs.
 
 Fetches model lists from OpenAI, Anthropic, and Google, then upserts
-into the AIModel table. Run via management command or Celery beat.
+into the AIModel table. Run via management command or a Temporal Schedule.
 """
 import logging
 from decimal import Decimal

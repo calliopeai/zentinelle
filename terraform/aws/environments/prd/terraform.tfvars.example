@@ -63,3 +63,10 @@ region = "us-west-2"
 # --- images -------------------------------------------------------------------
 # backend_image  = "000000000000.dkr.ecr.us-west-2.amazonaws.com/zentinelle-backend:latest"
 # frontend_image = "000000000000.dkr.ecr.us-west-2.amazonaws.com/zentinelle-frontend:latest"
+
+# --- temporal -----------------------------------------------------------------
+# Required, no default. Background jobs and schedules run on the shared
+# Temporal server; this stack does not create one. The zentinelle namespace
+# must exist on it before the worker starts.
+temporal_address = "temporal.production.internal:7233"
+# temporal_namespace = "zentinelle"

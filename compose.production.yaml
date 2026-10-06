@@ -20,8 +20,7 @@ x-backend: &backend
     POSTGRES_USER: zentinelle
     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a strong database password}
     REDIS_URL: redis://redis:6379/0
-    CELERY_BROKER_URL: redis://redis:6379/0
-    CELERY_RESULT_BACKEND: redis://redis:6379/1
+    TEMPORAL_ADDRESS: temporal:7233
     CONTENT_CAPTURE_MODE: ${CONTENT_CAPTURE_MODE:-metadata}
   restart: unless-stopped
   depends_on:
@@ -29,6 +28,8 @@ x-backend: &backend
       condition: service_healthy
     redis:
       condition: service_healthy
+    temporal:
+      condition: service_started
 
 services:
   edge:
@@ -62,19 +63,16 @@ services:
       retries: 5
       start_period: 60s
 
-  celery:
+  # One worker replaces the Celery worker and Celery beat: it runs every
+  # background task and upserts the Temporal Schedules at start.
+  temporal-worker:
     <<: *backend
-    command: celery -A config worker -l info
+    command: python manage.py temporal_worker
     depends_on:
       backend:
         condition: service_healthy
-
-  celery-beat:
-    <<: *backend
-    command: celery -A config beat -l info
-    depends_on:
-      backend:
-        condition: service_healthy
+      temporal:
+        condition: service_started
 
   gateway:
     build: ./gateway
@@ -127,6 +125,24 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 5
+
+  # Temporal server, persisted in the postgres service (databases temporal and
+  # temporal_visibility), with the zentinelle namespace created on first start.
+  temporal:
+    image: temporalio/auto-setup:1.29.7
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_USER: zentinelle
+      POSTGRES_PWD: ${POSTGRES_PASSWORD}
+      POSTGRES_SEEDS: postgres
+      DEFAULT_NAMESPACE: zentinelle
+      # Event processing starts a workflow per request; keep history short.
+      DEFAULT_NAMESPACE_RETENTION: 24h
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:

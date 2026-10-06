@@ -1,24 +1,17 @@
 """
-Celery tasks for compliance and content scanning.
+Background tasks for compliance and content scanning.
 """
 import logging
 
-from celery import shared_task
-
 from zentinelle.models import (ComplianceAssessment, ContentRule, ContentScan,
                                InteractionLog)
+from zentinelle.temporal.registry import task
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(
-    name='zentinelle.compliance.run_compliance_check',
-    bind=True,
-    max_retries=3,
-    default_retry_delay=60,
-)
+@task(name='zentinelle.compliance.run_compliance_check', retries=3, retry_delay=60)
 def run_compliance_check_task(
-    self,
     organization_id: str,
     framework_id: str = None,
     user_id: str = None,
@@ -167,26 +160,28 @@ def run_compliance_check_task(
             status='failed',
             error_message=str(e),
         )
-        raise self.retry(exc=e)
+        raise
 
 
-@shared_task(
-    name='zentinelle.compliance.process_async_scan',
-    bind=True,
-    max_retries=3,
-    default_retry_delay=60,
-)
-def process_async_scan(self, scan_id: str, content: str):
+@task(name='zentinelle.compliance.process_async_scan', retries=3, retry_delay=60)
+def process_async_scan(scan_id: str):
     """
     Process an async content scan.
 
-    This runs the full scan pipeline in the background.
+    This runs the full scan pipeline in the background. The content is read
+    from the scan row (encrypted at rest) and cleared once scanned.
     """
     try:
         scan = ContentScan.objects.get(id=scan_id)
     except ContentScan.DoesNotExist:
         logger.error(f"Scan {scan_id} not found")
         return
+    if not scan.content_encrypted:
+        logger.error(f"Scan {scan_id} has no stored content")
+        return
+
+    from zentinelle.models.llm_provider_key import _get_fernet
+    content = _get_fernet().decrypt(bytes(scan.content_encrypted)).decode()
 
     from zentinelle.services.content_scanner import ContentScanner
 
@@ -210,21 +205,18 @@ def process_async_scan(self, scan_id: str, content: str):
             f"Async scan {scan_id} completed: "
             f"violations={result.has_violations}, action={result.action}"
         )
+        ContentScan.objects.filter(id=scan_id).update(content_encrypted=None)
 
     except Exception as e:
         logger.error(f"Async scan {scan_id} failed: {e}")
         scan.status = ContentScan.ScanStatus.FAILED
         scan.save()
-        raise self.retry(exc=e)
+        raise
 
 
-@shared_task(
-    name='zentinelle.compliance.scan_interaction',
-    bind=True,
-    max_retries=3,
-    default_retry_delay=60,
-)
-def scan_interaction(self, interaction_id: str):
+# Celery declared max_retries=3 here but never called retry(), so it ran once.
+@task(name='zentinelle.compliance.scan_interaction')
+def scan_interaction(interaction_id: str):
     """
     Scan a logged interaction for compliance violations.
 
@@ -299,7 +291,7 @@ def scan_interaction(self, interaction_id: str):
             logger.error(f"Failed to scan output for {interaction_id}: {e}")
 
 
-@shared_task(name='zentinelle.compliance.aggregate_usage_summary')
+@task(name='zentinelle.compliance.aggregate_usage_summary')
 def aggregate_usage_summary(organization_id: str, period: str = 'hourly'):
     """
     Aggregate usage data into summary records for reporting.
@@ -389,7 +381,7 @@ def aggregate_usage_summary(organization_id: str, period: str = 'hourly'):
     )
 
 
-@shared_task(name='zentinelle.compliance.check_repeated_violations')
+@task(name='zentinelle.compliance.check_repeated_violations')
 def check_repeated_violations():
     """
     Check for users with repeated violations and create alerts.
@@ -458,10 +450,7 @@ def check_repeated_violations():
             logger.info(f"Created repeated violation alert for {user_id} ({count} violations)")
 
 
-@shared_task(
-    name='zentinelle.compliance.run_policy_simulation',
-    bind=False,
-)
+@task(name='zentinelle.compliance.run_policy_simulation')
 def run_policy_simulation(tenant_id: str, policy_config: dict, lookback_days: int = 30) -> dict:
     """
     Run a policy simulation in the background.
@@ -481,7 +470,7 @@ def run_policy_simulation(tenant_id: str, policy_config: dict, lookback_days: in
     return simulate_policy(tenant_id, policy_config, lookback_days, max_events=5000)
 
 
-@shared_task(name='zentinelle.compliance.classify_interaction')
+@task(name='zentinelle.compliance.classify_interaction')
 def classify_interaction(interaction_id: str):
     """
     Classify an interaction as work-related or personal.

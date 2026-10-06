@@ -1,14 +1,14 @@
 # -----------------------------------------------------------------------------
 # ECS Fargate Container Runtime — Zentinelle (production)
 #
-# 4 services: backend (Django), celery (worker), celery-beat (scheduler),
-# frontend (Next.js). ALB routes /api/* and /graphql to backend, everything
+# 3 services: backend (Django), temporal-worker (background jobs and
+# schedules), frontend (Next.js). ALB routes /api/* and /graphql to backend, everything
 # else to frontend.
 #
 # Production differences from dev:
 #   - ALB deletion protection enabled
 #   - Backend desired_count = 2 (HA)
-#   - Celery desired_count = 2 (throughput)
+#   - Temporal worker desired_count = 2 (throughput)
 #   - Higher auto-scaling limits
 #   - CloudWatch log retention = 30 days
 #
@@ -622,8 +622,8 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "POSTGRES_DB", value = var.db_name },
       { name = "POSTGRES_USER", value = var.db_username },
       { name = "REDIS_URL", value = local.redis_url },
-      { name = "CELERY_BROKER_URL", value = local.redis_url },
-      { name = "CELERY_RESULT_BACKEND", value = local.redis_url },
+      { name = "TEMPORAL_ADDRESS", value = var.temporal_address },
+      { name = "TEMPORAL_NAMESPACE", value = var.temporal_namespace },
       { name = "ALLOWED_HOSTS", value = "${var.domain},*.${var.domain}" },
       { name = "CSRF_TRUSTED_ORIGINS", value = "https://${var.domain},https://*.${var.domain}" },
     ]
@@ -683,23 +683,23 @@ resource "aws_ecs_service" "backend" {
 }
 
 # =============================================================================
-# Celery Worker Service — HA: desired_count = 2
+# Temporal Worker Service (runs every background job and owns the schedules) — HA: desired_count = 2
 # =============================================================================
 
-resource "aws_ecs_task_definition" "celery" {
-  family                   = "${var.name}-celery"
+resource "aws_ecs_task_definition" "temporal_worker" {
+  family                   = "${var.name}-temporal-worker"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = var.celery_cpu
-  memory                   = var.celery_memory
+  cpu                      = var.temporal_worker_cpu
+  memory                   = var.temporal_worker_memory
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
-    name      = "celery"
+    name      = "temporal-worker"
     image     = var.backend_image
     essential = true
-    command   = ["celery", "-A", "config.celery", "worker", "--loglevel=info", "--concurrency=4"]
+    command   = ["python", "manage.py", "temporal_worker"]
     environment = [
       { name = "ENVIRONMENT", value = var.env },
       { name = "AWS_REGION", value = var.region },
@@ -709,8 +709,8 @@ resource "aws_ecs_task_definition" "celery" {
       { name = "POSTGRES_DB", value = var.db_name },
       { name = "POSTGRES_USER", value = var.db_username },
       { name = "REDIS_URL", value = local.redis_url },
-      { name = "CELERY_BROKER_URL", value = local.redis_url },
-      { name = "CELERY_RESULT_BACKEND", value = local.redis_url },
+      { name = "TEMPORAL_ADDRESS", value = var.temporal_address },
+      { name = "TEMPORAL_NAMESPACE", value = var.temporal_namespace },
     ]
     secrets = [
       { name = "POSTGRES_PASSWORD", valueFrom = "${var.db_credentials_arn}:password::" },
@@ -722,7 +722,7 @@ resource "aws_ecs_task_definition" "celery" {
       options = {
         "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
         "awslogs-region"        = var.region
-        "awslogs-stream-prefix" = "celery"
+        "awslogs-stream-prefix" = "temporal-worker"
       }
     }
   }])
@@ -734,10 +734,10 @@ resource "aws_ecs_task_definition" "celery" {
   tags = var.tags
 }
 
-resource "aws_ecs_service" "celery" {
-  name            = "${var.name}-celery"
+resource "aws_ecs_service" "temporal_worker" {
+  name            = "${var.name}-temporal-worker"
   cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.celery.arn
+  task_definition = aws_ecs_task_definition.temporal_worker.arn
   desired_count   = 2
   launch_type     = "FARGATE"
 
@@ -749,77 +749,6 @@ resource "aws_ecs_service" "celery" {
 
   lifecycle {
     ignore_changes = [task_definition, desired_count]
-  }
-
-  tags = var.tags
-}
-
-# =============================================================================
-# Celery Beat Service (scheduler — always exactly 1 replica)
-# =============================================================================
-
-resource "aws_ecs_task_definition" "celery_beat" {
-  family                   = "${var.name}-celery-beat"
-  requires_compatibilities = ["FARGATE"]
-  network_mode             = "awsvpc"
-  cpu                      = var.celery_beat_cpu
-  memory                   = var.celery_beat_memory
-  execution_role_arn       = aws_iam_role.ecs_execution.arn
-  task_role_arn            = aws_iam_role.ecs_task.arn
-
-  container_definitions = jsonencode([{
-    name      = "celery-beat"
-    image     = var.backend_image
-    essential = true
-    command   = ["celery", "-A", "config.celery", "beat", "--loglevel=info"]
-    environment = [
-      { name = "ENVIRONMENT", value = var.env },
-      { name = "AWS_REGION", value = var.region },
-      { name = "DJANGO_SETTINGS_MODULE", value = "config.settings.prod" },
-      { name = "POSTGRES_HOST", value = var.db_host },
-      { name = "POSTGRES_PORT", value = tostring(var.db_port) },
-      { name = "POSTGRES_DB", value = var.db_name },
-      { name = "POSTGRES_USER", value = var.db_username },
-      { name = "REDIS_URL", value = local.redis_url },
-      { name = "CELERY_BROKER_URL", value = local.redis_url },
-      { name = "CELERY_RESULT_BACKEND", value = local.redis_url },
-    ]
-    secrets = [
-      { name = "POSTGRES_PASSWORD", valueFrom = "${var.db_credentials_arn}:password::" },
-      { name = "SECRET_KEY", valueFrom = "${var.app_secrets_arn}:SECRET_KEY::" },
-    ]
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
-        "awslogs-region"        = var.region
-        "awslogs-stream-prefix" = "celery-beat"
-      }
-    }
-  }])
-
-  lifecycle {
-    ignore_changes = [container_definitions]
-  }
-
-  tags = var.tags
-}
-
-resource "aws_ecs_service" "celery_beat" {
-  name            = "${var.name}-celery-beat"
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.celery_beat.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = var.private_subnets
-    security_groups  = [aws_security_group.ecs.id]
-    assign_public_ip = false
-  }
-
-  lifecycle {
-    ignore_changes = [task_definition]
   }
 
   tags = var.tags
@@ -945,20 +874,20 @@ resource "aws_appautoscaling_policy" "backend_memory" {
   }
 }
 
-resource "aws_appautoscaling_target" "celery" {
+resource "aws_appautoscaling_target" "temporal_worker" {
   max_capacity       = 8
   min_capacity       = 2
-  resource_id        = "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.celery.name}"
+  resource_id        = "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.temporal_worker.name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
 }
 
-resource "aws_appautoscaling_policy" "celery_cpu" {
-  name               = "${var.name}-celery-cpu-autoscaling"
+resource "aws_appautoscaling_policy" "temporal_worker_cpu" {
+  name               = "${var.name}-temporal-worker-cpu-autoscaling"
   policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.celery.resource_id
-  scalable_dimension = aws_appautoscaling_target.celery.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.celery.service_namespace
+  resource_id        = aws_appautoscaling_target.temporal_worker.resource_id
+  scalable_dimension = aws_appautoscaling_target.temporal_worker.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.temporal_worker.service_namespace
 
   target_tracking_scaling_policy_configuration {
     predefined_metric_specification {

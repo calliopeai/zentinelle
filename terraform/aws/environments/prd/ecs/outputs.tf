@@ -13,14 +13,9 @@ output "backend_service_name" {
   value       = aws_ecs_service.backend.name
 }
 
-output "celery_service_name" {
-  description = "ECS Celery worker service name"
-  value       = aws_ecs_service.celery.name
-}
-
-output "celery_beat_service_name" {
-  description = "ECS Celery Beat service name"
-  value       = aws_ecs_service.celery_beat.name
+output "temporal_worker_service_name" {
+  description = "ECS Temporal worker service name"
+  value       = aws_ecs_service.temporal_worker.name
 }
 
 output "frontend_service_name" {

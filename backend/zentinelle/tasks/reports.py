@@ -1,11 +1,11 @@
 """
-Celery task for async compliance report generation.
+Background task for async compliance report generation.
 """
 import logging
 import os
 import tempfile
 
-from celery import shared_task
+from zentinelle.temporal.registry import task
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ AUDIT_TRAIL_HEADERS = [
 ]
 
 
-@shared_task(name='zentinelle.generate_report')
+@task(name='zentinelle.generate_report')
 def generate_report(report_id: int) -> None:
     """Async report generation task."""
     from django.utils import timezone

@@ -1,5 +1,5 @@
 """
-Celery tasks for streaming audit events to ClickHouse.
+Background tasks for streaming audit events to ClickHouse.
 
 Events are sent in batches for efficiency. The main entry points are:
 - stream_audit_log_to_clickhouse: called via Django signal on AuditLog creation
@@ -11,7 +11,7 @@ the main Django request cycle.
 """
 import logging
 
-from celery import shared_task
+from zentinelle.temporal.registry import task
 
 logger = logging.getLogger(__name__)
 
@@ -90,15 +90,8 @@ def _build_event_row(event_id: str) -> dict | None:
     }
 
 
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_backoff_max=300,
-    max_retries=3,
-    ignore_result=True,
-)
-def stream_audit_log_to_clickhouse(self, audit_log_id: str):
+@task(retries=3, backoff_max=300)
+def stream_audit_log_to_clickhouse(audit_log_id: str):
     """
     Stream a single AuditLog record to ClickHouse.
 
@@ -117,15 +110,8 @@ def stream_audit_log_to_clickhouse(self, audit_log_id: str):
             logger.debug(f"Streamed AuditLog {audit_log_id} to ClickHouse.")
 
 
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_backoff_max=300,
-    max_retries=3,
-    ignore_result=True,
-)
-def stream_event_to_clickhouse(self, event_id: str):
+@task(retries=3, backoff_max=300)
+def stream_event_to_clickhouse(event_id: str):
     """
     Stream a single Event record to ClickHouse.
 
@@ -144,15 +130,8 @@ def stream_event_to_clickhouse(self, event_id: str):
             logger.debug(f"Streamed Event {event_id} to ClickHouse.")
 
 
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_backoff_max=300,
-    max_retries=3,
-    ignore_result=True,
-)
-def stream_batch_to_clickhouse(self, audit_log_ids: list = None, event_ids: list = None):
+@task(retries=3, backoff_max=300)
+def stream_batch_to_clickhouse(audit_log_ids: list = None, event_ids: list = None):
     """
     Stream a batch of AuditLog and/or Event records to ClickHouse.
 
@@ -183,7 +162,7 @@ def stream_batch_to_clickhouse(self, audit_log_ids: list = None, event_ids: list
         )
 
 
-@shared_task(ignore_result=True)
+@task
 def backfill_clickhouse(
     days: int = 30,
     batch_size: int = 500,

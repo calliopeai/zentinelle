@@ -1,5 +1,5 @@
 """
-License Compliance Celery Tasks.
+License compliance background tasks.
 
 Scheduled tasks for:
 - Daily violation detection across all organizations
@@ -10,8 +10,9 @@ import importlib
 import logging
 from datetime import timedelta
 
-from celery import shared_task
 from django.utils import timezone
+
+from zentinelle.temporal.registry import task
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Daily Violation Detection
 # =============================================================================
 
-@shared_task
+@task
 def detect_license_violations_all_orgs():
     """
     Daily task to scan all organizations for license violations.
@@ -83,7 +84,7 @@ def detect_license_violations_all_orgs():
 # Weekly Compliance Summary
 # =============================================================================
 
-@shared_task
+@task
 def generate_weekly_compliance_summaries():
     """
     Weekly task to generate compliance summaries for enterprise organizations.
@@ -166,7 +167,7 @@ def generate_weekly_compliance_summaries():
 # Auto-Resolution of Violations
 # =============================================================================
 
-@shared_task
+@task
 def auto_resolve_violations():
     """
     Auto-resolve violations that are no longer valid.
@@ -270,7 +271,7 @@ def auto_resolve_violations():
 # Monthly Full Compliance Report
 # =============================================================================
 
-@shared_task
+@task
 def generate_monthly_compliance_reports():
     """
     Monthly task to generate full compliance reports.

@@ -63,6 +63,11 @@ def _get_client():
         return None
 
 
+def is_configured() -> bool:
+    """Whether CLICKHOUSE_URL is set, without opening a connection."""
+    return bool(_get_clickhouse_url())
+
+
 def is_enabled() -> bool:
     """Check whether ClickHouse integration is available."""
     return _get_client() is not None

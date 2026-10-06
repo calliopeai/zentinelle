@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from zentinelle.api.auth import get_tenant_id_from_request
 from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.models import Report
+from zentinelle.temporal.client import start_task
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,7 @@ class ReportCreateView(APIView):
         # Queue the generation task (best-effort)
         try:
             if generate_report_task is not None:
-                generate_report_task.delay(report.id)
+                start_task(generate_report_task, report.id, workflow_id=str(report.id))
         except Exception as exc:
             logger.warning("Failed to queue generate_report for report %s: %s", report.id, exc)
 

@@ -19,6 +19,8 @@ from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 
+from zentinelle.temporal.client import start_task
+
 logger = logging.getLogger(__name__)
 
 
@@ -345,9 +347,7 @@ class EventStore:
                 tenant_id=event.tenant_id, event_id=event.id, envelope=envelope.to_dict(),
                 status=EventDeliveryOutbox.Status.QUEUED,
             )
-            apply_event_projections.apply_async(
-                args=[str(event.id), envelope.to_dict(), str(outbox.id)],
-            )
+            start_task(apply_event_projections, str(event.id), envelope.to_dict(), str(outbox.id), workflow_id=str(outbox.id))
         except Exception as e:
             logger.warning(f"Failed to queue projection: {e}")
 
@@ -419,9 +419,7 @@ class DeadLetterQueue:
         event.save()
 
         try:
-            process_event_batch.apply_async(
-                args=[[str(event.id)], event.event_category],
-            )
+            start_task(process_event_batch, [str(event.id)], event.event_category, workflow_id=str(event.id))
             return True
         except Exception as e:
             logger.error(f"Failed to requeue event {event.id}: {e}")

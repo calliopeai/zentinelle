@@ -1,5 +1,5 @@
 """
-Celery tasks for Infrastructure Cost Tracking.
+Background tasks for Infrastructure Cost Tracking.
 
 NOTE: This module is DISABLED - do not import.
 The CloudAccountConfig, InfrastructureCost, and InfrastructureCostSummary models
@@ -18,16 +18,17 @@ Tasks for:
 import logging
 from datetime import timedelta
 
-from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
+
+from zentinelle.temporal.client import start_task
+from zentinelle.temporal.registry import task
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+@task(retries=3, retry_delay=300)
 def sync_cloud_account_costs_task(
-    self,
     account_id: str,
     hours_back: int = 2,
 ):
@@ -64,15 +65,15 @@ def sync_cloud_account_costs_task(
         return {'status': 'error', 'message': 'Account not found'}
     except Exception as e:
         logger.error(f"Failed to sync costs for account {account_id}: {e}")
-        self.retry(exc=e)
+        raise
 
 
-@shared_task
+@task
 def sync_all_cloud_costs():
     """
     Sync costs for all active cloud accounts.
 
-    Should be scheduled to run hourly via Celery Beat.
+    Should be scheduled to run hourly via a Temporal Schedule.
     """
     from zentinelle.models import CloudAccountConfig
 
@@ -80,19 +81,19 @@ def sync_all_cloud_costs():
     queued = 0
 
     for account in accounts:
-        sync_cloud_account_costs_task.delay(str(account.id))
+        start_task(sync_cloud_account_costs_task, str(account.id))
         queued += 1
 
     logger.info(f"Queued cost sync for {queued} cloud accounts")
     return {'queued': queued}
 
 
-@shared_task
+@task
 def aggregate_daily_infrastructure_costs():
     """
     Aggregate hourly costs into daily summaries.
 
-    Should be scheduled to run at 1 AM daily via Celery Beat.
+    Should be scheduled to run at 1 AM daily via a Temporal Schedule.
     """
     from organization.models import Organization
 
@@ -121,8 +122,8 @@ def aggregate_daily_infrastructure_costs():
     return {'aggregated': aggregated, 'organizations': len(org_ids)}
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def send_infrastructure_costs_to_stripe_task(self, summary_id: str):
+@task(retries=3, retry_delay=60)
+def send_infrastructure_costs_to_stripe_task(summary_id: str):
     """
     Send a daily cost summary to Stripe for billing.
 
@@ -185,10 +186,10 @@ def send_infrastructure_costs_to_stripe_task(self, summary_id: str):
         return {'status': 'error', 'message': 'Summary not found'}
     except Exception as e:
         logger.error(f"Failed to send costs to Stripe: {e}")
-        self.retry(exc=e)
+        raise
 
 
-@shared_task
+@task
 def send_pending_costs_to_stripe():
     """
     Send all pending infrastructure cost summaries to Stripe.
@@ -204,14 +205,14 @@ def send_pending_costs_to_stripe():
 
     queued = 0
     for summary in pending:
-        send_infrastructure_costs_to_stripe_task.delay(str(summary.id))
+        start_task(send_infrastructure_costs_to_stripe_task, str(summary.id), workflow_id=str(summary.id))
         queued += 1
 
     logger.info(f"Queued {queued} cost summaries to send to Stripe")
     return {'queued': queued}
 
 
-@shared_task
+@task
 def check_infrastructure_cost_alerts():
     """
     Check for unusual infrastructure cost spikes and create alerts.

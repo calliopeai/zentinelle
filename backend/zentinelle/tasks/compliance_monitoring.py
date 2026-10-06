@@ -1,16 +1,17 @@
 """
 Continuous Compliance Monitoring Tasks.
 
-Celery tasks that run periodically to detect compliance drift,
+Tasks that run periodically to detect compliance drift,
 policy violations, and generate alerts for remediation.
 """
 import logging
 from datetime import timedelta
 from typing import Any, Dict, List
 
-from celery import shared_task
 from django.db.models import Count, Q
 from django.utils import timezone
+
+from zentinelle.temporal.registry import task
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Compliance Drift Detection
 # ============================================================================
 
-@shared_task
+@task
 def check_compliance_drift():
     """
     Detect compliance drift by comparing current state against expected baseline.
@@ -199,7 +200,7 @@ def _create_drift_alert(tenant_id: str, issue: Dict[str, Any]):
 # Violation Rate Monitoring
 # ============================================================================
 
-@shared_task
+@task
 def monitor_violation_rates():
     """
     Monitor violation rates and alert on anomalies.
@@ -334,7 +335,7 @@ def monitor_violation_rates():
 # Policy Health Checks
 # ============================================================================
 
-@shared_task
+@task
 def check_policy_health():
     """
     Check policy health and configuration issues.
@@ -442,7 +443,7 @@ def check_policy_health():
 # Usage Anomaly Detection
 # ============================================================================
 
-@shared_task
+@task
 def detect_usage_anomalies():
     """
     Detect unusual usage patterns that might indicate issues.

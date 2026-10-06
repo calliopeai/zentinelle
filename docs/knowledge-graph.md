@@ -144,11 +144,11 @@ PolicyEngine.evaluate(endpoint, action, user_id, context)
 Event created (by evaluate, events endpoint, or heartbeat)
   │
   ▼
-process_event_batch.apply_async([event_ids], category)
-  │  routed to Celery queue by category (telemetry/audit/alert)
+start_task(process_event_batch, [event_ids], category)
+  │  one ZentinelleTask workflow on the zentinelle task queue
   │
   ▼
-Celery worker processes event
+Temporal worker runs it as an activity
   │  updates: Event.status → PROCESSED
   │  optionally: writes to ClickHouse for analytics
 ```

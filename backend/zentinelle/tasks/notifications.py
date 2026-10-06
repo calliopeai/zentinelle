@@ -1,14 +1,14 @@
 """
-Celery tasks for incident notification dispatch.
+Background tasks for incident notification dispatch.
 """
 import logging
 
-from celery import shared_task
+from zentinelle.temporal.registry import task
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(name='zentinelle.send_incident_notification')
+@task(name='zentinelle.send_incident_notification')
 def send_incident_notification(incident_id: int) -> None:
     """
     Dispatch notifications for a newly created (or updated) incident.
