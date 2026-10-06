@@ -142,6 +142,6 @@ class HeartbeatView(APIView):
         )
 
         try:
-            start_task(process_event_batch, [str(event.id)], 'telemetry', workflow_id=str(event.id))
+            start_task(process_event_batch, [str(event.id)], 'telemetry', workflow_id=str(event.id), wait=False)
         except Exception as e:
             logger.warning(f"Failed to queue agent heartbeat event: {e}")

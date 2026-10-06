@@ -60,7 +60,7 @@ variable "temporal_worker_memory" {
 }
 
 variable "temporal_address" {
-  description = "host:port of the shared Temporal frontend, e.g. temporal.production.internal:7233. Prod settings refuse to start without it."
+  description = "host:port of the shared Temporal frontend, e.g. temporal.production.internal:7233. The temporal worker refuses to start without it."
   type        = string
 }
 

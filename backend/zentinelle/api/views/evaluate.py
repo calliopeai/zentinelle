@@ -253,7 +253,7 @@ class EvaluateView(APIView):
 
         # Queue for processing (gracefully handle if queue unavailable)
         try:
-            start_task(process_event_batch, [str(event.id)], event_category, workflow_id=str(event.id))
+            start_task(process_event_batch, [str(event.id)], event_category, workflow_id=str(event.id), wait=False)
         except Exception as e:
             logger.warning(f"Failed to queue evaluation event: {e}")
 

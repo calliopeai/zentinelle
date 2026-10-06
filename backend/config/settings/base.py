@@ -242,7 +242,8 @@ GRAPHENE = {
 # One Temporal server is shared across Calliope AI apps; Zentinelle has its own
 # namespace and task queue. The temporal_worker command is the only consumer:
 # it runs every task as an activity and owns the schedules below. An empty
-# TEMPORAL_ADDRESS makes enqueues a no-op (tests); prod settings refuse it.
+# TEMPORAL_ADDRESS makes enqueues a no-op (tests, or prod before Temporal
+# exists; see prod.py).
 TEMPORAL_ADDRESS = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
 TEMPORAL_NAMESPACE = os.environ.get("TEMPORAL_NAMESPACE", "zentinelle")
 TEMPORAL_TASK_QUEUE = os.environ.get("TEMPORAL_TASK_QUEUE", "zentinelle")
@@ -258,6 +259,13 @@ TEMPORAL_SCHEDULES = {
     'zentinelle-dispatch-event-outbox': {
         'task': 'zentinelle.tasks.events.dispatch_event_outbox',
         'every': timedelta(minutes=1),
+    },
+    # Not in the beat schedule: request paths now start event processing
+    # without waiting, so a start dropped during a Temporal outage leaves the
+    # event PENDING, and this sweep is what picks it back up.
+    'zentinelle-retry-failed-events': {
+        'task': 'zentinelle.tasks.scheduled.retry_failed_events',
+        'every': timedelta(minutes=5),
     },
     # Retention and registry
     'zentinelle-enforce-retention-policies': {

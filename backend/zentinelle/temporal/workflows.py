@@ -12,6 +12,11 @@ from temporalio.common import RetryPolicy
 
 WORKFLOW_NAME = "ZentinelleTask"
 
+# Every activity heartbeats (see activities.py), so a worker killed mid-task is
+# noticed in this long rather than at the 1h start-to-close timeout, and the
+# schedule that started it is not left skipping runs behind a dead one.
+HEARTBEAT_TIMEOUT = timedelta(seconds=60)
+
 
 @dataclass
 class TaskInput:
@@ -34,6 +39,7 @@ class TaskWorkflow:
             task.name,
             args=[task.args, task.kwargs],
             start_to_close_timeout=timedelta(seconds=task.timeout_seconds),
+            heartbeat_timeout=HEARTBEAT_TIMEOUT,
             retry_policy=RetryPolicy(
                 maximum_attempts=task.max_attempts,
                 initial_interval=timedelta(seconds=task.initial_interval_seconds),

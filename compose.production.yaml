@@ -137,6 +137,8 @@ services:
       POSTGRES_PWD: ${POSTGRES_PASSWORD}
       POSTGRES_SEEDS: postgres
       DEFAULT_NAMESPACE: zentinelle
+      # Event processing starts a workflow per request; keep history short.
+      DEFAULT_NAMESPACE_RETENTION: 24h
     restart: unless-stopped
     depends_on:
       postgres:

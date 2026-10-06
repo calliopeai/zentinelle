@@ -10,6 +10,7 @@ from datetime import timedelta
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
+from zentinelle.services import clickhouse_service
 from zentinelle.temporal.client import start_task
 
 logger = logging.getLogger(__name__)
@@ -119,7 +120,7 @@ def auto_webhook_dispatch(sender, instance, created, **kwargs):
 @receiver(post_save, sender='zentinelle.AuditLog')
 def on_audit_log_created(sender, instance, created, **kwargs):
     """Stream new AuditLog records to ClickHouse asynchronously."""
-    if not created:
+    if not created or not clickhouse_service.is_configured():
         return
 
     try:
@@ -129,6 +130,7 @@ def on_audit_log_created(sender, instance, created, **kwargs):
             stream_audit_log_to_clickhouse, str(instance.id),
             workflow_id=str(instance.id),
             start_delay=timedelta(seconds=1),  # Small delay to ensure DB commit
+            wait=False,
         )
     except Exception as e:
         # Never block the main request cycle
@@ -142,12 +144,15 @@ def on_event_created(sender, instance, created, **kwargs):
         return
 
     try:
-        from zentinelle.tasks.clickhouse_sync import stream_event_to_clickhouse
-        start_task(
-            stream_event_to_clickhouse, str(instance.id),
-            workflow_id=str(instance.id),
-            start_delay=timedelta(seconds=1),
-        )
+        if clickhouse_service.is_configured():
+            from zentinelle.tasks.clickhouse_sync import \
+                stream_event_to_clickhouse
+            start_task(
+                stream_event_to_clickhouse, str(instance.id),
+                workflow_id=str(instance.id),
+                start_delay=timedelta(seconds=1),
+                wait=False,
+            )
     except Exception as e:
         logger.debug(f"Failed to queue Event ClickHouse sync: {e}")
 

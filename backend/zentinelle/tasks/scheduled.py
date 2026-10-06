@@ -240,22 +240,31 @@ def enforce_retention_policies():
     return enforce_retention()
 
 
+# Far longer than process_event_batch's own retries take, so a PENDING event
+# this old has no live workflow left behind it.
+STALE_PENDING_AFTER = timedelta(minutes=10)
+
+
 @task
-def retry_failed_events():
+def retry_failed_events(batch_size: int = 500):
     """
-    Retry failed events that haven't exceeded max retries.
-    Run every 15 minutes via a Temporal Schedule.
+    Retry failed events that haven't exceeded max retries, and requeue events
+    left PENDING for over STALE_PENDING_AFTER (their start was dropped while
+    Temporal was unreachable, or at the Celery cut-over).
+    Run every 5 minutes via a Temporal Schedule.
     """
+    from django.db.models import Q
+
     from zentinelle.models import Event
     from zentinelle.tasks.events import process_event_batch
 
     max_retries = 5
+    stale_before = timezone.now() - STALE_PENDING_AFTER
 
-    # Find failed events that can be retried
     failed_events = Event.objects.filter(
-        status=Event.Status.FAILED,
-        retry_count__lt=max_retries,
-    ).order_by('received_at')[:100]  # Limit batch size
+        Q(status=Event.Status.FAILED, retry_count__lt=max_retries)
+        | Q(status=Event.Status.PENDING, received_at__lt=stale_before)
+    ).order_by('received_at')[:batch_size]
 
     if not failed_events:
         return {'retried': 0}
@@ -267,8 +276,9 @@ def retry_failed_events():
 
     for event in failed_events:
         # Reset status to pending
-        event.status = Event.Status.PENDING
-        event.save(update_fields=['status'])
+        if event.status != Event.Status.PENDING:
+            event.status = Event.Status.PENDING
+            event.save(update_fields=['status'])
 
         event_id = str(event.id)
         if event.event_category == Event.Category.TELEMETRY:

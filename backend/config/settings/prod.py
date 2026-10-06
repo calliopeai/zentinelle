@@ -6,9 +6,9 @@ Required env vars:
 - ZENTINELLE_SECRET_KEY   — Fernet key for encrypting LLM provider API keys
 - ALLOWED_HOSTS           — comma-separated list of allowed hostnames
 - DATABASE_URL            — postgres connection string
-- TEMPORAL_ADDRESS        — host:port of the Temporal frontend
 
 Optional but recommended:
+- TEMPORAL_ADDRESS        — host:port of the Temporal frontend (no background work without it)
 - CORS_ALLOWED_ORIGINS    — comma-separated list (default: empty, lockdown)
 - SECURE_SSL_REDIRECT     — default true; set false behind a TLS-terminating LB
 - ZENTINELLE_BOOTSTRAP_SECRET — for HMAC bootstrap tokens
@@ -50,14 +50,14 @@ if len(os.environ.get("ZENTINELLE_BOOTSTRAP_SECRET", "")) < 32:
         "print(secrets.token_hex(32))\""
     )
 
-# Every background job and schedule runs on Temporal. Without an address the
-# enqueue helper silently starts nothing, which is right for tests and wrong
-# everywhere else.
+# Every background job and schedule runs on Temporal. The web process still
+# boots without an address, so rolling this image out ahead of the Temporal
+# server never takes policy evaluation down: enqueues are skipped with a
+# warning, events wait as PENDING for the retry sweep, and
+# `manage.py temporal_worker` refuses to start. Never fall back to base's
+# localhost default here.
 if not os.environ.get("TEMPORAL_ADDRESS"):
-    raise ValueError(
-        "TEMPORAL_ADDRESS must be set in production (host:port of the "
-        "Temporal frontend, e.g. temporal.production.internal:7233)"
-    )
+    TEMPORAL_ADDRESS = ""
 
 # ──────────────────────────────────────────────────────────────────────────
 # Hostnames — must be explicit in production

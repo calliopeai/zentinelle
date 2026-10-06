@@ -164,17 +164,24 @@ def run_compliance_check_task(
 
 
 @task(name='zentinelle.compliance.process_async_scan', retries=3, retry_delay=60)
-def process_async_scan(scan_id: str, content: str):
+def process_async_scan(scan_id: str):
     """
     Process an async content scan.
 
-    This runs the full scan pipeline in the background.
+    This runs the full scan pipeline in the background. The content is read
+    from the scan row (encrypted at rest) and cleared once scanned.
     """
     try:
         scan = ContentScan.objects.get(id=scan_id)
     except ContentScan.DoesNotExist:
         logger.error(f"Scan {scan_id} not found")
         return
+    if not scan.content_encrypted:
+        logger.error(f"Scan {scan_id} has no stored content")
+        return
+
+    from zentinelle.models.llm_provider_key import _get_fernet
+    content = _get_fernet().decrypt(bytes(scan.content_encrypted)).decode()
 
     from zentinelle.services.content_scanner import ContentScanner
 
@@ -198,6 +205,7 @@ def process_async_scan(scan_id: str, content: str):
             f"Async scan {scan_id} completed: "
             f"violations={result.has_violations}, action={result.action}"
         )
+        ContentScan.objects.filter(id=scan_id).update(content_encrypted=None)
 
     except Exception as e:
         logger.error(f"Async scan {scan_id} failed: {e}")
@@ -206,7 +214,8 @@ def process_async_scan(scan_id: str, content: str):
         raise
 
 
-@task(name='zentinelle.compliance.scan_interaction', retries=3, retry_delay=60)
+# Celery declared max_retries=3 here but never called retry(), so it ran once.
+@task(name='zentinelle.compliance.scan_interaction')
 def scan_interaction(interaction_id: str):
     """
     Scan a logged interaction for compliance violations.

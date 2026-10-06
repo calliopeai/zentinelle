@@ -157,6 +157,7 @@ services:
       - POSTGRES_PWD=${POSTGRES_PASSWORD:-zentinelle}
       - POSTGRES_SEEDS=postgres
       - DEFAULT_NAMESPACE=zentinelle
+      - DEFAULT_NAMESPACE_RETENTION=24h
     depends_on:
       postgres:
         condition: service_healthy

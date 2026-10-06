@@ -113,7 +113,9 @@ the Client Cove provisioner and the rest of Calliope AI, in its own namespace
   truth. The worker upserts each entry at start (schedule id = key) and deletes
   undeclared `zentinelle-` schedules, so redeploys never duplicate one, the
   worker can run more than one replica, and last-run state lives in Temporal
-  rather than on an ephemeral Fargate filesystem. Overlapping runs are skipped.
+  rather than on an ephemeral Fargate filesystem. Overlapping runs are skipped,
+  missed runs older than a minute are not backfilled (beat never did), and a
+  redeploy keeps an operator's pause.
 - **Enqueue.** Call sites use `start_task(task, *args, workflow_id=...)`. Work
   that is idempotent per key (one event, one report, one outbox row) passes a
   deterministic id, so a second start while the first runs is dropped.
@@ -125,8 +127,21 @@ the Client Cove provisioner and the rest of Calliope AI, in its own namespace
   over the outbox) if history volume becomes the cost.
 - **Redis** stays, for the Django cache only (rate limits, blocklist, policy
   and tenant caches, baselines). It is no longer a broker.
-- **Production settings refuse to start without `TEMPORAL_ADDRESS`.** An
-  empty address makes enqueues a no-op, which is right only for tests.
+- **Temporal is off the policy hot path.** Evaluate, heartbeat, event ingest
+  and the ClickHouse signals start workflows without waiting; every RPC has a
+  2s deadline, and after a failure the helper fails fast for 30s. A dropped
+  start leaves the event PENDING, and `zentinelle-retry-failed-events` (every
+  5 minutes) requeues events PENDING for over 10 minutes. ClickHouse workflows
+  start only when `CLICKHOUSE_URL` is set. A Temporal outage delays background
+  work; it never holds a policy decision.
+- **Without `TEMPORAL_ADDRESS` the web process still boots** (enqueues are
+  skipped with a warning) so an image rollout cannot outrun the Temporal
+  server; `manage.py temporal_worker` refuses to start without it.
+- **Task payloads carry ids, not content.** Async scan content is stored
+  encrypted on the `ContentScan` row and cleared after the scan, so tenant
+  content never sits in shared Temporal history.
+- **Activities heartbeat** every 15s with a 60s heartbeat timeout, so a worker
+  killed mid-task is noticed in a minute instead of at the 1h timeout.
 
 ### Fail-Open by Default
 If Zentinelle is unreachable, agents continue running. Circuit breaker in SDK. Set `fail_open: false` per policy for hard enforcement.

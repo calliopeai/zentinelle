@@ -176,12 +176,12 @@ class EventsView(APIView):
         # Queue each batch to appropriate queue (gracefully handle if queue unavailable)
         try:
             if telemetry_ids:
-                start_task(process_event_batch, telemetry_ids, 'telemetry')
+                start_task(process_event_batch, telemetry_ids, 'telemetry', wait=False)
 
             if audit_ids:
-                start_task(process_event_batch, audit_ids, 'audit')
+                start_task(process_event_batch, audit_ids, 'audit', wait=False)
 
             if alert_ids:
-                start_task(process_event_batch, alert_ids, 'alert')
+                start_task(process_event_batch, alert_ids, 'alert', wait=False)
         except Exception as e:
             logger.warning(f"Failed to queue events for processing: {e}")
