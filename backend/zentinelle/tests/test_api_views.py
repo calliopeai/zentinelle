@@ -159,7 +159,7 @@ class HeartbeatViewTest(ZentinelleAPITestMixin, TestCase):
         self.endpoint.refresh_from_db()
         self.assertEqual(self.endpoint.health, AgentEndpoint.Health.UNHEALTHY)
 
-    @patch('zentinelle.tasks.events.process_event_batch.apply_async')
+    @patch('zentinelle.api.views.heartbeat.start_task')
     def test_heartbeat_creates_event(self, mock_task):
         """Test that heartbeat creates telemetry event."""
         self.authenticate()
@@ -297,7 +297,7 @@ class EvaluateViewTest(ZentinelleAPITestMixin, TestCase):
         self.assertFalse(data['allowed'])
         self.assertEqual(data['reason'], 'Rate limit exceeded')
 
-    @patch('zentinelle.tasks.events.process_event_batch.apply_async')
+    @patch('zentinelle.api.views.evaluate.start_task')
     def test_evaluate_creates_audit_event(self, mock_task):
         """Test that evaluation creates audit event."""
         self.authenticate()
@@ -435,7 +435,7 @@ class EventsViewTest(ZentinelleAPITestMixin, TestCase):
         data = response.json()
         self.assertEqual(data['accepted'], 2)
 
-    @patch('zentinelle.tasks.events.process_event_batch.apply_async')
+    @patch('zentinelle.api.views.events.start_task')
     def test_send_events_replay_is_deduplicated(self, _queue):
         """A producer retry must not create a second event or queue item."""
         from django.utils import timezone

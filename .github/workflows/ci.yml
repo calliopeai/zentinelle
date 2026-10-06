@@ -163,8 +163,9 @@ jobs:
           ZENTINELLE_CONTRACT_TEST: '1'
           CONTRACT_KEYS_FILE: /tmp/zentinelle-contract-keys.json
           CONTRACT_BACKEND_URL: http://127.0.0.1:62592
-          CELERY_BROKER_URL: memory://
-          CELERY_RESULT_BACKEND: cache+memory://
+          # No Temporal server here: enqueues are no-ops, as the Celery
+          # memory:// broker made them before.
+          TEMPORAL_ADDRESS: ""
           # The backend registers the local gateway and writes its credential
           # here when it starts, as a compose install does into its shared
           # volume; one contract case reads it from there (#380).

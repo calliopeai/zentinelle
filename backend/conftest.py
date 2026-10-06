@@ -28,6 +28,10 @@ def pytest_configure(config):
     # Disable the DB router so all models go to 'default'
     settings.DATABASE_ROUTERS = []
 
+    # Never reach for a Temporal server: enqueues become no-ops. Workflow
+    # tests run their own time-skipping test environment.
+    settings.TEMPORAL_ADDRESS = ''
+
     # Use in-memory cache for tests (avoid Redis dependency)
     settings.CACHES = {
         'default': {

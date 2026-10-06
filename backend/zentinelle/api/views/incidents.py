@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 from zentinelle.api.auth import get_tenant_id_from_request
 from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.models import Incident, IncidentComment
+from zentinelle.temporal.client import start_task
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +123,7 @@ class IncidentListView(APIView):
         # Queue notification (best-effort)
         try:
             if send_incident_notification is not None:
-                send_incident_notification.delay(incident.id)
+                start_task(send_incident_notification, incident.id, workflow_id=str(incident.id))
         except Exception as exc:
             logger.warning("Failed to queue notification for incident %s: %s", incident.id, exc)
 

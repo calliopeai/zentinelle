@@ -401,7 +401,7 @@ class EventBatchSizeLimitTest(SecurityTestMixin, TestCase):
     Batches within the limit must be accepted with 202.
     """
 
-    @patch('zentinelle.tasks.events.process_event_batch.apply_async')
+    @patch('zentinelle.api.views.events.start_task')
     def test_batch_exceeding_limit_returns_400(self, mock_task):
         """POST /events with 1001 events must return 400."""
         self.authenticate()
@@ -430,7 +430,7 @@ class EventBatchSizeLimitTest(SecurityTestMixin, TestCase):
         self.assertIn('error', data)
         self.assertIn('1000', data['error'])
 
-    @patch('zentinelle.tasks.events.process_event_batch.apply_async')
+    @patch('zentinelle.api.views.events.start_task')
     def test_batch_under_limit_returns_202(self, mock_task):
         """POST /events with 999 events must return 202."""
         self.authenticate()
@@ -458,7 +458,7 @@ class EventBatchSizeLimitTest(SecurityTestMixin, TestCase):
         data = response.json()
         self.assertEqual(data['accepted'], 999)
 
-    @patch('zentinelle.tasks.events.process_event_batch.apply_async')
+    @patch('zentinelle.api.views.events.start_task')
     def test_batch_at_exact_limit_returns_202(self, mock_task):
         """POST /events with exactly 1000 events must return 202."""
         self.authenticate()
@@ -765,7 +765,7 @@ class HeartbeatConfigChangeDetectionTest(SecurityTestMixin, TestCase):
     no longer matches the server-side config.
     """
 
-    @patch('zentinelle.tasks.events.process_event_batch.apply_async')
+    @patch('zentinelle.api.views.heartbeat.start_task')
     def test_heartbeat_detects_config_change_via_hash(self, mock_task):
         """When agent sends a config_hash that differs from server config,
         config_changed must be True in the response."""
@@ -807,7 +807,7 @@ class HeartbeatConfigChangeDetectionTest(SecurityTestMixin, TestCase):
         self.assertEqual(response.status_code, 202)
         self.assertTrue(response.json()['config_changed'])
 
-    @patch('zentinelle.tasks.events.process_event_batch.apply_async')
+    @patch('zentinelle.api.views.heartbeat.start_task')
     def test_heartbeat_no_config_change_when_hashes_match(self, mock_task):
         """When agent's config_hash matches the server, config_changed is False."""
         self.authenticate()
@@ -830,7 +830,7 @@ class HeartbeatConfigChangeDetectionTest(SecurityTestMixin, TestCase):
         self.assertEqual(response.status_code, 202)
         self.assertFalse(response.json()['config_changed'])
 
-    @patch('zentinelle.tasks.events.process_event_batch.apply_async')
+    @patch('zentinelle.api.views.heartbeat.start_task')
     def test_first_heartbeat_with_matching_hash_is_not_changed(self, mock_task):
         """The very first heartbeat (previous_heartbeat=None) with a
         matching config_hash should return config_changed=False because

@@ -18,6 +18,7 @@ from zentinelle.api.auth import (ZentinelleAgentUser,
                                  get_endpoint_from_request)
 from zentinelle.api.serializers import HeartbeatRequestSerializer
 from zentinelle.models import AgentEndpoint, Event
+from zentinelle.temporal.client import start_task
 
 logger = logging.getLogger(__name__)
 
@@ -141,8 +142,6 @@ class HeartbeatView(APIView):
         )
 
         try:
-            process_event_batch.apply_async(
-                args=[[str(event.id)], 'telemetry'],
-            )
+            start_task(process_event_batch, [str(event.id)], 'telemetry', workflow_id=str(event.id))
         except Exception as e:
             logger.warning(f"Failed to queue agent heartbeat event: {e}")

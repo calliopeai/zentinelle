@@ -575,17 +575,18 @@ def _toggle_policy(tenant_id: str, policy_id: str) -> dict:
 
 
 def _run_compliance_check(tenant_id: str) -> dict:
-    """Trigger compliance assessment (uses celery task entry-point synchronously)."""
+    """Trigger compliance assessment (runs the task function inline)."""
     try:
         from zentinelle.tasks.compliance import run_compliance_check_task
 
-        # Run inline (apply) so the assistant gets the result back
-        result = run_compliance_check_task.apply(
-            kwargs={'organization_id': tenant_id, 'assessment_type': 'assistant'}
-        )
+        # Run inline so the assistant gets the result back
+        try:
+            assessment_id = str(run_compliance_check_task(organization_id=tenant_id, assessment_type='assistant'))
+        except Exception:
+            assessment_id = None
         return {
             "success": True,
-            "assessment_id": str(result.result) if result.successful() else None,
+            "assessment_id": assessment_id,
             "navigation": {
                 "path": "/compliance/reports",
                 "label": "View compliance reports",
@@ -668,10 +669,13 @@ def _generate_compliance_report(tenant_id: str, framework_id: str = "all") -> di
         }
         if framework_id and framework_id != "all":
             kwargs['framework_id'] = framework_id
-        result = run_compliance_check_task.apply(kwargs=kwargs)
+        try:
+            assessment_id = str(run_compliance_check_task(**kwargs))
+        except Exception:
+            assessment_id = None
         return {
-            "success": result.successful(),
-            "assessment_id": str(result.result) if result.successful() else None,
+            "success": assessment_id is not None,
+            "assessment_id": assessment_id,
             "navigation": {
                 "path": "/compliance/reports",
                 "label": "View compliance reports",

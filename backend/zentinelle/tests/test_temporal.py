@@ -1,0 +1,193 @@
+"""Temporal wiring: the task registry, the generic workflow, schedules, enqueue.
+
+Workflow tests run in temporalio's time-skipping test environment, so CI needs
+no Temporal server and retry backoff costs no wall-clock time.
+"""
+import asyncio
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
+from unittest.mock import patch
+
+from django.conf import settings
+from django.test import SimpleTestCase, override_settings
+from temporalio.client import ScheduleAlreadyRunningError
+from temporalio.exceptions import WorkflowAlreadyStartedError
+from temporalio.testing import WorkflowEnvironment
+from temporalio.worker import Worker
+
+from zentinelle.temporal import client as temporal_client
+from zentinelle.temporal.activities import as_activity, load_tasks
+from zentinelle.temporal.client import start_task, task_input
+from zentinelle.temporal.registry import Retry, Task, task
+from zentinelle.temporal.schedules import SCHEDULE_PREFIX, sync_schedules
+from zentinelle.temporal.workflows import TaskWorkflow
+
+
+class RegistryTests(SimpleTestCase):
+
+    def test_retry_delay_maps_to_even_spacing(self):
+        @task(name=f'test.even.{uuid.uuid4()}', retries=3, retry_delay=60)
+        def even():
+            pass
+
+        self.assertEqual(even.retry, Retry(4, 60.0, 1.0, None))
+
+    def test_autoretry_maps_to_exponential_backoff(self):
+        @task(name=f'test.backoff.{uuid.uuid4()}', retries=5)
+        def backoff():
+            pass
+
+        self.assertEqual(backoff.retry, Retry(6, 1.0, 2.0, 600.0))
+
+    def test_plain_task_runs_once_and_is_callable_inline(self):
+        @task(name=f'test.plain.{uuid.uuid4()}')
+        def plain(a, b=2):
+            return a + b
+
+        self.assertEqual(plain.retry.max_attempts, 1)
+        self.assertEqual(plain(1, b=3), 4)
+
+    def test_default_name_matches_celery_naming(self):
+        from zentinelle.tasks.events import process_event_batch
+
+        self.assertEqual(process_event_batch.name, 'zentinelle.tasks.events.process_event_batch')
+
+
+class ScheduleDeclarationTests(SimpleTestCase):
+
+    def test_every_schedule_names_a_registered_task(self):
+        tasks = load_tasks()
+        for schedule_id, entry in settings.TEMPORAL_SCHEDULES.items():
+            self.assertTrue(schedule_id.startswith(SCHEDULE_PREFIX), schedule_id)
+            self.assertIn(entry['task'], tasks, schedule_id)
+            self.assertEqual(len({'every', 'cron'} & entry.keys()), 1, schedule_id)
+
+    def test_the_beat_schedule_carried_over_whole(self):
+        """Same jobs as the Celery beat schedule this replaced, none dropped."""
+        self.assertEqual(len(settings.TEMPORAL_SCHEDULES), 15)
+
+
+class FakeHandle:
+    def __init__(self, calls, schedule_id):
+        self.calls, self.schedule_id = calls, schedule_id
+
+    async def update(self, updater):
+        self.calls.append(('update', self.schedule_id, updater(None).schedule))
+
+    async def delete(self):
+        self.calls.append(('delete', self.schedule_id))
+
+
+class FakeListed:
+    def __init__(self, schedule_id):
+        self.id = schedule_id
+
+
+class FakeClient:
+    """Enough of temporalio.client.Client for sync_schedules."""
+
+    def __init__(self, existing):
+        self.existing = existing
+        self.calls = []
+
+    async def create_schedule(self, schedule_id, schedule):
+        if schedule_id in self.existing:
+            raise ScheduleAlreadyRunningError()
+        self.calls.append(('create', schedule_id, schedule))
+
+    def get_schedule_handle(self, schedule_id):
+        return FakeHandle(self.calls, schedule_id)
+
+    async def list_schedules(self):
+        async def listing():
+            for schedule_id in self.existing:
+                yield FakeListed(schedule_id)
+        return listing()
+
+
+@override_settings(TEMPORAL_SCHEDULES={
+    'zentinelle-new': {'task': 'zentinelle.tasks.events.dispatch_event_outbox', 'every': timedelta(minutes=1)},
+    'zentinelle-kept': {'task': 'zentinelle.enforce_retention_policies', 'cron': '0 1 * * *'},
+})
+class SyncSchedulesTests(SimpleTestCase):
+
+    def test_creates_updates_and_prunes_without_duplicating(self):
+        client = FakeClient(existing=['zentinelle-kept', 'zentinelle-retired', 'other-app-job'])
+        asyncio.run(sync_schedules(client, load_tasks()))
+
+        kinds = [(call[0], call[1]) for call in client.calls]
+        self.assertIn(('create', 'zentinelle-new'), kinds)
+        self.assertIn(('update', 'zentinelle-kept'), kinds)
+        self.assertIn(('delete', 'zentinelle-retired'), kinds)
+        # Another app's schedule on a shared server is never touched.
+        self.assertNotIn(('delete', 'other-app-job'), kinds)
+        self.assertNotIn(('create', 'zentinelle-kept'), kinds)
+
+        created = next(call[2] for call in client.calls if call[1] == 'zentinelle-new')
+        self.assertEqual(created.spec.intervals[0].every, timedelta(minutes=1))
+        updated = next(call[2] for call in client.calls if call[1] == 'zentinelle-kept')
+        self.assertEqual(updated.spec.cron_expressions, ['0 1 * * *'])
+
+
+class StartTaskTests(SimpleTestCase):
+
+    def test_empty_address_starts_nothing(self):
+        with patch.object(temporal_client, '_start') as start:
+            workflow_id = start_task(Task(lambda: None, 'test.noop', Retry()), workflow_id='k')
+        start.assert_not_called()
+        self.assertEqual(workflow_id, 'test.noop:k')
+
+    @override_settings(TEMPORAL_ADDRESS='temporal.invalid:7233')
+    def test_already_running_is_not_an_error(self):
+        async def already_started(*args):
+            raise WorkflowAlreadyStartedError('test.dup:k', 'ZentinelleTask')
+
+        with patch.object(temporal_client, '_start', already_started):
+            workflow_id = start_task(Task(lambda: None, 'test.dup', Retry()), workflow_id='k')
+        self.assertEqual(workflow_id, 'test.dup:k')
+
+
+class TaskWorkflowTests(SimpleTestCase):
+
+    def run_task(self, registered, *args, **kwargs):
+        async def go():
+            async with await WorkflowEnvironment.start_time_skipping() as env:
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    async with Worker(
+                        env.client,
+                        task_queue='test',
+                        workflows=[TaskWorkflow],
+                        activities=[as_activity(registered)],
+                        activity_executor=executor,
+                    ):
+                        return await env.client.execute_workflow(
+                            TaskWorkflow.run,
+                            task_input(registered, args, kwargs),
+                            id=f'test-{uuid.uuid4()}',
+                            task_queue='test',
+                        )
+        return asyncio.run(go())
+
+    def test_runs_the_task_with_args_and_kwargs(self):
+        from decimal import Decimal
+
+        def add(a, b=0):
+            return {'sum': Decimal(a + b)}
+
+        result = self.run_task(Task(add, 'test.add', Retry()), 2, b=3)
+        self.assertEqual(result, {'sum': '5'})
+
+    def test_retries_on_the_declared_policy(self):
+        attempts = []
+
+        def flaky():
+            attempts.append(1)
+            if len(attempts) < 3:
+                raise RuntimeError('not yet')
+            return len(attempts)
+
+        # Even 60s spacing, as `retries=3, retry_delay=60` declares; the
+        # time-skipping server makes the wait free.
+        result = self.run_task(Task(flaky, 'test.flaky', Retry(4, 60.0, 1.0, None)))
+        self.assertEqual(result, 3)

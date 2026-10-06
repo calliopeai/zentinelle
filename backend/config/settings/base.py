@@ -8,7 +8,6 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
-from celery.schedules import crontab
 from dotenv import load_dotenv
 
 # Load zentinelle.yaml config file (env vars always win over file values).
@@ -237,64 +236,53 @@ GRAPHENE = {
 }
 
 # =============================================================================
-# Celery
+# Temporal
 # =============================================================================
 
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
-CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 60 * 60  # 1 hour
-CELERY_TIMEZONE = "UTC"
-CELERY_TASK_ALWAYS_EAGER = False
+# One Temporal server is shared across Calliope AI apps; Zentinelle has its own
+# namespace and task queue. The temporal_worker command is the only consumer:
+# it runs every task as an activity and owns the schedules below. An empty
+# TEMPORAL_ADDRESS makes enqueues a no-op (tests); prod settings refuse it.
+TEMPORAL_ADDRESS = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
+TEMPORAL_NAMESPACE = os.environ.get("TEMPORAL_NAMESPACE", "zentinelle")
+TEMPORAL_TASK_QUEUE = os.environ.get("TEMPORAL_TASK_QUEUE", "zentinelle")
 
-# Every task runs on the default queue, which is the queue the worker services
-# consume. Do not add task routes without also giving the workers a matching
-# -Q, or the routed tasks are enqueued and never picked up.
-
-# The beat schedule is the single source of truth for periodic work. Beat runs
-# with the default scheduler, so this dict is the schedule; there is no
-# database scheduler and no seeding step.
-#
-# This is where Temporal Schedules will replace beat when the time comes
-# (#264, recorded in bootstrap.md). Beat is desired_count = 1 by construction:
-# if it dies, every job below silently stops, and raising the count splits the
-# brain. Its last-run state lives on an ephemeral Fargate filesystem, so a
-# restart can re-fire or skip — which is survivable today only because these
-# tasks happen to be idempotent, and that is a property to keep deliberately
-# rather than by luck.
-#
-# The event drain does NOT move: tasks.events and tasks.clickhouse_sync are
-# high-volume and stateless, and a durable-execution engine is the wrong tool
-# for a message queue.
-CELERY_BEAT_SCHEDULE = {
+# The schedule is the single source of truth for periodic work. The worker
+# upserts every entry as a Temporal Schedule at start (schedule id = key) and
+# deletes `zentinelle-` schedules that are no longer listed, so a redeploy never
+# duplicates one and a second worker replica never splits the brain the way a
+# second beat did. Overlapping runs are skipped (the Temporal default): a job
+# still running when its next slot comes up does not get a twin. All cron
+# expressions are UTC. Each entry has `task` plus `every` or `cron`.
+TEMPORAL_SCHEDULES = {
     'zentinelle-dispatch-event-outbox': {
         'task': 'zentinelle.tasks.events.dispatch_event_outbox',
-        'schedule': timedelta(minutes=1),
+        'every': timedelta(minutes=1),
     },
     # Retention and registry
     'zentinelle-enforce-retention-policies': {
         'task': 'zentinelle.enforce_retention_policies',
-        'schedule': crontab(hour=1, minute=0),
+        'cron': '0 1 * * *',
     },
     'zentinelle-sync-model-registry': {
         'task': 'zentinelle.sync_model_registry',
-        'schedule': crontab(hour=5, minute=0),
+        'cron': '0 5 * * *',
     },
     'zentinelle-cleanup-old-events': {
         'task': 'zentinelle.tasks.scheduled.cleanup_old_events',
-        'schedule': crontab(hour=4, minute=0, day_of_week='sunday'),
+        'cron': '0 4 * * 0',
     },
 
     # Health
     'zentinelle-check-endpoint-health': {
         'task': 'zentinelle.tasks.scheduled.check_endpoint_health',
-        'schedule': timedelta(minutes=15),
+        'every': timedelta(minutes=15),
     },
 
     # Billing
     'zentinelle-send-usage-to-stripe': {
         'task': 'zentinelle.tasks.billing.send_usage_to_stripe',
-        'schedule': crontab(minute=0),
+        'cron': '0 * * * *',
     },
     # Cross-mode usage export to Calliope AI billing (#245). Every 15 minutes
     # rather than hourly: the batch is small and the receiver dedupes, so a
@@ -302,43 +290,43 @@ CELERY_BEAT_SCHEDULE = {
     # when something goes wrong. No-ops entirely unless BILLING_EXPORT_ENABLED.
     'zentinelle-export-usage-to-billing': {
         'task': 'zentinelle.tasks.billing.export_usage_to_billing',
-        'schedule': timedelta(minutes=15),
+        'every': timedelta(minutes=15),
     },
 
     # License compliance
     'zentinelle-detect-license-violations': {
         'task': 'zentinelle.tasks.license_compliance.detect_license_violations_all_orgs',
-        'schedule': crontab(hour=2, minute=0),
+        'cron': '0 2 * * *',
     },
     'zentinelle-auto-resolve-violations': {
         'task': 'zentinelle.tasks.license_compliance.auto_resolve_violations',
-        'schedule': crontab(minute=0, hour='*/6'),
+        'cron': '0 */6 * * *',
     },
     'zentinelle-weekly-compliance-summaries': {
         'task': 'zentinelle.tasks.license_compliance.generate_weekly_compliance_summaries',
-        'schedule': crontab(hour=6, minute=0, day_of_week='monday'),
+        'cron': '0 6 * * 1',
     },
     'zentinelle-monthly-compliance-reports': {
         'task': 'zentinelle.tasks.license_compliance.generate_monthly_compliance_reports',
-        'schedule': crontab(hour=3, minute=0, day_of_month='1'),
+        'cron': '0 3 1 * *',
     },
 
     # Compliance monitoring
     'zentinelle-check-compliance-drift': {
         'task': 'zentinelle.tasks.compliance_monitoring.check_compliance_drift',
-        'schedule': timedelta(hours=1),
+        'every': timedelta(hours=1),
     },
     'zentinelle-monitor-violation-rates': {
         'task': 'zentinelle.tasks.compliance_monitoring.monitor_violation_rates',
-        'schedule': timedelta(minutes=30),
+        'every': timedelta(minutes=30),
     },
     'zentinelle-check-policy-health': {
         'task': 'zentinelle.tasks.compliance_monitoring.check_policy_health',
-        'schedule': timedelta(hours=6),
+        'every': timedelta(hours=6),
     },
     'zentinelle-detect-usage-anomalies': {
         'task': 'zentinelle.tasks.compliance_monitoring.detect_usage_anomalies',
-        'schedule': timedelta(hours=1),
+        'every': timedelta(hours=1),
     },
 }
 

@@ -146,7 +146,7 @@ Production settings enforce:
 - CORS allowlist (no wildcard)
 - All required secrets present at startup (raises if missing)
 
-The production profile terminates HTTPS at Caddy and keeps databases, Redis, backend and gateway on the private Compose network. Create the first administrator with `docker compose -f compose.production.yaml exec backend python manage.py createsuperuser`.
+The production profile terminates HTTPS at Caddy and keeps databases, Redis, Temporal, backend and gateway on the private Compose network. Create the first administrator with `docker compose -f compose.production.yaml exec backend python manage.py createsuperuser`.
 
 See [control upgrade notes](docs/dependable-controls.md) before upgrading an existing database.
 
@@ -234,7 +234,7 @@ llm = ChatOpenAI(callbacks=[handler])
 | Frontend | Next.js 16, React 19, Apollo Client 4, shadcn/ui, Tailwind CSS 4 |
 | Database | PostgreSQL 16 (zentinelle + zentinelle_analytics schemas) |
 | Cache | Redis 7 |
-| Task queue | Celery + Celery Beat |
+| Background jobs | Temporal (one worker, Temporal Schedules) |
 | Analytics | PostgreSQL (default), ClickHouse (optional for scale) |
 | Proxy | nginx + httpx + Go gateway (sidecar) |
 | Auth | Session cookies (httpOnly), OIDC/SSO, RBAC, AUTH_MODE switch |

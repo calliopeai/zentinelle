@@ -31,7 +31,7 @@ shell:
 	docker compose run --rm backend pipenv run python manage.py shell
 
 logs:
-	docker compose logs -f backend celery
+	docker compose logs -f backend temporal-worker
 
 # ── Frontend ──────────────────────────────────────────────────────────────────
 compile:
@@ -44,8 +44,8 @@ dev-backend:
 dev-frontend:
 	cd frontend && npm run dev
 
-dev-celery:
-	cd backend && pipenv run celery -A config worker -l info
+dev-worker:
+	cd backend && pipenv run python manage.py temporal_worker
 
 # ── Knowledge Framework ───────────────────────────────────────────────────────
 kf-docs:

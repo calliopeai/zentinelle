@@ -5,9 +5,12 @@ Django signals for Zentinelle.
 - ClickHouse sync: stream audit/event records asynchronously
 """
 import logging
+from datetime import timedelta
 
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
+
+from zentinelle.temporal.client import start_task
 
 logger = logging.getLogger(__name__)
 
@@ -122,9 +125,10 @@ def on_audit_log_created(sender, instance, created, **kwargs):
     try:
         from zentinelle.tasks.clickhouse_sync import \
             stream_audit_log_to_clickhouse
-        stream_audit_log_to_clickhouse.apply_async(
-            args=[str(instance.id)],
-            countdown=1,  # Small delay to ensure DB commit
+        start_task(
+            stream_audit_log_to_clickhouse, str(instance.id),
+            workflow_id=str(instance.id),
+            start_delay=timedelta(seconds=1),  # Small delay to ensure DB commit
         )
     except Exception as e:
         # Never block the main request cycle
@@ -139,9 +143,10 @@ def on_event_created(sender, instance, created, **kwargs):
 
     try:
         from zentinelle.tasks.clickhouse_sync import stream_event_to_clickhouse
-        stream_event_to_clickhouse.apply_async(
-            args=[str(instance.id)],
-            countdown=1,
+        start_task(
+            stream_event_to_clickhouse, str(instance.id),
+            workflow_id=str(instance.id),
+            start_delay=timedelta(seconds=1),
         )
     except Exception as e:
         logger.debug(f"Failed to queue Event ClickHouse sync: {e}")

@@ -40,6 +40,7 @@ from zentinelle.models import (ComplianceAlert, ComplianceAssessment,
                                InteractionLog)
 from zentinelle.services.content_capture import record_interaction
 from zentinelle.services.content_scanner import ContentScanner
+from zentinelle.temporal.client import start_task
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +239,7 @@ class AsyncScanView(APIView):
         # Queue for async processing
         from zentinelle.tasks.compliance import process_async_scan
         try:
-            process_async_scan.delay(str(scan.id), content)
+            start_task(process_async_scan, str(scan.id), content, workflow_id=str(scan.id))
         except Exception as e:
             logger.warning(f"Failed to queue async scan: {e}")
 
@@ -609,7 +610,7 @@ class LogInteractionView(APIView):
         # Queue async scanning of the input/output
         from zentinelle.tasks.compliance import scan_interaction
         try:
-            scan_interaction.delay(str(interaction.id))
+            start_task(scan_interaction, str(interaction.id), workflow_id=str(interaction.id))
         except Exception as e:
             logger.warning(f"Failed to queue interaction scan: {e}")
 

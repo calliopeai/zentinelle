@@ -60,16 +60,18 @@ auth:
     cache_ttl: 300
 
 # ---------------------------------------------------------------------------
-# Celery
+# Temporal (background jobs and schedules)
 # ---------------------------------------------------------------------------
-celery:
-  # Broker URL (typically Redis).
-  # Equivalent env var: CELERY_BROKER_URL
-  broker_url: redis://localhost:6379/0
+temporal:
+  # Frontend address of the Temporal server, host:port.
+  # Equivalent env var: TEMPORAL_ADDRESS
+  address: localhost:7233
 
-  # Result backend URL.
-  # Equivalent env var: CELERY_RESULT_BACKEND
-  result_backend: redis://localhost:6379/1
+  # Equivalent env var: TEMPORAL_NAMESPACE
+  namespace: zentinelle
+
+  # Equivalent env var: TEMPORAL_TASK_QUEUE
+  task_queue: zentinelle
 
 # ---------------------------------------------------------------------------
 # Django

@@ -16,6 +16,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from zentinelle.auth.resolver import StandaloneTenantResolver
 from zentinelle.models import AgentEndpoint, Event
+from zentinelle.temporal.client import start_task
 
 logger = logging.getLogger(__name__)
 
@@ -133,9 +134,7 @@ class DeregisterView(View):
             # Fire the async event processor (best-effort)
             try:
                 from zentinelle.tasks.events import process_event_batch
-                process_event_batch.apply_async(
-                    args=[[str(event.id)], 'audit'],
-                )
+                start_task(process_event_batch, [str(event.id)], 'audit', workflow_id=str(event.id))
             except Exception as exc:
                 logger.warning("Failed to queue deregister audit event: %s", exc)
 

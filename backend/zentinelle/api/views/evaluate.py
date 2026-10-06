@@ -21,6 +21,7 @@ from zentinelle.services.approvals import open_approval_request
 from zentinelle.services.boundary_contract import (build_contract,
                                                    canonical_action)
 from zentinelle.services.content_capture import record_interaction
+from zentinelle.temporal.client import start_task
 
 logger = logging.getLogger(__name__)
 
@@ -252,9 +253,7 @@ class EvaluateView(APIView):
 
         # Queue for processing (gracefully handle if queue unavailable)
         try:
-            process_event_batch.apply_async(
-                args=[[str(event.id)], event_category],
-            )
+            start_task(process_event_batch, [str(event.id)], event_category, workflow_id=str(event.id))
         except Exception as e:
             logger.warning(f"Failed to queue evaluation event: {e}")
 

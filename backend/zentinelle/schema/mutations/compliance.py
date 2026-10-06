@@ -62,18 +62,19 @@ def run_compliance_check(info: strawberry.types.Info, framework_id: Optional[str
 
     if async_mode:
         from zentinelle.tasks.compliance import run_compliance_check_task
-        task = run_compliance_check_task.delay(
+        from zentinelle.temporal.client import start_task
+        check_id = start_task(
+            run_compliance_check_task,
             organization_id=str(org.id),
             framework_id=framework_id,
             user_id=str(user.id),
             assessment_type='manual',
         )
-        return RunComplianceCheckPayload(success=True, check_id=task.id)
+        return RunComplianceCheckPayload(success=True, check_id=check_id)
     else:
         from zentinelle.tasks.compliance import run_compliance_check_task
         try:
             assessment_id = run_compliance_check_task(
-                None,
                 organization_id=str(org.id),
                 framework_id=framework_id,
                 user_id=str(user.id),
@@ -105,8 +106,10 @@ def generate_compliance_report(info: strawberry.types.Info, framework: Optional[
         report_url = f'{report_url}?{"&".join(params)}'
 
     from zentinelle.tasks.compliance import run_compliance_check_task
+    from zentinelle.temporal.client import start_task
     try:
-        run_compliance_check_task.delay(
+        start_task(
+            run_compliance_check_task,
             organization_id=str(org.id),
             framework_id=framework,
             user_id=str(user.id),

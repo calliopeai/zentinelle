@@ -4,8 +4,9 @@ Management command to setup Zentinelle.
 Handles:
 - Loading AI Provider fixtures
 
-Periodic tasks are not seeded here. The Celery Beat schedule is declared in
-config.settings.base.CELERY_BEAT_SCHEDULE and needs no database records.
+Periodic tasks are not seeded here. They are Temporal Schedules declared in
+config.settings.base.TEMPORAL_SCHEDULES, which the temporal_worker command
+upserts at every start.
 """
 from django.core.management.base import BaseCommand
 

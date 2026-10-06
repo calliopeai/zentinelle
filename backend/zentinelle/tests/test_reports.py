@@ -280,8 +280,8 @@ class TestReportCreateView(unittest.TestCase):
 
     @patch('zentinelle.api.views.reports.get_tenant_id_from_request', return_value='t1')
     @patch('zentinelle.api.views.reports.Report')
-    def test_create_queues_celery_task(self, mock_report_cls, mock_tenant):
-        """POST /reports/ queues the generate_report Celery task."""
+    def test_create_starts_generate_report_workflow(self, mock_report_cls, mock_tenant):
+        """POST /reports/ starts the generate_report task, keyed by report id."""
         from zentinelle.api.views.reports import ReportCreateView
 
         report = _make_report(pk=7, status='pending')
@@ -289,7 +289,6 @@ class TestReportCreateView(unittest.TestCase):
         mock_report_cls.Status.PENDING = 'pending'
 
         mock_task = MagicMock()
-        mock_task.delay = MagicMock()
 
         view = ReportCreateView.as_view()
         request = self.factory.post(
@@ -308,11 +307,12 @@ class TestReportCreateView(unittest.TestCase):
                    return_value=(request.user, None)), \
                 patch('zentinelle.api.views.reports._VALID_REPORT_TYPES', {'control_coverage', 'violation_summary', 'audit_trail'}), \
                 patch('zentinelle.api.views.reports._VALID_FORMATS', {'csv', 'pdf', 'ndjson'}), \
-                patch('zentinelle.api.views.reports.generate_report_task', mock_task):
+                patch('zentinelle.api.views.reports.generate_report_task', mock_task), \
+                patch('zentinelle.api.views.reports.start_task') as start_task:
             response = view(request)
 
         self.assertEqual(response.status_code, 201)
-        mock_task.delay.assert_called_once_with(7)
+        start_task.assert_called_once_with(mock_task, 7, workflow_id='7')
 
     @patch('zentinelle.api.views.reports.get_tenant_id_from_request', return_value='t1')
     @patch('zentinelle.api.views.reports.Report')

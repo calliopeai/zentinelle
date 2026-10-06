@@ -36,7 +36,7 @@ zentinelle.git/
 │       ├── api/          # REST endpoints (agent-facing)
 │       ├── schema/       # GraphQL (management portal)
 │       ├── services/     # policy engine, content scanner, evaluators
-│       ├── tasks/        # Celery async tasks
+│       ├── tasks/        # Background tasks (Temporal activities)
 │       └── auth/         # TenantResolver interface + implementations
 ├── frontend/             # Next.js 14 GRC portal (port 3002)
 └── docs/wiki/            # deep technical docs
@@ -97,28 +97,36 @@ agent = endpoint. One Zentinelle service serves many clusters, and every call
 the gateway makes carries `X-Zentinelle-Tenant` and `X-Zentinelle-Cluster` so
 its events can be told apart.
 
-### Background Work: Celery Now, Temporal for Two of Three Shapes Later
+### Background Work: Temporal
 
-Zentinelle's background work is three shapes and only two are Temporal-shaped.
-Astrolift and the Client Cove provisioner already run Temporal on ECS, so the
-question is how far to follow, and the answer is a split rather than a switch
-(#264).
+All background work runs on Temporal; Celery and Celery beat are gone. This
+reverses the "not now" in #264: Zentinelle now shares one Temporal server with
+the Client Cove provisioner and the rest of Calliope AI, in its own namespace
+(`zentinelle`) and task queue.
 
-| shape | where | why |
-|---|---|---|
-| Event drain — `tasks.events`, `tasks.clickhouse_sync`, classification | **stays on Celery** | High volume, short-lived, stateless, row-level idempotent. Temporal is a durable-execution engine, not a message queue: a workflow per telemetry event puts ingest volume through a Postgres-backed history store for no benefit, and the failure mode is a Temporal DB that grows with ingest |
-| Periodic work — `CELERY_BEAT_SCHEDULE` | **Temporal Schedules**, later | Beat is `desired_count = 1` by construction: if it dies every scheduled job silently stops, and raising the count splits the brain. The default scheduler keeps last-run state on an ephemeral Fargate filesystem, so a restart can re-fire or skip — survivable today only because the affected tasks happen to be idempotent |
-| Billing and reporting — Stripe usage, monthly counts, compliance reports, daily aggregation | **Temporal workflows**, later | Multi-step and money-touching. Durable state, retry with idempotency, and the ability to see where a stuck run stopped — the same shape as the provisioner cutover already live |
-
-**Not now, deliberately.** Zentinelle has no live installs, so there is no load
-data to size a Temporal deployment against and no urgency. Rewriting the task
-layer for a product that has not taken its first real install is backwards.
-
-Revisit when either becomes true:
-
-1. A production install is running and has produced real load figures.
-2. A scheduled job misfire causes a billing or compliance incident — the
-   failure mode the single beat replica is exposed to.
+- **One worker, one workflow.** Every job is a plain function under `@task`
+  (`zentinelle/temporal/registry.py`) and runs as an activity of the single
+  generic `ZentinelleTask` workflow, with the retry policy the task declares.
+  `python manage.py temporal_worker` is the only consumer and replaces both
+  the Celery worker and beat.
+- **Schedules, not beat.** `TEMPORAL_SCHEDULES` in settings is the source of
+  truth. The worker upserts each entry at start (schedule id = key) and deletes
+  undeclared `zentinelle-` schedules, so redeploys never duplicate one, the
+  worker can run more than one replica, and last-run state lives in Temporal
+  rather than on an ephemeral Fargate filesystem. Overlapping runs are skipped.
+- **Enqueue.** Call sites use `start_task(task, *args, workflow_id=...)`. Work
+  that is idempotent per key (one event, one report, one outbox row) passes a
+  deterministic id, so a second start while the first runs is dropped.
+- **Event drain cost.** The event drain (`tasks.events`,
+  `tasks.clickhouse_sync`) is high volume and stateless; each enqueue is now a
+  short workflow with Temporal history. Keep the namespace retention short and
+  watch the Temporal database as ingest grows: that was the reason #264 kept
+  the drain on Celery, and it is the first thing to revisit (a batched drain
+  over the outbox) if history volume becomes the cost.
+- **Redis** stays, for the Django cache only (rate limits, blocklist, policy
+  and tenant caches, baselines). It is no longer a broker.
+- **Production settings refuse to start without `TEMPORAL_ADDRESS`.** An
+  empty address makes enqueues a no-op, which is right only for tests.
 
 ### Fail-Open by Default
 If Zentinelle is unreachable, agents continue running. Circuit breaker in SDK. Set `fail_open: false` per policy for hard enforcement.
@@ -279,7 +287,7 @@ Use this before making changes. Columns: **d=1** = direct callers that WILL brea
 | `AgentEndpoint.api_key_hash` | `/api/register`, all agent auth | All agent API calls | Endpoint health tracking | HIGH |
 | `Event` model schema | `/api/events` ingestion | Retention TTL enforcement, SIEM export | Compliance reports | HIGH |
 | `InteractionLog` model | Audit trail writes | Usage metrics, cost metering | Compliance dashboard | HIGH |
-| `RetentionPolicy.enforce_ttl()` | TTL Celery task | Event and log cleanup | SIEM completeness | HIGH |
+| `RetentionPolicy.enforce_ttl()` | TTL scheduled task | Event and log cleanup | SIEM completeness | HIGH |
 | `Policy` scope hierarchy | Policy resolution order | All multi-scope tenant evaluations | — | HIGH |
 | `ContentScan` model | `/api/evaluate` content scanning | PII detection reports | GDPR/HIPAA compliance controls | MEDIUM |
 | `Risk` model | Risk register CRUD | Incident creation | Compliance gap scoring | MEDIUM |

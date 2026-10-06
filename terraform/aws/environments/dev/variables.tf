@@ -47,28 +47,27 @@ variable "backend_memory" {
   default     = 1024
 }
 
-variable "celery_cpu" {
-  description = "ECS task CPU units for Celery worker"
+variable "temporal_worker_cpu" {
+  description = "ECS task CPU units for the Temporal worker"
   type        = number
   default     = 512
 }
 
-variable "celery_memory" {
-  description = "ECS task memory (MiB) for Celery worker"
+variable "temporal_worker_memory" {
+  description = "ECS task memory (MiB) for the Temporal worker"
   type        = number
   default     = 1024
 }
 
-variable "celery_beat_cpu" {
-  description = "ECS task CPU units for Celery Beat scheduler"
-  type        = number
-  default     = 256
+variable "temporal_address" {
+  description = "host:port of the shared Temporal frontend, e.g. temporal.production.internal:7233. Prod settings refuse to start without it."
+  type        = string
 }
 
-variable "celery_beat_memory" {
-  description = "ECS task memory (MiB) for Celery Beat scheduler"
-  type        = number
-  default     = 512
+variable "temporal_namespace" {
+  description = "Temporal namespace for Zentinelle on the shared server"
+  type        = string
+  default     = "zentinelle"
 }
 
 variable "frontend_cpu" {

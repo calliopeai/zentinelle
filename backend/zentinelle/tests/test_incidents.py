@@ -230,7 +230,6 @@ class TestMaybeCreateIncident(unittest.TestCase):
 
         # Also mock the notification task so it doesn't blow up
         mock_task = MagicMock()
-        mock_task.delay = MagicMock()
 
         import zentinelle.models as zentinelle_models
         import zentinelle.tasks.notifications as notif_module
@@ -332,7 +331,6 @@ class TestIncidentListView(unittest.TestCase):
         request.auth = None
 
         mock_task = MagicMock()
-        mock_task.delay = MagicMock()
 
         with patch('zentinelle.api.permissions.PortalSessionAuthentication.authenticate',
                    return_value=(request.user, None)), \

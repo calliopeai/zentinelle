@@ -28,7 +28,7 @@ Terms: **MUST** = required. **MUST NOT** = prohibited. **SHOULD** = strongly rec
 
 ### Stack
 
-- Python backend: Django 5.0, Graphene GraphQL, Celery, PostgreSQL, Redis.
+- Python backend: Django 5.0, Graphene GraphQL, Temporal, PostgreSQL, Redis.
 - TypeScript frontend: Next.js 14 App Router, Chakra UI, Apollo Client.
 
 ### Backend

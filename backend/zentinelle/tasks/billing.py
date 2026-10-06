@@ -1,5 +1,5 @@
 """
-Celery tasks for billing, usage aggregation, and licensing.
+Background tasks for billing, usage aggregation, and licensing.
 
 Tasks:
 - aggregate_hourly_usage: Roll up raw metrics per org per hour
@@ -15,20 +15,21 @@ import importlib
 import logging
 from datetime import datetime, timedelta
 
-from celery import shared_task
 from django.conf import settings
 from django.db.models import Sum
 from django.utils import timezone
 
+from zentinelle.temporal.registry import task
+
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True)
-def aggregate_hourly_usage(self, hour: str = None):
+@task
+def aggregate_hourly_usage(hour: str = None):
     """
     Aggregate raw usage metrics into hourly rollups.
 
-    Called every hour by Celery Beat.
+    Called every hour by a Temporal Schedule.
     Aggregates the previous hour's data for all organizations.
 
     Args:
@@ -74,12 +75,12 @@ def aggregate_hourly_usage(self, hour: str = None):
     return aggregated_count
 
 
-@shared_task(bind=True)
-def aggregate_daily_usage(self, date: str = None):
+@task
+def aggregate_daily_usage(date: str = None):
     """
     Aggregate hourly usage into daily rollups.
 
-    Called daily by Celery Beat.
+    Called daily by a Temporal Schedule.
 
     Args:
         date: ISO format date to aggregate (default: yesterday)
@@ -145,8 +146,8 @@ def aggregate_daily_usage(self, date: str = None):
     return created_count
 
 
-@shared_task(bind=True)
-def generate_monthly_user_counts(self, year: int = None, month: int = None):
+@task
+def generate_monthly_user_counts(year: int = None, month: int = None):
     """
     Generate monthly user count snapshots for billing.
 
@@ -200,8 +201,8 @@ def generate_monthly_user_counts(self, year: int = None, month: int = None):
     return generated_count
 
 
-@shared_task(bind=True)
-def send_usage_to_stripe(self, aggregate_ids: list = None):
+@task
+def send_usage_to_stripe(aggregate_ids: list = None):
     """
     Send pending usage aggregates to Stripe billing meters.
 
@@ -330,8 +331,8 @@ def send_usage_to_stripe(self, aggregate_ids: list = None):
     return {'sent': sent_count, 'failed': failed_count}
 
 
-@shared_task(bind=True)
-def send_monthly_user_counts_to_stripe(self, year: int = None, month: int = None):
+@task
+def send_monthly_user_counts_to_stripe(year: int = None, month: int = None):
     """
     Send monthly user counts to Stripe for per-seat billing.
 
@@ -407,8 +408,8 @@ def send_monthly_user_counts_to_stripe(self, year: int = None, month: int = None
     return sent_count
 
 
-@shared_task(bind=True)
-def check_license_limits(self):
+@task
+def check_license_limits():
     """
     Check all organizations against their license limits.
 
@@ -475,8 +476,8 @@ def check_license_limits(self):
     return alerts
 
 
-@shared_task(bind=True)
-def record_user_activity(self, organization_id: str, user_identifier: str, email: str = '', display_name: str = ''):
+@task
+def record_user_activity(organization_id: str, user_identifier: str, email: str = '', display_name: str = ''):
     """
     Record user activity for licensing.
 
@@ -533,16 +534,16 @@ def record_user_activity(self, organization_id: str, user_identifier: str, email
                 )
 
 
-@shared_task(bind=True, name='zentinelle.tasks.billing.export_usage_to_billing')
-def export_usage_to_billing(self, limit: int = 500):
+@task(name='zentinelle.tasks.billing.export_usage_to_billing')
+def export_usage_to_billing(limit: int = 500):
     """Push metered usage to Calliope AI billing (#245).
 
     The cross-mode path: works when Zentinelle runs inside a customer's own
     perimeter, because it only needs outbound HTTPS to one host.
 
-    Errors are logged and swallowed rather than retried by Celery. The rows
+    Errors are logged and swallowed rather than retried by Temporal. The rows
     stay unexported — `billing_exported_at` is only written after the receiver
-    accepts a batch — so the next run picks them up. A Celery retry storm
+    accepts a batch — so the next run picks them up. A retry storm
     against a billing ingest that is already struggling helps nobody, and the
     work is not lost either way.
     """

@@ -22,8 +22,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-zentinelle}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-zentinelle}
       - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - TEMPORAL_ADDRESS=temporal:7233
       - ZENTINELLE_BOOTSTRAP_SECRET=${ZENTINELLE_BOOTSTRAP_SECRET:-dev-bootstrap-secret}
     env_file:
       - .env
@@ -32,6 +31,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      temporal:
+        condition: service_started
     volumes:
       - ./backend:/app
       # The backend registers the local gateway (this install's one tenant)
@@ -52,7 +53,9 @@ services:
       retries: 3
       start_period: 30s
 
-  celery:
+  # One worker replaces the Celery worker and Celery beat: it runs every
+  # background task and upserts the Temporal Schedules at start.
+  temporal-worker:
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -64,8 +67,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-zentinelle}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-zentinelle}
       - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - TEMPORAL_ADDRESS=temporal:7233
     env_file:
       - .env
     depends_on:
@@ -73,34 +75,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      temporal:
+        condition: service_started
     volumes:
       - ./backend:/app
-    command: celery -A config worker -l info
-
-  celery-beat:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    environment:
-      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-config.settings.dev}
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=${POSTGRES_DB:-zentinelle}
-      - POSTGRES_USER=${POSTGRES_USER:-zentinelle}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-zentinelle}
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-    env_file:
-      - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./backend:/app
-    command: celery -A config beat -l info
+    # The server takes a few seconds to accept connections after it starts.
+    restart: on-failure
+    command: python manage.py temporal_worker
 
   gateway:
     build:
@@ -164,6 +145,32 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # Temporal server, persisted in the postgres service (databases temporal and
+  # temporal_visibility), with the zentinelle namespace created on first start.
+  temporal:
+    image: temporalio/auto-setup:1.29.7
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-zentinelle}
+      - POSTGRES_PWD=${POSTGRES_PASSWORD:-zentinelle}
+      - POSTGRES_SEEDS=postgres
+      - DEFAULT_NAMESPACE=zentinelle
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${TEMPORAL_PORT_HOST:-57233}:7233"
+
+  temporal-ui:
+    image: temporalio/ui:2.55.0
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+    depends_on:
+      - temporal
+    ports:
+      - "127.0.0.1:${TEMPORAL_UI_PORT_HOST:-58233}:8080"
 
   # ClickHouse — optional, for high-volume analytics
   # Enable with: docker compose --profile analytics up

@@ -26,7 +26,7 @@ Terms: **MUST** = required. **MUST NOT** = prohibited. **SHOULD** = strongly rec
 
 ### Stack
 
-- Stack: Django 5.0 backend, Next.js 14 App Router frontend, Graphene GraphQL, Celery, PostgreSQL, Redis.
+- Stack: Django 5.0 backend, Next.js 14 App Router frontend, Graphene GraphQL, Temporal, PostgreSQL, Redis.
 - You MUST work on `main` — no PRs or branches needed for agent commits.
 
 ### Backend

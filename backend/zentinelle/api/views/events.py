@@ -18,6 +18,7 @@ from zentinelle.api.auth import (ZentinelleAPIKeyAuthentication,
 from zentinelle.api.serializers import EventsRequestSerializer
 from zentinelle.models import Event
 from zentinelle.services.content_capture import capture_payload
+from zentinelle.temporal.client import start_task
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +156,7 @@ class EventsView(APIView):
         ))
 
     def _queue_events(self, events: list[Event]):
-        """Queue events for async processing via Celery."""
+        """Queue events for async processing on Temporal."""
         from zentinelle.tasks.events import process_event_batch
 
         # Group by category for routing to appropriate queues
@@ -175,18 +176,12 @@ class EventsView(APIView):
         # Queue each batch to appropriate queue (gracefully handle if queue unavailable)
         try:
             if telemetry_ids:
-                process_event_batch.apply_async(
-                    args=[telemetry_ids, 'telemetry'],
-                )
+                start_task(process_event_batch, telemetry_ids, 'telemetry')
 
             if audit_ids:
-                process_event_batch.apply_async(
-                    args=[audit_ids, 'audit'],
-                )
+                start_task(process_event_batch, audit_ids, 'audit')
 
             if alert_ids:
-                process_event_batch.apply_async(
-                    args=[alert_ids, 'alert'],
-                )
+                start_task(process_event_batch, alert_ids, 'alert')
         except Exception as e:
             logger.warning(f"Failed to queue events for processing: {e}")

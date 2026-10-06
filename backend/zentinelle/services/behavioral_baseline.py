@@ -1,7 +1,7 @@
 """
 Behavioral baseline store — Redis-backed per-agent rolling statistics.
 
-Baselines are updated asynchronously by the Celery beat task
+Baselines are updated asynchronously by the scheduled task
 `update_agent_baselines` (zentinelle/tasks/scheduled.py).
 Evaluators read from the store on the hot evaluation path (read-only).
 
@@ -56,7 +56,7 @@ def get_baseline(tenant_id: str, agent_id: str) -> Optional[Dict[str, Any]]:
 def set_baseline(tenant_id: str, agent_id: str, stats: Dict[str, Any]) -> None:
     """
     Write or replace a baseline for an agent.
-    Called by the Celery beat task after recomputing from the events table.
+    Called by the scheduled task after recomputing from the events table.
     """
     cache.set(_key(tenant_id, agent_id), stats, timeout=BASELINE_TTL)
 
@@ -86,7 +86,7 @@ def recompute_baseline(
 ) -> Optional[Dict[str, Any]]:
     """
     Recompute and store the baseline for a specific agent from the events table.
-    Called by the Celery beat task. Returns the computed stats dict or None if
+    Called by the scheduled task. Returns the computed stats dict or None if
     insufficient data.
     """
     from datetime import timedelta

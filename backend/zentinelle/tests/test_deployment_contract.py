@@ -95,7 +95,7 @@ class DeploymentContractTest(TestCase):
     def test_every_django_task_definition_gets_every_required_setting(self):
         """The check that would have caught four of the fourteen.
 
-        Celery and celery-beat count: they import the same settings module, so
+        The Temporal worker counts: it imports the same settings module, so
         prod.py raises for a worker exactly as it does for the web process. Two
         of the defects were precisely this — a variable set on the backend and
         not on the workers.
@@ -104,8 +104,8 @@ class DeploymentContractTest(TestCase):
         task_definitions = _prod_task_definitions()
 
         self.assertGreaterEqual(
-            len(task_definitions), 3,
-            "Expected at least backend, celery and celery-beat to load prod "
+            len(task_definitions), 2,
+            "Expected at least backend and temporal_worker to load prod "
             f"settings; found {sorted(task_definitions)}",
         )
 
@@ -160,14 +160,13 @@ class DeploymentContractTest(TestCase):
         )
 
     def test_redis_url_carries_ssl_cert_reqs(self):
-        """celery refuses to construct a rediss:// backend without it."""
+        """Celery refused a rediss:// backend without it; kept for the cache URL."""
         source = ECS_MODULE.read_text()
 
         if "rediss://" in source:
             self.assertIn(
                 "ssl_cert_reqs", source,
-                "A rediss:// URL without ssl_cert_reqs makes celery raise "
-                "while printing its own startup banner, after Django has "
-                "imported cleanly — so it reads as a service flapping rather "
-                "than a container that cannot start.",
+                "A rediss:// URL without ssl_cert_reqs leaves certificate "
+                "checking to the client default. ElastiCache presents a valid "
+                "cert, so the URL requires it explicitly.",
             )

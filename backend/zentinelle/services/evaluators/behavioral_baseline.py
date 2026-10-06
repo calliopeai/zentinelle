@@ -5,7 +5,7 @@ Compares current request metrics against the agent's historical p95 baseline.
 Catches data exfiltration, runaway loops, and compromised agents that are only
 visible as deviations from normal behavior over time.
 
-Baselines are maintained by the `update_agent_baselines` Celery beat task
+Baselines are maintained by the `update_agent_baselines` task
 and read from Redis on the hot evaluation path (read-only, no DB hit).
 """
 import logging
