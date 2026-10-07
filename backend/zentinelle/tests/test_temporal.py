@@ -195,7 +195,14 @@ class SyncSchedulesTests(SimpleTestCase):
                 await sync_schedules(env.client, tasks)
                 await env.client.get_schedule_handle('zentinelle-kept').pause(note='paused by an operator')
                 await sync_schedules(env.client, tasks)
-                ids = sorted([listed.id async for listed in await env.client.list_schedules()])
+                # The listing goes through visibility and is eventually
+                # consistent, so poll it the way temporalio's own tests do.
+                expected = ['zentinelle-kept', 'zentinelle-new']
+                for _ in range(50):
+                    ids = sorted([listed.id async for listed in await env.client.list_schedules()])
+                    if ids == expected:
+                        break
+                    await asyncio.sleep(0.2)
                 kept = await env.client.get_schedule_handle('zentinelle-kept').describe()
                 return ids, kept
         ids, kept = asyncio.run(go())

@@ -176,6 +176,8 @@ class AnalyzeSystemPromptTests(TestCase):
         self.assertEqual(kwargs['prompt_text'], 'You are helpful')
         self.assertEqual(kwargs['prompt_type'], 'system')
         self.assertEqual(kwargs['target_providers'], ['openai'])
+        # The caller's tenant, for the shared model's route check.
+        self.assertTrue(kwargs['tenant_id'])
 
     def test_analyze_propagates_service_error(self):
         fake = PromptAnalysis(

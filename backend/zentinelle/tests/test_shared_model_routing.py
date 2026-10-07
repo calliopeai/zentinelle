@@ -102,7 +102,7 @@ COMPLETION = {
 @patch.object(prompt_tester, 'check_rate_limit', lambda *args: (True, 9))
 class PromptTesterTests(SimpleTestCase):
 
-    def run_calls(self):
+    def run_calls(self, tenant_id='tenant-a'):
         posts = []
 
         async def post(client, url, headers=None, json=None):
@@ -112,29 +112,66 @@ class PromptTesterTests(SimpleTestCase):
         with patch('httpx.AsyncClient.post', post):
             tester = prompt_tester.PromptTester()
             tested = asyncio.run(tester.test_prompt(
-                'You are a helpful assistant.', 'Hello there', 'user-1', model='gpt-4o'))
-            analyzed = asyncio.run(tester.analyze_prompt('You are a helpful assistant.', 'user-1'))
+                'You are a helpful assistant.', 'Hello there', 'user-1', model='gpt-4o',
+                tenant_id=tenant_id))
+            analyzed = asyncio.run(tester.analyze_prompt(
+                'You are a helpful assistant.', 'user-1', tenant_id=tenant_id))
         return posts, tested, analyzed
 
+    def shared(self):
+        lmstudio = {'base_url': 'http://shared-model.internal:8000/v1', 'env': None}
+        return (patch.dict(os.environ, SHARED),
+                patch.dict(prompt_tester.OPENAI_COMPAT_PROVIDERS, {'lmstudio': lmstudio}),
+                self.settings(OPENAI_API_KEY=''))
+
     def test_unset_calls_openai_as_today(self):
-        with patch.dict(os.environ, env_without_model_vars(), clear=True):
-            posts, tested, analyzed = self.run_calls()
+        with patch.dict(os.environ, env_without_model_vars(), clear=True), \
+                patch.object(prompt_tester, '_check_model_route') as check:
+            posts, tested, analyzed = self.run_calls(tenant_id=None)
         self.assertTrue(tested.success and analyzed.success)
+        check.assert_not_called()
         for url, headers, body in posts:
             self.assertEqual(url, 'https://api.openai.com/v1/chat/completions')
             self.assertEqual(headers['Authorization'], 'Bearer sk-openai-test')
             self.assertEqual(body['model'], 'gpt-4o-mini')
 
     def test_shared_model_serves_testing_and_analysis(self):
-        lmstudio = {'base_url': 'http://shared-model.internal:8000/v1', 'env': None}
-        with patch.dict(os.environ, SHARED), \
-                patch.dict(prompt_tester.OPENAI_COMPAT_PROVIDERS, {'lmstudio': lmstudio}), \
-                self.settings(OPENAI_API_KEY=''):
+        env, providers, settings = self.shared()
+        with env, providers, settings, \
+                patch.object(prompt_tester, '_check_model_route') as check:
             posts, tested, analyzed = self.run_calls()
         self.assertTrue(tested.success and analyzed.success)
+        # The same tenant route check the assistant runs, once per call.
+        self.assertEqual(check.call_count, 2)
+        for call in check.call_args_list:
+            self.assertEqual(call.args, (SHARED['ASSISTANT_MODEL'], 'lmstudio', 'tenant-a'))
         self.assertEqual(tested.model_used, SHARED['ASSISTANT_MODEL'])
         self.assertEqual(len(posts), 2)
         for url, headers, body in posts:
             self.assertEqual(url, 'http://shared-model.internal:8000/v1/chat/completions')
             self.assertNotIn('Authorization', headers)
             self.assertEqual(body['model'], SHARED['ASSISTANT_MODEL'])
+
+    def test_a_denied_route_never_reaches_the_shared_model(self):
+        # An org MODEL_RESTRICTION blocking lmstudio denies the assistant; it
+        # must deny prompt testing and analysis the same way.
+        env, providers, settings = self.shared()
+        denied = RuntimeError('Model route denied by policy p1: blocked [trace_id=t]')
+        with env, providers, settings, \
+                patch.object(prompt_tester, '_check_model_route', side_effect=denied):
+            posts, tested, analyzed = self.run_calls()
+        self.assertEqual(posts, [])
+        for result in (tested, analyzed):
+            self.assertFalse(result.success)
+            self.assertIn('denied by policy', result.error)
+
+    def test_no_tenant_is_refused_not_served_unchecked(self):
+        env, providers, settings = self.shared()
+        with env, providers, settings, \
+                patch.object(prompt_tester, '_check_model_route') as check:
+            posts, tested, analyzed = self.run_calls(tenant_id=None)
+        self.assertEqual(posts, [])
+        check.assert_not_called()
+        for result in (tested, analyzed):
+            self.assertFalse(result.success)
+            self.assertIn('No tenant', result.error)
