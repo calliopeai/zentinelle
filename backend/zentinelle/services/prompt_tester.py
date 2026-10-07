@@ -12,13 +12,12 @@ IMPORTANT GUARDRAILS:
 - Test inputs must be realistic samples, not chat requests
 """
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
-
-import asyncio
 
 import httpx
 from django.conf import settings
