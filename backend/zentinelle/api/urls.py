@@ -14,6 +14,7 @@ Agent-facing REST endpoints:
 - POST /api/zentinelle/v1/evaluate
 - POST /api/zentinelle/v1/gateway/provider-key   (gateway credential + agent key)
 - POST /api/zentinelle/v1/astrolift/connect      (one-time enrollment code)
+- POST /api/zentinelle/v1/astrolift/enrollment-codes  (bootstrap token: the agent mints a code)
 - POST /api/zentinelle/v1/astrolift/clusters     (Astrolift install credential)
 - POST /api/zentinelle/v1/astrolift/clusters/{cluster_id}/rotate
 - DELETE /api/zentinelle/v1/astrolift/clusters/{cluster_id}
@@ -103,11 +104,12 @@ from zentinelle.api.views.assistant_providers import AssistantProvidersView
 from zentinelle.api.views.astrolift_agent_policy import (
     AstroliftAgentApprovalView, AstroliftAgentEvaluateView)
 from zentinelle.api.views.astrolift_clusters import (
-    AstroliftAgentRenewView, AstroliftAgentsView, AstroliftAgentView,
-    AstroliftClusterAdminView, AstroliftClusterHeartbeatView,
-    AstroliftClusterRotateView, AstroliftClustersView, AstroliftClusterView,
-    AstroliftConnectView, AstroliftEnrollmentCodeView,
-    AstroliftInstallAdminView, AstroliftInstallView, AstroliftSettingsView)
+    AstroliftAgentEnrollmentCodeView, AstroliftAgentRenewView,
+    AstroliftAgentsView, AstroliftAgentView, AstroliftClusterAdminView,
+    AstroliftClusterHeartbeatView, AstroliftClusterRotateView,
+    AstroliftClustersView, AstroliftClusterView, AstroliftConnectView,
+    AstroliftEnrollmentCodeView, AstroliftInstallAdminView,
+    AstroliftInstallView, AstroliftSettingsView)
 from zentinelle.api.views.astrolift_enforcement import (
     AstroliftEnforcementOutcomeView, AstroliftEnforcementView)
 from zentinelle.api.views.atlas import AtlasControlMapView
@@ -207,6 +209,8 @@ urlpatterns = [
 
     # Astrolift installs register their clusters' gateways (#389).
     path('astrolift/connect', AstroliftConnectView.as_view(), name='astrolift-connect'),
+    path('astrolift/enrollment-codes', AstroliftAgentEnrollmentCodeView.as_view(),
+         name='astrolift-agent-enrollment-codes'),
     path('astrolift/install', AstroliftInstallView.as_view(), name='astrolift-install'),
     path('astrolift/clusters', AstroliftClustersView.as_view(), name='astrolift-clusters'),
     path('astrolift/clusters/<str:cluster_id>', AstroliftClusterView.as_view(), name='astrolift-cluster'),

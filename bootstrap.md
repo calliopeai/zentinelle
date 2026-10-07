@@ -705,6 +705,14 @@ itself, and nobody copies a gateway credential by hand:
    192 random bits, so a fast hash costs nothing, and it lets a single
    conditional UPDATE consume the code, which keeps it single use under a
    race.
+   The agent inside the customer account (the installer's integration job)
+   mints the same code itself: `POST /api/zentinelle/v1/astrolift/enrollment-codes`
+   `{"ttl_minutes"?, "requested_by"?}` with the bootstrap token `register`
+   takes (`X-Zentinelle-Bootstrap`). The code is for that token's tenant only,
+   whatever the body says, and lives 5 minutes by default (at most 15).
+   `created_by` reads `bootstrap:<requested_by>`. Holding the bootstrap secret
+   already lets a caller register agents for any tenant it signs, so this adds
+   no new trust (calliope-installer #433).
 2. The Astrolift admin pastes this Zentinelle's URL and the code into Astrolift,
    which calls `POST /api/zentinelle/v1/astrolift/connect`
    `{"code", "install": {"base_url", "name"}}`. That creates an

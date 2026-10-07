@@ -8,9 +8,11 @@ that what registration hands out works, and works only for the tenants in
 scope.
 """
 import hashlib
+import hmac
 import io
 import json
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
@@ -207,6 +209,75 @@ class ConnectTests(TestCase):
                 response = client.post(reverse('zentinelle:astrolift-clusters'), {'cluster_id': 'c1'}, format='json')
                 self.assertEqual(response.status_code, 401)
         self.assertFalse(AstroliftCluster.objects.exists())
+
+
+BOOTSTRAP_SECRET = 'astrolift-agent-test-bootstrap-secret'
+
+
+def bootstrap_token(tenant_id, secret=BOOTSTRAP_SECRET):
+    signature = hmac.new(secret.encode(), tenant_id.encode(), hashlib.sha256).hexdigest()
+    return f'bt_{tenant_id}_{signature}'
+
+
+def mint(token, **body):
+    client = APIClient()
+    if token is not None:
+        client.credentials(HTTP_X_ZENTINELLE_BOOTSTRAP=token)
+    return client.post(reverse('zentinelle:astrolift-agent-enrollment-codes'), body, format='json')
+
+
+@patch.dict('os.environ', {'ZENTINELLE_BOOTSTRAP_SECRET': BOOTSTRAP_SECRET}, clear=False)
+class AgentEnrollmentCodeTests(TestCase):
+    """The in-account agent mints a code with the bootstrap token register takes (installer #433)."""
+
+    def test_the_agent_mints_a_code_for_its_tokens_tenant_that_connects_once(self):
+        before = timezone.now()
+        response = mint(bootstrap_token(TENANT_A), requested_by='acme-astrolift')
+
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response['Cache-Control'], 'no-store')
+        body = response.json()
+        self.assertTrue(body['code'].startswith('zen_enroll_'))
+        self.assertEqual(body['tenant_ids'], [TENANT_A])
+        record = EnrollmentCode.objects.get(code_hash=EnrollmentCode.hash_code(body['code']))
+        self.assertEqual(record.created_by, 'bootstrap:acme-astrolift')
+        self.assertLessEqual(record.expires_at, before + timedelta(minutes=5, seconds=5))
+        self.assertGreater(record.expires_at, before + timedelta(minutes=4))
+
+        first = connect(body['code'])
+        self.assertEqual(first.status_code, 201, first.content)
+        self.assertEqual(first.json()['install']['tenant_ids'], [TENANT_A])
+        self.assertTrue(first.json()['credential'].startswith('sk_astroinst_'))
+        self.assertEqual(connect(body['code']).status_code, 400)
+
+    def test_the_lifetime_is_short_and_bounded(self):
+        self.assertEqual(mint(bootstrap_token(TENANT_A), ttl_minutes=16).status_code, 400)
+        self.assertEqual(mint(bootstrap_token(TENANT_A), ttl_minutes=0).status_code, 400)
+        self.assertEqual(mint(bootstrap_token(TENANT_A), ttl_minutes=15).status_code, 201)
+        self.assertEqual(EnrollmentCode.objects.count(), 1)
+
+    def test_a_missing_or_wrong_token_mints_nothing(self):
+        self.assertEqual(mint(None).status_code, 403)
+        self.assertEqual(mint('bt_' + TENANT_A + '_' + '0' * 64).status_code, 403)
+        self.assertEqual(mint(bootstrap_token(TENANT_A, secret='not-the-secret')).status_code, 403)
+        self.assertEqual(mint('sk_astroinst_nope').status_code, 403)
+        self.assertEqual(EnrollmentCode.objects.count(), 0)
+
+    def test_no_secret_configured_mints_nothing(self):
+        with patch.dict('os.environ', {'ZENTINELLE_BOOTSTRAP_SECRET': ''}):
+            self.assertEqual(mint(bootstrap_token(TENANT_A)).status_code, 403)
+        self.assertEqual(EnrollmentCode.objects.count(), 0)
+
+    def test_the_tenant_comes_from_the_token_never_the_body(self):
+        response = mint(bootstrap_token(TENANT_A), tenant_ids=[TENANT_B])
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()['tenant_ids'], [TENANT_A])
+
+    def test_the_code_is_audited_but_never_written_to_the_audit(self):
+        code = mint(bootstrap_token(TENANT_A)).json()['code']
+        entry = AuditLog.objects.get(resource_type='astrolift_enrollment_code')
+        self.assertEqual(entry.tenant_id, TENANT_A)
+        self.assertNotIn(code, audit_text())
 
 
 class ClusterRegistrationTests(TestCase):
@@ -490,7 +561,7 @@ class PortalTests(TestCase):
         record = EnrollmentCode.objects.get()
         self.assertEqual(record.created_by, 'admin')
         self.assertEqual(record.code_hash, hashlib.sha256(body['code'].encode()).hexdigest())
-        entry = AuditLog.objects.get(action='astrolift.enrollment_code.created')
+        entry = AuditLog.objects.get(resource_type='astrolift_enrollment_code')
         self.assertEqual((entry.tenant_id, entry.ext_user_id), (STANDALONE_TENANT_ID, str(self.admin_user.pk)))
         self.assertNotIn(body['code'], audit_text())
         # And it connects.

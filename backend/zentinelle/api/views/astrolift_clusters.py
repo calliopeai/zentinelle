@@ -4,6 +4,7 @@ Connected Astrolift installs and their clusters (#389).
 Astrolift-facing, never a portal session:
 
     POST   astrolift/connect                          {code, install: {base_url, name}}
+    POST   astrolift/enrollment-codes                 bootstrap token, {ttl_minutes?, requested_by?}
     POST   astrolift/clusters                         install credential
     POST   astrolift/clusters/<cluster_id>/rotate     install credential
     DELETE astrolift/clusters/<cluster_id>            install credential
@@ -12,6 +13,11 @@ Astrolift-facing, never a portal session:
     POST   astrolift/agents                           install credential, {agent_id, ttl_seconds, ...}
     POST   astrolift/agents/<agent_id>/renew          install credential, {ttl_seconds}
     DELETE astrolift/agents/<agent_id>                install credential
+
+An enrollment code from astrolift/enrollment-codes is minted by the agent
+inside the customer account with the same bootstrap token `register` takes
+(X-Zentinelle-Bootstrap), for that token's tenant only (calliope-installer
+#433). It is the same single-use code an admin generates, shorter lived.
 
 The install credential is `Authorization: Bearer sk_astroinst_...`; the
 gateway's is `X-Zentinelle-Gateway-Credential`. `cluster_id` is Astrolift's id
@@ -37,13 +43,15 @@ from rest_framework.views import APIView
 from zentinelle.api.auth import (AstroliftInstallAuthentication,
                                  GatewayCredentialAuthentication)
 from zentinelle.api.permissions import PORTAL_AUTH, PortalAdminAccess
-from zentinelle.api.serializers import (AstroliftAgentKeySerializer,
+from zentinelle.api.serializers import (AgentEnrollmentCodeRequestSerializer,
+                                        AstroliftAgentKeySerializer,
                                         AstroliftAgentRenewSerializer,
                                         AstroliftClusterSerializer,
                                         AstroliftConnectSerializer,
                                         AstroliftHeartbeatSerializer,
                                         AstroliftRotateSerializer,
                                         EnrollmentCodeRequestSerializer)
+from zentinelle.api.views.register import BootstrapTokenPermission
 from zentinelle.auth.mode import is_open_mode
 from zentinelle.models import AstroliftCluster, AstroliftInstall
 from zentinelle.schema.auth_helpers import (get_request_tenant_id,
@@ -158,6 +166,27 @@ class AstroliftConnectView(APIView):
         return _no_store(Response({
             'install': _install_json(install),
             'credential': plaintext,
+        }, status=status.HTTP_201_CREATED))
+
+
+class AstroliftAgentEnrollmentCodeView(APIView):
+    """Mint a one-time code for the bootstrap token's tenant, for the in-account agent (installer #433)."""
+
+    authentication_classes = []
+    permission_classes = [BootstrapTokenPermission]
+
+    def post(self, request):
+        serializer = AgentEnrollmentCodeRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        tenant_id = request._zentinelle_tenant_id
+        plaintext, record = issue_enrollment_code(
+            [tenant_id], f'bootstrap:{data["requested_by"]}', ttl=timedelta(minutes=data['ttl_minutes']),
+            request=request)
+        return _no_store(Response({
+            'code': plaintext,
+            'expires_at': _iso(record.expires_at),
+            'tenant_ids': record.tenant_ids,
         }, status=status.HTTP_201_CREATED))
 
 
