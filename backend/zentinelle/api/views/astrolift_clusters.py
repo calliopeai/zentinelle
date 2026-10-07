@@ -4,7 +4,8 @@ Connected Astrolift installs and their clusters (#389).
 Astrolift-facing, never a portal session:
 
     POST   astrolift/connect                          {code, install: {base_url, name}}
-    POST   astrolift/enrollment-codes                 bootstrap token, {ttl_minutes?, requested_by?}
+    POST   astrolift/enrollment-codes                 enrollment proof, {ttl_minutes?, requested_by?}
+    GET    astrolift/install                          install credential
     POST   astrolift/clusters                         install credential
     POST   astrolift/clusters/<cluster_id>/rotate     install credential
     DELETE astrolift/clusters/<cluster_id>            install credential
@@ -15,9 +16,13 @@ Astrolift-facing, never a portal session:
     DELETE astrolift/agents/<agent_id>                install credential
 
 An enrollment code from astrolift/enrollment-codes is minted by the agent
-inside the customer account with the same bootstrap token `register` takes
-(X-Zentinelle-Bootstrap), for that token's tenant only (calliope-installer
-#433). It is the same single-use code an admin generates, shorter lived.
+inside the customer account, which holds ZENTINELLE_BOOTSTRAP_SECRET itself
+(calliope-installer #433). It proves that with X-Zentinelle-Astrolift-Enroll:
+`ae_<tenant>_<HMAC-SHA256(secret, "astrolift-enroll:" + tenant)>`, for that
+tenant only. A registration token (`bt_`, HMAC or DB-issued) is never
+accepted: it is handed to agent fleets, and an install credential leads to
+gateway credentials, which together with an agent key reach provider keys.
+It is the same single-use code an admin generates, shorter lived.
 
 The install credential is `Authorization: Bearer sk_astroinst_...`; the
 gateway's is `X-Zentinelle-Gateway-Credential`. `cluster_id` is Astrolift's id
@@ -33,10 +38,14 @@ Portal, session-authenticated and admin only:
 A response that carries a code or a credential is the only place it ever
 appears, and is marked no-store.
 """
+import hashlib
+import hmac
+import os
 from datetime import timedelta
 
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import (AllowAny, BasePermission,
+                                        IsAuthenticated)
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -51,7 +60,6 @@ from zentinelle.api.serializers import (AgentEnrollmentCodeRequestSerializer,
                                         AstroliftHeartbeatSerializer,
                                         AstroliftRotateSerializer,
                                         EnrollmentCodeRequestSerializer)
-from zentinelle.api.views.register import BootstrapTokenPermission
 from zentinelle.auth.mode import is_open_mode
 from zentinelle.models import AstroliftCluster, AstroliftInstall
 from zentinelle.schema.auth_helpers import (get_request_tenant_id,
@@ -169,11 +177,39 @@ class AstroliftConnectView(APIView):
         }, status=status.HTTP_201_CREATED))
 
 
+ENROLL_PROOF_PREFIX = 'ae_'
+ENROLL_PROOF_PURPOSE = 'astrolift-enroll:'
+
+
+def enrollment_proof(secret, tenant_id):
+    """What X-Zentinelle-Astrolift-Enroll carries: proof of the bootstrap secret, for this purpose."""
+    signature = hmac.new(secret.encode(), f'{ENROLL_PROOF_PURPOSE}{tenant_id}'.encode(),
+                         hashlib.sha256).hexdigest()
+    return f'{ENROLL_PROOF_PREFIX}{tenant_id}_{signature}'
+
+
+class AstroliftEnrollProofPermission(BasePermission):
+    """The caller holds ZENTINELLE_BOOTSTRAP_SECRET itself, not a token derived from it."""
+
+    message = 'Invalid or missing enrollment proof.'
+
+    def has_permission(self, request, view):
+        provided = request.META.get('HTTP_X_ZENTINELLE_ASTROLIFT_ENROLL', '')
+        secret = os.environ.get('ZENTINELLE_BOOTSTRAP_SECRET', '')
+        if not secret or not provided.startswith(ENROLL_PROOF_PREFIX):
+            return False
+        tenant_id = provided[len(ENROLL_PROOF_PREFIX):].rpartition('_')[0]
+        if not tenant_id or not hmac.compare_digest(enrollment_proof(secret, tenant_id), provided):
+            return False
+        request._zentinelle_tenant_id = tenant_id
+        return True
+
+
 class AstroliftAgentEnrollmentCodeView(APIView):
-    """Mint a one-time code for the bootstrap token's tenant, for the in-account agent (installer #433)."""
+    """Mint a one-time code for the proof's tenant, for the in-account agent (installer #433)."""
 
     authentication_classes = []
-    permission_classes = [BootstrapTokenPermission]
+    permission_classes = [AstroliftEnrollProofPermission]
 
     def post(self, request):
         serializer = AgentEnrollmentCodeRequestSerializer(data=request.data)
@@ -249,7 +285,11 @@ class AstroliftClusterRotateView(_InstallView):
 
 
 class AstroliftInstallView(_InstallView):
-    """Disconnect this install: its credential, clusters and gateways all stop working."""
+    """This install, so Astrolift can tell its credential is still live; or disconnect it:
+    its credential, clusters and gateways all stop working."""
+
+    def get(self, request):
+        return Response({'install': _install_json(self.install)})
 
     def delete(self, request):
         install = disconnect_install(self.install, request=request, via='astrolift')

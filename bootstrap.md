@@ -707,12 +707,15 @@ itself, and nobody copies a gateway credential by hand:
    race.
    The agent inside the customer account (the installer's integration job)
    mints the same code itself: `POST /api/zentinelle/v1/astrolift/enrollment-codes`
-   `{"ttl_minutes"?, "requested_by"?}` with the bootstrap token `register`
-   takes (`X-Zentinelle-Bootstrap`). The code is for that token's tenant only,
+   `{"ttl_minutes"?, "requested_by"?}` with `X-Zentinelle-Astrolift-Enroll:
+   ae_<tenant>_<HMAC-SHA256(ZENTINELLE_BOOTSTRAP_SECRET, "astrolift-enroll:" + tenant)>`.
+   That proves the caller holds the secret itself, bound to this purpose. A
+   registration token is never accepted here, neither the HMAC `bt_` token nor a
+   DB-issued `BootstrapToken`: those are handed to agent fleets, and an install
+   credential leads to gateway credentials, which together with any agent key
+   reach the tenant's provider keys. The code is for the proof's tenant only,
    whatever the body says, and lives 5 minutes by default (at most 15).
-   `created_by` reads `bootstrap:<requested_by>`. Holding the bootstrap secret
-   already lets a caller register agents for any tenant it signs, so this adds
-   no new trust (calliope-installer #433).
+   `created_by` reads `bootstrap:<requested_by>` (calliope-installer #433).
 2. The Astrolift admin pastes this Zentinelle's URL and the code into Astrolift,
    which calls `POST /api/zentinelle/v1/astrolift/connect`
    `{"code", "install": {"base_url", "name"}}`. That creates an
@@ -739,7 +742,9 @@ itself, and nobody copies a gateway credential by hand:
    install: its credential, its clusters and their gateways. Revoked rows
    stay as history. The same cluster id registered again is a new row with a
    new registration, which is also how a leaked gateway is recovered. To stop
-   an install from registering anything, disconnect it.
+   an install from registering anything, disconnect it. `GET .../astrolift/install`
+   answers 200 with the install while its credential is live and 401 once it
+   is not, so Astrolift can tell a revoked connection from a live one.
 6. The gateway reports `POST .../astrolift/clusters/<cluster_id>/heartbeat`
    with `X-Zentinelle-Gateway-Credential`: `{"status": healthy|degraded|
    unhealthy, "version", "counters": {"requests", "blocked", "agents_seen"}}`.

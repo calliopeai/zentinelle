@@ -14,7 +14,8 @@ Agent-facing REST endpoints:
 - POST /api/zentinelle/v1/evaluate
 - POST /api/zentinelle/v1/gateway/provider-key   (gateway credential + agent key)
 - POST /api/zentinelle/v1/astrolift/connect      (one-time enrollment code)
-- POST /api/zentinelle/v1/astrolift/enrollment-codes  (bootstrap token: the agent mints a code)
+- POST /api/zentinelle/v1/astrolift/enrollment-codes  (bootstrap secret proof: the agent mints a code)
+- GET  /api/zentinelle/v1/astrolift/install      (Astrolift install credential)
 - POST /api/zentinelle/v1/astrolift/clusters     (Astrolift install credential)
 - POST /api/zentinelle/v1/astrolift/clusters/{cluster_id}/rotate
 - DELETE /api/zentinelle/v1/astrolift/clusters/{cluster_id}
