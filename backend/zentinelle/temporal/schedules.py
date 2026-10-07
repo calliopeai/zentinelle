@@ -5,6 +5,11 @@ start, so a redeploy updates changed schedules in place, never duplicates one,
 and deletes any `zentinelle-` schedule that is no longer declared. An update
 keeps the schedule's current state, so a pause set in the Temporal UI survives
 a redeploy.
+
+Every start runs it against whatever the server already holds (a restart, a
+task moved to another node, a Spot reclaim, two workers starting at once), so
+each step is idempotent: create when missing, update in place when present,
+and a schedule another worker already deleted is not an error.
 """
 import dataclasses
 import logging
@@ -14,7 +19,9 @@ from django.conf import settings
 from temporalio.client import (Client, Schedule, ScheduleActionStartWorkflow,
                                ScheduleAlreadyRunningError,
                                ScheduleIntervalSpec, ScheduleOverlapPolicy,
-                               SchedulePolicy, ScheduleSpec, ScheduleUpdate)
+                               SchedulePolicy, ScheduleSpec, ScheduleUpdate,
+                               ScheduleUpdateInput)
+from temporalio.service import RPCError, RPCStatusCode
 
 from zentinelle.temporal.client import task_input
 from zentinelle.temporal.registry import Task
@@ -30,6 +37,15 @@ SCHEDULE_POLICY = SchedulePolicy(
     overlap=ScheduleOverlapPolicy.SKIP,
     catchup_window=timedelta(minutes=1),
 )
+
+
+def keep_current_state(schedule: Schedule):
+    """Updater that applies `schedule` but keeps the live schedule's state
+    (paused, note), which the updater reads from the current description."""
+    def updater(current: ScheduleUpdateInput) -> ScheduleUpdate:
+        return ScheduleUpdate(schedule=dataclasses.replace(
+            schedule, state=current.description.schedule.state))
+    return updater
 
 
 def build_schedule(schedule_id: str, entry: dict, tasks: dict[str, Task]) -> Schedule:
@@ -58,14 +74,15 @@ async def sync_schedules(client: Client, tasks: dict[str, Task]) -> None:
             await client.create_schedule(schedule_id, schedule)
             logger.info("Created schedule %s", schedule_id)
         except ScheduleAlreadyRunningError:
-            await client.get_schedule_handle(schedule_id).update(
-                lambda current, schedule=schedule: ScheduleUpdate(
-                    schedule=dataclasses.replace(schedule, state=current.schedule.state)
-                )
-            )
+            await client.get_schedule_handle(schedule_id).update(keep_current_state(schedule))
             logger.info("Updated schedule %s", schedule_id)
 
     async for listed in await client.list_schedules():
         if listed.id.startswith(SCHEDULE_PREFIX) and listed.id not in declared:
-            await client.get_schedule_handle(listed.id).delete()
+            try:
+                await client.get_schedule_handle(listed.id).delete()
+            except RPCError as err:
+                if err.status != RPCStatusCode.NOT_FOUND:
+                    raise
+                continue
             logger.info("Deleted undeclared schedule %s", listed.id)

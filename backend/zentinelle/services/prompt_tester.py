@@ -12,6 +12,7 @@ IMPORTANT GUARDRAILS:
 - Test inputs must be realistic samples, not chat requests
 """
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass
@@ -21,6 +22,10 @@ from typing import List, Optional
 import httpx
 from django.conf import settings
 from django.core.cache import cache
+
+from zentinelle.services.llm_provider import (OPENAI_COMPAT_PROVIDERS,
+                                              _check_model_route,
+                                              shared_model_id)
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +189,36 @@ class PromptTester:
         """Initialize the prompt tester."""
         self.api_key = api_key or getattr(settings, 'OPENAI_API_KEY', None)
         self.base_url = 'https://api.openai.com/v1'
+        # With the shared in-cluster model configured (calliope-installer#446),
+        # it serves these calls: its one model, no OpenAI key.
+        self.shared_model = shared_model_id()
+        if self.shared_model:
+            self.base_url = OPENAI_COMPAT_PROVIDERS['lmstudio']['base_url']
+
+    def _headers(self) -> dict:
+        headers = {'Content-Type': 'application/json'}
+        if not self.shared_model:
+            headers['Authorization'] = f'Bearer {self.api_key}'
+        return headers
+
+    async def _shared_route_error(self, tenant_id: Optional[str]) -> str:
+        """Why the caller may not use the shared model, or ''.
+
+        The shared model is a tenant model route like the assistant's: the same
+        _check_model_route (model enabled, tenant approval, org
+        MODEL_RESTRICTION policies, model_route audit) runs before the call,
+        and a caller with no tenant is refused rather than served unchecked.
+        """
+        if not self.shared_model:
+            return ''
+        if not tenant_id:
+            return 'No tenant could be resolved for this request.'
+        try:
+            await asyncio.to_thread(
+                _check_model_route, self.shared_model, 'lmstudio', tenant_id)
+        except RuntimeError as e:
+            return str(e)
+        return ''
 
     async def test_prompt(
         self,
@@ -192,6 +227,7 @@ class PromptTester:
         user_id: str,
         model: Optional[str] = None,
         temperature: float = 0.7,
+        tenant_id: Optional[str] = None,
     ) -> TestResult:
         """
         Test a system prompt with a sample user message.
@@ -204,6 +240,7 @@ class PromptTester:
             user_id: User ID for rate limiting
             model: Model to use (must be in ALLOWED_MODELS)
             temperature: Temperature for generation
+            tenant_id: Caller's tenant; required for the shared model's route check
 
         Returns:
             TestResult with the AI response
@@ -234,9 +271,9 @@ class PromptTester:
             )
 
         # Ensure only allowed models
-        model = model if model in ALLOWED_MODELS else self.DEFAULT_MODEL
+        model = self.shared_model or (model if model in ALLOWED_MODELS else self.DEFAULT_MODEL)
 
-        if not self.api_key:
+        if not self.api_key and not self.shared_model:
             return TestResult(
                 success=False,
                 response='',
@@ -246,14 +283,18 @@ class PromptTester:
                 error='AI testing not configured. Contact your administrator.',
             )
 
+        route_error = await self._shared_route_error(tenant_id)
+        if route_error:
+            return TestResult(
+                success=False, response='', model_used='', input_tokens=0,
+                output_tokens=0, error=route_error,
+            )
+
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f'{self.base_url}/chat/completions',
-                    headers={
-                        'Authorization': f'Bearer {self.api_key}',
-                        'Content-Type': 'application/json',
-                    },
+                    headers=self._headers(),
                     json={
                         'model': model,
                         'messages': [
@@ -302,6 +343,7 @@ class PromptTester:
         user_id: str,
         prompt_type: str = 'system',
         target_providers: Optional[List[str]] = None,
+        tenant_id: Optional[str] = None,
     ) -> PromptAnalysis:
         """
         Analyze a prompt and provide improvement suggestions.
@@ -313,6 +355,7 @@ class PromptTester:
             user_id: User ID for rate limiting
             prompt_type: Type of prompt (system, persona, task, etc.)
             target_providers: Target AI providers (for compatibility notes)
+            tenant_id: Caller's tenant; required for the shared model's route check
 
         Returns:
             PromptAnalysis with score, strengths, and improvements
@@ -337,7 +380,7 @@ class PromptTester:
                 token_efficiency='', error=error
             )
 
-        if not self.api_key:
+        if not self.api_key and not self.shared_model:
             return PromptAnalysis(
                 success=False,
                 overall_score=0,
@@ -345,6 +388,13 @@ class PromptTester:
                 improvements=[],
                 token_efficiency='',
                 error='AI analysis not configured. Contact your administrator.',
+            )
+
+        route_error = await self._shared_route_error(tenant_id)
+        if route_error:
+            return PromptAnalysis(
+                success=False, overall_score=0, strengths=[], improvements=[],
+                token_efficiency='', error=route_error,
             )
 
         analysis_prompt = f"""You are an expert prompt engineer. Analyze the following {prompt_type} prompt and provide specific, actionable feedback to improve it.
@@ -385,12 +435,9 @@ Limit to 5 most important improvements. Return ONLY valid JSON."""
             async with httpx.AsyncClient(timeout=45.0) as client:
                 response = await client.post(
                     f'{self.base_url}/chat/completions',
-                    headers={
-                        'Authorization': f'Bearer {self.api_key}',
-                        'Content-Type': 'application/json',
-                    },
+                    headers=self._headers(),
                     json={
-                        'model': self.ANALYSIS_MODEL,
+                        'model': self.shared_model or self.ANALYSIS_MODEL,
                         'messages': [
                             {'role': 'system', 'content': 'You are a prompt engineering expert. Return only valid JSON.'},
                             {'role': 'user', 'content': analysis_prompt},
@@ -449,6 +496,7 @@ def test_prompt_sync(
     user_message: str,
     user_id: str,
     model: str = 'gpt-4o-mini',
+    tenant_id: Optional[str] = None,
 ) -> TestResult:
     """Synchronous wrapper for test_prompt."""
     import asyncio
@@ -458,7 +506,8 @@ def test_prompt_sync(
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    return loop.run_until_complete(tester.test_prompt(system_prompt, user_message, user_id, model))
+    return loop.run_until_complete(tester.test_prompt(
+        system_prompt, user_message, user_id, model, tenant_id=tenant_id))
 
 
 def analyze_prompt_sync(
@@ -466,6 +515,7 @@ def analyze_prompt_sync(
     user_id: str,
     prompt_type: str = 'system',
     target_providers: Optional[List[str]] = None,
+    tenant_id: Optional[str] = None,
 ) -> PromptAnalysis:
     """Synchronous wrapper for analyze_prompt."""
     import asyncio
@@ -475,4 +525,5 @@ def analyze_prompt_sync(
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    return loop.run_until_complete(tester.analyze_prompt(prompt_text, user_id, prompt_type, target_providers))
+    return loop.run_until_complete(tester.analyze_prompt(
+        prompt_text, user_id, prompt_type, target_providers, tenant_id=tenant_id))

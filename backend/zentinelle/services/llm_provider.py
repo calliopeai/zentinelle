@@ -102,8 +102,31 @@ OPENAI_COMPAT_PROVIDERS = {
 }
 
 
+def shared_model_id() -> str:
+    """The model id the shared OpenAI-compatible endpoint serves, or ''.
+
+    The installer points Zentinelle at the shared in-cluster model
+    (calliope-installer#446) with three variables: LMSTUDIO_URL (the endpoint,
+    without /v1), DEFAULT_LLM_PROVIDER=lmstudio and ASSISTANT_MODEL (the id it
+    serves). Only that combination counts, so a developer's local LM Studio or
+    an ASSISTANT_MODEL on its own changes nothing.
+    """
+    if not os.environ.get('LMSTUDIO_URL'):
+        return ''
+    if os.environ.get('DEFAULT_LLM_PROVIDER') != 'lmstudio':
+        return ''
+    return os.environ.get('ASSISTANT_MODEL', '').strip()
+
+
 def detect_provider(model_id: str) -> str:
-    """Auto-detect provider from model ID prefix/name."""
+    """Auto-detect provider from model ID prefix/name.
+
+    The shared model's id wins first: a vLLM serving 'meta-llama/...' or
+    'mistralai/...' would otherwise be sent to Together or Mistral by name.
+    """
+    shared = shared_model_id()
+    if shared and model_id.strip() == shared:
+        return 'lmstudio'
     m = model_id.lower()
     if 'claude' in m:
         return 'anthropic'

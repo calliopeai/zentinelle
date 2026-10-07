@@ -15,8 +15,10 @@ from django.conf import settings
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 from temporalio.client import (ScheduleAlreadyRunningError,
-                               ScheduleOverlapPolicy, ScheduleState)
+                               ScheduleOverlapPolicy, ScheduleState,
+                               ScheduleUpdateInput)
 from temporalio.exceptions import WorkflowAlreadyStartedError
+from temporalio.service import RPCError, RPCStatusCode
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
@@ -105,16 +107,19 @@ class ScheduleDeclarationTests(SimpleTestCase):
 
 
 class FakeHandle:
-    def __init__(self, calls, schedule_id):
-        self.calls, self.schedule_id = calls, schedule_id
+    def __init__(self, calls, schedule_id, gone=()):
+        self.calls, self.schedule_id, self.gone = calls, schedule_id, gone
 
     async def update(self, updater):
-        current = SimpleNamespace(schedule=SimpleNamespace(
-            state=ScheduleState(paused=True, note='paused by an operator')))
+        # The real updater input: the live schedule is under `.description`.
+        current = ScheduleUpdateInput(description=SimpleNamespace(schedule=SimpleNamespace(
+            state=ScheduleState(paused=True, note='paused by an operator'))))
         self.calls.append(('update', self.schedule_id, updater(current).schedule))
 
     async def delete(self):
         self.calls.append(('delete', self.schedule_id))
+        if self.schedule_id in self.gone:
+            raise RPCError('schedule not found', RPCStatusCode.NOT_FOUND, b'')
 
 
 class FakeListed:
@@ -125,8 +130,9 @@ class FakeListed:
 class FakeClient:
     """Enough of temporalio.client.Client for sync_schedules."""
 
-    def __init__(self, existing):
+    def __init__(self, existing, gone=()):
         self.existing = existing
+        self.gone = gone
         self.calls = []
 
     async def create_schedule(self, schedule_id, schedule):
@@ -135,7 +141,7 @@ class FakeClient:
         self.calls.append(('create', schedule_id, schedule))
 
     def get_schedule_handle(self, schedule_id):
-        return FakeHandle(self.calls, schedule_id)
+        return FakeHandle(self.calls, schedule_id, self.gone)
 
     async def list_schedules(self):
         async def listing():
@@ -172,6 +178,39 @@ class SyncSchedulesTests(SimpleTestCase):
         # Missed slots are skipped the way beat skipped them, not backfilled.
         self.assertEqual(created.policy.overlap, ScheduleOverlapPolicy.SKIP)
         self.assertEqual(created.policy.catchup_window, timedelta(minutes=1))
+
+    def test_a_schedule_another_worker_already_deleted_is_not_an_error(self):
+        client = FakeClient(existing=['zentinelle-retired'], gone=['zentinelle-retired'])
+        asyncio.run(sync_schedules(client, load_tasks()))
+        self.assertIn(('delete', 'zentinelle-retired'), [call[:2] for call in client.calls])
+
+    def test_restarts_against_a_real_server_are_idempotent(self):
+        """#437: the second worker start found every schedule present, took the
+        update path and crashed. Sync three times against a real dev server
+        (first start, restart, restart after an operator pause)."""
+        async def go():
+            async with await WorkflowEnvironment.start_local() as env:
+                tasks = load_tasks()
+                await sync_schedules(env.client, tasks)
+                await sync_schedules(env.client, tasks)
+                await env.client.get_schedule_handle('zentinelle-kept').pause(note='paused by an operator')
+                await sync_schedules(env.client, tasks)
+                # The listing goes through visibility and is eventually
+                # consistent, so poll it the way temporalio's own tests do.
+                expected = ['zentinelle-kept', 'zentinelle-new']
+                for _ in range(50):
+                    ids = sorted([listed.id async for listed in await env.client.list_schedules()])
+                    if ids == expected:
+                        break
+                    await asyncio.sleep(0.2)
+                kept = await env.client.get_schedule_handle('zentinelle-kept').describe()
+                return ids, kept
+        ids, kept = asyncio.run(go())
+        self.assertEqual(ids, ['zentinelle-kept', 'zentinelle-new'])
+        # The server stores cron as calendars: 01:00 daily.
+        self.assertEqual([c.hour[0].start for c in kept.schedule.spec.calendars], [1])
+        self.assertTrue(kept.schedule.state.paused)
+        self.assertEqual(kept.schedule.state.note, 'paused by an operator')
 
 
 class StartTaskTests(SimpleTestCase):

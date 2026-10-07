@@ -590,6 +590,7 @@ def test_system_prompt(info: strawberry.types.Info, system_prompt: str, user_mes
         system_prompt=system_prompt,
         user_message=user_message,
         user_id=str(user.id),
+        tenant_id=get_request_tenant_id(user),
     )
 
     return TestSystemPromptPayload(
@@ -622,6 +623,7 @@ def analyze_system_prompt(
         user_id=str(user.id),
         prompt_type=prompt_type,
         target_providers=target_providers,
+        tenant_id=get_request_tenant_id(user),
     )
 
     improvements = [
