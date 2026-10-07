@@ -22,6 +22,9 @@ import httpx
 from django.conf import settings
 from django.core.cache import cache
 
+from zentinelle.services.llm_provider import (OPENAI_COMPAT_PROVIDERS,
+                                              shared_model_id)
+
 logger = logging.getLogger(__name__)
 
 
@@ -184,6 +187,17 @@ class PromptTester:
         """Initialize the prompt tester."""
         self.api_key = api_key or getattr(settings, 'OPENAI_API_KEY', None)
         self.base_url = 'https://api.openai.com/v1'
+        # With the shared in-cluster model configured (calliope-installer#446),
+        # it serves these calls: its one model, no OpenAI key.
+        self.shared_model = shared_model_id()
+        if self.shared_model:
+            self.base_url = OPENAI_COMPAT_PROVIDERS['lmstudio']['base_url']
+
+    def _headers(self) -> dict:
+        headers = {'Content-Type': 'application/json'}
+        if not self.shared_model:
+            headers['Authorization'] = f'Bearer {self.api_key}'
+        return headers
 
     async def test_prompt(
         self,
@@ -234,9 +248,9 @@ class PromptTester:
             )
 
         # Ensure only allowed models
-        model = model if model in ALLOWED_MODELS else self.DEFAULT_MODEL
+        model = self.shared_model or (model if model in ALLOWED_MODELS else self.DEFAULT_MODEL)
 
-        if not self.api_key:
+        if not self.api_key and not self.shared_model:
             return TestResult(
                 success=False,
                 response='',
@@ -250,10 +264,7 @@ class PromptTester:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f'{self.base_url}/chat/completions',
-                    headers={
-                        'Authorization': f'Bearer {self.api_key}',
-                        'Content-Type': 'application/json',
-                    },
+                    headers=self._headers(),
                     json={
                         'model': model,
                         'messages': [
@@ -337,7 +348,7 @@ class PromptTester:
                 token_efficiency='', error=error
             )
 
-        if not self.api_key:
+        if not self.api_key and not self.shared_model:
             return PromptAnalysis(
                 success=False,
                 overall_score=0,
@@ -385,12 +396,9 @@ Limit to 5 most important improvements. Return ONLY valid JSON."""
             async with httpx.AsyncClient(timeout=45.0) as client:
                 response = await client.post(
                     f'{self.base_url}/chat/completions',
-                    headers={
-                        'Authorization': f'Bearer {self.api_key}',
-                        'Content-Type': 'application/json',
-                    },
+                    headers=self._headers(),
                     json={
-                        'model': self.ANALYSIS_MODEL,
+                        'model': self.shared_model or self.ANALYSIS_MODEL,
                         'messages': [
                             {'role': 'system', 'content': 'You are a prompt engineering expert. Return only valid JSON.'},
                             {'role': 'user', 'content': analysis_prompt},
