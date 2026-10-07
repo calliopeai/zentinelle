@@ -173,6 +173,15 @@ class EnrollmentCodeRequestSerializer(serializers.Serializer):
     ttl_minutes = serializers.IntegerField(min_value=1, max_value=60, default=15)
 
 
+class AgentEnrollmentCodeRequestSerializer(serializers.Serializer):
+    """An in-account agent asking for an enrollment code for its bootstrap token's tenant.
+
+    Shorter-lived than a portal code: the agent uses it within seconds.
+    """
+    ttl_minutes = serializers.IntegerField(min_value=1, max_value=15, default=5)
+    requested_by = serializers.CharField(max_length=200, required=False, default='agent')
+
+
 class ApprovalDecisionSerializer(serializers.Serializer):
     """An operator's decision on a held action."""
     decision = serializers.ChoiceField(choices=['approve', 'deny'])
