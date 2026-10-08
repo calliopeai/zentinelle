@@ -92,6 +92,7 @@ const sections: NavSection[] = [
     label: "Governance",
     items: [
       { title: "Agents", url: "/agents", icon: <ShieldIcon /> },
+      { title: "Approvals", url: "/approvals", icon: <ShieldCheckIcon /> },
       { title: "Agent Groups", url: "/agents/groups", icon: <UsersIcon /> },
       { title: "Policies", url: "/policies", icon: <FileTextIcon /> },
       { title: "Policy Hierarchy", url: "/policies/hierarchy", icon: <LayersIcon /> },

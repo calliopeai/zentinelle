@@ -257,3 +257,17 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
+
+      - name: Approval inbox lint
+        working-directory: frontend
+        run: npx eslint 'app/(app)/approvals/page.tsx' lib/approvals.ts
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Approval inbox browser contract
+        run: |
+          pip install playwright==1.61.0
+          python -m playwright install --with-deps chromium
+          python tests/integration/verify_approval_inbox.py

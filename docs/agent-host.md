@@ -188,6 +188,20 @@ The retry that releases an approved call:
 
 Operators decide in a portal session. Workload keys cannot call these endpoints (`401`), so no agent can approve its own work.
 
+Open **Governance → Approvals** (`/approvals`) in the portal. The inbox shows the
+newest pending requests, their agent, user, harness, session, policy reason and
+remaining time. It refreshes every 15 seconds. Viewers can inspect requests;
+operators and administrators can approve or deny, optionally recording a reason
+of up to 1,000 characters. The server checks tenant access, role and expiry again
+when saving the decision. An expired request cannot be approved.
+
+Expand **Action details** to inspect retained arguments or delegation scope and
+budgets. When arguments are absent, the page explains metadata-only capture and
+links to Settings. It does not reconstruct arguments that were never retained.
+The inbox uses the human session and CSRF protection; it never requests or
+displays the workload's approval token. If a decision cannot be confirmed, refresh
+the inbox before trying again: the original submission might have been saved.
+
 `GET /api/zentinelle/v1/approvals/requests` (viewer role or above) lists the tenant's pending, unexpired requests, newest first, up to 100:
 
 ```json
