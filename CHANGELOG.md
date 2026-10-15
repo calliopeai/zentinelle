@@ -7,6 +7,13 @@ Notable changes to Zentinelle. The format follows
 
 ### Added
 
+- `manage.py seed_integration_policies --tenant <id> --source <workbench|astrolift>`
+  (installer#431). Creates one organization-wide agent_delegation,
+  human_oversight and budget_limit policy in audit mode, so matches are logged
+  and never blocked until an operator switches a policy to enforce. A type the
+  tenant already has an organization-wide policy of is skipped, so a run never
+  overwrites or doubles an operator's policy. The installer runs it once when
+  Zentinelle is enabled with the Workbench or Astrolift.
 - Astrolift per-task agent keys (#400). With its install credential,
   Astrolift mints a short-lived agent key for each agent task and box
   (`POST /api/zentinelle/v1/astrolift/agents`, `ttl_seconds` required), renews
