@@ -13,6 +13,34 @@ from django.http import JsonResponse
 logger = logging.getLogger(__name__)
 
 
+class SessionIdleTimeoutMiddleware:
+    """Sign a portal session out after SESSION_IDLE_TIMEOUT_SECONDS without a request.
+
+    SESSION_COOKIE_AGE stays the absolute limit. The last-activity stamp is
+    rewritten at most once a minute, so an active session is not saved on
+    every request.
+    """
+
+    STAMP = '_zentinelle_last_activity'
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from django.conf import settings
+        from django.contrib.auth import logout
+
+        user = getattr(request, 'user', None)
+        if user is not None and user.is_authenticated and hasattr(request, 'session'):
+            now = int(time.time())
+            last = request.session.get(self.STAMP)
+            if last is not None and now - last > settings.SESSION_IDLE_TIMEOUT_SECONDS:
+                logout(request)
+            elif last is None or now - last >= 60:
+                request.session[self.STAMP] = now
+        return self.get_response(request)
+
+
 class RateLimitExceeded(Exception):
     """Raised when rate limit is exceeded."""
     pass

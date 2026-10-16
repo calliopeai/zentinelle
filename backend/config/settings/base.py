@@ -8,6 +8,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from django.utils.csp import CSP
 from dotenv import load_dotenv
 
 # Load zentinelle.yaml config file (env vars always win over file values).
@@ -85,9 +86,22 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "zentinelle.api.middleware.SessionIdleTimeoutMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django.middleware.csp.ContentSecurityPolicyMiddleware",
 ]
+
+# Every backend response is JSON or the opt-in Django admin, so nothing loads
+# from elsewhere, frames it, or posts it anywhere. dev.py drops it while
+# debugging, for the GraphiQL IDE's CDN scripts.
+SECURE_CSP = {
+    "default-src": [CSP.SELF],
+    "base-uri": [CSP.SELF],
+    "form-action": [CSP.SELF],
+    "frame-ancestors": [CSP.NONE],
+    "object-src": [CSP.NONE],
+}
 
 # =============================================================================
 # Templates
@@ -185,7 +199,9 @@ if AUTH_MODE not in {"open", "local", "standalone", "sso", "client_cove"}:
 # Session-based auth (httpOnly cookies — immune to XSS)
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 1 week
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 1 week, however active
+# Signed out after this long without a request (SessionIdleTimeoutMiddleware).
+SESSION_IDLE_TIMEOUT_SECONDS = int(os.environ.get("SESSION_IDLE_TIMEOUT_SECONDS", str(30 * 60)))
 SESSION_COOKIE_NAME = "zentinelle_session"
 CSRF_COOKIE_HTTPONLY = False  # frontend needs to read CSRF token
 CSRF_COOKIE_SAMESITE = "Lax"

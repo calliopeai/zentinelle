@@ -14,6 +14,10 @@ DEBUG = os.environ.get("DEBUG", "true").strip().lower() in ("1", "true", "yes")
 
 ALLOWED_HOSTS = ["*"] if DEBUG else [*ALLOWED_HOSTS, "backend"]  # noqa: F405
 
+# The GraphiQL IDE (served only while debugging) loads its scripts from a CDN.
+if DEBUG:
+    SECURE_CSP = {}
+
 # In development, allow localhost origins with credentials
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
