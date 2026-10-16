@@ -243,6 +243,9 @@ def enforce_retention_policies():
 # Far longer than process_event_batch's own retries take, so a PENDING event
 # this old has no live workflow left behind it.
 STALE_PENDING_AFTER = timedelta(minutes=10)
+# Processing one event takes milliseconds, so an event still PROCESSING this
+# long after it arrived lost its worker mid-run (crash, OOM, deploy).
+STALE_PROCESSING_AFTER = timedelta(minutes=30)
 
 
 @task
@@ -250,16 +253,28 @@ def retry_failed_events(batch_size: int = 500):
     """
     Retry failed events that haven't exceeded max retries, and requeue events
     left PENDING for over STALE_PENDING_AFTER (their start was dropped while
-    Temporal was unreachable, or at the Celery cut-over).
+    Temporal was unreachable, or at the Celery cut-over). Events stranded in
+    PROCESSING for over STALE_PROCESSING_AFTER count as a failed attempt, so
+    they are retried, and dead-lettered once out of retries.
     Run every 5 minutes via a Temporal Schedule.
     """
     from django.db.models import Q
 
     from zentinelle.models import Event
+    from zentinelle.services.event_store import dead_letter_queue
     from zentinelle.tasks.events import process_event_batch
 
     max_retries = 5
     stale_before = timezone.now() - STALE_PENDING_AFTER
+
+    stranded = Event.objects.filter(
+        status=Event.Status.PROCESSING,
+        received_at__lt=timezone.now() - STALE_PROCESSING_AFTER,
+    ).order_by('received_at')[:batch_size]
+    for event in stranded:
+        event.mark_failed('Stranded in processing: the worker was lost')
+        if not dead_letter_queue.should_retry(event):
+            dead_letter_queue.move_to_dlq(event, 'Stranded in processing after max retries')
 
     failed_events = Event.objects.filter(
         Q(status=Event.Status.FAILED, retry_count__lt=max_retries)
