@@ -168,8 +168,11 @@ def record_usage_event(event):
 
     The idempotency key is the producer's request_id, else the stored event's
     id (a redelivered producer event_id never becomes a second row), so a
-    retried or requeued event never writes a second set of metrics. Returns
-    the metrics written, or [] for a repeat.
+    retried or requeued event never writes a second set of metrics. A repeat
+    can only raise a count, never lower it: the gateway's request_id reaches
+    the agent before the gateway reports usage, and the agent reports under
+    the same key, so a low first report must not set the call's usage.
+    Returns the metrics written; a repeat writes only what it raises.
     """
     from zentinelle.models.usage import UsageMetric
     from zentinelle.services.usage_tracking import UsageTrackingService
@@ -187,20 +190,21 @@ def record_usage_event(event):
     request_id = str(payload.get('request_id') or '')[:255]
     key = request_id or f'event:{event.id}'
 
+    user_identifier = str(payload.get('user_id') or event.user_identifier or 'unknown')[:255]
     using = router.db_for_write(UsageMetric)
     with transaction.atomic(using=using):
         with connections[using].cursor() as cursor:
             cursor.execute('SELECT pg_advisory_xact_lock(%s)', [_lock_id(event.tenant_id, key)])
-        if UsageMetric.objects.using(using).filter(
-            tenant_id=event.tenant_id,
-            ai_request_id=key,
-            metric_type=UsageMetric.MetricType.AI_REQUESTS,
-        ).exists():
+        recorded = UsageMetric.objects.using(using).filter(tenant_id=event.tenant_id, ai_request_id=key)
+        if recorded.filter(metric_type=UsageMetric.MetricType.AI_REQUESTS).exists():
             logger.info('Usage for %s already recorded; event %s is a repeat', key, event.id)
-            return []
+            records = _raise_recorded(recorded, event, key, provider, model, user_identifier, tokens)
+            if request_id and event.endpoint_id:
+                _fill_interaction(event, request_id, model, tokens)
+            return records
         records = UsageTrackingService.record_usage(
             tenant_id=event.tenant_id,
-            user_identifier=str(payload.get('user_id') or event.user_identifier or 'unknown')[:255],
+            user_identifier=user_identifier,
             provider=provider,
             model=model,
             input_tokens=tokens['input_tokens'],
@@ -223,25 +227,73 @@ def record_usage_event(event):
     return records
 
 
+def _raise_recorded(recorded, event, key, provider, model, user_identifier, tokens):
+    """Write the part of a repeat report that exceeds what is recorded, per count."""
+    from django.db.models import Sum
+
+    from zentinelle.models.usage import UsageMetric
+
+    M = UsageMetric.MetricType
+    reported = {
+        M.AI_INPUT_TOKENS: tokens['input_tokens'],
+        M.AI_OUTPUT_TOKENS: tokens['output_tokens'],
+        M.AI_TOTAL_TOKENS: tokens['input_tokens'] + tokens['output_tokens'],
+        M.AI_CACHE_READ_TOKENS: tokens['cache_read_tokens'],
+        M.AI_CACHE_WRITE_TOKENS: tokens['cache_write_tokens'],
+    }
+    so_far = {row['metric_type']: row['total'] for row in recorded.filter(
+        metric_type__in=list(reported)).values('metric_type').annotate(total=Sum('value'))}
+    records = [
+        UsageMetric(
+            tenant_id=event.tenant_id,
+            deployment_id_ext=event.deployment_id_ext or '',
+            endpoint_id=event.endpoint_id,
+            category=UsageMetric.Category.API_TOKENS,
+            user_identifier=user_identifier,
+            ai_provider=provider,
+            ai_model=model,
+            ai_request_id=key,
+            occurred_at=event.occurred_at,
+            metadata={'event_id': str(event.id), 'event_type': event.event_type, 'raised_repeat': True},
+            metric_type=metric_type,
+            value=Decimal(value) - so_far.get(metric_type, 0),
+            unit='tokens',
+        )
+        for metric_type, value in reported.items() if value > so_far.get(metric_type, 0)
+    ]
+    if records:
+        logger.warning('Usage for %s raised by repeat event %s', key, event.id)
+        UsageMetric.objects.using(recorded.db).bulk_create(records)
+    return records
+
+
 def _fill_interaction(event, request_id, model, tokens):
     """Give the call's InteractionLog row its tokens and cost.
 
     The gateway logs the call when it evaluates it and reports usage after the
-    response, under the same request_id. Only a row with no token count yet is
-    filled, so a repeat changes nothing and a client-logged row is not
-    overwritten.
+    response, under the same request_id. Each count and the cost only ever
+    rise, so a repeat changes nothing and a lower client-logged value, such as
+    an agent logging the call as free before the gateway reports, is raised.
     """
+    from django.db.models import F
+    from django.db.models.functions import Coalesce, Greatest
+
     from zentinelle.models.compliance import InteractionLog
 
+    def at_least(field, value):
+        return Greatest(Coalesce(F(field), 0), value)
+
     input_count = billable_input(tokens)
+    values = {
+        'input_token_count': at_least('input_token_count', input_count),
+        'output_token_count': at_least('output_token_count', tokens['output_tokens']),
+        'total_tokens': at_least('total_tokens', input_count + tokens['output_tokens']),
+    }
+    cost = server_cost(model, tokens)
+    if cost is not None:
+        values['estimated_cost_usd'] = Greatest(Coalesce(F('estimated_cost_usd'), Decimal(0)), cost)
     InteractionLog.objects.filter(
         tenant_id=event.tenant_id,
         endpoint_id=event.endpoint_id,
         request_id=request_id,
-        total_tokens__isnull=True,
-    ).update(
-        input_token_count=input_count,
-        output_token_count=tokens['output_tokens'],
-        total_tokens=input_count + tokens['output_tokens'],
-        estimated_cost_usd=server_cost(model, tokens),
-    )
+    ).update(**values)

@@ -151,6 +151,25 @@ class UsageEventDrainTest(TwoTenantMixin, TestCase):
 
         self.assertEqual(UsageMetric.objects.filter(tenant_id=TENANT_A, metric_type=M.AI_REQUESTS).count(), 1)
 
+    def test_a_low_report_first_cannot_erase_the_real_usage(self):
+        # The gateway's X-Request-ID reaches the agent with the first streamed
+        # byte, and its usage is reported only after the stream ends. The agent
+        # can report the same request_id first, with its own key; the meter
+        # must still end at the real count.
+        zero = {**GATEWAY[1], 'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}
+        self._drain(self._event('llm:usage', zero))
+        self._drain(self._event(*GATEWAY))
+        self._drain(self._event(*GATEWAY))
+
+        self.assertEqual(self._sums(TENANT_A), {
+            M.AI_INPUT_TOKENS: 1000, M.AI_OUTPUT_TOKENS: 200,
+            M.AI_TOTAL_TOKENS: 1200, M.AI_REQUESTS: 1})
+
+    def _sums(self, tenant_id):
+        from django.db.models import Sum
+        return {row['metric_type']: row['total'] for row in UsageMetric.objects.filter(
+            tenant_id=tenant_id).values('metric_type').annotate(total=Sum('value'))}
+
     def test_events_without_a_request_id_are_separate_calls(self):
         self._drain(self._event(*SDK_TRACK_USAGE), self._event(*SDK_TRACK_USAGE))
 
@@ -327,6 +346,24 @@ class InteractionEndpointTest(TwoTenantMixin, TestCase):
         self.assertEqual(first.json()['interaction_id'], again.json()['interaction_id'])
         row = InteractionLog.objects.get(id=first.json()['interaction_id'])
         self.assertEqual(row.total_tokens, 1200)
+
+    def test_a_zero_interaction_first_cannot_hide_the_gateways_cost(self):
+        from zentinelle.services.budgets import historical_spend
+        policy = Policy.objects.create(tenant_id=TENANT_A, name='b', policy_type=Policy.PolicyType.BUDGET_LIMIT,
+                                       config={'monthly_budget_usd': 10, 'hard_limit': False})
+        self.client_a.post(reverse('zentinelle:evaluate'), {'action': 'llm:invoke', 'context': {
+            'provider': 'openai', 'model': 'gpt-4o', 'input_text': 'hi', 'request_id': 'gw-1'}}, format='json')
+        # The agent reads X-Request-ID off the stream and logs the call as free.
+        self._post({'request_id': 'gw-1', 'ai_model': 'gpt-4o', 'input_token_count': 0,
+                    'output_token_count': 0})
+        event = Event.objects.create(tenant_id=TENANT_A, endpoint=self.endpoint_a, event_type=GATEWAY[0],
+                                     payload=dict(GATEWAY[1]), occurred_at=timezone.now())
+        process_event_batch([str(event.id)], 'telemetry')
+
+        [row] = InteractionLog.objects.filter(tenant_id=TENANT_A)
+        cost = sum(UsageTrackingService.calculate_cost('gpt-4o', 1000, 200)).quantize(Decimal('0.000001'))
+        self.assertEqual((row.total_tokens, row.estimated_cost_usd), (1200, cost))
+        self.assertEqual(historical_spend(policy), cost)
 
     def test_another_tenants_request_id_is_never_merged(self):
         mine = self._post({'request_id': 'r-1', 'ai_model': 'gpt-4o', 'input_token_count': 10})
