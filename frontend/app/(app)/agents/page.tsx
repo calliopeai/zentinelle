@@ -3,6 +3,7 @@
 import { PermissionGuard } from "@/components/PermissionGuard";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useMutation } from "@apollo/client/react";
 import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import {
@@ -451,7 +452,12 @@ export default function AgentsPage() {
         <DataTableColumnHeader column={column} title="Name" />
       ),
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.name}</span>
+        <Link
+          href={`/agents/${encodeURIComponent(row.original.agentId)}`}
+          className="font-medium underline-offset-2 hover:underline"
+        >
+          {row.original.name}
+        </Link>
       ),
     },
     {

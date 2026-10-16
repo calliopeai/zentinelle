@@ -9,7 +9,8 @@ const nextConfig: NextConfig = {
   // server.js directly.
   output: "standalone",
   // Directives that hold without nonces for Next's inline scripts: the portal
-  // cannot be framed, embed plugins, rebase its URLs or post forms elsewhere.
+  // cannot be framed, embed plugins, rebase its URLs or post forms elsewhere,
+  // and it loads images only from itself (every image it shows is in public/).
   async headers() {
     return [
       {
@@ -18,7 +19,7 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'",
+              "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; img-src 'self'",
           },
         ],
       },

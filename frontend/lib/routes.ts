@@ -22,3 +22,16 @@ export const routeLabels: Record<string, string> = {
   new: "Create",
   create: "Create",
 };
+
+/**
+ * Path prefixes that group pages but are not pages themselves, such as
+ * /budgets in /budgets/showback. The breadcrumb shows them as text rather than
+ * as a link to a 404. routes.test.ts keeps this equal to the prefixes under
+ * app/(app) that have no page.tsx.
+ */
+export const sectionsWithoutPage: ReadonlySet<string> = new Set([
+  "/budgets",
+  "/observability",
+  "/threats",
+  "/tools",
+]);

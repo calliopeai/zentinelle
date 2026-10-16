@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useMutation } from "@apollo/client/react";
 import { toast } from "sonner";
 import { useComplianceOverview } from "@/graphql/compliance/hooks";
@@ -11,6 +12,7 @@ import {
 } from "@/graphql/compliance/mutations";
 import { LIST_COMPLIANCE_PACKS } from "@/graphql/compliance/queries";
 import { SectionErrorBoundary } from "@/components/section-error-boundary";
+import { frameworkPageHref } from "@/lib/compliance-frameworks";
 import {
   Card,
   CardContent,
@@ -515,23 +517,26 @@ export default function CompliancePage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {frameworks.map((fw) => {
             const isEnabled = fw.id != null && enabledFrameworks.has(fw.id);
+            // Only a framework with a detail page links anywhere.
+            const href = isEnabled ? frameworkPageHref(fw.id) : null;
             return (
               <Card
                 key={fw.id}
-                className={`${isEnabled ? "cursor-pointer hover:border-primary/50 transition-colors" : "opacity-50"}`}
-                onClick={() => {
-                  if (isEnabled) {
-                    const slug = (fw.name ?? "")
-                      .toLowerCase()
-                      .replace(/\s+/g, "-")
-                      .replace(/[^a-z0-9-]/g, "");
-                    window.location.href = `/compliance/${slug}`;
-                  }
-                }}
+                className={`relative ${href ? "hover:border-primary/50 transition-colors" : isEnabled ? "" : "opacity-50"}`}
               >
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
-                    <span>{fw.name}</span>
+                    {href ? (
+                      // Stretched over the card, so all of it opens the page.
+                      <Link
+                        href={href}
+                        className="after:absolute after:inset-0"
+                      >
+                        {fw.name}
+                      </Link>
+                    ) : (
+                      <span>{fw.name}</span>
+                    )}
                     <div className="flex items-center gap-2">
                       <span
                         className={`text-sm font-bold ${coverageColor(
@@ -544,7 +549,7 @@ export default function CompliancePage() {
                       </span>
                       <button
                         onClick={() => fw.id && handleToggleFramework(fw.id)}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        className="text-muted-foreground hover:text-foreground relative z-10 transition-colors"
                         title={
                           isEnabled ? "Disable framework" : "Enable framework"
                         }

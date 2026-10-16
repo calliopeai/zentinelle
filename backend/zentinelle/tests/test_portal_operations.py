@@ -31,7 +31,7 @@ from zentinelle.auth.roles import ROLE_ADMIN, ROLE_OPERATOR, assign_role
 from zentinelle.models import (AgentEndpoint, ComplianceAlert,
                                ComplianceAssessment, ComplianceFrameworkConfig,
                                ContentRule, Incident, Policy, RetentionPolicy,
-                               Risk)
+                               Risk, SystemPrompt)
 from zentinelle.schema import schema
 
 FRONTEND = Path(__file__).resolve().parents[3] / 'frontend'
@@ -44,7 +44,7 @@ OTHER = '00000000-0000-0000-0000-0000000000b2'
 # rather than being repaired here; the test fails if one starts validating, so
 # this list can only shrink.
 DEAD_OPERATIONS = {
-    'UpdateSystemPrompt', 'TestSystemPrompt', 'RateSystemPrompt', 'TogglePromptFavorite',
+    'TestSystemPrompt', 'RateSystemPrompt', 'TogglePromptFavorite',
 }
 
 _GQL = re.compile(r'gql`(.*?)`', re.S)
@@ -295,6 +295,37 @@ class PortalPageOperationTests(TestCase):
         self.refused('RegenerateEndpointApiKey', id=str(theirs.id))
         theirs.refresh_from_db()
         self.assertEqual(theirs.api_key_hash, before[1])
+
+    # system-prompts/builder/page.tsx, opened by the prompt list's Edit
+
+    def test_prompt_builder_saves_an_edit_in_place(self):
+        operator = get_user_model().objects.get(username='page-operator')
+        mine = SystemPrompt.objects.create(
+            tenant_id=TENANT, user_id=str(operator.pk), name='Code review', slug='code-review',
+            prompt_text='Review pull requests for tests.', visibility='organization',
+        )
+
+        loaded = self.ok('GetSystemPrompt', id=str(mine.id))['systemPrompt']
+        self.assertEqual(loaded['promptText'], 'Review pull requests for tests.')
+
+        saved = self.ok('UpdateSystemPrompt', id=str(mine.id), input={
+            'name': 'Code review', 'promptText': 'Review pull requests for tests and security.',
+        })['updateSystemPrompt']
+        self.assertTrue(saved['success'], saved)
+        self.assertEqual(saved['prompt']['id'], str(mine.id))
+        mine.refresh_from_db()
+        self.assertEqual(mine.prompt_text, 'Review pull requests for tests and security.')
+        self.assertEqual(SystemPrompt.objects.count(), 1, 'the edit created a prompt')
+
+        theirs = SystemPrompt.objects.create(
+            tenant_id=TENANT, user_id='someone-else', name='Theirs', slug='theirs',
+            prompt_text='Someone else wrote this prompt.', visibility='organization',
+        )
+        self.refused('UpdateSystemPrompt', id=str(theirs.id), input={
+            'name': 'Theirs', 'promptText': 'Rewritten by another user.',
+        })
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.prompt_text, 'Someone else wrote this prompt.')
 
     # content-rules/create-content-rule-dialog.tsx
 
