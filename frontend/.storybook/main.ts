@@ -19,6 +19,9 @@ const config: StorybookConfig = {
     return mergeConfig(viteConfig, {
       plugins: [tailwindcss()],
       resolve: { alias: { "@": path.resolve(import.meta.dirname, "..") } },
+      // `staticDirs` copies public/; Vite's own publicDir copy of the same
+      // folder races it into storybook-static (EEXIST on CI).
+      publicDir: false,
       build: {
         // One client bundle with every story: "use client" means nothing in
         // it, and the chunk-size hint does not apply.

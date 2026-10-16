@@ -314,6 +314,7 @@ export const events: EventListData = {
 export const longEvents: EventListData = {
   events: [
     event(0, {
+      id: "evt-long",
       eventType: "agent_host_delegated_tool_call_with_retained_arguments",
       userIdentifier:
         "a.very.long.service.account.name@automation.enterprise-customer.example.com",
@@ -632,6 +633,7 @@ export function heldRequests(at = NOW): HeldApproval[] {
 }
 
 export const longRequest: HeldApproval = held(0, {
+  request_id: "0b6f9c2e-7d0f-4a3b-8e5c-1d9f2a7b4e69",
   agent_id: LONG,
   user_id:
     "a.very.long.service.account.name@automation.enterprise-customer.example.com",

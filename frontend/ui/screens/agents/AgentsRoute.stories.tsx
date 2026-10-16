@@ -24,7 +24,7 @@ const meta = {
   component: AgentsRoute,
   parameters: {
     layout: "fullscreen",
-    graphql: { mocks: [...agentsMocks.full, ...groupsMocks.full] },
+    graphql: { mocks: agentsMocks.full },
   },
   args: { capabilities: capabilitiesOf("operator") },
   render: (args) => (
@@ -148,6 +148,27 @@ export const Register: Story = {
     );
     await expect(
       await screen.findByText("znt_live_91ab4c2e7d0f6a3b8e5c1d9f2a7b4e6c"),
+    ).toBeInTheDocument();
+  },
+};
+
+/** Assign opens the dialog, which only then asks for the groups (GetAgentGroups). */
+export const AssignGroup: Story = {
+  parameters: {
+    graphql: { mocks: [...agentsMocks.full, ...groupsMocks.full] },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      await canvas.findByRole("button", {
+        name: /Actions for agent nightly-sync/,
+      }),
+    );
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: "Assign to a group" }),
+    );
+    await expect(
+      await screen.findByRole("option", { name: "Finance" }),
     ).toBeInTheDocument();
   },
 };

@@ -51,6 +51,29 @@ type Pending =
   | { kind: "key"; agent: AgentRow; apiKey: string }
   | null;
 
+/** The assign dialog with its own GetAgentGroups, sent only while the dialog is open. */
+function AssignGroup({
+  agent,
+  onClose,
+  onAssign,
+}: {
+  agent: AgentRow;
+  onClose: () => void;
+  onAssign: (groupId: string) => Promise<void>;
+}) {
+  const { groups, loading } = useAgentGroups(undefined);
+  return (
+    <AssignGroupDialog
+      open
+      onOpenChange={(open) => !open && onClose()}
+      agentName={agent.name}
+      currentGroupId={agent.group?.id}
+      groups={loading ? null : groups}
+      onAssign={onAssign}
+    />
+  );
+}
+
 export interface AgentsRouteProps {
   capabilities: readonly string[];
 }
@@ -88,7 +111,6 @@ export function AgentsRoute({ capabilities }: AgentsRouteProps) {
   });
   const [pending, setPending] = React.useState<Pending>(null);
   const close = () => setPending(null);
-  const groups = useAgentGroups(undefined);
 
   const [create] = useMutation<{
     createAgentEndpoint: CreateAgentEndpointPayload;
@@ -225,26 +247,22 @@ export function AgentsRoute({ capabilities }: AgentsRouteProps) {
         initial={initial}
         onSubmit={submitAgent}
       />
-      <AssignGroupDialog
-        open={pending?.kind === "assign"}
-        onOpenChange={(open) => !open && close()}
-        agentName={pending?.kind === "assign" ? pending.agent.name : ""}
-        currentGroupId={
-          pending?.kind === "assign" ? pending.agent.group?.id : null
-        }
-        groups={groups.loading ? null : groups.groups}
-        onAssign={async (groupId) => {
-          if (pending?.kind !== "assign") return;
-          const { data } = await assign({
-            variables: { agentId: pending.agent.id, groupId },
-          });
-          payloadOrThrow(
-            data?.assignAgentToGroup,
-            "The agent was not assigned.",
-          );
-          void refetch();
-        }}
-      />
+      {pending?.kind === "assign" && (
+        <AssignGroup
+          agent={pending.agent}
+          onClose={close}
+          onAssign={async (groupId) => {
+            const { data } = await assign({
+              variables: { agentId: pending.agent.id, groupId },
+            });
+            payloadOrThrow(
+              data?.assignAgentToGroup,
+              "The agent was not assigned.",
+            );
+            void refetch();
+          }}
+        />
+      )}
       <ConfirmDialog
         open={pending?.kind === "delete"}
         onOpenChange={(open) => !open && close()}
