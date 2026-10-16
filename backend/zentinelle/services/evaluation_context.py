@@ -36,7 +36,9 @@ def normalize_context(value):
         context['max_output_tokens'] = body.get(
             'max_output_tokens', body.get('max_completion_tokens', body.get('max_tokens'))
         )
-        if context['max_output_tokens'] is None:
+        # Only for Gemini: elsewhere a generationConfig is a field the
+        # provider does not read, and a cap it does not honour is no bound.
+        if context['max_output_tokens'] is None and context.get('provider') in ('google', 'vertex'):
             context['max_output_tokens'] = _gemini_max_output_tokens(body)
         from zentinelle.services.multimodal_scanner import analyze_request_body
         media = analyze_request_body(body, context.get('provider', ''))

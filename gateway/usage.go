@@ -43,7 +43,10 @@ type UsageEvent struct {
 type EventRow struct {
 	Type string `json:"type"`
 	// EventID makes a retried delivery a duplicate rather than a second
-	// event: the events endpoint deduplicates on it per agent.
+	// event: the events endpoint deduplicates on it per agent. It is random
+	// and never sent to the client. The agent's key can post events too, so
+	// an ID the client could derive (from X-Request-ID, say) would let it
+	// claim the ID first with zero tokens and have the real report refused.
 	EventID   string                 `json:"event_id,omitempty"`
 	Timestamp string                 `json:"timestamp"`
 	Category  string                 `json:"category"`
@@ -282,7 +285,7 @@ func ReportUsage(cfg *Config, agentKey string, provider string, model string, us
 		Events: []EventRow{
 			{
 				Type:      "llm:usage",
-				EventID:   "gateway-usage-" + requestID,
+				EventID:   "gateway-usage-" + generateRequestID(),
 				Timestamp: time.Now().UTC().Format(time.RFC3339),
 				Category:  "telemetry",
 				Payload: map[string]interface{}{

@@ -243,8 +243,9 @@ func checkUsageEvent(t *testing.T, ev EventRow, f usageFixture, outcome string) 
 	if ev.Type != "llm:usage" {
 		t.Errorf("event type = %q", ev.Type)
 	}
-	if rid, _ := p["request_id"].(string); ev.EventID != "gateway-usage-"+rid || rid == "" {
-		t.Errorf("event_id = %q for request %q, want one derived from the request ID", ev.EventID, rid)
+	if rid, _ := p["request_id"].(string); !strings.HasPrefix(ev.EventID, "gateway-usage-") ||
+		len(ev.EventID) <= len("gateway-usage-") || strings.Contains(ev.EventID, rid) || rid == "" {
+		t.Errorf("event_id = %q for request %q, want a gateway ID the client cannot derive", ev.EventID, rid)
 	}
 	if got := p["model"]; got != f.Model {
 		t.Errorf("model = %v, want %q", got, f.Model)
@@ -498,7 +499,7 @@ func TestUsageReportIsRetriedWithTheSameEvent(t *testing.T) {
 	ReportUsage(&Config{ZentinelleURL: control.URL}, "key", "openai", "gpt-4o",
 		UsageData{PromptTokens: 10, CompletionTokens: 5, Reported: true}, 12, "req-retry", http.StatusOK, outcomeCompleted)
 	events := plane.waitEvents(t, 3)
-	if len(events) != 1 || events[0].EventID != "gateway-usage-req-retry" {
+	if len(events) != 1 || !strings.HasPrefix(events[0].EventID, "gateway-usage-") {
 		t.Fatalf("accepted events = %+v", events)
 	}
 	plane.mu.Lock()
@@ -555,4 +556,50 @@ func contextWithTimeout(t *testing.T, d time.Duration) context.Context {
 	ctx, cancel := context.WithTimeout(context.Background(), d)
 	t.Cleanup(cancel)
 	return ctx
+}
+
+// A second Content-Encoding line after "identity" is forwarded as sent, so it
+// is refused like the first.
+func TestCompressedRequestBodyBehindAnIdentityHeaderIsRefused(t *testing.T) {
+	_, control := newMeteringPlane(t, false, "")
+	called := false
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true }))
+	defer upstream.Close()
+	pointProviderAt(t, "openai", upstream.URL)
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader("compressed"))
+	req.Header.Set("X-Zentinelle-Key", "sk_agent_test")
+	req.Header.Add("Content-Encoding", "identity")
+	req.Header.Add("Content-Encoding", "gzip")
+	w := httptest.NewRecorder()
+	NewGateway(meteringConfig(control.URL)).ServeHTTP(w, req)
+	if w.Code != http.StatusUnsupportedMediaType || called {
+		t.Errorf("status = %d, provider called = %v; want 415 and no call", w.Code, called)
+	}
+}
+
+// The Gemini model the policy check and the meter see is the one the
+// provider is asked for: a dot segment cannot make them differ.
+func TestGeminiModelPathCannotDivergeFromTheForwardedPath(t *testing.T) {
+	plane, control := newMeteringPlane(t, false, "")
+	var forwarded string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		forwarded = r.URL.Path
+		w.Write([]byte(`{}`))
+	}))
+	defer upstream.Close()
+	pointProviderAt(t, "google", upstream.URL)
+	req := httptest.NewRequest(http.MethodPost,
+		"/v1beta/models/gemini-1.5-flash-8b/../gemini-2.5-pro:generateContent", strings.NewReader(`{"contents":[]}`))
+	req.Header.Set("X-Zentinelle-Key", "sk_agent_test")
+	w := httptest.NewRecorder()
+	NewGateway(meteringConfig(control.URL)).ServeHTTP(w, req)
+	if forwarded != "/v1beta/models/gemini-2.5-pro:generateContent" {
+		t.Errorf("provider was asked for %q", forwarded)
+	}
+	if got := plane.inputModel(); got != "gemini-2.5-pro" {
+		t.Errorf("policy check model = %q, want gemini-2.5-pro", got)
+	}
+	if got := plane.waitEvents(t, 1)[0].Payload["model"]; got != "gemini-2.5-pro" {
+		t.Errorf("metered model = %v, want gemini-2.5-pro", got)
+	}
 }

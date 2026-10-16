@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -117,6 +118,14 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Gemini names the model in the path, and the policy check reads it from
+	// there. A dot segment would let the path the policy sees name one model
+	// (models/cheap/../expensive) while the provider, normalising it, serves
+	// another, so the path is resolved here and the resolved one is forwarded.
+	if provider.Name == "google" {
+		upstreamPath = path.Clean(upstreamPath)
+	}
+
 	// 3. Read request body
 	maxRequestBytes := g.cfg.MaxResponseBytes
 	if maxRequestBytes <= 0 {
@@ -143,10 +152,14 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 
 	// The policy check reads the body as text. A compressed body would reach
 	// the provider with its content unread by every input filter.
-	if enc := strings.TrimSpace(r.Header.Get("Content-Encoding")); enc != "" && !strings.EqualFold(enc, "identity") {
-		writeJSONError(w, http.StatusUnsupportedMediaType, "unsupported_content_encoding",
-			"compressed request bodies cannot be inspected; send the body uncompressed")
-		return
+	// Every value is checked: the header is forwarded as sent, so a second
+	// Content-Encoding line after an "identity" one would reach the provider.
+	for _, enc := range r.Header.Values("Content-Encoding") {
+		if enc = strings.TrimSpace(enc); enc != "" && !strings.EqualFold(enc, "identity") {
+			writeJSONError(w, http.StatusUnsupportedMediaType, "unsupported_content_encoding",
+				"compressed request bodies cannot be inspected; send the body uncompressed")
+			return
+		}
 	}
 
 	// 4. Extract model name for policy context

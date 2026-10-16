@@ -3216,7 +3216,7 @@
       "name": "GeminiMaxOutputTokensTests",
       "file_path": "backend/zentinelle/tests/test_evaluation_context_gemini.py",
       "line_start": 28,
-      "line_end": 61,
+      "line_end": 68,
       "description": "",
       "metadata": "{}"
     },
@@ -13476,7 +13476,7 @@
       "name": "normalize_context",
       "file_path": "backend/zentinelle/services/evaluation_context.py",
       "line_start": 6,
-      "line_end": 62,
+      "line_end": 64,
       "description": "",
       "metadata": "{}"
     },
@@ -13485,8 +13485,8 @@
       "type": "function",
       "name": "_gemini_max_output_tokens",
       "file_path": "backend/zentinelle/services/evaluation_context.py",
-      "line_start": 65,
-      "line_end": 79,
+      "line_start": 67,
+      "line_end": 81,
       "description": "",
       "metadata": "{}"
     },
@@ -13495,8 +13495,8 @@
       "type": "function",
       "name": "normalize_output_text",
       "file_path": "backend/zentinelle/services/evaluation_context.py",
-      "line_start": 82,
-      "line_end": 116,
+      "line_start": 84,
+      "line_end": 118,
       "description": "",
       "metadata": "{}"
     },

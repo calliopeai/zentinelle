@@ -59,3 +59,10 @@ class GeminiMaxOutputTokensTests(SimpleTestCase):
         with mock.patch('zentinelle.services.usage_tracking.resolve_model_pricing', return_value=price):
             with self.assertRaises(ValueError):
                 request_upper_bound(gemini_context(None))
+
+    def test_generation_config_is_no_bound_for_other_providers(self):
+        body = {'model': 'gpt-4o', 'messages': [], 'generationConfig': {'maxOutputTokens': 1}}
+        for provider in ('openai', 'anthropic', ''):
+            with self.subTest(provider=provider):
+                ctx = normalize_context({'provider': provider, 'request_body': json.dumps(body)})
+                self.assertIsNone(ctx['max_output_tokens'])
