@@ -649,6 +649,13 @@ Two consequences the implementation has to honour:
   fresh API key, because registration is the only time the plaintext key
   exists and the new workload needs one. Existing `config` is preserved, since
   it may have been tuned since first registration.
+- **Only agents register made can re-register.** A bootstrap token is
+  tenant-wide, so it may only restart an active agent of the same type that
+  the bootstrap path created (`bootstrap_registered`). Agents made in the
+  portal, by the operator API, by Astrolift or by a management command are
+  refused with `409`, as are stopped agents. Agents registered before
+  migration 0066 carry no marker; an operator opts a known SDK agent in with
+  `manage.py allow_bootstrap_reregister --tenant <id> <agent_id>`.
 
 ### Deeplink URL convention
 

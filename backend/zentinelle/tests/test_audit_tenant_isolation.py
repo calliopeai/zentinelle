@@ -7,15 +7,18 @@ the same agent name in both tenants, so anything keyed by name alone collides.
 import hashlib
 import hmac
 import importlib
+import io
 import json
 import logging
 import sys
 import uuid
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import httpx
 from django.core.cache import cache
+from django.core.management import CommandError, call_command
 from django.test import Client, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -29,7 +32,7 @@ from zentinelle.services.event_store import EventStore
 from zentinelle.services.policy_simulator import simulate_policy
 from zentinelle.tests._graphql_helpers import admin_context
 from zentinelle.tests._two_tenants import (SHARED_AGENT_ID, TENANT_A, TENANT_B,
-                                           TwoTenantTestCase)
+                                           TwoTenantTestCase, make_agent)
 
 BOOTSTRAP_SECRET = 'audit-bootstrap-secret'
 
@@ -152,11 +155,18 @@ class EventStoreTenancyTests(TwoTenantTestCase):
 
 @patch.dict('os.environ', {'ZENTINELLE_BOOTSTRAP_SECRET': BOOTSTRAP_SECRET}, clear=False)
 class ReregisterTests(TwoTenantTestCase):
-    def register(self, tenant_id, agent_type=AgentEndpoint.AgentType.CUSTOM):
+    def setUp(self):
+        super().setUp()
+        # Both fixture agents stand for agents the bootstrap path made; the
+        # creation-path tests below make their own.
+        AgentEndpoint.objects.filter(agent_id=SHARED_AGENT_ID).update(bootstrap_registered=True)
+        self.agent_a.refresh_from_db()
+
+    def register(self, tenant_id, agent_type=AgentEndpoint.AgentType.CUSTOM, agent_id=SHARED_AGENT_ID):
         signature = hmac.new(BOOTSTRAP_SECRET.encode(), tenant_id.encode(), hashlib.sha256).hexdigest()
         return Client().post(
             reverse('zentinelle:register'),
-            data=json.dumps({'agent_id': SHARED_AGENT_ID, 'agent_type': agent_type, 'name': 'again'}),
+            data=json.dumps({'agent_id': agent_id, 'agent_type': agent_type, 'name': 'again'}),
             content_type='application/json', HTTP_X_ZENTINELLE_BOOTSTRAP=f'bt_{tenant_id}_{signature}')
 
     def assert_untouched(self, endpoint, response, error):
@@ -223,6 +233,65 @@ class ReregisterTests(TwoTenantTestCase):
         self.agent_a.refresh_from_db()
 
         self.assert_untouched(self.agent_a, self.register(TENANT_A), 'agent_id_taken')
+
+    def test_an_agent_the_register_path_made_restarts(self):
+        first = self.register(TENANT_A, agent_id='sdk-bot')
+        self.assertEqual(first.status_code, 201, first.content)
+
+        again = self.register(TENANT_A, agent_id='sdk-bot')
+
+        self.assertEqual(again.status_code, 200, again.content)
+        self.assertEqual(self.evaluate(again.json()['api_key']).status_code, 200)
+
+    def test_a_portal_agent_is_not_taken_over(self):
+        result = schema.execute_sync(
+            '''mutation($input: CreateAgentEndpointInput!) {
+                createAgentEndpoint(input: $input) { success error apiKey } }''',
+            variable_values={'input': {'name': 'Portal bot', 'agentId': 'portal-bot', 'agentType': 'custom'}},
+            context_value=admin_context(TENANT_A))
+        self.assertIsNone(result.errors)
+        self.assertTrue(result.data['createAgentEndpoint']['success'], result.data)
+        agent = AgentEndpoint.objects.get(tenant_id=TENANT_A, agent_id='portal-bot')
+        AgentEndpoint.objects.filter(pk=agent.pk).update(status=AgentEndpoint.Status.ACTIVE)
+        agent.refresh_from_db()
+
+        self.assert_untouched(agent, self.register(TENANT_A, agent_id='portal-bot'), 'agent_id_taken')
+
+    def test_an_operator_agent_without_a_lifetime_is_not_taken_over(self):
+        from rest_framework.test import APIClient
+
+        from zentinelle.api.auth import ZentinelleServiceUser
+        operator = APIClient()
+        operator.force_authenticate(user=ZentinelleServiceUser(
+            SimpleNamespace(tenant_id=TENANT_A, scopes=['read', 'write'], is_active=True, pk=1, id=1)))
+        minted = operator.post(reverse('zentinelle:operator-agents'),
+                               {'agent_id': 'operator-bot', 'name': 'operator bot'}, format='json')
+        self.assertEqual(minted.status_code, 201, minted.content)
+        self.assertIsNone(minted.data['expires_at'])
+        agent = AgentEndpoint.objects.get(tenant_id=TENANT_A, agent_id='operator-bot')
+
+        self.assert_untouched(agent, self.register(TENANT_A, agent_id='operator-bot'), 'agent_id_taken')
+        self.assertEqual(self.evaluate(minted.data['api_key']).status_code, 200,
+                         "the operator's key stopped working")
+
+    def test_an_agent_from_any_other_path_is_not_taken_over(self):
+        # The marker defaults off, so an agent made by a management command,
+        # a seed or a path added later is refused without knowing about it.
+        agent, _ = make_agent(TENANT_A, agent_id='command-bot')
+
+        self.assert_untouched(agent, self.register(TENANT_A, agent_id='command-bot'), 'agent_id_taken')
+
+    def test_an_operator_can_allow_a_known_sdk_agent_to_restart(self):
+        agent, _ = make_agent(TENANT_A, agent_id='old-sdk-bot')
+        make_agent(TENANT_B, agent_id='old-sdk-bot')
+
+        call_command('allow_bootstrap_reregister', '--tenant', TENANT_A, 'old-sdk-bot', stdout=io.StringIO())
+
+        self.assertEqual(self.register(TENANT_A, agent_id='old-sdk-bot').status_code, 200)
+        self.assertFalse(AgentEndpoint.objects.get(tenant_id=TENANT_B, agent_id='old-sdk-bot').bootstrap_registered,
+                         "allowing tenant A's agent allowed tenant B's")
+        with self.assertRaises(CommandError):
+            call_command('allow_bootstrap_reregister', '--tenant', TENANT_A, 'nobody', stdout=io.StringIO())
 
 
 # ---------------------------------------------------------------------------

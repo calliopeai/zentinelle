@@ -184,6 +184,7 @@ class RegisterView(APIView):
                 status=AgentEndpoint.Status.ACTIVE,
                 health=AgentEndpoint.Health.UNKNOWN,
                 config=self._get_default_config(),
+                bootstrap_registered=True,
             )
             created = True
             logger.info(f"Registered new agent: {agent_id} for tenant {tenant_id}")
@@ -223,13 +224,14 @@ class RegisterView(APIView):
         still running as the same kind of agent. Anything else would let the
         token's holder take the agent over: revive one that was stopped, lift
         an agent into a more trusted type, or replace the key of an agent whose
-        key Astrolift or an operator issues with a lifetime.
+        key the portal, an operator or Astrolift issued.
         """
-        if existing.astrolift_install_id is not None or existing.api_key_expires_at is not None:
+        if (not existing.bootstrap_registered or existing.astrolift_install_id is not None
+                or existing.api_key_expires_at is not None):
             return Response(
                 {'error': 'agent_id_taken',
-                 'detail': f'Agent {existing.agent_id} has a managed key and cannot be re-registered '
-                           'with a bootstrap token.'},
+                 'detail': f'Agent {existing.agent_id} was not registered with a bootstrap token, '
+                           'or its key is managed, so a bootstrap token cannot re-register it.'},
                 status=status.HTTP_409_CONFLICT,
             )
         if existing.status != AgentEndpoint.Status.ACTIVE:

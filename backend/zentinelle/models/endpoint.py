@@ -102,6 +102,11 @@ class AgentEndpoint(Tracking):
     # by platforms such as Astrolift and refused once past this time.
     api_key_expires_at = models.DateTimeField(null=True, blank=True)
     registered_at = models.DateTimeField(auto_now_add=True)
+    # True only for an agent the bootstrap /register path created. That path
+    # may re-register (restart) only these: an agent the portal, the operator
+    # API, a management command or Astrolift made has a key someone else
+    # issued, and a tenant-wide bootstrap token must not replace it.
+    bootstrap_registered = models.BooleanField(default=False)
     last_heartbeat = models.DateTimeField(null=True, blank=True)
 
     # Status
