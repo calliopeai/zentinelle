@@ -41,9 +41,9 @@ class TwoTenantTestCase(TestCase):
         self.agent_a, self.key_a = make_agent(TENANT_A)
         self.agent_b, self.key_b = make_agent(TENANT_B)
 
-    def evaluate(self, key, context=None, action='tool_call'):
+    def evaluate(self, key, context=None, action='tool_call', **fields):
         """POST /evaluate as the agent holding `key`; returns the response."""
         return Client().post(
             '/api/zentinelle/v1/evaluate',
-            data=json.dumps({'action': action, 'context': context or {}}),
+            data=json.dumps({'action': action, 'context': context or {}, **fields}),
             content_type='application/json', HTTP_X_ZENTINELLE_KEY=key)

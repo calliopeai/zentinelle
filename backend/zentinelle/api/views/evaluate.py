@@ -99,6 +99,7 @@ class EvaluateView(APIView):
                 user_id=data.get('user_id'),
                 context=context,
                 target_capabilities=capabilities,
+                user_verified=bool(identity),
             )
             # A host can keep the call pending, so an action blocked only for
             # want of a human approval is held for one instead of refused.

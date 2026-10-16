@@ -98,7 +98,7 @@ _INFERENCE_PATHS = {
     'openai': re.compile(r'chat/completions|completions|responses|embeddings'),
     'anthropic': re.compile(r'v1/messages|v1/messages/count_tokens|v1/complete'),
     'google': re.compile(
-        r'v1(beta)?/models/[A-Za-z0-9._-]+:(generateContent|streamGenerateContent|countTokens|embedContent)'),
+        r'v1(beta)?/models/[A-Za-z0-9._-]+:(generateContent|streamGenerateContent|countTokens|embedContent|batchEmbedContents)'),
     'vertex': re.compile(
         r'publishers/[a-z0-9-]+/models/[A-Za-z0-9._@-]+:'
         r'(generateContent|streamGenerateContent|countTokens|rawPredict|streamRawPredict)'),
@@ -299,12 +299,16 @@ class ProxyView(View):
                 status=503,
             )
         if managed_key:
+            # Drop the client's own credentials whatever their case: Django
+            # gives 'X-Api-Key', and httpx would send it beside the injected
+            # 'x-api-key', leaving the upstream to pick whose account pays.
+            for header in [h for h in forward_headers
+                           if h.lower() in ('authorization', 'x-api-key', 'x-goog-api-key')]:
+                del forward_headers[header]
             if provider == 'anthropic':
                 forward_headers['x-api-key'] = managed_key
-                forward_headers.pop('Authorization', None)
             elif provider == 'google':
                 forward_headers['x-goog-api-key'] = managed_key
-                forward_headers.pop('Authorization', None)
             else:
                 forward_headers['Authorization'] = f'Bearer {managed_key}'
 
@@ -492,11 +496,13 @@ class ProxyView(View):
             return key
         if not settings.ALLOW_ENV_PROVIDER_KEYS:
             return None
+        # No vertex entry: GOOGLE_API_KEY is a Gemini API key, and Vertex
+        # takes an OAuth token, so injecting it would only replace the
+        # caller's working credential with one Vertex refuses.
         env_map = {
             'openai': 'OPENAI_API_KEY',
             'anthropic': 'ANTHROPIC_API_KEY',
             'google': 'GOOGLE_API_KEY',
-            'vertex': 'GOOGLE_API_KEY',
         }
         env_var = env_map.get(provider)
         if not env_var:

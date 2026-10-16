@@ -78,12 +78,13 @@ class SessionQuotaEvaluator(BasePolicyEvaluator):
         # ----------------------------------------------------------------
         deltas: Dict[str, int] = {}
 
-        bytes_read = int(context.get('bytes_read', 0))
-        bytes_written = int(context.get('bytes_written', 0))
+        # Caller-supplied counts: a negative one would wind the counters back.
+        bytes_read = max(0, int(context.get('bytes_read', 0)))
+        bytes_written = max(0, int(context.get('bytes_written', 0)))
         is_outbound = bool(context.get('is_outbound_call', False))
         is_pii = bool(context.get('is_pii_access', False))
-        tool_calls = int(context.get('tool_call_count', 0))
-        tokens = int(context.get('tokens_used', 0))
+        tool_calls = max(0, int(context.get('tool_call_count', 0)))
+        tokens = max(0, int(context.get('tokens_used', 0)))
 
         if bytes_read:
             deltas['bytes_read'] = bytes_read

@@ -179,9 +179,9 @@ class RateLimitEvaluatorTest(TestCase):
         self.assertTrue(result.passed)
 
     def test_rate_limit_separate_by_user(self):
-        """Test rate limits are tracked separately per user."""
+        """Test rate limits are tracked separately per verified user."""
         policy = self._create_policy({'requests_per_minute': 2})
-        context = {'_tenant_id': STANDALONE_TENANT, '_endpoint_id': 'endpoint1'}
+        context = {'_tenant_id': STANDALONE_TENANT, '_endpoint_id': 'endpoint1', '_user_verified': True}
 
         # User 1 uses their limit
         self.evaluator.evaluate(policy, 'spawn', 'user1', context)

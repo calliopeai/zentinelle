@@ -327,6 +327,50 @@ class EvaluatorIdentityTests(TwoTenantTestCase):
 
         self.assertFalse(reset.json()['allowed'], 'a caller-chosen endpoint_id reset the rate limit')
 
+    def test_rate_limit_cannot_be_reset_with_a_caller_user_id(self):
+        _policy(TENANT_B, Policy.PolicyType.RATE_LIMIT, {'requests_per_minute': 2})
+        for _ in range(2):
+            self.assertTrue(self.evaluate(self.key_b, user_id='alice').json()['allowed'])
+
+        reset = self.evaluate(self.key_b, user_id=uuid.uuid4().hex)
+
+        self.assertFalse(reset.json()['allowed'], 'a caller-chosen user_id reset the rate limit')
+
+    def test_a_verified_user_still_gets_their_own_rate_limit(self):
+        from zentinelle.services.policy_engine import PolicyEngine
+        _policy(TENANT_B, Policy.PolicyType.RATE_LIMIT, {'requests_per_minute': 2})
+        for _ in range(2):
+            PolicyEngine().evaluate(self.agent_b, 'tool_call', user_id='hub:h:alice', user_verified=True)
+
+        self.assertFalse(PolicyEngine().evaluate(self.agent_b, 'tool_call', user_id='hub:h:alice',
+                                                 user_verified=True).allowed)
+        self.assertTrue(PolicyEngine().evaluate(self.agent_b, 'tool_call', user_id='hub:h:bob',
+                                                user_verified=True).allowed)
+
+    def test_daily_tokens_cannot_be_wound_back(self):
+        # The evaluator directly: /evaluate canonicalises ai_request to
+        # llm:invoke, so the daily token check never runs from there.
+        from zentinelle.services.evaluators.rate_limit import \
+            RateLimitEvaluator
+        policy = _policy(TENANT_B, Policy.PolicyType.RATE_LIMIT, {'tokens_per_day': 100})
+        identity = {'_tenant_id': TENANT_B, '_endpoint_id': str(self.agent_b.pk)}
+
+        def spend(tokens):
+            return RateLimitEvaluator().evaluate(policy, 'ai_request', None, {**identity, 'tokens': tokens}).passed
+
+        self.assertTrue(spend(100))
+        spend(-1000)
+        self.assertFalse(spend(50), 'a negative token count wound the daily counter back')
+
+    def test_session_quota_cannot_be_wound_back(self):
+        _policy(TENANT_B, Policy.PolicyType.SESSION_QUOTA, {'max_tool_calls': 2})
+        self.assertTrue(self.evaluate(self.key_b, {'session_id': 's', 'tool_call_count': 2}).json()['allowed'])
+
+        self.evaluate(self.key_b, {'session_id': 's', 'tool_call_count': -100})
+
+        self.assertFalse(self.evaluate(self.key_b, {'session_id': 's', 'tool_call_count': 1}).json()['allowed'],
+                         'a negative tool_call_count wound the session counter back')
+
     def test_session_quota_counters_are_per_tenant(self):
         for tenant in (TENANT_A, TENANT_B):
             _policy(tenant, Policy.PolicyType.SESSION_QUOTA, {'max_tool_calls': 2})
@@ -540,6 +584,25 @@ class ProxyTenancyTests(TwoTenantTestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(self.sent, [])
 
+    def test_the_injected_key_replaces_the_clients_whatever_its_case(self):
+        for provider, path, header in (('anthropic', 'v1/messages', 'x-api-key'),
+                                       ('google', 'v1beta/models/gemini:generateContent', 'x-goog-api-key')):
+            record = LLMProviderKey(tenant_id=TENANT_A, provider=provider)
+            record.set_key(f'{provider}-TENANT-A-STORED')
+            record.save()
+            with self.subTest(provider=provider):
+                self.proxy(self.key_a, provider, path, **{f"HTTP_{header.upper().replace('-', '_')}": 'CLIENT-OWN'})
+
+                self.assertEqual(self.sent[-1].headers.get_list(header), [f'{provider}-TENANT-A-STORED'])
+
+    @override_settings(ALLOW_ENV_PROVIDER_KEYS=True)
+    def test_vertex_never_gets_the_gemini_env_key(self):
+        self.proxy(self.key_b, 'vertex', 'publishers/google/models/gemini:generateContent',
+                   HTTP_X_VERTEX_REGION='us-central1', HTTP_X_VERTEX_PROJECT='my-project',
+                   HTTP_AUTHORIZATION='Bearer ya29.caller-oauth')
+
+        self.assertEqual(self.sent[-1].headers['authorization'], 'Bearer ya29.caller-oauth')
+
     @override_settings(ALLOW_ENV_PROVIDER_KEYS=True)
     def test_env_keys_serve_only_a_declared_single_tenant_install(self):
         self.proxy(self.key_b, 'openai', 'chat/completions')
@@ -562,6 +625,7 @@ class ProxyTenancyTests(TwoTenantTestCase):
                 ('openai', 'chat/completions', {}), ('openai', 'responses', {}),
                 ('anthropic', 'v1/messages', {}),
                 ('google', 'v1beta/models/gemini-2.5-pro:generateContent', {}),
+                ('google', 'v1beta/models/text-embedding-004:batchEmbedContents', {}),
                 ('vertex', 'publishers/google/models/gemini-2.5-pro:streamGenerateContent',
                  {'HTTP_X_VERTEX_REGION': 'us-central1', 'HTTP_X_VERTEX_PROJECT': 'my-project'})):
             with self.subTest(provider=provider, path=path):
