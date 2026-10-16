@@ -154,7 +154,7 @@ class UpdateAgentEndpointTests(TestCase):
             context=anon_context(),
         )
         self.assertTrue(result.errors)
-        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
+        self.assertEqual(result.errors[0].extensions['code'], 'UNAUTHENTICATED')
 
 
 class UpdateEndpointStatusTests(TestCase):
@@ -212,7 +212,7 @@ class UpdateEndpointStatusTests(TestCase):
             context=anon_context(),
         )
         self.assertTrue(result.errors)
-        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
+        self.assertEqual(result.errors[0].extensions['code'], 'UNAUTHENTICATED')
 
     def test_status_round_trip(self):
         """Validate full status state machine: active -> suspended -> active."""

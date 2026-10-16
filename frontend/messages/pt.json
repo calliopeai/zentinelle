@@ -1,28 +1,4 @@
 {
-  "nav": {
-    "section": "Plataforma",
-    "playground": "Playground",
-    "models": "Modelos",
-    "documentation": "Documentação",
-    "settings": "Configurações",
-    "table": "Tabela",
-    "form": "Formulário",
-    "history": "Histórico",
-    "starred": "Favoritos",
-    "genesis": "Genesis",
-    "explorer": "Explorador",
-    "quantum": "Quantum",
-    "introduction": "Introdução",
-    "getStarted": "Começar",
-    "tutorials": "Tutoriais",
-    "changelog": "Registro de alterações",
-    "general": "Geral",
-    "team": "Equipe",
-    "billing": "Faturamento",
-    "limits": "Limites",
-    "hooks": "Hooks",
-    "secured": "Página segura"
-  },
   "user": {
     "account": "Conta",
     "notifications": "Notificações",
@@ -45,29 +21,6 @@
       "customers": "Clientes",
       "products": "Produtos",
       "fromLastMonth": "em relação ao mês passado"
-    },
-    "revenue": {
-      "title": "Receita",
-      "description": "Receita mensal dos últimos 12 meses",
-      "label": "Receita"
-    },
-    "channels": {
-      "title": "Canais",
-      "description": "Vendas por canal de aquisição",
-      "organic": "Orgânico",
-      "direct": "Direto",
-      "referral": "Indicação",
-      "paid": "Pago"
-    },
-    "sales": {
-      "title": "Vendas por categoria",
-      "description": "Unidades vendidas por categoria de produto neste trimestre",
-      "label": "Unidades vendidas",
-      "electronics": "Eletrônicos",
-      "clothing": "Roupas",
-      "accessories": "Acessórios",
-      "footwear": "Calçados",
-      "sports": "Esportes"
     }
   },
   "dataTable": {

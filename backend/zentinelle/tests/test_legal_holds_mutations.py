@@ -114,7 +114,7 @@ class CreateLegalHoldTests(TestCase):
         # Unauthenticated should raise (mutation uses GraphQLError)
         result = _exec(CREATE_HOLD, {'input': {'name': 'NoAuth'}}, context=anon_context())
         self.assertIsNotNone(result.errors)
-        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
+        self.assertEqual(result.errors[0].extensions['code'], 'UNAUTHENTICATED')
         self.assertEqual(LegalHold.objects.count(), 0)
 
 
@@ -299,5 +299,5 @@ class DeleteLegalHoldTests(TestCase):
             DELETE_HOLD, {'id': str(hold.id)}, context=anon_context(),
         )
         self.assertIsNotNone(result.errors)
-        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
+        self.assertEqual(result.errors[0].extensions['code'], 'UNAUTHENTICATED')
         self.assertTrue(LegalHold.objects.filter(id=hold.id).exists())

@@ -1,28 +1,4 @@
 {
-  "nav": {
-    "section": "Plattform",
-    "playground": "Spielplatz",
-    "models": "Modelle",
-    "documentation": "Dokumentation",
-    "settings": "Einstellungen",
-    "table": "Tabelle",
-    "form": "Formular",
-    "history": "Verlauf",
-    "starred": "Favoriten",
-    "genesis": "Genesis",
-    "explorer": "Explorer",
-    "quantum": "Quantum",
-    "introduction": "Einführung",
-    "getStarted": "Loslegen",
-    "tutorials": "Tutorials",
-    "changelog": "Änderungsprotokoll",
-    "general": "Allgemein",
-    "team": "Team",
-    "billing": "Abrechnung",
-    "limits": "Grenzen",
-    "hooks": "Hooks",
-    "secured": "Gesicherte Seite"
-  },
   "user": {
     "account": "Konto",
     "notifications": "Benachrichtigungen",
@@ -45,29 +21,6 @@
       "customers": "Kunden",
       "products": "Produkte",
       "fromLastMonth": "gegenüber dem Vormonat"
-    },
-    "revenue": {
-      "title": "Umsatz",
-      "description": "Monatlicher Umsatz der letzten 12 Monate",
-      "label": "Umsatz"
-    },
-    "channels": {
-      "title": "Kanäle",
-      "description": "Verkäufe nach Akquisitionskanal",
-      "organic": "Organisch",
-      "direct": "Direkt",
-      "referral": "Empfehlung",
-      "paid": "Bezahlt"
-    },
-    "sales": {
-      "title": "Verkäufe nach Kategorie",
-      "description": "Verkaufte Einheiten nach Produktkategorie in diesem Quartal",
-      "label": "Verkaufte Einheiten",
-      "electronics": "Elektronik",
-      "clothing": "Kleidung",
-      "accessories": "Zubehör",
-      "footwear": "Schuhe",
-      "sports": "Sport"
     }
   },
   "dataTable": {

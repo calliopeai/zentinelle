@@ -24,5 +24,9 @@ class PortalRoleExtension(SchemaExtension):
             else:
                 allowed = can_view(user)
             if not allowed:
+                # No session is a different failure from a role that is too
+                # low: the portal sends the first to its login page.
+                if not getattr(user, 'is_authenticated', False):
+                    raise GraphQLError('Authentication required', extensions={'code': 'UNAUTHENTICATED'})
                 raise GraphQLError('Permission denied', extensions={'code': 'FORBIDDEN'})
         return next_(root, info, *args, **kwargs)

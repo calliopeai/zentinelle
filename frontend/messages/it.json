@@ -1,28 +1,4 @@
 {
-  "nav": {
-    "section": "Piattaforma",
-    "playground": "Playground",
-    "models": "Modelli",
-    "documentation": "Documentazione",
-    "settings": "Impostazioni",
-    "table": "Tabella",
-    "form": "Modulo",
-    "history": "Cronologia",
-    "starred": "Preferiti",
-    "genesis": "Genesis",
-    "explorer": "Esploratore",
-    "quantum": "Quantum",
-    "introduction": "Introduzione",
-    "getStarted": "Inizia",
-    "tutorials": "Tutorial",
-    "changelog": "Registro modifiche",
-    "general": "Generale",
-    "team": "Team",
-    "billing": "Fatturazione",
-    "limits": "Limiti",
-    "hooks": "Hook",
-    "secured": "Pagina protetta"
-  },
   "user": {
     "account": "Account",
     "notifications": "Notifiche",
@@ -45,29 +21,6 @@
       "customers": "Clienti",
       "products": "Prodotti",
       "fromLastMonth": "rispetto al mese scorso"
-    },
-    "revenue": {
-      "title": "Fatturato",
-      "description": "Fatturato mensile degli ultimi 12 mesi",
-      "label": "Fatturato"
-    },
-    "channels": {
-      "title": "Canali",
-      "description": "Vendite per canale di acquisizione",
-      "organic": "Organico",
-      "direct": "Diretto",
-      "referral": "Referral",
-      "paid": "A pagamento"
-    },
-    "sales": {
-      "title": "Vendite per categoria",
-      "description": "Unità vendute per categoria di prodotto in questo trimestre",
-      "label": "Unità vendute",
-      "electronics": "Elettronica",
-      "clothing": "Abbigliamento",
-      "accessories": "Accessori",
-      "footwear": "Calzature",
-      "sports": "Sport"
     }
   },
   "dataTable": {
