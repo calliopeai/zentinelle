@@ -89,13 +89,17 @@ class UsageTrackingService:
         endpoint=None,
         deployment_id_ext: str = '',
         occurred_at=None,
-        metadata: dict = None
+        metadata: dict = None,
+        cache_read_tokens: int = 0,
+        cache_write_tokens: int = 0,
     ):
         """Record AI usage and calculate costs."""
         occurred_at = occurred_at or timezone.now()
 
-        # Calculate costs if not provided
-        input_cost, output_cost = cls.calculate_cost(model, input_tokens, output_tokens)
+        # Calculate costs if not provided. Cache tokens are input the provider
+        # bills; until per-model cache rates exist they are priced as input.
+        input_cost, output_cost = cls.calculate_cost(
+            model, input_tokens + cache_read_tokens + cache_write_tokens, output_tokens)
 
         # Combine into metadata for the UsageMetric record
         combined_metadata = metadata or {}
@@ -113,6 +117,8 @@ class UsageTrackingService:
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             request_id=request_id,
+            cache_read_tokens=cache_read_tokens,
+            cache_write_tokens=cache_write_tokens,
             endpoint=endpoint,
             deployment=deployment_id_ext,
             occurred_at=occurred_at,

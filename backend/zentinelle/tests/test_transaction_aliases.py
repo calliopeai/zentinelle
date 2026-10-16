@@ -27,7 +27,7 @@ from rest_framework.test import APIClient
 from zentinelle.models import (AgentEndpoint, ApprovalRequest, BudgetCharge,
                                Event, ModelRouteCanary, Policy,
                                PolicyChangeSet, RuntimeSettingsChange)
-from zentinelle.tests._two_tenants import TENANT_A, make_agent
+from zentinelle.tests._two_tenants_portal import TENANT_A, make_agent
 
 ROUTED = override_settings(DATABASE_ROUTERS=['zentinelle.db_router.ZentinelleRouter'])
 

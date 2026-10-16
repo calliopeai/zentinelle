@@ -1,7 +1,7 @@
 """Tenant isolation fixes from the October 2026 audit (C1, C2, C4, C5, L2, T1 to T5, T12).
 
 Each case is a way one tenant reached another's data or credentials, and each
-failed before its fix. They share the two-tenant fixture in `_two_tenants`:
+failed before its fix. They share the two-tenant fixture in `_two_tenants_portal`:
 the same agent name in both tenants, so anything keyed by name alone collides.
 """
 import hashlib
@@ -31,8 +31,9 @@ from zentinelle.services.behavioral_baseline import set_baseline
 from zentinelle.services.event_store import EventStore
 from zentinelle.services.policy_simulator import simulate_policy
 from zentinelle.tests._graphql_helpers import admin_context
-from zentinelle.tests._two_tenants import (SHARED_AGENT_ID, TENANT_A, TENANT_B,
-                                           TwoTenantTestCase, make_agent)
+from zentinelle.tests._two_tenants_portal import (SHARED_AGENT_ID, TENANT_A,
+                                                  TENANT_B, TwoTenantTestCase,
+                                                  make_agent)
 
 BOOTSTRAP_SECRET = 'audit-bootstrap-secret'
 

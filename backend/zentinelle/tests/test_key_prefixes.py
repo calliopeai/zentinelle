@@ -8,7 +8,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from zentinelle.models import AgentEndpoint, APIKey
-from zentinelle.tests._two_tenants import TENANT_A
+from zentinelle.tests._two_tenants_portal import TENANT_A
 from zentinelle.utils.api_keys import KeyPrefixes, hash_api_key
 
 

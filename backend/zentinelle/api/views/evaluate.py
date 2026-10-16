@@ -262,6 +262,8 @@ class EvaluateView(APIView):
         """Create an InteractionLog and record usage metrics."""
         from django.utils import timezone
 
+        from zentinelle.services.usage_ingest import (InvalidUsage,
+                                                      normalize_tokens)
         from zentinelle.services.usage_tracking import UsageTrackingService
 
         ctx = request_data.get('context', {})
@@ -284,8 +286,17 @@ class EvaluateView(APIView):
         }
         provider = provider_map.get(endpoint.agent_type, ctx.get('source', ''))
         model = ctx.get('model', endpoint.agent_type)
-        input_tokens = ctx.get('input_tokens', ctx.get('tokens', 0))
-        output_tokens = ctx.get('output_tokens', 0)
+        try:
+            tokens = normalize_tokens({'input_tokens': ctx.get('input_tokens', ctx.get('tokens')),
+                                       'output_tokens': ctx.get('output_tokens')})
+        except InvalidUsage as e:
+            # A bad count is not metered; it must never become negative spend.
+            logger.warning(f"Ignoring usage in evaluation context: {e}")
+            tokens = normalize_tokens({})
+        input_tokens = tokens['input_tokens']
+        output_tokens = tokens['output_tokens']
+        request_id = ctx.get('request_id')
+        request_id = request_id[:255] if isinstance(request_id, str) else ''
 
         cost = None
         if model and (input_tokens or output_tokens):
@@ -312,25 +323,29 @@ class EvaluateView(APIView):
             topics.append(tool)
 
         try:
-            record_interaction(
-                tenant_id=endpoint.tenant_id,
-                endpoint=endpoint,
-                deployment_id_ext=endpoint.deployment_id_ext,
-                user_identifier=request_data.get('user_id', ''),
-                session_id=ctx.get('session_id', ''),
-                interaction_type=interaction_type,
-                ai_provider=provider,
-                ai_model=model,
-                input_content=input_text,
-                input_token_count=input_tokens or None,
-                output_token_count=output_tokens or None,
-                total_tokens=(input_tokens + output_tokens) or None,
-                estimated_cost_usd=cost,
-                classification=classification,
-                topics=topics,
-                tool_calls=[{'tool': tool, 'input': tool_input, 'status': 'allowed' if result.allowed else 'blocked'}],
-                occurred_at=timezone.now(),
-            )
+            # The response check belongs to a call already logged at
+            # llm:invoke; a row of its own made one call look like two.
+            if action != 'llm:response':
+                record_interaction(
+                    tenant_id=endpoint.tenant_id,
+                    endpoint=endpoint,
+                    deployment_id_ext=endpoint.deployment_id_ext,
+                    user_identifier=request_data.get('user_id', ''),
+                    session_id=ctx.get('session_id', ''),
+                    request_id=request_id,
+                    interaction_type=interaction_type,
+                    ai_provider=provider,
+                    ai_model=model,
+                    input_content=input_text,
+                    input_token_count=input_tokens or None,
+                    output_token_count=output_tokens or None,
+                    total_tokens=(input_tokens + output_tokens) or None,
+                    estimated_cost_usd=cost,
+                    classification=classification,
+                    topics=topics,
+                    tool_calls=[{'tool': tool, 'input': tool_input, 'status': 'allowed' if result.allowed else 'blocked'}],
+                    occurred_at=timezone.now(),
+                )
         except Exception as e:
             logger.warning(f"Failed to log interaction: {e}")
 

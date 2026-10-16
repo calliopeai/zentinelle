@@ -13,7 +13,7 @@ from zentinelle.models import AgentEndpoint
 from zentinelle.schema import schema
 from zentinelle.services.hub_identity import hub_identity_error
 from zentinelle.tests._graphql_helpers import admin_context
-from zentinelle.tests._two_tenants import TENANT_A, make_agent
+from zentinelle.tests._two_tenants_portal import TENANT_A, make_agent
 
 METADATA = 'http://169.254.169.254/latest/meta-data/iam'
 

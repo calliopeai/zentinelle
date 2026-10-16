@@ -6,7 +6,7 @@ from django.db import connection
 from django.test import TestCase, TransactionTestCase
 
 from zentinelle.models.bootstrap_token import BootstrapToken
-from zentinelle.tests._two_tenants import TENANT_A
+from zentinelle.tests._two_tenants_portal import TENANT_A
 
 
 class ConcurrentUseTests(TransactionTestCase):

@@ -1,49 +1,52 @@
-"""Shared two-tenant fixture for tenant-isolation tests.
+"""Shared two-tenant fixture: one agent and one authenticated client per tenant.
 
-Two tenants, each with an agent named `shared-bot`: agent_id is unique per
-tenant only, so the same name in both is what exposes anything keyed by name
-alone. Every assertion is about tenant B's view of tenant A's data, or the
-other way round.
-
-Tenant A is the standalone tenant, the one a portal user belongs to, so the
-same fixture serves REST, GraphQL and the proxy.
+Tenant isolation tests assert that nothing tenant B sends can reach or change
+tenant A's rows, so every such test needs the same two tenants, set up the same
+way. Use `TwoTenantMixin` with a Django `TestCase`. Neither tenant is the
+portal's standalone tenant; `_two_tenants_portal` is the variant whose tenant A
+is, for tests that also go through a portal session.
 """
-import json
-
-from django.core.cache import cache
-from django.test import Client, TestCase
+from rest_framework.test import APIClient
 
 from zentinelle.models import AgentEndpoint
 
-TENANT_A = '00000000-0000-0000-0000-000000000001'
-TENANT_B = '00000000-0000-0000-0000-0000000000bb'
-SHARED_AGENT_ID = 'shared-bot'
+TENANT_A = '00000000-0000-0000-0000-00000000000a'
+TENANT_B = '00000000-0000-0000-0000-00000000000b'
 
 
-def make_agent(tenant_id, agent_id=SHARED_AGENT_ID, **fields):
-    """An active agent in `tenant_id`, and its plaintext key."""
+def make_endpoint(tenant_id, agent_id):
+    """An active agent and its plaintext key."""
     key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
-    fields.setdefault('name', agent_id)
-    fields.setdefault('status', AgentEndpoint.Status.ACTIVE)
     endpoint = AgentEndpoint.objects.create(
-        tenant_id=tenant_id, agent_id=agent_id,
-        api_key_hash=key_hash, api_key_prefix=key_prefix, **fields)
+        tenant_id=tenant_id,
+        agent_id=agent_id,
+        name=agent_id,
+        agent_type=AgentEndpoint.AgentType.CUSTOM,
+        api_key_hash=key_hash,
+        api_key_prefix=key_prefix,
+        status=AgentEndpoint.Status.ACTIVE,
+    )
     return endpoint, key
 
 
-class TwoTenantTestCase(TestCase):
-    """`agent_a`/`key_a` in TENANT_A and `agent_b`/`key_b` in TENANT_B."""
+def agent_client(key):
+    client = APIClient()
+    client.credentials(HTTP_X_ZENTINELLE_KEY=key)
+    return client
+
+
+class TwoTenantMixin:
+    """`self.endpoint_a`/`self.client_a` in TENANT_A, `_b` in TENANT_B.
+
+    Both agents share an agent_id on purpose: agent_id is unique per tenant
+    only, so a lookup that forgets the tenant finds the wrong one.
+    """
+
+    agent_id = 'shared-agent'
 
     def setUp(self):
         super().setUp()
-        cache.clear()
-        self.addCleanup(cache.clear)
-        self.agent_a, self.key_a = make_agent(TENANT_A)
-        self.agent_b, self.key_b = make_agent(TENANT_B)
-
-    def evaluate(self, key, context=None, action='tool_call', **fields):
-        """POST /evaluate as the agent holding `key`; returns the response."""
-        return Client().post(
-            '/api/zentinelle/v1/evaluate',
-            data=json.dumps({'action': action, 'context': context or {}, **fields}),
-            content_type='application/json', HTTP_X_ZENTINELLE_KEY=key)
+        self.endpoint_a, self.key_a = make_endpoint(TENANT_A, self.agent_id)
+        self.endpoint_b, self.key_b = make_endpoint(TENANT_B, self.agent_id)
+        self.client_a = agent_client(self.key_a)
+        self.client_b = agent_client(self.key_b)
