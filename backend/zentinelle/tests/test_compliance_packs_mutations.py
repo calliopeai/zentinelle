@@ -64,7 +64,7 @@ class ListCompliancePacksTests(TestCase):
     def test_list_unauthenticated_returns_empty(self):
         result = _exec(LIST_PACKS, context=anon_context())
         self.assertTrue(result.errors)
-        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
+        self.assertEqual(result.errors[0].extensions['code'], 'UNAUTHENTICATED')
 
 
 class ActivateCompliancePackTests(TestCase):
@@ -113,7 +113,7 @@ class ActivateCompliancePackTests(TestCase):
     def test_activate_unauthenticated_rejected(self):
         result = _exec(ACTIVATE_PACK, {'packId': 'hipaa'}, context=anon_context())
         self.assertTrue(result.errors)
-        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
+        self.assertEqual(result.errors[0].extensions['code'], 'UNAUTHENTICATED')
 
     def test_activate_scopes_policies_to_request_tenant(self):
         # Pack policies must be created under the *requesting user's* tenant_id,

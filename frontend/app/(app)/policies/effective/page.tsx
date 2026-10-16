@@ -292,24 +292,18 @@ const API_BASE_URL =
   "/api/zentinelle/v1";
 
 async function fetchEffectivePolicy(
-  endpointKey: string | null,
+  endpointId: string,
   userId: string | null,
 ): Promise<EffectivePolicyResponse> {
   const path = userId
     ? `/effective-policy/${encodeURIComponent(userId)}`
     : `/effective-policy`;
+  const query = `?endpoint=${encodeURIComponent(endpointId)}`;
 
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-  };
-  if (endpointKey) {
-    headers["X-Zentinelle-Key"] = endpointKey;
-  }
-
-  const res = await authenticatedFetch(`${API_BASE_URL}${path}`, {
+  const res = await authenticatedFetch(`${API_BASE_URL}${path}${query}`, {
     method: "GET",
     credentials: "include",
-    headers,
+    headers: { Accept: "application/json" },
   });
 
   if (!res.ok) {
@@ -479,7 +473,7 @@ export default function EffectivePolicyViewerPage() {
     setResolving(true);
     try {
       const data = await fetchEffectivePolicy(
-        null, // session-based auth — no key here
+        endpointId,
         userId.trim() || null,
       );
       setResult(data);
@@ -591,7 +585,7 @@ export default function EffectivePolicyViewerPage() {
                 value={userId}
                 onChange={(ev) => setUserId(ev.target.value)}
                 onKeyDown={(ev) => {
-                  if (ev.key === "Enter" && !resolving) {
+                  if (ev.key === "Enter" && !resolving && endpointId) {
                     handleResolve();
                   }
                 }}
@@ -601,7 +595,7 @@ export default function EffectivePolicyViewerPage() {
 
             <Button
               onClick={handleResolve}
-              disabled={resolving}
+              disabled={resolving || !endpointId}
               className="h-9 md:w-32"
             >
               {resolving ? (
