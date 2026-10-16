@@ -146,3 +146,43 @@ Notable changes to Zentinelle. The format follows
   matched made every request with either key fail with a 500 on the evaluate,
   events, config, heartbeat, proxy and provider-key paths. Each candidate is
   now checked against its hash (#400).
+
+### Security
+
+- **Breaking:** the backend, ASGI and Temporal worker processes refuse to
+  start while `SECRET_KEY`, `AUDIT_CHECKPOINT_SIGNING_KEY` (which inherits
+  `SECRET_KEY`) or `ZENTINELLE_BOOTSTRAP_SECRET` is empty, a placeholder this
+  repository has shipped, or shorter than 32 characters, or while
+  `ZENTINELLE_SECRET_KEY` is not a Fernet key (audit T7). Compose and
+  `.env.example` ship no secret values; `python manage.py generate_secrets`
+  prints all three. Provider keys have no derived encryption-key fallback.
+- **Breaking:** a bootstrap token re-registers only agents the `/register`
+  path created (audit C2). Migration 0066 adds `bootstrap_registered` with no
+  backfill, so an existing SDK agent that re-registers on start gets a 409
+  until `python manage.py allow_bootstrap_reregister --tenant <tenant_id>
+  <agent_id> ...` opts it in. Suspended and terminated agents stay stopped,
+  and the agent type cannot change.
+- **Breaking:** platform API keys get the scopes the operator picked (audit
+  C3). Omitted scopes mean read only, an empty or unknown scope is refused,
+  and the scopes are `read`, `write` and `admin`. Migration 0068 narrows the
+  keys minted on settings/api-keys before the fix to what was picked.
+- **Breaking:** the gateway and the Django proxy forward only `POST` to
+  inference routes; anything else is `403 path_not_allowed` (audit T5, T8).
+  The proxy, like the gateway, uses env provider keys only with
+  `ALLOW_ENV_PROVIDER_KEYS=true`, and Vertex needs a region from
+  `VERTEX_REGIONS` and a valid project id.
+- `/admin/` is mounted only with `ENABLE_DJANGO_ADMIN=true` (audit T9). Login
+  throttles key on the client address that `NUM_PROXIES` reverse proxies
+  report (default 0, which ignores `X-Forwarded-For`; both compose files set
+  1), and the account throttle on account and client together.
+- GraphiQL is served only with `DEBUG` on. Backend responses carry a
+  Content-Security-Policy and the portal sends frame-ancestors, object-src,
+  base-uri and form-action. A portal session ends after
+  `SESSION_IDLE_TIMEOUT_SECONDS` (default 1800) without a request (audit T14).
+- An agent's `config.hub_identity.api_url` must resolve to public addresses
+  unless its host is listed in `HUB_IDENTITY_ALLOWED_HOSTS` (audit T13).
+- New keys keep 16 random characters in their stored prefix; migration 0067
+  widens the prefix columns to 32, and keys minted before still authenticate
+  (audit T10).
+- GraphQL answers an anonymous caller with `UNAUTHENTICATED` rather than
+  `FORBIDDEN`, and the portal sends it to the login page (audit M1).
