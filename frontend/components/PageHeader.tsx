@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { HelpCircleIcon } from "lucide-react";
-import { routeLabels } from "@/lib/routes";
+import { routeLabels, sectionsWithoutPage } from "@/lib/routes";
 import { NotificationBell } from "@/components/NotificationBell";
 
 const toLabel = (segment: string) =>
@@ -72,6 +72,8 @@ export const PageHeader = () => {
                 <BreadcrumbItem>
                   {crumb.isLast ? (
                     <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                  ) : sectionsWithoutPage.has(crumb.href) ? (
+                    <span>{crumb.label}</span>
                   ) : (
                     <BreadcrumbLink href={crumb.href}>
                       {crumb.label}

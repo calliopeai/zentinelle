@@ -1,6 +1,5 @@
 {
   "graphql/prompts/mutations.ts#RateSystemPrompt": "D1, L3: dead operation, delete it",
   "graphql/prompts/mutations.ts#TestSystemPrompt": "D1, L3: dead operation, delete it",
-  "graphql/prompts/mutations.ts#TogglePromptFavorite": "D1, L3: dead operation, delete it",
-  "graphql/prompts/mutations.ts#UpdateSystemPrompt": "D1, L3: dead operation, delete it"
+  "graphql/prompts/mutations.ts#TogglePromptFavorite": "D1, L3: dead operation, delete it"
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useMemo, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useMutation } from "@apollo/client/react";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -44,8 +45,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
-import { CREATE_SYSTEM_PROMPT } from "@/graphql/prompts/mutations";
-import type { CreateSystemPromptPayload } from "@/graphql/prompts/types";
+import { useSystemPrompt } from "@/graphql/prompts/hooks";
+import {
+  CREATE_SYSTEM_PROMPT,
+  UPDATE_SYSTEM_PROMPT,
+} from "@/graphql/prompts/mutations";
+import {
+  GET_SYSTEM_PROMPT,
+  GET_SYSTEM_PROMPTS,
+} from "@/graphql/prompts/queries";
+import type {
+  CreateSystemPromptPayload,
+  SystemPromptData,
+  UpdateSystemPromptData,
+  UpdateSystemPromptVariables,
+} from "@/graphql/prompts/types";
 
 // ---------------------------------------------------------------------------
 // Template catalogue — covers the seven canonical prompt types
@@ -288,16 +302,83 @@ function estimateTokens(text: string): number {
 // ---------------------------------------------------------------------------
 
 export default function PromptBuilderPage() {
+  return (
+    <Suspense fallback={<BuilderSkeleton />}>
+      <PromptBuilderRoute />
+    </Suspense>
+  );
+}
+
+// With ?id= (how the prompt list opens Edit and Fork) the builder edits that
+// prompt in place; without it, it starts a new one.
+function PromptBuilderRoute() {
+  const id = useSearchParams().get("id");
+  return id ? <EditPrompt id={id} /> : <PromptBuilder prompt={null} />;
+}
+
+function EditPrompt({ id }: { id: string }) {
+  const { prompt, loading, error } = useSystemPrompt({ id });
+
+  if (loading) return <BuilderSkeleton />;
+  if (error || !prompt) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 p-12">
+        <p className="text-muted-foreground">
+          {error ? "This prompt could not be loaded" : "Prompt not found"}
+        </p>
+        <Button variant="outline" asChild>
+          <Link href="/system-prompts">
+            <ArrowLeftIcon className="mr-2 h-4 w-4" /> Back to System Prompts
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+  // Keyed, so opening another prompt starts from its text rather than this one's.
+  return <PromptBuilder key={prompt.id} prompt={prompt} />;
+}
+
+function BuilderSkeleton() {
+  return (
+    <div className="flex flex-1 flex-col gap-6 p-6">
+      <div>
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="mt-1 h-4 w-72" />
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_1fr]">
+        <Skeleton className="h-[420px] w-full rounded-xl" />
+        <Skeleton className="h-[420px] w-full rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+function PromptBuilder({ prompt }: { prompt: SystemPromptData | null }) {
   const router = useRouter();
   const [copied, copy] = useCopyToClipboard();
-  const [createPrompt, { loading: saving }] = useMutation<{
+  const [createPrompt, { loading: creating }] = useMutation<{
     createSystemPrompt: CreateSystemPromptPayload;
   }>(CREATE_SYSTEM_PROMPT);
+  const [updatePrompt, { loading: updating }] = useMutation<
+    UpdateSystemPromptData,
+    UpdateSystemPromptVariables
+  >(UPDATE_SYSTEM_PROMPT, {
+    // The list and the detail query read this prompt as a different type
+    // than the mutation returns, so the cache cannot update them itself.
+    refetchQueries: prompt
+      ? [
+          { query: GET_SYSTEM_PROMPTS },
+          { query: GET_SYSTEM_PROMPT, variables: { id: prompt.id } },
+        ]
+      : [],
+    awaitRefetchQueries: true,
+  });
+  const saving = creating || updating;
 
   // State
   const [selectedTemplate, setSelectedTemplate] =
     useState<PromptTemplate | null>(null);
-  const [promptContent, setPromptContent] = useState("");
+  const [promptContent, setPromptContent] = useState(prompt?.promptText ?? "");
   const [variableValues, setVariableValues] = useState<Record<string, string>>(
     {},
   );
@@ -338,10 +419,10 @@ export default function PromptBuilderPage() {
 
   const handleClearTemplate = useCallback(() => {
     setSelectedTemplate(null);
-    setPromptContent("");
+    setPromptContent(prompt?.promptText ?? "");
     setVariableValues({});
     setShowPreview(false);
-  }, []);
+  }, [prompt]);
 
   const handleVariableChange = useCallback((name: string, value: string) => {
     setVariableValues((prev) => ({ ...prev, [name]: value }));
@@ -349,9 +430,9 @@ export default function PromptBuilderPage() {
 
   const handleOpenSaveDialog = useCallback(() => {
     setSaveError(null);
-    setSaveName(selectedTemplate?.name ?? "");
+    setSaveName(prompt?.name ?? selectedTemplate?.name ?? "");
     setSaveOpen(true);
-  }, [selectedTemplate]);
+  }, [prompt, selectedTemplate]);
 
   const handleConfirmSave = useCallback(async () => {
     const trimmed = saveName.trim();
@@ -367,24 +448,45 @@ export default function PromptBuilderPage() {
     setSaveError(null);
 
     try {
-      const { data } = await createPrompt({
-        variables: {
-          input: {
-            name: trimmed,
-            promptText: previewContent,
-            promptType: selectedTemplate?.type ?? "system",
-            visibility: "organization",
+      let saved: boolean;
+      let errors: string[] | undefined;
+      if (prompt) {
+        const { data } = await updatePrompt({
+          variables: {
+            id: prompt.id,
+            input: {
+              name: trimmed,
+              promptText: previewContent,
+              // The type changes only when a template was picked.
+              ...(selectedTemplate
+                ? { promptType: selectedTemplate.type }
+                : {}),
+            },
           },
-        },
-      });
+        });
+        saved = data?.updateSystemPrompt?.success === true;
+        errors = data?.updateSystemPrompt?.errors;
+      } else {
+        const { data } = await createPrompt({
+          variables: {
+            input: {
+              name: trimmed,
+              promptText: previewContent,
+              promptType: selectedTemplate?.type ?? "system",
+              visibility: "organization",
+            },
+          },
+        });
+        saved = !!data?.createSystemPrompt?.prompt;
+        errors = data?.createSystemPrompt?.errors;
+      }
 
-      if (data?.createSystemPrompt?.prompt) {
-        toast.success(`Prompt "${trimmed}" saved`);
+      if (saved) {
+        toast.success(`Prompt "${trimmed}" ${prompt ? "updated" : "saved"}`);
         setSaveOpen(false);
         router.push("/system-prompts");
       } else {
-        const err =
-          data?.createSystemPrompt?.errors?.[0] ?? "Failed to save prompt";
+        const err = errors?.[0] ?? "Failed to save prompt";
         setSaveError(err);
         toast.error(err);
       }
@@ -393,7 +495,17 @@ export default function PromptBuilderPage() {
       setSaveError(err);
       toast.error(err);
     }
-  }, [createPrompt, previewContent, router, saveName, selectedTemplate]);
+  }, [
+    createPrompt,
+    previewContent,
+    prompt,
+    router,
+    saveName,
+    selectedTemplate,
+    updatePrompt,
+  ]);
+
+  const promptType = selectedTemplate?.type ?? prompt?.promptType ?? "system";
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -405,9 +517,20 @@ export default function PromptBuilderPage() {
           </Link>
         </Button>
         <div className="flex-1">
-          <h1 className="text-xl font-semibold">Prompt Builder</h1>
+          <h1 className="text-xl font-semibold">
+            {prompt ? "Edit Prompt" : "Prompt Builder"}
+          </h1>
           <p className="text-muted-foreground mt-0.5 text-sm">
-            Visual template editor with live preview and variable substitution
+            {prompt ? (
+              <>
+                Editing{" "}
+                <span className="text-foreground font-medium">
+                  {prompt.name ?? "Untitled"}
+                </span>
+              </>
+            ) : (
+              "Visual template editor with live preview and variable substitution"
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -434,7 +557,7 @@ export default function PromptBuilderPage() {
             ) : (
               <SaveIcon className="mr-1.5 h-4 w-4" />
             )}
-            Save as System Prompt
+            {prompt ? "Save Changes" : "Save as System Prompt"}
           </Button>
         </div>
       </div>
@@ -694,12 +817,15 @@ export default function PromptBuilderPage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Save as System Prompt</DialogTitle>
+            <DialogTitle>
+              {prompt ? "Save Changes" : "Save as System Prompt"}
+            </DialogTitle>
             <DialogDescription>
-              Give this prompt a name. It will be saved to your organization
-              library with type{" "}
+              {prompt
+                ? "Your changes are saved to this prompt, with type "
+                : "Give this prompt a name. It will be saved to your organization library with type "}
               <code className="bg-muted rounded px-1 py-0.5 text-xs">
-                {selectedTemplate?.type ?? "system"}
+                {promptType}
               </code>
               .
             </DialogDescription>

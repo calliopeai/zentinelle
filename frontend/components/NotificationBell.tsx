@@ -77,9 +77,10 @@ export function relatedUrlFor(
   const direct = md.relatedUrl;
   if (typeof direct === "string" && direct.length > 0) return direct;
 
+  // Incidents have no page of their own: the list opens the one it is given.
   const incidentId = md.incidentId ?? md.incident_id;
   if (typeof incidentId === "string" && incidentId)
-    return `/incidents/${incidentId}`;
+    return `/incidents?incident=${encodeURIComponent(incidentId)}`;
 
   const policyId = md.policyId ?? md.policy_id;
   if (typeof policyId === "string" && policyId) return `/policies/${policyId}`;
@@ -92,7 +93,7 @@ export function relatedUrlFor(
     case "incident_opened":
       return "/incidents";
     case "budget_warning":
-      return "/budget";
+      return "/budgets/showback";
     case "policy_violation":
       return "/events";
     case "high_risk":
