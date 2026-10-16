@@ -34,7 +34,9 @@ load_config()
 # Core
 # =============================================================================
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
+# An empty value (as .env.example ships) is the placeholder too, so the
+# startup guard names it instead of Django failing on first use.
+SECRET_KEY = os.environ.get("SECRET_KEY") or "change-me-in-production"
 
 DEBUG = False
 

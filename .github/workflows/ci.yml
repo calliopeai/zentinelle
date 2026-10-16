@@ -171,6 +171,11 @@ jobs:
           # volume; one contract case reads it from there (#380).
           ZENTINELLE_GATEWAY_CREDENTIAL_FILE: /tmp/zentinelle-contract-gateway/gateway-credential
         run: |
+          # The backend refuses to start on empty or placeholder secrets, and
+          # the seed encrypts provider keys, so each run gets its own.
+          export SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(48))')
+          export ZENTINELLE_BOOTSTRAP_SECRET=$(python -c 'import secrets; print(secrets.token_hex(32))')
+          export ZENTINELLE_SECRET_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')
           mkdir -p -m 700 /tmp/zentinelle-contract-gateway
           python backend/manage.py prepare_schemas
           python backend/manage.py migrate --database default --no-input

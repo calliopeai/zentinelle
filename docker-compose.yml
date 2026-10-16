@@ -23,7 +23,8 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-zentinelle}
       - REDIS_URL=redis://redis:6379/0
       - TEMPORAL_ADDRESS=temporal:7233
-      - ZENTINELLE_BOOTSTRAP_SECRET=${ZENTINELLE_BOOTSTRAP_SECRET:-dev-bootstrap-secret}
+      # No default: the backend refuses to start without a strong one (.env).
+      - ZENTINELLE_BOOTSTRAP_SECRET=${ZENTINELLE_BOOTSTRAP_SECRET:-}
     env_file:
       - .env
     depends_on:
