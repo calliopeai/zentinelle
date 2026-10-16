@@ -8,8 +8,10 @@ agents. The page's own list query also asked for a field the schema does not
 have (`createdBy`), so the key could be neither seen nor revoked there.
 """
 import re
+from importlib import import_module
 from pathlib import Path
 
+from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase, override_settings
 from graphql import build_schema, parse, validate
@@ -127,3 +129,60 @@ class ResolverScopeFallbackTests(TestCase):
         auth = StandaloneTenantResolver()._validate_platform_key(full_key)
         self.assertTrue(auth.valid)
         self.assertEqual(auth.scopes, [])
+
+
+class ExistingKeysNarrowedTests(TestCase):
+    """Keys minted before the fix get the scopes their description recorded."""
+
+    def narrow(self):
+        import_module('zentinelle.migrations.0066_narrow_portal_api_key_scopes').narrow_scopes(apps, None)
+
+    def minted_before_the_fix(self, picked):
+        key = _key(PORTAL_TENANT, 'old', ['read', 'write'])
+        key.description = str(picked)
+        key.save()
+        return key
+
+    def test_the_picked_scopes_replace_the_read_write_default(self):
+        cases = {
+            "['agents:read']": ['read'],
+            "['agents:read', 'audit:read']": ['read'],
+            "['policies:write', 'events:write']": ['write'],
+            "['*']": ['admin'],
+            "['unheard:of']": [],
+        }
+        keys = {picked: self.minted_before_the_fix(picked) for picked in cases}
+        self.narrow()
+        for picked, scopes in cases.items():
+            with self.subTest(picked):
+                key = APIKey.objects.get(pk=keys[picked].pk)
+                self.assertEqual(key.scopes, scopes)
+                self.assertEqual(key.description, '')
+
+    def test_a_narrowed_read_key_can_no_longer_create_agents(self):
+        full_key, key_hash, key_prefix = APIKey.generate_api_key()
+        APIKey.objects.create(tenant_id=PORTAL_TENANT, name='old', key_prefix=key_prefix, key_hash=key_hash,
+                              scopes=['read', 'write'], description="['agents:read']")
+        self.narrow()
+        api = APIClient()
+        api.credentials(HTTP_AUTHORIZATION=f'Bearer {full_key}')
+        created = api.post('/api/zentinelle/v1/operator/agents',
+                           {'agent_id': 'minted-by-old-readonly-key', 'name': 'x'}, format='json')
+        self.assertEqual(created.status_code, 403, created.content)
+
+    def test_other_keys_are_left_alone(self):
+        prose = _key(PORTAL_TENANT, 'prose', ['read', 'write'])
+        prose.description = 'CI deploy key'
+        prose.save()
+        chosen = _key(PORTAL_TENANT, 'chosen', ['read'])
+        chosen.description = "['agents:write']"
+        chosen.save()
+        service = _key(PORTAL_TENANT, 'service', ['read', 'write'])
+        service.key_type = APIKey.KeyType.SERVICE
+        service.description = "['agents:read']"
+        service.save()
+        self.narrow()
+        for key in (prose, chosen, service):
+            with self.subTest(key.name):
+                after = APIKey.objects.get(pk=key.pk)
+                self.assertEqual((after.scopes, after.description), (key.scopes, key.description))
