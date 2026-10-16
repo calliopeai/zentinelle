@@ -287,6 +287,12 @@ jobs:
         working-directory: frontend
         run: npm test
 
+      # The catalog compiles as published. Rendering and the a11y checks of
+      # every story already ran in the Tests step (ui/test/stories.test.tsx).
+      - name: Storybook
+        working-directory: frontend
+        run: npm run build-storybook
+
       # The build, not just tsc. Local `tsc` has passed while the Next build
       # failed more than once — they do not check the same things.
       - name: Build
