@@ -405,6 +405,8 @@ POLICY_CONFIG_SCHEMAS = {
         'allowed_tools': list,
         'denied_tools': list,
         'requires_approval': list,
+        # Per tool name: allowed/blocked_commands, allowed/blocked_paths (#384)
+        'tool_configs': dict,
     },
     'network_policy': {
         'allowed_outbound_domains': list,

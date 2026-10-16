@@ -415,6 +415,7 @@ def activate_pack(
     tenant_id: str,
     pack_name: str,
     enforcement: str = "enforce",
+    actions: Optional[dict] = None,
 ) -> dict:
     """
     Activate a compliance pack for a tenant.
@@ -428,6 +429,11 @@ def activate_pack(
         enforcement: Override enforcement level for all policies in the pack.
                      Defaults to 'enforce'. Set to 'audit' for a non-blocking
                      trial activation.
+        actions:     Action fields (action, block_level, steer_message,
+                     escalation) to set on every policy in the pack, over
+                     any a pack policy names. Fields neither sets keep a
+                     policy's current values, or the defaults when the
+                     pack creates it (#409).
 
     Returns:
         {
@@ -449,10 +455,20 @@ def activate_pack(
             f"Available packs: {', '.join(COMPLIANCE_PACKS.keys())}"
         )
 
+    from zentinelle.services.actions import ACTION_FIELDS, action_fields
+
+    # Check every policy's action fields before writing any, so a bad
+    # override never leaves a pack half activated.
+    planned = []
+    for policy_def in pack["policies"]:
+        requested = {name: policy_def[name] for name in ACTION_FIELDS if name in policy_def}
+        requested.update(actions or {})
+        planned.append((policy_def, action_fields(requested)))
+
     policies_created = 0
     policies_updated = 0
 
-    for policy_def in pack["policies"]:
+    for policy_def, policy_actions in planned:
         _obj, created = Policy.objects.update_or_create(
             tenant_id=tenant_id,
             name=policy_def["name"],
@@ -466,6 +482,7 @@ def activate_pack(
                     f"Activated via {pack['display_name']} compliance pack "
                     f"v{pack['version']}."
                 ),
+                **policy_actions,
             },
         )
         if created:

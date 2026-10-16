@@ -16,6 +16,32 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
+# What a matched policy does (#396, #409); the lists match
+# zentinelle.models.actions, which a test checks.
+ACTION_PROPERTIES = {
+    "action": {
+        "type": "string",
+        "enum": ["log", "alert", "warn", "steer", "redact", "require_approval", "block"],
+        "description": "What a match does. Escalation only raises it; the enforcement mode caps it.",
+    },
+    "block_level": {
+        "type": "string",
+        "enum": ["tool_call", "turn", "revoke_key", "stop", "quarantine"],
+        "description": "How far a block reaches.",
+    },
+    "steer_message": {
+        "type": "string",
+        "description": "The correcting message a steer injects; placeholders {rule}, {reason}, {action}, {tool}, {agent}.",
+    },
+    "escalation": {
+        "type": "object",
+        "description": (
+            "Optional: {\"window_seconds\": 3600, \"repeat\": [{\"count\": 3, \"action\": \"block\"}], "
+            "\"severity\": [{\"min_severity\": \"high\", \"action\": \"block\"}]}"
+        ),
+    },
+}
+
 
 # ─── Tool schemas (Anthropic format; OpenAI maps 1:1) ──────────────────
 
@@ -60,7 +86,7 @@ TOOL_SCHEMAS = [
         "name": "list_policies",
         "description": (
             "List policies. Returns name, policy_type, scope_type, "
-            "enforcement, enabled, priority, config."
+            "enforcement, action, block_level, enabled, priority."
         ),
         "input_schema": {
             "type": "object",
@@ -192,6 +218,7 @@ TOOL_SCHEMAS = [
                 "priority": {"type": "integer"},
                 "config": {"type": "object", "description": "Partial config; merged with existing"},
                 "replace_config": {"type": "boolean", "default": False},
+                **ACTION_PROPERTIES,
             },
             "required": ["policy_id"],
         },
@@ -274,6 +301,7 @@ TOOL_SCHEMAS = [
                     ),
                 },
                 "priority": {"type": "integer", "default": 0},
+                **ACTION_PROPERTIES,
             },
             "required": ["name", "policy_type", "config"],
         },
@@ -405,7 +433,7 @@ def _list_policies(tenant_id: str, policy_type: Optional[str] = None,
         qs = qs.filter(name__icontains=name_contains)
     policies = list(qs.values(
         "id", "name", "policy_type", "scope_type", "enforcement",
-        "enabled", "priority"
+        "action", "block_level", "enabled", "priority"
     ).order_by("-priority")[:50])
     for p in policies:
         p["id"] = str(p["id"])
@@ -423,8 +451,11 @@ def _get_policy_details(tenant_id: str, policy_id: str) -> dict:
         "description": obj.description,
         "policy_type": obj.policy_type,
         "scope_type": obj.scope_type,
-        "scope_id": obj.scope_id,
         "enforcement": obj.enforcement,
+        "action": obj.action,
+        "block_level": obj.block_level,
+        "steer_message": obj.steer_message,
+        "escalation": obj.escalation,
         "enabled": obj.enabled,
         "priority": obj.priority,
         "config": obj.config,
@@ -608,8 +639,16 @@ def _navigate_to(path: str, label: str) -> dict:
 
 def _create_policy(tenant_id: str, name: str, policy_type: str, config: dict,
                    description: str = "", scope_type: str = "organization",
-                   enforcement: str = "enforce", priority: int = 0) -> dict:
+                   enforcement: str = "enforce", priority: int = 0, **action) -> dict:
     from zentinelle.models import Policy
+    from zentinelle.services.actions import action_fields
+    unknown = set(action) - set(ACTION_PROPERTIES)
+    if unknown:
+        raise TypeError(f"unexpected arguments: {', '.join(sorted(unknown))}")
+    try:
+        fields = action_fields(action)
+    except ValueError as exc:
+        return {"error": str(exc)}
     obj = Policy.objects.create(
         tenant_id=tenant_id,
         name=name,
@@ -620,6 +659,7 @@ def _create_policy(tenant_id: str, name: str, policy_type: str, config: dict,
         config=config,
         enabled=True,
         priority=priority,
+        **fields,
     )
     return {
         "success": True,
@@ -692,12 +732,23 @@ def _update_policy(tenant_id: str, policy_id: str,
                    enabled: Optional[bool] = None,
                    priority: Optional[int] = None,
                    config: Optional[dict] = None,
-                   replace_config: bool = False) -> dict:
+                   replace_config: bool = False, **action) -> dict:
     from zentinelle.models import Policy
+    from zentinelle.services.actions import action_fields
+    unknown = set(action) - set(ACTION_PROPERTIES)
+    if unknown:
+        raise TypeError(f"unexpected arguments: {', '.join(sorted(unknown))}")
     obj = Policy.objects.filter(tenant_id=tenant_id, id=policy_id).first()
     if not obj:
         return {"error": f"Policy {policy_id} not found"}
+    try:
+        changed = action_fields({key: value for key, value in action.items() if value is not None}, obj)
+    except ValueError as exc:
+        return {"error": str(exc)}
     fields = ["updated_at"]
+    for key, value in changed.items():
+        setattr(obj, key, value)
+        fields.append(key)
     if name is not None:
         obj.name = name
         fields.append("name")

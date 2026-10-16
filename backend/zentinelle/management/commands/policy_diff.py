@@ -40,13 +40,13 @@ class Command(BaseCommand):
             raise CommandError(f"Directory not found: {directory}")
 
         # Parse all file-based policies
-        file_policies = {}  # name → (spec_type, spec_config, scope, enforcement, priority)
+        file_policies = {}  # name → type, config, scope, enforcement, priority, actions
         for path, doc_or_exc in _parse_policy_files(directory):
             if isinstance(doc_or_exc, Exception):
                 self.stderr.write(self.style.WARNING(f"SKIP {path}: {doc_or_exc}"))
                 continue
             try:
-                name, spec_type, spec_config, scope, enforcement, priority = _validate_doc(
+                name, spec_type, spec_config, scope, enforcement, priority, actions = _validate_doc(
                     doc_or_exc, path
                 )
                 file_policies[name] = {
@@ -55,6 +55,7 @@ class Command(BaseCommand):
                     'scope': scope,
                     'enforcement': enforcement,
                     'priority': priority,
+                    'actions': actions,
                 }
             except ValueError as exc:
                 self.stderr.write(self.style.WARNING(f"SKIP {path}: {exc}"))
@@ -85,6 +86,7 @@ class Command(BaseCommand):
                     or db.enforcement != file_data['enforcement']
                     or db.policy_type != file_data['type']
                     or db.scope_type != file_data['scope']
+                    or any(getattr(db, key) != value for key, value in file_data['actions'].items())
                 ):
                     changed_policies.append(name)
                 else:
@@ -100,7 +102,7 @@ class Command(BaseCommand):
         ]
 
         self._print_section('NEW (in files, not in DB)', new_policies, self.style.SUCCESS)
-        self._print_section('CHANGED (different config/enforcement)', changed_policies, self.style.WARNING)
+        self._print_section('CHANGED (different config/enforcement/action)', changed_policies, self.style.WARNING)
         self._print_section('REMOVED (in DB with _source=code, not in files)', removed_policies, self.style.ERROR)
         self._print_section('UNCHANGED', unchanged_policies, lambda s: s)
 

@@ -180,6 +180,28 @@ def validate_rule_action(action: Any, block_level: Any, steer_message: Any, esca
     return normalized
 
 
+ACTION_FIELDS = ('action', 'block_level', 'steer_message', 'escalation')
+ACTION_DEFAULTS = {'action': Action.BLOCK.value, 'block_level': BlockLevel.TOOL_CALL.value,
+                   'steer_message': '', 'escalation': {}}
+
+
+def action_fields(source: Dict[str, Any], current: Any = None) -> Dict[str, Any]:
+    """The action fields `source` sets, checked with the ones it leaves alone (#409).
+
+    Fields `source` omits keep `current`'s values (a policy, when updating
+    one), else the model defaults, so a partial update is validated against
+    what the rule will hold. Returns only the fields `source` sets, with the
+    escalation in canonical form; ValueError says what is wrong.
+    """
+    given = {name: source[name] for name in ACTION_FIELDS if name in source}
+    merged = {name: given[name] if name in given else getattr(current, name, ACTION_DEFAULTS[name])
+              for name in ACTION_FIELDS}
+    escalation = validate_rule_action(**merged)
+    if 'escalation' in given:
+        given['escalation'] = escalation
+    return given
+
+
 def normalize_capabilities(raw: Any) -> Optional[Dict[str, bool]]:
     """Declared target capabilities: booleans only; names we do not know are ignored."""
     if raw is None:
