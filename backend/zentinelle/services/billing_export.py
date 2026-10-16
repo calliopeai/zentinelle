@@ -107,17 +107,28 @@ def collect_pending(limit: int = DEFAULT_BATCH_SIZE):
     immediately: rows are only marked exported once the receiver has accepted
     them, so a failed POST leaves them to be retried rather than silently
     dropping a customer's usage.
+
+    `limit` is a soft cap. A call's metrics share one `occurred_at`, so a cut
+    at `limit` can only split calls at the last timestamp in the batch. Every
+    pending metric at that timestamp is pulled in as well; otherwise the rest
+    of the call would go out in the next batch under the same `event_id`, and
+    a receiver that dedupes on it would drop those tokens.
     """
     from zentinelle.models.usage import UsageMetric
 
-    metrics = list(
-        UsageMetric.objects
-        .filter(
-            metric_type__in=_TOKEN_METRICS.keys(),
-            billing_exported_at__isnull=True,
-        )
-        .order_by('occurred_at')[:limit]
+    pending = UsageMetric.objects.filter(
+        metric_type__in=_TOKEN_METRICS.keys(),
+        billing_exported_at__isnull=True,
     )
+    metrics = list(pending.order_by('occurred_at', 'id')[:limit])
+    if metrics and len(metrics) == limit:
+        boundary = metrics[-1].occurred_at
+        taken = {metric.id for metric in metrics}
+        metrics.extend(
+            metric for metric in pending.filter(occurred_at=boundary)
+            .order_by('id')
+            if metric.id not in taken
+        )
 
     grouped = {}
     metric_ids = []
