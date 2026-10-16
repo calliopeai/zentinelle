@@ -88,13 +88,14 @@ class AstroliftModelSpendDeliveryTests(TestCase):
             signing_secret=self.secret,
         )
 
-    def post(self, payload, event_id='evt-spend-1'):
+    def post(self, payload, event_id='evt-spend-1', occurred_at_unix=None):
         body = json.dumps({
             'payload_version': 1,
             'event_type': 'AUDIT.agent.model_spend',
             'event_id': event_id,
             'org_id': 4343,
-            'occurred_at_unix': int(time.time()),
+            'occurred_at_unix': (int(time.time()) if occurred_at_unix is None
+                                 else occurred_at_unix),
             'payload': payload,
             'idempotency_key': f'zentinelle-4343-{event_id}',
         }).encode()
@@ -147,6 +148,11 @@ class AstroliftModelSpendDeliveryTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()['error'], 'bad_payload')
+        # A spend time the meter cannot store fails the same way on every
+        # retry, so it is refused up front too.
+        for bad_time in ('yesterday', 10 ** 20):
+            response = self.post(self.spend(), occurred_at_unix=bad_time)
+            self.assertEqual(response.status_code, 400, bad_time)
         self.assertFalse(AstroliftAuditDelivery.objects.exists())
         self.assertEqual(AuditLog.objects.filter(tenant_id='tenant-spend').count(), 0)
 

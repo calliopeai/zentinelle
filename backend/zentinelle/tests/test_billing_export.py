@@ -284,6 +284,42 @@ class BillingExportTest(TestCase):
             metric_type__in=["ai_input_tokens", "ai_output_tokens"],
         ).exists())
 
+    @override_settings(**ENABLED)
+    def test_a_shared_timestamp_does_not_grow_a_batch_without_bound(self):
+        """Completing a call must not pull in every call at its timestamp.
+
+        `occurred_at` is client-supplied, so many calls can share one. A batch
+        that took them all would grow past anything a receiver accepts, and
+        the export would retry that same oversized batch forever.
+        """
+        at = timezone.now()
+        for n in range(5):
+            for tenant in (TENANT_A, TENANT_B):
+                _metric(tenant, "ai_input_tokens", 100 + n,
+                        request_id=f"req-{n}", occurred_at=at)
+                _metric(tenant, "ai_output_tokens", 10 + n,
+                        request_id=f"req-{n}", occurred_at=at)
+
+        seen = {}
+        with patch("zentinelle.services.billing_export.httpx.post",
+                   return_value=_Response(202)) as post:
+            for _ in range(10):
+                billing_export.export_pending(limit=3)
+            for call in post.call_args_list:
+                batch = call.kwargs["json"]["events"]
+                self.assertLessEqual(len(batch), 3)
+                for row in batch:
+                    self.assertNotIn(row["event_id"], seen)
+                    seen[row["event_id"]] = (row["organization"],
+                                             row["input_tokens"],
+                                             row["output_tokens"])
+
+        self.assertEqual(sorted(seen.values()), sorted(
+            (tenant, 100 + n, 10 + n)
+            for n in range(5) for tenant in (TENANT_A, TENANT_B)))
+        self.assertFalse(UsageMetric.objects.filter(
+            billing_exported_at__isnull=True).exists())
+
     # ---- shape -------------------------------------------------------
 
     @override_settings(**ENABLED)

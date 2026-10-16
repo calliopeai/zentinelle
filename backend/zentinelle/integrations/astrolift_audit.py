@@ -257,7 +257,8 @@ def astrolift_audit_webhook(request):
         # surfacing as a 500 the sender redelivers forever.
         try:
             _model_spend_fields(envelope["payload"])
-        except ValueError:
+            datetime.fromtimestamp(envelope["occurred_at_unix"], tz=dt_timezone.utc)
+        except (ValueError, TypeError, OverflowError, OSError):
             return _error("bad_payload", "invalid agent model spend payload", 400)
 
     # The delivery marker and the evidence row live on different database
