@@ -533,6 +533,106 @@ class EventsViewTest(ZentinelleAPITestMixin, TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertFalse(Event.objects.filter(event_type='llm:usage').exists())
 
+    def _gateway(self, tenant_ids=None):
+        """A registered gateway's credential, by default for this agent's tenant."""
+        from zentinelle.models import GatewayCredential, GatewayRegistration
+        registration = GatewayRegistration.objects.create(
+            name=f'gw-{GatewayRegistration.objects.count()}', tenant_ids=tenant_ids or [STANDALONE_TENANT])
+        plaintext, credential = GatewayCredential.mint(registration)
+        return plaintext, credential
+
+    def _post_usage(self, credential=None, **fields):
+        headers = {'HTTP_X_ZENTINELLE_GATEWAY_CREDENTIAL': credential} if credential else {}
+        return self.client.post(reverse('zentinelle:events'), data=self._gateway_usage_report(**fields),
+                                format='json', **headers)
+
+    def _recorded_source(self):
+        [event] = Event.objects.filter(endpoint=self.endpoint, event_type='llm:usage')
+        return event.payload['source']
+
+    def test_usage_the_agent_key_alone_posts_is_the_agents_whatever_its_source_says(self):
+        """#412: a pod holding its own key cannot pass its usage off as the gateway's."""
+        from zentinelle.models.usage import UsageMetric
+        from zentinelle.services.usage_ingest import record_usage_event
+        self.authenticate()
+
+        response = self._post_usage()
+
+        self.assertEqual(response.status_code, 202, response.content)
+        self.assertEqual(self._recorded_source(), 'agent')
+        record_usage_event(Event.objects.get(endpoint=self.endpoint, event_type='llm:usage'))
+        sources = {m.metadata.get('source') for m in UsageMetric.objects.filter(ai_request_id='gw-req-1')}
+        self.assertEqual(sources, {'agent'})
+
+    def test_usage_posted_with_the_gateways_credential_is_the_gateways(self):
+        self.authenticate()
+        credential, _ = self._gateway()
+
+        response = self._post_usage(credential)
+
+        self.assertEqual(response.status_code, 202, response.content)
+        self.assertEqual(self._recorded_source(), 'gateway')
+
+    def test_a_source_the_producer_sends_never_survives(self):
+        self.authenticate()
+        credential, _ = self._gateway()
+        body = self._gateway_usage_report()
+        body['events'][0]['payload']['source'] = 'provider-api'
+
+        self.client.post(reverse('zentinelle:events'), data=body, format='json',
+                         HTTP_X_ZENTINELLE_GATEWAY_CREDENTIAL=credential)
+
+        self.assertEqual(self._recorded_source(), 'gateway')
+
+    def test_a_gateway_credential_that_does_not_check_out_is_metered_as_the_agents(self):
+        """Out of scope, revoked or made up: the usage is still metered, never as the gateway's."""
+        other_tenant, _ = self._gateway(tenant_ids=['another-tenant'])
+        revoked, record = self._gateway()
+        record.revoke()
+        for name, credential in (('other tenant', other_tenant), ('revoked', revoked),
+                                 ('unknown', 'sk_gateway_' + 'x' * 32)):
+            with self.subTest(name):
+                Event.objects.all().delete()
+                self.authenticate()
+                response = self._post_usage(credential)
+                self.assertEqual(response.status_code, 202, response.content)
+                self.assertEqual(self._recorded_source(), 'agent')
+
+    def test_a_gateway_credential_alone_is_not_an_agent(self):
+        credential, _ = self._gateway()
+
+        response = self._post_usage(credential)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(Event.objects.exists())
+
+    @patch('zentinelle.api.views.events.start_task')
+    def test_a_gateway_retry_stays_a_duplicate(self, _queue):
+        """The #448 producer event id still makes a retried report a duplicate."""
+        self.authenticate()
+        credential, _ = self._gateway()
+        body = self._gateway_usage_report()
+        body['events'][0]['event_id'] = 'gateway-usage-abc'
+
+        def post():
+            return self.client.post(reverse('zentinelle:events'), data=body, format='json',
+                                    HTTP_X_ZENTINELLE_GATEWAY_CREDENTIAL=credential)
+
+        first, retry = post(), post()
+
+        self.assertEqual((first.status_code, first.json()['accepted']), (202, 1))
+        self.assertEqual((retry.status_code, retry.json()['duplicates']), (202, 1))
+        self.assertEqual(self._recorded_source(), 'gateway')
+
+    def test_the_source_of_other_events_is_left_alone(self):
+        self.authenticate()
+
+        self.client.post(reverse('zentinelle:events'), data={'events': [{
+            'type': 'spawn', 'category': 'telemetry', 'payload': {'source': 'lab'},
+            'timestamp': timezone.now().isoformat()}]}, format='json')
+
+        self.assertEqual(Event.objects.get(endpoint=self.endpoint).payload['source'], 'lab')
+
 
 class APIKeyAuthenticationTest(ZentinelleAPITestMixin, TestCase):
     """Tests for API key authentication."""

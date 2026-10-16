@@ -279,7 +279,11 @@ func drainUsageReports(ctx context.Context) bool {
 // ReportUsage asynchronously sends usage data to Zentinelle.
 // It never blocks the caller. Failures that a retry can fix (no response, a
 // 5xx, a 429) are retried; everything else is logged and dropped.
-func ReportUsage(cfg *Config, agentKey string, provider string, model string, usage UsageData, latencyMs int64, requestID string, upstreamStatus int, outcome string) {
+//
+// The agent key names the agent the usage is for. The gateway credential,
+// when this gateway has one, is what makes Zentinelle record the report as
+// the gateway's (#412): the agent's key alone can post usage too.
+func ReportUsage(cfg *Config, agentKey string, credential string, provider string, model string, usage UsageData, latencyMs int64, requestID string, upstreamStatus int, outcome string) {
 	event := UsageEvent{
 		AgentID: "", // Zentinelle resolves from the key
 		Events: []EventRow{
@@ -301,7 +305,9 @@ func ReportUsage(cfg *Config, agentKey string, provider string, model string, us
 					"upstream_status":             upstreamStatus,
 					"latency_ms":                  latencyMs,
 					"request_id":                  requestID,
-					"source":                      "gateway",
+					// Zentinelle sets source itself from the credential; this
+					// is for backends from before it did.
+					"source": "gateway",
 				},
 			},
 		},
@@ -323,7 +329,7 @@ func ReportUsage(cfg *Config, agentKey string, provider string, model string, us
 	go func() {
 		defer pendingUsageReports.Add(-1)
 		for attempt := 0; ; attempt++ {
-			retry := sendUsageReport(cfg, agentKey, body, requestID)
+			retry := sendUsageReport(cfg, agentKey, credential, body, requestID)
 			if !retry {
 				return
 			}
@@ -341,7 +347,7 @@ func ReportUsage(cfg *Config, agentKey string, provider string, model string, us
 
 // sendUsageReport makes one delivery attempt and reports whether it is worth
 // another.
-func sendUsageReport(cfg *Config, agentKey string, body []byte, requestID string) bool {
+func sendUsageReport(cfg *Config, agentKey string, credential string, body []byte, requestID string) bool {
 	url := cfg.ZentinelleURL + "/api/zentinelle/v1/events"
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
@@ -354,6 +360,9 @@ func sendUsageReport(cfg *Config, agentKey string, body []byte, requestID string
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Zentinelle-Key", agentKey)
+	if credential != "" {
+		req.Header.Set("X-Zentinelle-Gateway-Credential", credential)
+	}
 	cfg.ApplyIdentityHeaders(req)
 
 	resp, err := usageClient.Do(req)

@@ -31,6 +31,8 @@ type lookupStub struct {
 	// credential is the gateway credential the stub accepts,
 	// testGatewayCredential unless a test rotates it.
 	credential string
+	// usage receives the headers of each usage report.
+	usage chan http.Header
 }
 
 func (s *lookupStub) callCount() int {
@@ -45,7 +47,7 @@ func (s *lookupStub) callCount() int {
 // the backend, it refuses a lookup without the gateway credential.
 func controlPlaneStub(t *testing.T, stored map[string]map[string]string) (*httptest.Server, *lookupStub) {
 	t.Helper()
-	stub := &lookupStub{credential: testGatewayCredential}
+	stub := &lookupStub{credential: testGatewayCredential, usage: make(chan http.Header, 16)}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -78,6 +80,9 @@ func controlPlaneStub(t *testing.T, stored map[string]map[string]string) (*httpt
 				return
 			}
 			json.NewEncoder(w).Encode(map[string]string{"provider": body["provider"], "api_key": key})
+		case strings.HasSuffix(r.URL.Path, "/events"):
+			stub.usage <- r.Header.Clone()
+			w.WriteHeader(http.StatusAccepted)
 		default:
 			w.WriteHeader(http.StatusAccepted)
 		}
@@ -284,6 +289,45 @@ func TestTheLookupCarriesTheAgentKeyAndTheGatewayCredential(t *testing.T) {
 	}
 	if stub.headers.Get("X-Zentinelle-Tenant") != "acme-corp" || stub.headers.Get("X-Zentinelle-Cluster") != "prod-us-east-1" {
 		t.Error("the lookup did not carry the gateway's identity headers")
+	}
+}
+
+// The agent's key can post usage too, so the gateway's own reports carry its
+// credential, which is how Zentinelle tells them apart (#412).
+func TestUsageReportsCarryTheGatewayCredential(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		credential string
+	}{
+		{"with a credential", testGatewayCredential},
+		{"without one", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			control, stub := controlPlaneStub(t, map[string]map[string]string{
+				"sk_agent_tenant_a": {"openai": "sk-stored-tenant-a"},
+			})
+			upstream, _ := recordingUpstream(t)
+			pointProviderAt(t, "openai", upstream.URL)
+			cfg := storedKeyConfig(control.URL)
+			cfg.GatewayCredential = tc.credential
+			if tc.credential == "" {
+				cfg.ProviderAPIKeys, cfg.AllowEnvProviderKeys = map[string]string{"openai": "sk-env"}, true
+			}
+
+			proxyRequest(NewGateway(cfg), "/v1/chat/completions", "sk_agent_tenant_a", nil)
+
+			select {
+			case headers := <-stub.usage:
+				if got := headers.Get("X-Zentinelle-Key"); got != "sk_agent_tenant_a" {
+					t.Errorf("usage report agent key = %q, want the request's", got)
+				}
+				if got := headers.Get("X-Zentinelle-Gateway-Credential"); got != tc.credential {
+					t.Errorf("usage report gateway credential = %q, want %q", got, tc.credential)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("no usage report arrived")
+			}
+		})
 	}
 }
 

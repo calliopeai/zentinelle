@@ -319,7 +319,7 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 	// for. The body may be partial; whatever usage it carries is counted.
 	meter := func(decoded []byte, outcome string) UsageData {
 		usage := ExtractUsage(decoded, provider.Name)
-		ReportUsage(g.cfg, agentKey, provider.Name, model, usage,
+		ReportUsage(g.cfg, agentKey, g.credential.current(), provider.Name, model, usage,
 			time.Since(start).Milliseconds(), requestID, upstreamResp.StatusCode, outcome)
 		return usage
 	}

@@ -845,7 +845,7 @@ func TestUsageClientReusesConnections(t *testing.T) {
 	cfg := &Config{ZentinelleURL: srv.URL}
 	usage := UsageData{PromptTokens: 1, CompletionTokens: 1}
 	for i := 0; i < 10; i++ {
-		ReportUsage(cfg, "key", "openai", "gpt-4", usage, 12, "req", http.StatusOK, outcomeCompleted)
+		ReportUsage(cfg, "key", "", "openai", "gpt-4", usage, 12, "req", http.StatusOK, outcomeCompleted)
 		select {
 		case <-idle:
 		case <-time.After(5 * time.Second):
