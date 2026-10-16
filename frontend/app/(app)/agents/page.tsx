@@ -27,10 +27,20 @@ import {
   REGENERATE_ENDPOINT_API_KEY,
   UPDATE_ENDPOINT_STATUS,
 } from "@/graphql/agents/mutations";
-import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableColumnHeader,
+  type FilterConfig,
+} from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChartContainer,
@@ -95,10 +105,18 @@ function ActionsCell({
   onAssignGroup: (agent: EndpointData) => void;
 }) {
   const confirm = useConfirm();
-  const [updateStatus] = useMutation<{ updateEndpointStatus: UpdateEndpointStatusPayload }>(UPDATE_ENDPOINT_STATUS);
-  const [deleteAgent] = useMutation<{ deleteAgentEndpoint: DeleteAgentEndpointPayload }>(DELETE_AGENT_ENDPOINT);
+  const [updateStatus] = useMutation<{
+    updateEndpointStatus: UpdateEndpointStatusPayload;
+  }>(UPDATE_ENDPOINT_STATUS);
+  const [deleteAgent] = useMutation<{
+    deleteAgentEndpoint: DeleteAgentEndpointPayload;
+  }>(DELETE_AGENT_ENDPOINT);
   const [regenerateKey] = useMutation<{
-    regenerateEndpointApiKey: { apiKey: string; success: boolean; error: string };
+    regenerateEndpointApiKey: {
+      apiKey: string;
+      success: boolean;
+      error: string;
+    };
   }>(REGENERATE_ENDPOINT_API_KEY);
 
   const isActive = agent.status === "active";
@@ -120,17 +138,19 @@ function ActionsCell({
       });
       if (data?.updateEndpointStatus?.success) {
         toast.success(
-          isActive ? `"${agent.name}" suspended` : `"${agent.name}" activated`
+          isActive ? `"${agent.name}" suspended` : `"${agent.name}" activated`,
         );
         onRefresh();
       } else {
         toast.error(
           data?.updateEndpointStatus?.error ??
-            (isActive ? "Failed to suspend" : "Failed to activate")
+            (isActive ? "Failed to suspend" : "Failed to activate"),
         );
       }
     } catch {
-      toast.error(isActive ? "Failed to suspend agent" : "Failed to activate agent");
+      toast.error(
+        isActive ? "Failed to suspend agent" : "Failed to activate agent",
+      );
     }
   };
 
@@ -145,7 +165,10 @@ function ActionsCell({
       const { data } = await regenerateKey({
         variables: { id: agent.id },
       });
-      if (data?.regenerateEndpointApiKey?.success && data.regenerateEndpointApiKey.apiKey) {
+      if (
+        data?.regenerateEndpointApiKey?.success &&
+        data.regenerateEndpointApiKey.apiKey
+      ) {
         const newKey = data.regenerateEndpointApiKey.apiKey;
         await navigator.clipboard.writeText(newKey).catch(() => {});
         toast.success("New API key copied to clipboard", {
@@ -154,7 +177,9 @@ function ActionsCell({
         });
         onRefresh();
       } else {
-        toast.error(data?.regenerateEndpointApiKey?.error ?? "Failed to regenerate");
+        toast.error(
+          data?.regenerateEndpointApiKey?.error ?? "Failed to regenerate",
+        );
       }
     } catch {
       toast.error("Failed to regenerate key");
@@ -183,29 +208,31 @@ function ActionsCell({
 
   return (
     <PermissionGuard permission="mutate">
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <MoreHorizontalIcon className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onEdit(agent)}>Edit</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onAssignGroup(agent)}>
-          Assign to Group
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleToggleStatus}>
-          {isActive ? "Suspend" : "Activate"}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleRegenerate}>
-          Regenerate API Key
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={handleDelete}>
-          Delete
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <MoreHorizontalIcon className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => onEdit(agent)}>
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onAssignGroup(agent)}>
+            Assign to Group
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleToggleStatus}>
+            {isActive ? "Suspend" : "Activate"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleRegenerate}>
+            Regenerate API Key
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onClick={handleDelete}>
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </PermissionGuard>
   );
 }
@@ -218,7 +245,7 @@ function HealthSummaryCards({ endpoints }: { endpoints: EndpointData[] }) {
   const healthy = endpoints.filter((e) => e.health === "healthy").length;
   const degraded = endpoints.filter((e) => e.health === "degraded").length;
   const offline = endpoints.filter(
-    (e) => e.status === "inactive" || e.status === "suspended"
+    (e) => e.status === "inactive" || e.status === "suspended",
   ).length;
 
   const pct = (n: number) =>
@@ -349,10 +376,7 @@ function AgentTypeDonut({ endpoints }: { endpoints: EndpointData[] }) {
           paddingAngle={3}
         >
           {typeCounts.map((entry, i) => (
-            <Cell
-              key={entry.type}
-              fill={donutColors[i % donutColors.length]}
-            />
+            <Cell key={entry.type} fill={donutColors[i % donutColors.length]} />
           ))}
         </Pie>
         <ChartLegend content={<ChartLegendContent nameKey="type" />} />
@@ -392,13 +416,11 @@ function HealthStatusGrid({ endpoints }: { endpoints: EndpointData[] }) {
           key={agent.id}
           className={`flex h-8 min-w-[2rem] items-center justify-center rounded-md px-2 text-[10px] font-medium ${healthTileColor(
             agent.health,
-            agent.status
+            agent.status,
           )}`}
           title={`${agent.name} - ${agent.health} (${agent.status})`}
         >
-          <span className="max-w-[80px] truncate">
-            {agent.agentId}
-          </span>
+          <span className="max-w-[80px] truncate">{agent.agentId}</span>
         </div>
       ))}
     </div>
@@ -439,9 +461,16 @@ export default function AgentsPage() {
       ),
       cell: ({ row }) => {
         const TYPE_COLORS: Record<string, string> = {
-          claude_code: "#37efed", codex: "#6366f1", gemini: "#f59e0b",
-          langchain: "#10b981", langgraph: "#14b8a6", crewai: "#ec4899",
-          mcp: "#8b5cf6", chat: "#3b82f6", custom: "#64748b", calliope: "#f97316",
+          claude_code: "#37efed",
+          codex: "#6366f1",
+          gemini: "#f59e0b",
+          langchain: "#10b981",
+          langgraph: "#14b8a6",
+          crewai: "#ec4899",
+          mcp: "#8b5cf6",
+          chat: "#3b82f6",
+          custom: "#64748b",
+          calliope: "#f97316",
         };
         const color = TYPE_COLORS[row.original.agentType] ?? "#64748b";
         return (
@@ -552,10 +581,12 @@ export default function AgentsPage() {
             Manage registered agent endpoints and their status
           </p>
         </div>
-        <PermissionGuard permission="mutate"><Button size="sm" onClick={() => setRegisterOpen(true)}>
-          <PlusIcon className="mr-1.5 h-4 w-4" />
-          Register Agent
-        </Button></PermissionGuard>
+        <PermissionGuard permission="mutate">
+          <Button size="sm" onClick={() => setRegisterOpen(true)}>
+            <PlusIcon className="mr-1.5 h-4 w-4" />
+            Register Agent
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* Health summary cards */}
@@ -566,7 +597,9 @@ export default function AgentsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Agent Type Distribution</CardTitle>
-            <CardDescription>Breakdown of registered agent types</CardDescription>
+            <CardDescription>
+              Breakdown of registered agent types
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <AgentTypeDonut endpoints={endpoints} />
@@ -579,10 +612,14 @@ export default function AgentsPage() {
             <CardDescription>
               <span className="mr-3">Per-agent health at a glance</span>
               <span className="inline-flex items-center gap-2 text-[11px]">
-                <span className="inline-block h-2 w-2 rounded-sm bg-emerald-500/60" /> healthy
-                <span className="inline-block h-2 w-2 rounded-sm bg-amber-500/60" /> degraded
-                <span className="inline-block h-2 w-2 rounded-sm bg-red-500/60" /> unhealthy
-                <span className="inline-block h-2 w-2 rounded-sm bg-zinc-400/40" /> offline
+                <span className="inline-block h-2 w-2 rounded-sm bg-emerald-500/60" />{" "}
+                healthy
+                <span className="inline-block h-2 w-2 rounded-sm bg-amber-500/60" />{" "}
+                degraded
+                <span className="inline-block h-2 w-2 rounded-sm bg-red-500/60" />{" "}
+                unhealthy
+                <span className="inline-block h-2 w-2 rounded-sm bg-zinc-400/40" />{" "}
+                offline
               </span>
             </CardDescription>
           </CardHeader>
@@ -593,13 +630,13 @@ export default function AgentsPage() {
       </div>
 
       <div data-tour="agents-table">
-      <DataTable
-        data={endpoints}
-        columns={columns}
-        getRowId={(row) => row.id}
-        filters={filters}
-        searchPlaceholder="Search agents..."
-      />
+        <DataTable
+          data={endpoints}
+          columns={columns}
+          getRowId={(row) => row.id}
+          filters={filters}
+          searchPlaceholder="Search agents..."
+        />
       </div>
 
       <RegisterAgentDialog

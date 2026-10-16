@@ -1,5 +1,11 @@
-export default function LoginLayout({ children }: { children: React.ReactNode }) {
+export default function LoginLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <div className="bg-background flex min-h-screen items-center justify-center">{children}</div>
+    <div className="bg-background flex min-h-screen items-center justify-center">
+      {children}
+    </div>
   );
 }

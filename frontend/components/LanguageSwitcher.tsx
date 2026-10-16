@@ -6,7 +6,11 @@ import { useTransition } from "react";
 import { GlobeIcon } from "lucide-react";
 import { setLocale } from "@/app/actions/locale";
 import { locales, type Locale } from "@/i18n/config";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import {
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,7 +44,11 @@ export const LanguageSwitcher = ({ variant = "sidebar" }: Props) => {
 
   if (variant === "select") {
     return (
-      <Select value={locale} onValueChange={(v) => handleChange(v as Locale)} disabled={isPending}>
+      <Select
+        value={locale}
+        onValueChange={(v) => handleChange(v as Locale)}
+        disabled={isPending}
+      >
         <SelectTrigger className="w-48">
           <GlobeIcon className="size-4" />
           <SelectValue />

@@ -32,18 +32,39 @@ type Policy = {
 };
 
 const ALL_POLICY_TYPES = [
-  "rate_limit", "tool_permission", "model_restriction", "budget_limit",
-  "network_policy", "output_filter", "agent_capability", "context_limit",
-  "safety_settings", "multimodal_policy", "secret_access", "prompt_injection",
-  "system_prompt", "ai_guardrail", "human_oversight", "data_retention",
-  "session_policy", "audit_policy", "data_access", "agent_delegation",
-  "behavioral_baseline", "session_quota", "resource_quota", "agent_memory",
+  "rate_limit",
+  "tool_permission",
+  "model_restriction",
+  "budget_limit",
+  "network_policy",
+  "output_filter",
+  "agent_capability",
+  "context_limit",
+  "safety_settings",
+  "multimodal_policy",
+  "secret_access",
+  "prompt_injection",
+  "system_prompt",
+  "ai_guardrail",
+  "human_oversight",
+  "data_retention",
+  "session_policy",
+  "audit_policy",
+  "data_access",
+  "agent_delegation",
+  "behavioral_baseline",
+  "session_quota",
+  "resource_quota",
+  "agent_memory",
 ];
 
 function analyzePolicy(policy: Policy): string[] {
   const issues: string[] = [];
   try {
-    const config = typeof policy.config === "string" ? JSON.parse(policy.config) : policy.config;
+    const config =
+      typeof policy.config === "string"
+        ? JSON.parse(policy.config)
+        : policy.config;
     if (!config || Object.keys(config).length === 0) {
       issues.push("Empty configuration — policy has no rules defined");
     }
@@ -59,7 +80,9 @@ function analyzePolicy(policy: Policy): string[] {
   return issues;
 }
 
-function detectConflicts(policies: Policy[]): Array<{ a: string; b: string; reason: string }> {
+function detectConflicts(
+  policies: Policy[],
+): Array<{ a: string; b: string; reason: string }> {
   const conflicts: Array<{ a: string; b: string; reason: string }> = [];
   const byType = new Map<string, Policy[]>();
   policies.forEach((p) => {
@@ -71,7 +94,10 @@ function detectConflicts(policies: Policy[]): Array<{ a: string; b: string; reas
   for (const [type, group] of byType) {
     if (group.length > 1) {
       const sameScopePairs = group.filter((a, i) =>
-        group.some((b, j) => i < j && a.scopeType === b.scopeType && a.priority === b.priority),
+        group.some(
+          (b, j) =>
+            i < j && a.scopeType === b.scopeType && a.priority === b.priority,
+        ),
       );
       if (sameScopePairs.length > 0) {
         conflicts.push({
@@ -100,7 +126,9 @@ export default function PolicyAnalyzerPage() {
     const coveredTypes = new Set(enabled.map((p) => p.policyType));
     const missingTypes = ALL_POLICY_TYPES.filter((t) => !coveredTypes.has(t));
 
-    const coverageScore = Math.round((coveredTypes.size / ALL_POLICY_TYPES.length) * 100);
+    const coverageScore = Math.round(
+      (coveredTypes.size / ALL_POLICY_TYPES.length) * 100,
+    );
 
     const allIssues: Array<{ policy: string; issues: string[] }> = [];
     policies.forEach((p) => {

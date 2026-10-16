@@ -2,10 +2,7 @@
 
 import { useQuery } from "@apollo/client/react";
 import { GET_AGENT_GROUPS } from "./queries";
-import type {
-  AgentGroupListData,
-  AgentGroupListVariables,
-} from "./types";
+import type { AgentGroupListData, AgentGroupListVariables } from "./types";
 
 export function useAgentGroups(variables?: AgentGroupListVariables) {
   const { data, loading, error, refetch } = useQuery<

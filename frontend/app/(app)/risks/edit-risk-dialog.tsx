@@ -68,7 +68,10 @@ const IMPACT_OPTIONS = [
   { value: 5, label: "5 - Severe" },
 ];
 
-function riskLevelFromScore(score: number): { label: string; variant: "destructive" | "secondary" | "outline" } {
+function riskLevelFromScore(score: number): {
+  label: string;
+  variant: "destructive" | "secondary" | "outline";
+} {
   if (score >= 20) return { label: "Critical", variant: "destructive" };
   if (score >= 12) return { label: "High", variant: "destructive" };
   if (score >= 6) return { label: "Medium", variant: "secondary" };
@@ -192,7 +195,11 @@ export function EditRiskDialog({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="edit-risk-name">Name *</Label>
-            <Input id="edit-risk-name" {...register("name")} aria-invalid={!!errors.name} />
+            <Input
+              id="edit-risk-name"
+              {...register("name")}
+              aria-invalid={!!errors.name}
+            />
             {errors.name && (
               <p className="text-destructive text-sm">{errors.name.message}</p>
             )}
@@ -200,9 +207,16 @@ export function EditRiskDialog({
 
           <div className="space-y-2">
             <Label htmlFor="edit-risk-desc">Description *</Label>
-            <Textarea id="edit-risk-desc" rows={3} {...register("description")} aria-invalid={!!errors.description} />
+            <Textarea
+              id="edit-risk-desc"
+              rows={3}
+              {...register("description")}
+              aria-invalid={!!errors.description}
+            />
             {errors.description && (
-              <p className="text-destructive text-sm">{errors.description.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.description.message}
+              </p>
             )}
           </div>
 
@@ -219,7 +233,9 @@ export function EditRiskDialog({
                     </SelectTrigger>
                     <SelectContent>
                       {RISK_CATEGORIES.map((c) => (
-                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                        <SelectItem key={c.value} value={c.value}>
+                          {c.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -239,7 +255,9 @@ export function EditRiskDialog({
                     </SelectTrigger>
                     <SelectContent>
                       {RISK_STATUSES.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        <SelectItem key={s.value} value={s.value}>
+                          {s.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -255,13 +273,18 @@ export function EditRiskDialog({
                 control={control}
                 name="likelihood"
                 render={({ field }) => (
-                  <Select value={String(field.value)} onValueChange={(v) => field.onChange(parseInt(v))}>
+                  <Select
+                    value={String(field.value)}
+                    onValueChange={(v) => field.onChange(parseInt(v))}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {LIKELIHOOD_OPTIONS.map((l) => (
-                        <SelectItem key={l.value} value={String(l.value)}>{l.label}</SelectItem>
+                        <SelectItem key={l.value} value={String(l.value)}>
+                          {l.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -275,13 +298,18 @@ export function EditRiskDialog({
                 control={control}
                 name="impact"
                 render={({ field }) => (
-                  <Select value={String(field.value)} onValueChange={(v) => field.onChange(parseInt(v))}>
+                  <Select
+                    value={String(field.value)}
+                    onValueChange={(v) => field.onChange(parseInt(v))}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {IMPACT_OPTIONS.map((i) => (
-                        <SelectItem key={i.value} value={String(i.value)}>{i.label}</SelectItem>
+                        <SelectItem key={i.value} value={String(i.value)}>
+                          {i.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -300,7 +328,11 @@ export function EditRiskDialog({
 
           <div className="space-y-2">
             <Label htmlFor="edit-risk-mitigation">Mitigation Plan</Label>
-            <Textarea id="edit-risk-mitigation" rows={3} {...register("mitigationPlan")} />
+            <Textarea
+              id="edit-risk-mitigation"
+              rows={3}
+              {...register("mitigationPlan")}
+            />
           </div>
 
           <div className="space-y-2">
@@ -309,17 +341,27 @@ export function EditRiskDialog({
               control={control}
               name="tags"
               render={({ field }) => (
-                <TagInput value={field.value} onChange={field.onChange} placeholder="Add tags..." />
+                <TagInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="Add tags..."
+                />
               )}
             />
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting && (
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Save Changes
             </Button>
           </DialogFooter>

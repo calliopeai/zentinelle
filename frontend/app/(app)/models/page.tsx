@@ -11,8 +11,10 @@ import type { AIModelData } from "@/graphql/models/hooks";
 
 function formatContext(tokens: number | null): string {
   if (!tokens) return "--";
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(tokens % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(tokens % 1_000 === 0 ? 0 : 1)}K`;
+  if (tokens >= 1_000_000)
+    return `${(tokens / 1_000_000).toFixed(tokens % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (tokens >= 1_000)
+    return `${(tokens / 1_000).toFixed(tokens % 1_000 === 0 ? 0 : 1)}K`;
   return String(tokens);
 }
 
@@ -21,7 +23,9 @@ function formatPrice(price: number | null): string {
   return `$${price.toFixed(2)}`;
 }
 
-function riskBadgeVariant(risk: string | null): "default" | "secondary" | "destructive" | "outline" {
+function riskBadgeVariant(
+  risk: string | null,
+): "default" | "secondary" | "destructive" | "outline" {
   switch (risk) {
     case "low":
       return "default";
@@ -40,7 +44,10 @@ function ModelCard({ model }: { model: AIModelData }) {
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="truncate text-sm font-medium" title={model.modelId}>
+          <CardTitle
+            className="truncate text-sm font-medium"
+            title={model.modelId}
+          >
             {model.name || model.modelId}
           </CardTitle>
           <Badge variant="outline" className="shrink-0">
@@ -74,7 +81,10 @@ function ModelCard({ model }: { model: AIModelData }) {
         </div>
         <div className="mt-3 flex items-center gap-2">
           {model.riskLevel && (
-            <Badge variant={riskBadgeVariant(model.riskLevel)} className="text-xs">
+            <Badge
+              variant={riskBadgeVariant(model.riskLevel)}
+              className="text-xs"
+            >
               {model.riskLevel} risk
             </Badge>
           )}

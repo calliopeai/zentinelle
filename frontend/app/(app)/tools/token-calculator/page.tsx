@@ -24,7 +24,8 @@ export default function TokenCalculatorPage() {
   const priced = useMemo(
     () =>
       models.filter(
-        (m) => m.inputPricePerMillion != null && m.outputPricePerMillion != null,
+        (m) =>
+          m.inputPricePerMillion != null && m.outputPricePerMillion != null,
       ),
     [models],
   );
@@ -41,12 +42,8 @@ export default function TokenCalculatorPage() {
   const tokens = useMemo(() => Math.max(1, Math.ceil(text.length / 4)), [text]);
   const outputTokens = Math.ceil(tokens * outputRatio);
 
-  const inputCost = pricing
-    ? (tokens / 1_000_000) * pricing.input
-    : 0;
-  const outputCost = pricing
-    ? (outputTokens / 1_000_000) * pricing.output
-    : 0;
+  const inputCost = pricing ? (tokens / 1_000_000) * pricing.input : 0;
+  const outputCost = pricing ? (outputTokens / 1_000_000) * pricing.output : 0;
   const totalCost = inputCost + outputCost;
   const contextUsage = pricing?.context
     ? ((tokens / pricing.context) * 100).toFixed(1)
@@ -93,12 +90,16 @@ export default function TokenCalculatorPage() {
               >
                 {priced.length === 0 && (
                   <option value="">
-                    {loading ? "Loading models..." : "No priced models in the registry"}
+                    {loading
+                      ? "Loading models..."
+                      : "No priced models in the registry"}
                   </option>
                 )}
                 {priced.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.providerSlug ? `${m.providerSlug}/${m.modelId}` : m.modelId}
+                    {m.providerSlug
+                      ? `${m.providerSlug}/${m.modelId}`
+                      : m.modelId}
                   </option>
                 ))}
               </select>
@@ -122,7 +123,9 @@ export default function TokenCalculatorPage() {
         <div className="space-y-4">
           <Card>
             <CardContent className="pt-6 text-center">
-              <div className="text-4xl font-bold">{tokens.toLocaleString()}</div>
+              <div className="text-4xl font-bold">
+                {tokens.toLocaleString()}
+              </div>
               <div className="text-muted-foreground text-sm">Input Tokens</div>
             </CardContent>
           </Card>
@@ -141,9 +144,12 @@ export default function TokenCalculatorPage() {
               <div className="text-4xl font-bold text-[#37efed]">
                 ${totalCost.toFixed(4)}
               </div>
-              <div className="text-muted-foreground text-sm">Est. Total Cost</div>
+              <div className="text-muted-foreground text-sm">
+                Est. Total Cost
+              </div>
               <div className="text-muted-foreground mt-1 text-xs">
-                Input: ${inputCost.toFixed(4)} · Output: ${outputCost.toFixed(4)}
+                Input: ${inputCost.toFixed(4)} · Output: $
+                {outputCost.toFixed(4)}
               </div>
             </CardContent>
           </Card>

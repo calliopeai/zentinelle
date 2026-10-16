@@ -41,10 +41,7 @@ import {
   useDeleteLegalHold,
 } from "@/graphql/legal-holds/hooks";
 import type { LegalHoldData } from "@/graphql/legal-holds/types";
-import {
-  LegalHoldDialog,
-  type LegalHoldEditData,
-} from "./legal-hold-dialog";
+import { LegalHoldDialog, type LegalHoldEditData } from "./legal-hold-dialog";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "--";

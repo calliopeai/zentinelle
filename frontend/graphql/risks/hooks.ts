@@ -1,12 +1,7 @@
 "use client";
 
 import { useQuery } from "@apollo/client/react";
-import {
-  GET_RISKS,
-  GET_RISK,
-  GET_INCIDENTS,
-  GET_RISK_STATS,
-} from "./queries";
+import { GET_RISKS, GET_RISK, GET_INCIDENTS, GET_RISK_STATS } from "./queries";
 import type {
   RiskListData,
   RiskDetailData,

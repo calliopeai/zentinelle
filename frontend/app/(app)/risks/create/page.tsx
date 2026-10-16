@@ -63,7 +63,10 @@ const IMPACT_OPTIONS = [
   { value: 5, label: "5 - Severe" },
 ];
 
-function riskLevelFromScore(score: number): { label: string; variant: "destructive" | "secondary" | "outline" } {
+function riskLevelFromScore(score: number): {
+  label: string;
+  variant: "destructive" | "secondary" | "outline";
+} {
   if (score >= 20) return { label: "Critical", variant: "destructive" };
   if (score >= 12) return { label: "High", variant: "destructive" };
   if (score >= 6) return { label: "Medium", variant: "secondary" };
@@ -183,7 +186,9 @@ function CreateRiskPage() {
             aria-invalid={!!errors.description}
           />
           {errors.description && (
-            <p className="text-destructive text-sm">{errors.description.message}</p>
+            <p className="text-destructive text-sm">
+              {errors.description.message}
+            </p>
           )}
         </div>
 
@@ -209,7 +214,9 @@ function CreateRiskPage() {
               )}
             />
             {errors.category && (
-              <p className="text-destructive text-sm">{errors.category.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.category.message}
+              </p>
             )}
           </div>
 
@@ -323,7 +330,9 @@ function CreateRiskPage() {
 
         <div className="flex gap-3 pt-2">
           <Button type="submit" disabled={submitting}>
-            {submitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+            {submitting && (
+              <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+            )}
             Create Risk
           </Button>
           <Button type="button" variant="outline" asChild>

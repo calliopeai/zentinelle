@@ -23,7 +23,9 @@ export default function DemoLandingPage() {
   if (!demoEnabled) {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-6">
-        <p className="text-muted-foreground">The interactive demo is disabled for this deployment.</p>
+        <p className="text-muted-foreground">
+          The interactive demo is disabled for this deployment.
+        </p>
       </div>
     );
   }
@@ -39,9 +41,7 @@ export default function DemoLandingPage() {
       startDemoTour();
       // Hard navigate so the (app) layout remounts and EmbedModeStyles
       // applies the body class on first render.
-      window.location.href = isEmbed
-        ? "/dashboard?embed=1"
-        : "/dashboard";
+      window.location.href = isEmbed ? "/dashboard?embed=1" : "/dashboard";
     }
   }, [router]);
 
@@ -70,8 +70,8 @@ export default function DemoLandingPage() {
         </h1>
 
         <p className="text-center text-muted-foreground max-w-xl mx-auto">
-          A guided click-through of the platform — running against real
-          seeded data. Your changes are sandboxed; reset at any time.
+          A guided click-through of the platform — running against real seeded
+          data. Your changes are sandboxed; reset at any time.
         </p>
 
         <Card className="border-primary/20">

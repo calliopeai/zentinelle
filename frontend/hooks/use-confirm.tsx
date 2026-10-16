@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+} from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +29,11 @@ type ConfirmFn = (options: ConfirmOptions) => Promise<boolean>;
 
 const ConfirmContext = createContext<ConfirmFn | null>(null);
 
-export function ConfirmProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
+export function ConfirmProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<ConfirmOptions>({ title: "" });
   const resolveRef = useRef<((value: boolean) => void) | null>(null);
@@ -54,7 +64,9 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }): Re
           <AlertDialogHeader>
             <AlertDialogTitle>{options.title}</AlertDialogTitle>
             {options.description && (
-              <AlertDialogDescription>{options.description}</AlertDialogDescription>
+              <AlertDialogDescription>
+                {options.description}
+              </AlertDialogDescription>
             )}
           </AlertDialogHeader>
           <AlertDialogFooter>

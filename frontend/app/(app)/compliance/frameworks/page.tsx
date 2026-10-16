@@ -12,11 +12,41 @@ import { ArrowRightIcon } from "lucide-react";
 import Link from "next/link";
 
 const FRAMEWORKS = [
-  { id: "soc2", name: "SOC 2", description: "Trust Services Criteria for service organizations", controls: 12, region: "Global" },
-  { id: "gdpr", name: "GDPR", description: "EU data protection and privacy regulation", controls: 8, region: "EU/EEA" },
-  { id: "hipaa", name: "HIPAA", description: "US health information privacy and security", controls: 8, region: "US" },
-  { id: "eu-ai-act", name: "EU AI Act", description: "Risk-based AI governance regulation", controls: 8, region: "EU" },
-  { id: "nist", name: "NIST AI RMF", description: "Voluntary AI risk management framework", controls: 8, region: "Global" },
+  {
+    id: "soc2",
+    name: "SOC 2",
+    description: "Trust Services Criteria for service organizations",
+    controls: 12,
+    region: "Global",
+  },
+  {
+    id: "gdpr",
+    name: "GDPR",
+    description: "EU data protection and privacy regulation",
+    controls: 8,
+    region: "EU/EEA",
+  },
+  {
+    id: "hipaa",
+    name: "HIPAA",
+    description: "US health information privacy and security",
+    controls: 8,
+    region: "US",
+  },
+  {
+    id: "eu-ai-act",
+    name: "EU AI Act",
+    description: "Risk-based AI governance regulation",
+    controls: 8,
+    region: "EU",
+  },
+  {
+    id: "nist",
+    name: "NIST AI RMF",
+    description: "Voluntary AI risk management framework",
+    controls: 8,
+    region: "Global",
+  },
 ];
 
 export default function FrameworksPage() {

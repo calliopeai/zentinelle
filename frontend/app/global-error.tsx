@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 
-
 export default function GlobalError({
   error,
   reset,
@@ -10,9 +9,7 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    
-  }, [error]);
+  useEffect(() => {}, [error]);
 
   return (
     <html>
@@ -33,11 +30,26 @@ export default function GlobalError({
           <h2 style={{ fontSize: "1.125rem", fontWeight: 600, margin: 0 }}>
             Something went wrong
           </h2>
-          <p style={{ fontSize: "0.875rem", color: "#6b7280", margin: 0, maxWidth: "24rem" }}>
-            {error.message || "A critical error occurred. Please refresh the page."}
+          <p
+            style={{
+              fontSize: "0.875rem",
+              color: "#6b7280",
+              margin: 0,
+              maxWidth: "24rem",
+            }}
+          >
+            {error.message ||
+              "A critical error occurred. Please refresh the page."}
           </p>
           {error.digest && (
-            <p style={{ fontSize: "0.75rem", color: "#9ca3af", fontFamily: "monospace", margin: 0 }}>
+            <p
+              style={{
+                fontSize: "0.75rem",
+                color: "#9ca3af",
+                fontFamily: "monospace",
+                margin: 0,
+              }}
+            >
               Error ID: {error.digest}
             </p>
           )}

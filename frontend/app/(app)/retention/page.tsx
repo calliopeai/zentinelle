@@ -43,9 +43,7 @@ import {
   RetentionPolicyDialog,
   type RetentionPolicyEditData,
 } from "./retention-policy-dialog";
-import {
-  DELETE_RETENTION_POLICY,
-} from "@/graphql/retention/mutations";
+import { DELETE_RETENTION_POLICY } from "@/graphql/retention/mutations";
 
 interface RetentionPolicyData {
   id: string;
@@ -217,8 +215,9 @@ export default function RetentionPage() {
   const confirm = useConfirm();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editPolicy, setEditPolicy] =
-    useState<RetentionPolicyEditData | null>(null);
+  const [editPolicy, setEditPolicy] = useState<RetentionPolicyEditData | null>(
+    null,
+  );
 
   const retentionPolicies = data?.retentionPolicies ?? [];
   const legalHolds = data?.legalHolds ?? [];
@@ -280,7 +279,8 @@ export default function RetentionPage() {
         refetch();
       } else {
         toast.error(
-          result?.deleteRetentionPolicy?.errors?.[0] ?? "Failed to delete policy",
+          result?.deleteRetentionPolicy?.errors?.[0] ??
+            "Failed to delete policy",
         );
       }
     } catch {
@@ -374,8 +374,8 @@ export default function RetentionPage() {
           {retentionPolicies.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-8 text-center">
               <p className="text-muted-foreground text-sm">
-                No retention policies configured. Create policies to manage
-                data lifecycle.
+                No retention policies configured. Create policies to manage data
+                lifecycle.
               </p>
               <Button size="sm" onClick={handleCreate}>
                 <PlusIcon className="mr-1.5 h-4 w-4" />
@@ -432,7 +432,9 @@ export default function RetentionPage() {
                             p.complianceRequirement}
                         </Badge>
                       ) : (
-                        <span className="text-muted-foreground text-xs">--</span>
+                        <span className="text-muted-foreground text-xs">
+                          --
+                        </span>
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>

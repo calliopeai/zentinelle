@@ -20,10 +20,20 @@ import {
   DUPLICATE_POLICY,
 } from "@/graphql/policies/mutations";
 import { SectionErrorBoundary } from "@/components/section-error-boundary";
-import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableColumnHeader,
+  type FilterConfig,
+} from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -50,13 +60,7 @@ const ALL_POLICY_TYPES = [
   "ai_guardrail",
 ];
 
-const ALL_SCOPES = [
-  "organization",
-  "team",
-  "deployment",
-  "endpoint",
-  "user",
-];
+const ALL_SCOPES = ["organization", "team", "deployment", "endpoint", "user"];
 
 interface CellData {
   policies: PolicyData[];
@@ -121,8 +125,8 @@ function PolicyCoverageHeatmap({ policies }: { policies: PolicyData[] }) {
           <div>
             <CardTitle>Policy Coverage Matrix</CardTitle>
             <CardDescription>
-              {policies.length} policies across {ALL_POLICY_TYPES.length} types ×{" "}
-              {ALL_SCOPES.length} scopes — {totals.empty} cells uncovered
+              {policies.length} policies across {ALL_POLICY_TYPES.length} types
+              × {ALL_SCOPES.length} scopes — {totals.empty} cells uncovered
             </CardDescription>
           </div>
           <div className="flex items-center gap-2 text-xs">
@@ -179,7 +183,9 @@ function PolicyCoverageHeatmap({ policies }: { policies: PolicyData[] }) {
                         >
                           {isEmpty ? (
                             <div className="h-full flex items-center justify-center">
-                              <span className="text-muted-foreground/40 text-[10px]">—</span>
+                              <span className="text-muted-foreground/40 text-[10px]">
+                                —
+                              </span>
                             </div>
                           ) : (
                             <div className="space-y-0.5">
@@ -257,9 +263,15 @@ function ActionsCell({
   onHistory: (policy: PolicyData) => void;
 }) {
   const confirm = useConfirm();
-  const [toggleEnabled] = useMutation<{ togglePolicyEnabled: TogglePolicyEnabledPayload }>(TOGGLE_POLICY_ENABLED);
-  const [deletePolicy] = useMutation<{ deletePolicy: DeletePolicyPayload }>(DELETE_POLICY);
-  const [duplicatePolicy] = useMutation<{ duplicatePolicy: { success: boolean; error: string; policy: PolicyData } }>(DUPLICATE_POLICY);
+  const [toggleEnabled] = useMutation<{
+    togglePolicyEnabled: TogglePolicyEnabledPayload;
+  }>(TOGGLE_POLICY_ENABLED);
+  const [deletePolicy] = useMutation<{ deletePolicy: DeletePolicyPayload }>(
+    DELETE_POLICY,
+  );
+  const [duplicatePolicy] = useMutation<{
+    duplicatePolicy: { success: boolean; error: string; policy: PolicyData };
+  }>(DUPLICATE_POLICY);
 
   const handleDuplicate = async () => {
     try {
@@ -280,7 +292,7 @@ function ActionsCell({
       const { data } = await toggleEnabled({ variables: { id: policy.id } });
       if (data?.togglePolicyEnabled?.success) {
         toast.success(
-          `"${policy.name}" ${policy.enabled ? "disabled" : "enabled"}`
+          `"${policy.name}" ${policy.enabled ? "disabled" : "enabled"}`,
         );
         onRefresh();
       } else {
@@ -313,31 +325,31 @@ function ActionsCell({
 
   return (
     <PermissionGuard permission="mutate">
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <MoreHorizontalIcon className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onEdit(policy)}>
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleToggle}>
-          {policy.enabled ? "Disable" : "Enable"}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleDuplicate}>
-          Duplicate
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onHistory(policy)}>
-          History
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={handleDelete}>
-          Delete
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <MoreHorizontalIcon className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => onEdit(policy)}>
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleToggle}>
+            {policy.enabled ? "Disable" : "Enable"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleDuplicate}>
+            Duplicate
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onHistory(policy)}>
+            History
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onClick={handleDelete}>
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </PermissionGuard>
   );
 }
@@ -490,29 +502,29 @@ export default function PoliciesPage() {
           </p>
         </div>
         <PermissionGuard permission="mutate">
-        <Button size="sm" asChild>
-          <Link href="/policies/create">
-            <PlusIcon className="mr-1.5 h-4 w-4" />
-            Create Policy
-          </Link>
-        </Button>
+          <Button size="sm" asChild>
+            <Link href="/policies/create">
+              <PlusIcon className="mr-1.5 h-4 w-4" />
+              Create Policy
+            </Link>
+          </Button>
         </PermissionGuard>
       </div>
 
       <div data-tour="policies-heatmap">
         <SectionErrorBoundary section="Policy coverage matrix">
-  <PolicyCoverageHeatmap policies={policies} />
+          <PolicyCoverageHeatmap policies={policies} />
         </SectionErrorBoundary>
       </div>
 
       <div data-tour="policies-table">
-      <DataTable
-        data={policies}
-        columns={columns}
-        getRowId={(row) => row.id}
-        filters={filters}
-        searchPlaceholder="Search policies..."
-      />
+        <DataTable
+          data={policies}
+          columns={columns}
+          getRowId={(row) => row.id}
+          filters={filters}
+          searchPlaceholder="Search policies..."
+        />
       </div>
 
       <EditPolicyDialog

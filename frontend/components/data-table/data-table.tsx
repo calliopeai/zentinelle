@@ -40,7 +40,11 @@ export const DataTable = <TData extends RowData>({
 
   return (
     <div className="flex flex-col gap-4">
-      <DataTableToolbar table={table} filters={filters} searchPlaceholder={searchPlaceholder} />
+      <DataTableToolbar
+        table={table}
+        filters={filters}
+        searchPlaceholder={searchPlaceholder}
+      />
 
       <div className="overflow-hidden rounded-md border">
         <Table>
@@ -51,7 +55,10 @@ export const DataTable = <TData extends RowData>({
                   <TableHead key={header.id} className="px-0">
                     {header.isPlaceholder
                       ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
                   </TableHead>
                 ))}
               </TableRow>
@@ -69,7 +76,11 @@ export const DataTable = <TData extends RowData>({
                           // Don't trigger row click if click originated from
                           // an interactive element (button, link, menu trigger).
                           const target = event.target as HTMLElement;
-                          if (target.closest("button, a, [role='menuitem'], [role='menu']")) {
+                          if (
+                            target.closest(
+                              "button, a, [role='menuitem'], [role='menu']",
+                            )
+                          ) {
                             return;
                           }
                           onRowClick(row.original);
@@ -80,14 +91,20 @@ export const DataTable = <TData extends RowData>({
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
                   {t("noResults")}
                 </TableCell>
               </TableRow>

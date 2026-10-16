@@ -58,18 +58,72 @@ function effortBadge(eff: string) {
 
 const CAPABILITY_REMEDIATION: Record<
   string,
-  { effort: "easy" | "medium" | "hard"; hours: string; rec: string; policyType?: string }
+  {
+    effort: "easy" | "medium" | "hard";
+    hours: string;
+    rec: string;
+    policyType?: string;
+  }
 > = {
-  rate_limit: { effort: "easy", hours: "< 1h", rec: "Create a rate_limit policy at organization scope", policyType: "rate_limit" },
-  tool_permission: { effort: "easy", hours: "< 1h", rec: "Define allowed tools and create tool_permission policy", policyType: "tool_permission" },
-  model_restriction: { effort: "easy", hours: "< 1h", rec: "Whitelist approved models in a model_restriction policy", policyType: "model_restriction" },
-  network_policy: { effort: "easy", hours: "1-2h", rec: "Configure domain allowlists in /network", policyType: "network_policy" },
-  output_filter: { effort: "medium", hours: "2-4h", rec: "Set up content scanning rules for PII/secrets", policyType: "output_filter" },
-  budget_limit: { effort: "easy", hours: "< 1h", rec: "Define monthly budget caps", policyType: "budget_limit" },
-  audit_log: { effort: "easy", hours: "< 1h", rec: "Enable audit logging in settings (already on by default)" },
-  human_oversight: { effort: "medium", hours: "2-4h", rec: "Configure approval workflows for high-risk actions", policyType: "human_oversight" },
-  data_retention: { effort: "medium", hours: "2-4h", rec: "Set retention TTLs in /retention", policyType: "data_retention" },
-  prompt_injection: { effort: "medium", hours: "2-4h", rec: "Add prompt_injection content rule", policyType: "prompt_injection" },
+  rate_limit: {
+    effort: "easy",
+    hours: "< 1h",
+    rec: "Create a rate_limit policy at organization scope",
+    policyType: "rate_limit",
+  },
+  tool_permission: {
+    effort: "easy",
+    hours: "< 1h",
+    rec: "Define allowed tools and create tool_permission policy",
+    policyType: "tool_permission",
+  },
+  model_restriction: {
+    effort: "easy",
+    hours: "< 1h",
+    rec: "Whitelist approved models in a model_restriction policy",
+    policyType: "model_restriction",
+  },
+  network_policy: {
+    effort: "easy",
+    hours: "1-2h",
+    rec: "Configure domain allowlists in /network",
+    policyType: "network_policy",
+  },
+  output_filter: {
+    effort: "medium",
+    hours: "2-4h",
+    rec: "Set up content scanning rules for PII/secrets",
+    policyType: "output_filter",
+  },
+  budget_limit: {
+    effort: "easy",
+    hours: "< 1h",
+    rec: "Define monthly budget caps",
+    policyType: "budget_limit",
+  },
+  audit_log: {
+    effort: "easy",
+    hours: "< 1h",
+    rec: "Enable audit logging in settings (already on by default)",
+  },
+  human_oversight: {
+    effort: "medium",
+    hours: "2-4h",
+    rec: "Configure approval workflows for high-risk actions",
+    policyType: "human_oversight",
+  },
+  data_retention: {
+    effort: "medium",
+    hours: "2-4h",
+    rec: "Set retention TTLs in /retention",
+    policyType: "data_retention",
+  },
+  prompt_injection: {
+    effort: "medium",
+    hours: "2-4h",
+    rec: "Add prompt_injection content rule",
+    policyType: "prompt_injection",
+  },
 };
 
 export default function GapAnalysisPage() {
@@ -106,7 +160,12 @@ export default function GapAnalysisPage() {
     addCapabilityGaps(overview.controlCapabilities, "All Frameworks");
 
     return result.sort((a, b) => {
-      const sevOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+      const sevOrder: Record<string, number> = {
+        critical: 0,
+        high: 1,
+        medium: 2,
+        low: 3,
+      };
       return sevOrder[a.severity] - sevOrder[b.severity];
     });
   }, [overview]);

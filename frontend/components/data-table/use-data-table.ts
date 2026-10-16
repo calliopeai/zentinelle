@@ -26,11 +26,21 @@ type UseDataTableOptions<TData extends RowData> = {
   pageSize?: number;
 };
 
-export const useDataTable = <TData extends RowData>(options: UseDataTableOptions<TData>) => {
-  const { data, columns, getRowId, initialSorting = [], pageSize = 10 } = options;
+export const useDataTable = <TData extends RowData>(
+  options: UseDataTableOptions<TData>,
+) => {
+  const {
+    data,
+    columns,
+    getRowId,
+    initialSorting = [],
+    pageSize = 10,
+  } = options;
 
   const [sorting, setSorting] = React.useState<SortingState>(initialSorting);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    [],
+  );
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,

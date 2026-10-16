@@ -2,11 +2,9 @@
 
 import { authenticatedFetch } from "@/lib/auth/fetch";
 
-
 import { useEffect, useMemo, useState } from "react";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
 import {
   Card,
   CardContent,
@@ -130,12 +128,14 @@ export default function RiskOverviewPage() {
   }, [risks]);
 
   // Fetch real risk index trend from backend (computed from risk register history)
-  const [trendData, setTrendData] = useState<Array<{ day: string; index: number }>>(
-    [],
-  );
+  const [trendData, setTrendData] = useState<
+    Array<{ day: string; index: number }>
+  >([]);
 
   useEffect(() => {
-    authenticatedFetch(`${API_URL}/risks/trend?days=30`, { credentials: "include" })
+    authenticatedFetch(`${API_URL}/risks/trend?days=30`, {
+      credentials: "include",
+    })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data?.trend) return;
@@ -185,12 +185,18 @@ export default function RiskOverviewPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="md:col-span-1">
           <CardContent className="pt-6 text-center">
-            <GaugeIcon className={`mx-auto h-8 w-8 ${riskIndexColor(riskIndex)}`} />
-            <div className={`mt-2 text-5xl font-bold ${riskIndexColor(riskIndex)}`}>
+            <GaugeIcon
+              className={`mx-auto h-8 w-8 ${riskIndexColor(riskIndex)}`}
+            />
+            <div
+              className={`mt-2 text-5xl font-bold ${riskIndexColor(riskIndex)}`}
+            >
               {riskIndex}
             </div>
             <div className="text-muted-foreground text-sm mt-1">Risk Index</div>
-            <Badge className={`mt-2 ${riskIndexBg(riskIndex)} text-white border-0`}>
+            <Badge
+              className={`mt-2 ${riskIndexBg(riskIndex)} text-white border-0`}
+            >
               {riskIndexLabel(riskIndex)}
             </Badge>
           </CardContent>
@@ -198,7 +204,9 @@ export default function RiskOverviewPage() {
         <Card>
           <CardContent className="pt-6 text-center">
             <ShieldAlertIcon className="mx-auto h-6 w-6 text-muted-foreground" />
-            <div className="mt-2 text-3xl font-bold">{stats?.totalRisks ?? risks.length}</div>
+            <div className="mt-2 text-3xl font-bold">
+              {stats?.totalRisks ?? risks.length}
+            </div>
             <div className="text-muted-foreground text-sm">Total Risks</div>
           </CardContent>
         </Card>
@@ -206,14 +214,18 @@ export default function RiskOverviewPage() {
           <CardContent className="pt-6 text-center">
             <CheckCircleIcon className="mx-auto h-6 w-6 text-emerald-500" />
             <div className="mt-2 text-3xl font-bold">{mitigationRate}%</div>
-            <div className="text-muted-foreground text-sm">With Mitigation Plans</div>
+            <div className="text-muted-foreground text-sm">
+              With Mitigation Plans
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
             <ClockIcon className="mx-auto h-6 w-6 text-muted-foreground" />
             <div className="mt-2 text-3xl font-bold">{incidents.length}</div>
-            <div className="text-muted-foreground text-sm">Active Incidents</div>
+            <div className="text-muted-foreground text-sm">
+              Active Incidents
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -255,9 +267,14 @@ export default function RiskOverviewPage() {
           </CardHeader>
           <CardContent>
             {categoryDistribution.length > 0 ? (
-              <ChartContainer config={categoryConfig} className="h-[220px] w-full">
+              <ChartContainer
+                config={categoryConfig}
+                className="h-[220px] w-full"
+              >
                 <PieChart>
-                  <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                  <ChartTooltip
+                    content={<ChartTooltipContent nameKey="name" />}
+                  />
                   <Pie
                     data={categoryDistribution}
                     dataKey="value"
@@ -273,7 +290,9 @@ export default function RiskOverviewPage() {
                       />
                     ))}
                   </Pie>
-                  <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+                  <ChartLegend
+                    content={<ChartLegendContent nameKey="name" />}
+                  />
                 </PieChart>
               </ChartContainer>
             ) : (
@@ -293,10 +312,18 @@ export default function RiskOverviewPage() {
           </CardHeader>
           <CardContent>
             {statusDistribution.length > 0 ? (
-              <ChartContainer config={statusConfig} className="h-[200px] w-full">
+              <ChartContainer
+                config={statusConfig}
+                className="h-[200px] w-full"
+              >
                 <BarChart data={statusDistribution} layout="vertical">
                   <XAxis type="number" />
-                  <YAxis dataKey="status" type="category" width={80} tick={{ fontSize: 12 }} />
+                  <YAxis
+                    dataKey="status"
+                    type="category"
+                    width={80}
+                    tick={{ fontSize: 12 }}
+                  />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Bar dataKey="count" fill="#22d3ee" radius={[0, 4, 4, 0]} />
                 </BarChart>
@@ -360,7 +387,9 @@ export default function RiskOverviewPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Organizational Risk Index</span>
+            <span className="text-sm font-medium">
+              Organizational Risk Index
+            </span>
             <span className={`text-sm font-bold ${riskIndexColor(riskIndex)}`}>
               {riskIndex}/100
             </span>
@@ -372,8 +401,8 @@ export default function RiskOverviewPage() {
             />
           </div>
           <p className="text-muted-foreground text-xs mt-2">
-            Based on {risks.filter((r: any) => r.status !== "closed").length} open risks.
-            Lower is better. Target: below 30.
+            Based on {risks.filter((r: any) => r.status !== "closed").length}{" "}
+            open risks. Lower is better. Target: below 30.
           </p>
         </CardContent>
       </Card>

@@ -207,9 +207,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
           variant="ghost"
           size="sm"
           aria-label={
-            hasUnread
-              ? `Notifications, ${unreadCount} unread`
-              : "Notifications"
+            hasUnread ? `Notifications, ${unreadCount} unread` : "Notifications"
           }
           className={cn(
             "relative text-muted-foreground hover:text-foreground",
@@ -235,11 +233,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={8}
-        className="w-[22rem] p-0"
-      >
+      <PopoverContent align="end" sideOffset={8} className="w-[22rem] p-0">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-3 py-2.5">
           <div className="flex items-center gap-2">
@@ -356,11 +350,7 @@ function ListSkeleton() {
   return (
     <ul className="divide-y">
       {Array.from({ length: 4 }).map((_, i) => (
-        <li
-          key={i}
-          className="flex items-start gap-3 px-3 py-2.5"
-          aria-hidden
-        >
+        <li key={i} className="flex items-start gap-3 px-3 py-2.5" aria-hidden>
           <span className="mt-1.5 inline-block size-2 shrink-0 rounded-full bg-muted" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="h-3 w-2/3 rounded bg-muted" />

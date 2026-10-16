@@ -3,7 +3,13 @@
 import { useMemo } from "react";
 import { useDashboardStats } from "@/graphql/dashboard/hooks";
 import { SectionErrorBoundary } from "@/components/section-error-boundary";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -72,36 +78,57 @@ function severityVariant(severity: string | null) {
 function activityIcon(type: string | null) {
   switch (type) {
     case "agent_registered":
-      return { Icon: BotIcon, bg: "bg-blue-500/15", fg: "text-blue-600 dark:text-blue-400" };
+      return {
+        Icon: BotIcon,
+        bg: "bg-blue-500/15",
+        fg: "text-blue-600 dark:text-blue-400",
+      };
     case "policy_violation":
-      return { Icon: ShieldAlertIcon, bg: "bg-red-500/15", fg: "text-red-600 dark:text-red-400" };
+      return {
+        Icon: ShieldAlertIcon,
+        bg: "bg-red-500/15",
+        fg: "text-red-600 dark:text-red-400",
+      };
     case "health_check":
-      return { Icon: HeartPulseIcon, bg: "bg-emerald-500/15", fg: "text-emerald-600 dark:text-emerald-400" };
+      return {
+        Icon: HeartPulseIcon,
+        bg: "bg-emerald-500/15",
+        fg: "text-emerald-600 dark:text-emerald-400",
+      };
     case "policy_created":
     case "policy_updated":
-      return { Icon: FileTextIcon, bg: "bg-violet-500/15", fg: "text-violet-600 dark:text-violet-400" };
+      return {
+        Icon: FileTextIcon,
+        bg: "bg-violet-500/15",
+        fg: "text-violet-600 dark:text-violet-400",
+      };
     case "alert":
-      return { Icon: AlertTriangleIcon, bg: "bg-amber-500/15", fg: "text-amber-600 dark:text-amber-400" };
+      return {
+        Icon: AlertTriangleIcon,
+        bg: "bg-amber-500/15",
+        fg: "text-amber-600 dark:text-amber-400",
+      };
     default:
-      return { Icon: CheckCircleIcon, bg: "bg-muted", fg: "text-muted-foreground" };
+      return {
+        Icon: CheckCircleIcon,
+        bg: "bg-muted",
+        fg: "text-muted-foreground",
+      };
   }
 }
 
 /* ── Mini sparkline for stat cards ───────────────────────────────── */
 
-function MiniSparkline({
-  data,
-  color,
-}: {
-  data: number[];
-  color: string;
-}) {
+function MiniSparkline({ data, color }: { data: number[]; color: string }) {
   const sparkData = data.map((v, i) => ({ i, v }));
   const config: ChartConfig = { v: { label: "Value", color } };
 
   return (
     <ChartContainer config={config} className="h-[32px] w-full">
-      <LineChart data={sparkData} margin={{ top: 2, bottom: 2, left: 0, right: 0 }}>
+      <LineChart
+        data={sparkData}
+        margin={{ top: 2, bottom: 2, left: 0, right: 0 }}
+      >
         <Line
           type="monotone"
           dataKey="v"
@@ -189,7 +216,10 @@ export default function DashboardPage() {
     return {
       agents: Array(7).fill(agentTotal),
       policies: Array(7).fill(policyTotal),
-      apiCalls: apiSeries.length === 7 ? apiSeries : Array(7).fill(stats?.apiUsage?.today ?? 0),
+      apiCalls:
+        apiSeries.length === 7
+          ? apiSeries
+          : Array(7).fill(stats?.apiUsage?.today ?? 0),
       alerts: Array(7).fill(alertCount),
     };
   }, [stats]);
@@ -239,9 +269,10 @@ export default function DashboardPage() {
 
   const trendPercent = usage?.trend ?? 0;
   const TrendIcon = trendPercent >= 0 ? TrendingUpIcon : TrendingDownIcon;
-  const trendColor = trendPercent >= 0
-    ? "text-emerald-600 dark:text-emerald-400"
-    : "text-red-600 dark:text-red-400";
+  const trendColor =
+    trendPercent >= 0
+      ? "text-emerald-600 dark:text-emerald-400"
+      : "text-red-600 dark:text-red-400";
 
   const statCards = [
     {
@@ -271,7 +302,8 @@ export default function DashboardPage() {
         <span className="flex items-center gap-1">
           <TrendIcon className={`h-3 w-3 ${trendColor}`} />
           <span className={trendColor}>
-            {trendPercent >= 0 ? "+" : ""}{trendPercent}%
+            {trendPercent >= 0 ? "+" : ""}
+            {trendPercent}%
           </span>
           <span className="text-muted-foreground ml-0.5">vs last week</span>
         </span>
@@ -314,28 +346,42 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       {/* Stat cards with sparklines */}
-      <div data-tour="dashboard-stats" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map(({ label, value, sub, icon: Icon, color, bg, sparkColor, sparkData }) => (
-          <Card key={label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-muted-foreground text-sm font-medium">
-                {label}
-              </CardTitle>
-              <div className={`${bg} rounded-md p-1.5`}>
-                <Icon className={`h-4 w-4 ${color}`} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{value.toLocaleString()}</p>
-              <div className="text-muted-foreground mt-1 text-xs">
-                {typeof sub === "string" ? <p>{sub}</p> : sub}
-              </div>
-              <div className="mt-2">
-                <MiniSparkline data={sparkData} color={sparkColor} />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div
+        data-tour="dashboard-stats"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        {statCards.map(
+          ({
+            label,
+            value,
+            sub,
+            icon: Icon,
+            color,
+            bg,
+            sparkColor,
+            sparkData,
+          }) => (
+            <Card key={label}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-muted-foreground text-sm font-medium">
+                  {label}
+                </CardTitle>
+                <div className={`${bg} rounded-md p-1.5`}>
+                  <Icon className={`h-4 w-4 ${color}`} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{value.toLocaleString()}</p>
+                <div className="text-muted-foreground mt-1 text-xs">
+                  {typeof sub === "string" ? <p>{sub}</p> : sub}
+                </div>
+                <div className="mt-2">
+                  <MiniSparkline data={sparkData} color={sparkColor} />
+                </div>
+              </CardContent>
+            </Card>
+          ),
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -343,7 +389,9 @@ export default function DashboardPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest events across your organization</CardDescription>
+            <CardDescription>
+              Latest events across your organization
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {(stats?.recentActivity?.length ?? 0) === 0 ? (
@@ -353,7 +401,11 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {stats?.recentActivity?.slice(0, 8).map((activity) => {
-                  const { Icon, bg: iconBg, fg: iconFg } = activityIcon(activity.type);
+                  const {
+                    Icon,
+                    bg: iconBg,
+                    fg: iconFg,
+                  } = activityIcon(activity.type);
                   return (
                     <div
                       key={activity.id ?? activity.timestamp}
@@ -365,7 +417,9 @@ export default function DashboardPage() {
                         <Icon className={`h-3.5 w-3.5 ${iconFg}`} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm">{activity.description}</p>
+                        <p className="truncate text-sm">
+                          {activity.description}
+                        </p>
                         <div className="text-muted-foreground flex items-center gap-2 text-xs">
                           {activity.actor && <span>{activity.actor}</span>}
                           <span className="flex items-center gap-1">
@@ -412,10 +466,22 @@ export default function DashboardPage() {
               </p>
             ) : (
               <SectionErrorBoundary section="Policy activity chart">
-  <ChartContainer config={policyChartConfig} className="h-[240px] w-full">
-                  <BarChart data={policyByTypeData} layout="vertical" margin={{ left: 0, right: 0 }}>
+                <ChartContainer
+                  config={policyChartConfig}
+                  className="h-[240px] w-full"
+                >
+                  <BarChart
+                    data={policyByTypeData}
+                    layout="vertical"
+                    margin={{ left: 0, right: 0 }}
+                  >
                     <CartesianGrid horizontal={false} strokeDasharray="3 3" />
-                    <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                    <XAxis
+                      type="number"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 12 }}
+                    />
                     <YAxis
                       type="category"
                       dataKey="type"
@@ -466,7 +532,9 @@ export default function DashboardPage() {
                         <Badge variant={severityVariant(alert.severity)}>
                           {alert.severity}
                         </Badge>
-                        <span className="truncate text-sm font-medium">{alert.title}</span>
+                        <span className="truncate text-sm font-medium">
+                          {alert.title}
+                        </span>
                       </div>
                       {alert.description && (
                         <p className="text-muted-foreground mt-1 text-sm">

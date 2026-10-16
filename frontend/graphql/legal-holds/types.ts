@@ -1,11 +1,7 @@
 export type LegalHoldStatus = "active" | "released" | "expired" | (string & {});
 
 export type LegalHoldKind =
-  | "litigation"
-  | "regulatory"
-  | "internal"
-  | "preservation"
-  | (string & {});
+  "litigation" | "regulatory" | "internal" | "preservation" | (string & {});
 
 export interface LegalHoldData {
   id: string;
@@ -70,7 +66,10 @@ export interface CreateLegalHoldInput {
   notificationEmails?: string[] | null;
 }
 
-export interface UpdateLegalHoldInput extends Omit<CreateLegalHoldInput, "name"> {
+export interface UpdateLegalHoldInput extends Omit<
+  CreateLegalHoldInput,
+  "name"
+> {
   id: string;
   name?: string | null;
 }

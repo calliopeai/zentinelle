@@ -23,7 +23,11 @@ export const ACTIONS = [
   { value: "warn", label: "Warn", hint: "Allow, with a visible warning" },
   { value: "steer", label: "Steer", hint: "Inject a correcting message" },
   { value: "redact", label: "Redact", hint: "Remove the matched content" },
-  { value: "require_approval", label: "Require approval", hint: "Hold for a human decision" },
+  {
+    value: "require_approval",
+    label: "Require approval",
+    hint: "Hold for a human decision",
+  },
   { value: "block", label: "Block", hint: "Stop the action" },
 ];
 
@@ -157,7 +161,8 @@ function StepAction<T extends Step>({
           onChange({
             ...step,
             action,
-            block_level: action === "block" ? step.block_level || "tool_call" : undefined,
+            block_level:
+              action === "block" ? step.block_level || "tool_call" : undefined,
           })
         }
       />
@@ -190,7 +195,8 @@ export function ActionFields({
   const steers =
     value.action === "steer" ||
     [...repeat, ...severity].some((step) => step.action === "steer");
-  const setEscalation = (escalation: Escalation) => onChange({ ...value, escalation });
+  const setEscalation = (escalation: Escalation) =>
+    onChange({ ...value, escalation });
   const hint = ACTIONS.find((a) => a.value === value.action)?.hint;
 
   return (
@@ -225,10 +231,13 @@ export function ActionFields({
             rows={2}
             placeholder="That path is outside your brief; stop and revert."
             value={value.steerMessage}
-            onChange={(e) => onChange({ ...value, steerMessage: e.target.value })}
+            onChange={(e) =>
+              onChange({ ...value, steerMessage: e.target.value })
+            }
           />
           <p className="text-muted-foreground text-xs">
-            Placeholders: {"{rule}"}, {"{reason}"}, {"{action}"}, {"{tool}"}, {"{agent}"}
+            Placeholders: {"{rule}"}, {"{reason}"}, {"{action}"}, {"{tool}"},{" "}
+            {"{agent}"}
           </p>
         </div>
       )}
@@ -246,7 +255,11 @@ export function ActionFields({
                 window_seconds: value.escalation.window_seconds ?? 3600,
                 repeat: [
                   ...repeat,
-                  { count: (repeat[repeat.length - 1]?.count ?? 1) + 1, action: "block", block_level: "tool_call" },
+                  {
+                    count: (repeat[repeat.length - 1]?.count ?? 1) + 1,
+                    action: "block",
+                    block_level: "tool_call",
+                  },
                 ],
               })
             }
@@ -268,7 +281,9 @@ export function ActionFields({
                 setEscalation({ ...value.escalation, repeat: next });
               }}
             />
-            <span className="text-muted-foreground shrink-0 text-xs">matches</span>
+            <span className="text-muted-foreground shrink-0 text-xs">
+              matches
+            </span>
             <StepAction
               label={`Repeat step ${index + 1}`}
               step={step}
@@ -284,7 +299,10 @@ export function ActionFields({
               size="icon"
               aria-label="Remove step"
               onClick={() =>
-                setEscalation({ ...value.escalation, repeat: repeat.filter((_, i) => i !== index) })
+                setEscalation({
+                  ...value.escalation,
+                  repeat: repeat.filter((_, i) => i !== index),
+                })
               }
             >
               <XIcon className="h-4 w-4" />
@@ -301,10 +319,15 @@ export function ActionFields({
               aria-label="Window in minutes"
               value={Math.round((value.escalation.window_seconds ?? 3600) / 60)}
               onChange={(e) =>
-                setEscalation({ ...value.escalation, window_seconds: Number(e.target.value) * 60 })
+                setEscalation({
+                  ...value.escalation,
+                  window_seconds: Number(e.target.value) * 60,
+                })
               }
             />
-            <span className="text-muted-foreground text-xs">minutes, counted per agent</span>
+            <span className="text-muted-foreground text-xs">
+              minutes, counted per agent
+            </span>
           </div>
         )}
       </div>
@@ -319,7 +342,14 @@ export function ActionFields({
             onClick={() =>
               setEscalation({
                 ...value.escalation,
-                severity: [...severity, { min_severity: "high", action: "block", block_level: "tool_call" }],
+                severity: [
+                  ...severity,
+                  {
+                    min_severity: "high",
+                    action: "block",
+                    block_level: "tool_call",
+                  },
+                ],
               })
             }
           >
@@ -362,7 +392,10 @@ export function ActionFields({
               size="icon"
               aria-label="Remove step"
               onClick={() =>
-                setEscalation({ ...value.escalation, severity: severity.filter((_, i) => i !== index) })
+                setEscalation({
+                  ...value.escalation,
+                  severity: severity.filter((_, i) => i !== index),
+                })
               }
             >
               <XIcon className="h-4 w-4" />

@@ -12,7 +12,13 @@ type TagInputProps = {
   className?: string;
 };
 
-export function TagInput({ value, onChange, suggestions = [], placeholder, className }: TagInputProps) {
+export function TagInput({
+  value,
+  onChange,
+  suggestions = [],
+  placeholder,
+  className,
+}: TagInputProps) {
   const [input, setInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -55,7 +61,11 @@ export function TagInput({ value, onChange, suggestions = [], placeholder, class
         onClick={() => inputRef.current?.focus()}
       >
         {value.map((tag) => (
-          <Badge key={tag} variant="secondary" className="gap-1 py-0 text-[11px]">
+          <Badge
+            key={tag}
+            variant="secondary"
+            className="gap-1 py-0 text-[11px]"
+          >
             {tag}
             <button
               type="button"

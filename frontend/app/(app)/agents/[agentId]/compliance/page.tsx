@@ -71,11 +71,7 @@ export default function AgentCompliancePage({
               </Badge>
             </TableCell>
             <TableCell>
-              {v.wasBlocked
-                ? "Blocked"
-                : v.wasRedacted
-                  ? "Redacted"
-                  : "Logged"}
+              {v.wasBlocked ? "Blocked" : v.wasRedacted ? "Redacted" : "Logged"}
             </TableCell>
           </TableRow>
         ))}

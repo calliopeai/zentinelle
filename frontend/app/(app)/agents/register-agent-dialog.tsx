@@ -57,17 +57,40 @@ const CAPABILITY_SUGGESTIONS = [
 ];
 
 const TAXONOMY_SUGGESTIONS = [
-  "function:customer_service", "function:legal", "function:coding",
-  "function:operations", "function:research", "function:sales",
-  "mode:single_agent", "mode:workflow", "mode:swarm", "mode:delegated",
-  "mode:human_assisted", "mode:scheduled", "data:public", "data:internal",
-  "data:confidential", "data:restricted", "data:regulated",
-  "authority:read_only", "authority:write", "authority:external_egress",
-  "authority:destructive", "authority:privileged", "environment:development",
-  "environment:staging", "environment:production", "environment:emergency",
-  "service:customer_service", "service:legal", "service:coding",
-  "service:research", "service:operations", "service_subcategory:billing",
-  "service_subcategory:technical_support", "service_subcategory:claims",
+  "function:customer_service",
+  "function:legal",
+  "function:coding",
+  "function:operations",
+  "function:research",
+  "function:sales",
+  "mode:single_agent",
+  "mode:workflow",
+  "mode:swarm",
+  "mode:delegated",
+  "mode:human_assisted",
+  "mode:scheduled",
+  "data:public",
+  "data:internal",
+  "data:confidential",
+  "data:restricted",
+  "data:regulated",
+  "authority:read_only",
+  "authority:write",
+  "authority:external_egress",
+  "authority:destructive",
+  "authority:privileged",
+  "environment:development",
+  "environment:staging",
+  "environment:production",
+  "environment:emergency",
+  "service:customer_service",
+  "service:legal",
+  "service:coding",
+  "service:research",
+  "service:operations",
+  "service_subcategory:billing",
+  "service_subcategory:technical_support",
+  "service_subcategory:claims",
   "service_subcategory:contracts",
 ];
 
@@ -77,22 +100,28 @@ const agentSchema = z.object({
     .string()
     .min(2, "Agent ID must be at least 2 characters")
     .max(128)
-    .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, "Must be a valid slug (lowercase, hyphens only)"),
+    .regex(
+      /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/,
+      "Must be a valid slug (lowercase, hyphens only)",
+    ),
   agentType: z.string().min(1, "Agent type is required"),
   capabilities: z.array(z.string()),
   taxonomyTags: z.array(z.string()),
-  metadata: z.string().optional().refine(
-    (val) => {
-      if (!val || val.trim() === "") return true;
-      try {
-        JSON.parse(val);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    { message: "Metadata must be valid JSON" }
-  ),
+  metadata: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val.trim() === "") return true;
+        try {
+          JSON.parse(val);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "Metadata must be valid JSON" },
+    ),
 });
 
 type AgentFormValues = z.infer<typeof agentSchema>;
@@ -164,7 +193,8 @@ export function RegisterAgentDialog({
             name: values.name,
             agentId: values.agentId || null,
             agentType: values.agentType,
-            capabilities: values.capabilities.length > 0 ? values.capabilities : null,
+            capabilities:
+              values.capabilities.length > 0 ? values.capabilities : null,
             metadata: metadataObj,
           },
         },
@@ -179,7 +209,9 @@ export function RegisterAgentDialog({
         }
         onRegistered();
       } else {
-        toast.error(data?.createAgentEndpoint?.error ?? "Failed to register agent");
+        toast.error(
+          data?.createAgentEndpoint?.error ?? "Failed to register agent",
+        );
       }
     } catch {
       toast.error("Failed to register agent");
@@ -225,7 +257,8 @@ export function RegisterAgentDialog({
         <DialogHeader>
           <DialogTitle>Register Agent</DialogTitle>
           <DialogDescription>
-            Register a new agent endpoint. An API key will be generated for the agent.
+            Register a new agent endpoint. An API key will be generated for the
+            agent.
           </DialogDescription>
         </DialogHeader>
 
@@ -253,10 +286,13 @@ export function RegisterAgentDialog({
               aria-invalid={!!errors.agentId}
             />
             {errors.agentId && (
-              <p className="text-destructive text-sm">{errors.agentId.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.agentId.message}
+              </p>
             )}
             <p className="text-muted-foreground text-xs">
-              Unique slug identifier. Lowercase letters, numbers, and hyphens only.
+              Unique slug identifier. Lowercase letters, numbers, and hyphens
+              only.
             </p>
           </div>
 
@@ -281,7 +317,9 @@ export function RegisterAgentDialog({
               )}
             />
             {errors.agentType && (
-              <p className="text-destructive text-sm">{errors.agentType.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.agentType.message}
+              </p>
             )}
           </div>
 
@@ -316,7 +354,8 @@ export function RegisterAgentDialog({
               )}
             />
             <p className="text-muted-foreground text-xs">
-              Tags select the policies that apply to this agent, workflow, swarm, or client.
+              Tags select the policies that apply to this agent, workflow,
+              swarm, or client.
             </p>
           </div>
 
@@ -331,16 +370,24 @@ export function RegisterAgentDialog({
               aria-invalid={!!errors.metadata}
             />
             {errors.metadata && (
-              <p className="text-destructive text-sm">{errors.metadata.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.metadata.message}
+              </p>
             )}
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleClose(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleClose(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting && (
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Register Agent
             </Button>
           </DialogFooter>

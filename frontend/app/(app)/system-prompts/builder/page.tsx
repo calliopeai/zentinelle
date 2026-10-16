@@ -85,7 +85,11 @@ Guidelines:
     suggestions: {
       assistant_name: ["Atlas", "Nova", "Sentinel"],
       domain: ["software engineering", "data analysis", "customer support"],
-      tone: ["professional and friendly", "formal and precise", "casual and approachable"],
+      tone: [
+        "professional and friendly",
+        "formal and precise",
+        "casual and approachable",
+      ],
     },
   },
   {
@@ -119,7 +123,8 @@ Stay in character throughout the conversation.`,
     type: "task",
     icon: <ListChecksIcon className="h-5 w-5" />,
     color: "text-green-500",
-    description: "Structured instructions for a specific task with clear success criteria",
+    description:
+      "Structured instructions for a specific task with clear success criteria",
     template: `Task: {{task_name}}
 
 Objective: {{objective}}
@@ -137,7 +142,11 @@ Quality criteria:
 - {{criterion_2}}`,
     suggestions: {
       task_name: ["Code Review", "Data Validation", "Report Generation"],
-      objective: ["identify bugs and improvements", "verify data integrity", "produce executive summary"],
+      objective: [
+        "identify bugs and improvements",
+        "verify data integrity",
+        "produce executive summary",
+      ],
     },
   },
   {
@@ -163,8 +172,16 @@ Restricted topics: {{restricted_topics}}
 
 When uncertain, {{fallback_behavior}}.`,
     suggestions: {
-      prohibited_1: ["share personal data", "generate harmful content", "execute arbitrary code"],
-      fallback_behavior: ["ask for clarification", "decline gracefully", "escalate to a human"],
+      prohibited_1: [
+        "share personal data",
+        "generate harmful content",
+        "execute arbitrary code",
+      ],
+      fallback_behavior: [
+        "ask for clarification",
+        "decline gracefully",
+        "escalate to a human",
+      ],
     },
   },
   {
@@ -173,7 +190,8 @@ When uncertain, {{fallback_behavior}}.`,
     type: "few_shot",
     icon: <BookOpenIcon className="h-5 w-5" />,
     color: "text-orange-500",
-    description: "Teach by example with input/output pairs for consistent responses",
+    description:
+      "Teach by example with input/output pairs for consistent responses",
     template: `Learn from these examples:
 
 Example 1:
@@ -215,7 +233,11 @@ Now apply the same pattern to new inputs.`,
 Use {{formatting_style}} throughout.
 Maximum length: {{max_length}} words.`,
     suggestions: {
-      formatting_style: ["markdown with code blocks", "bullet points", "numbered steps"],
+      formatting_style: [
+        "markdown with code blocks",
+        "bullet points",
+        "numbered steps",
+      ],
       max_length: ["200", "500", "1000"],
     },
   },
@@ -225,7 +247,8 @@ Maximum length: {{max_length}} words.`,
     type: "chain",
     icon: <LinkIcon className="h-5 w-5" />,
     color: "text-pink-500",
-    description: "Multi-step prompt workflow with context passing between steps",
+    description:
+      "Multi-step prompt workflow with context passing between steps",
     template: `This is step {{step_number}} of {{total_steps}} in the workflow.
 
 Previous context:
@@ -272,9 +295,12 @@ export default function PromptBuilderPage() {
   }>(CREATE_SYSTEM_PROMPT);
 
   // State
-  const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<PromptTemplate | null>(null);
   const [promptContent, setPromptContent] = useState("");
-  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+  const [variableValues, setVariableValues] = useState<Record<string, string>>(
+    {},
+  );
   const [showPreview, setShowPreview] = useState(false);
 
   // Save dialog state
@@ -283,32 +309,32 @@ export default function PromptBuilderPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Derived
-  const variables = useMemo(() => extractVariables(promptContent), [promptContent]);
-  const tokenCount = useMemo(() => estimateTokens(promptContent), [promptContent]);
+  const variables = useMemo(
+    () => extractVariables(promptContent),
+    [promptContent],
+  );
+  const tokenCount = useMemo(
+    () => estimateTokens(promptContent),
+    [promptContent],
+  );
   const lineCount = (promptContent || "").split("\n").length;
 
   const previewContent = useMemo(() => {
     let content = promptContent;
     for (const [key, value] of Object.entries(variableValues)) {
       if (value) {
-        content = content.replace(
-          new RegExp(`\\{\\{${key}\\}\\}`, "g"),
-          value
-        );
+        content = content.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
       }
     }
     return content;
   }, [promptContent, variableValues]);
 
-  const handleTemplateSelect = useCallback(
-    (template: PromptTemplate) => {
-      setSelectedTemplate(template);
-      setPromptContent(template.template);
-      setVariableValues({});
-      setShowPreview(false);
-    },
-    []
-  );
+  const handleTemplateSelect = useCallback((template: PromptTemplate) => {
+    setSelectedTemplate(template);
+    setPromptContent(template.template);
+    setVariableValues({});
+    setShowPreview(false);
+  }, []);
 
   const handleClearTemplate = useCallback(() => {
     setSelectedTemplate(null);
@@ -317,12 +343,9 @@ export default function PromptBuilderPage() {
     setShowPreview(false);
   }, []);
 
-  const handleVariableChange = useCallback(
-    (name: string, value: string) => {
-      setVariableValues((prev) => ({ ...prev, [name]: value }));
-    },
-    []
-  );
+  const handleVariableChange = useCallback((name: string, value: string) => {
+    setVariableValues((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
   const handleOpenSaveDialog = useCallback(() => {
     setSaveError(null);
@@ -523,7 +546,8 @@ export default function PromptBuilderPage() {
                     <div className="flex items-center gap-1">
                       <VariableIcon className="text-muted-foreground h-3.5 w-3.5" />
                       <span className="text-muted-foreground text-xs">
-                        {variables.length} variable{variables.length !== 1 ? "s" : ""} detected
+                        {variables.length} variable
+                        {variables.length !== 1 ? "s" : ""} detected
                       </span>
                     </div>
                   )}
@@ -559,7 +583,9 @@ export default function PromptBuilderPage() {
               <CardHeader>
                 <CardTitle className="text-sm">Template Variables</CardTitle>
                 <CardDescription className="text-xs">
-                  Fill in values for each <code className="bg-muted rounded px-1 py-0.5">{`{{variable}}`}</code> to see the rendered prompt below
+                  Fill in values for each{" "}
+                  <code className="bg-muted rounded px-1 py-0.5">{`{{variable}}`}</code>{" "}
+                  to see the rendered prompt below
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -648,7 +674,7 @@ export default function PromptBuilderPage() {
                           </span>
                         ) : (
                           <span key={i}>{part}</span>
-                        )
+                        ),
                       )}
                     </pre>
                   </div>

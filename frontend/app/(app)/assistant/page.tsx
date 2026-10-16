@@ -9,11 +9,7 @@ import {
 } from "@/components/ChatBubble";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  SparklesIcon,
-  PlusIcon,
-  Trash2Icon,
-} from "lucide-react";
+import { SparklesIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function AssistantPage() {
@@ -37,7 +33,9 @@ export default function AssistantPage() {
       {/* Left sidebar -- conversation history */}
       <aside className="hidden w-64 shrink-0 flex-col border-r lg:flex">
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 className="text-sm font-semibold text-foreground">Conversations</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            Conversations
+          </h2>
         </div>
         <div className="flex-1 overflow-y-auto p-3">
           <Button
@@ -61,15 +59,19 @@ export default function AssistantPage() {
               <SparklesIcon className="size-4 text-[#37efed]" />
             </div>
             <div>
-              <h1 className="text-sm font-semibold text-foreground">Zentinelle AI</h1>
+              <h1 className="text-sm font-semibold text-foreground">
+                Zentinelle AI
+              </h1>
               {selectedModel && (
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-xs text-muted-foreground">{selectedModel.label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {selectedModel.label}
+                  </span>
                   <Badge
                     variant="secondary"
                     className={cn(
                       "text-[10px] px-1.5 py-0 h-4",
-                      providerColor(selectedModel.provider)
+                      providerColor(selectedModel.provider),
                     )}
                   >
                     {selectedModel.provider}

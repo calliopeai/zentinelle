@@ -16,6 +16,15 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+    ignore:
+      # typescript-eslint (through eslint-config-next) needs the TypeScript JS
+      # API, which TypeScript 7 no longer ships, and eslint-config-next's
+      # plugins do not support ESLint 10. Either bump crashes `npm run lint`;
+      # lift these once eslint-config-next supports them.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
     groups:
       all-dependencies:
         patterns:
