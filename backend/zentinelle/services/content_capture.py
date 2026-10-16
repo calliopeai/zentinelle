@@ -9,6 +9,13 @@ CONTENT_KEYS = {'input', 'output', 'input_text', 'output_text', 'input_content',
                 'tool_input', 'tool_calls', 'tool_outputs', 'rag_context', 'extracted_text', 'content'}
 UUID_REFERENCE_KEYS = {'approval_request_id', 'trace_id', 'evidence_id', 'event_id', 'action_id'}
 SECRET_KEYS = {'api_key', 'apikey', 'authorization', 'password', 'secret', 'token', 'approval_token'}
+# A UUID is an identifier, never PII, but the passport and drivers_license
+# patterns match its first segment under IGNORECASE (#404). Only a standalone
+# UUID is spared: one that is part of a longer token, such as an email
+# address's local part, is scanned as before. The capture group keeps the
+# UUIDs in re.split's output.
+UUID_TOKEN = re.compile(r'(?<![\w.%+@-])([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![\w@-])',
+                        re.IGNORECASE)
 
 
 def capture_mode(tenant_id=None):
@@ -30,8 +37,12 @@ def redact_text(value):
     text = str(value or '')
     text = re.sub(r'-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----',
                   '[REDACTED PRIVATE KEY]', text, flags=re.DOTALL | re.IGNORECASE)
-    for pattern, _ in ContentScanner.PII_PATTERNS.values():
-        text = re.sub(pattern, '[REDACTED]', text, flags=re.IGNORECASE)
+    # Odd pieces are UUIDs; PII patterns run on the text between them only.
+    pieces = UUID_TOKEN.split(text)
+    for index in range(0, len(pieces), 2):
+        for pattern, _ in ContentScanner.PII_PATTERNS.values():
+            pieces[index] = re.sub(pattern, '[REDACTED]', pieces[index], flags=re.IGNORECASE)
+    text = ''.join(pieces)
     # Secret patterns are scanner-owned; inspect the same literals before persistence.
     for definition in ContentScanner.SECRET_PATTERNS.values():
         pattern = definition[0] if isinstance(definition, tuple) else definition
