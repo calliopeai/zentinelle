@@ -253,11 +253,35 @@ class SystemPrompt(models.Model):
             text = text.replace(f'{{{{{key}}}}}', str(value))
         return text
 
-    def fork(self, user_id=None):
-        """Create a copy of this prompt for modification."""
+    @classmethod
+    def unused_slug(cls, tenant_id, base, version=1):
+        """`base`, or `base-1`, `base-2`, ..., whichever `tenant_id` has not used.
+
+        Slugs are unique per tenant and version, so this looks only inside the
+        tenant: another tenant's prompts neither take a slug from it nor show
+        through a suffix that they exist.
+        """
+        max_length = cls._meta.get_field('slug').max_length
+        slug, counter = base[:max_length], 1
+        while cls.objects.filter(tenant_id=tenant_id, slug=slug, version=version).exists():
+            suffix = f'-{counter}'
+            slug = f'{base[:max_length - len(suffix)]}{suffix}'
+            counter += 1
+        return slug
+
+    def fork(self, *, tenant_id, user_id=None):
+        """Copy this prompt into `tenant_id`'s library for `user_id` to edit.
+
+        The tenant is the forking caller's, and it is required: a fork saved
+        without one is in no tenant's library, so nobody can list, open or
+        edit it (#454).
+        """
+        if not tenant_id:
+            raise ValueError('A fork needs the tenant it belongs to')
         new_prompt = SystemPrompt(
             name=f"{self.name} (Fork)",
-            slug=f"{self.slug}-fork",
+            slug=SystemPrompt.unused_slug(tenant_id, f"{self.slug}-fork"),
+            tenant_id=tenant_id,
             description=self.description,
             user_id=user_id or '',
             prompt_text=self.prompt_text,

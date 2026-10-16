@@ -9,7 +9,7 @@ Handles:
 import hashlib
 import io
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from django.utils import timezone
 
@@ -241,65 +241,6 @@ Output Format (JSON):
                 'error': str(e),
             }
 
-    def create_prompts_from_analysis(
-        self,
-        policy_document,
-        analysis: Dict[str, Any],
-    ) -> List:
-        """
-        Create SystemPrompt objects from LLM analysis.
-
-        Args:
-            policy_document: PolicyDocument instance
-            analysis: LLM analysis results
-
-        Returns:
-            List of created SystemPrompt objects
-        """
-        from django.utils.text import slugify
-
-        from zentinelle.models import SystemPrompt
-
-        created_prompts = []
-        prompts_data = analysis.get('prompts', [])
-
-        # Map categories to SystemPrompt.PromptType
-        category_map = {
-            'SAFETY': SystemPrompt.PromptType.SAFETY,
-            'CONSTRAINTS': SystemPrompt.PromptType.CONSTRAINTS,
-            'PERSONA': SystemPrompt.PromptType.PERSONA,
-            'CONTEXT': SystemPrompt.PromptType.CONTEXT,
-            'COMPLIANCE': SystemPrompt.PromptType.CONSTRAINTS,
-            'BASE': SystemPrompt.PromptType.BASE,
-        }
-
-        for i, prompt_data in enumerate(prompts_data):
-            category = prompt_data.get('category', 'CUSTOM').upper()
-            prompt_type = category_map.get(category, SystemPrompt.PromptType.CUSTOM)
-
-            title = prompt_data.get('title', f'Extracted Prompt {i + 1}')
-            slug_base = slugify(title)[:80]
-
-            # Create the prompt
-            prompt = SystemPrompt.objects.create(
-                organization=policy_document.organization,
-                name=title,
-                slug=f"{slug_base}-{str(policy_document.id)[:8]}",
-                description=f"Extracted from: {policy_document.name}\n\nSource: {prompt_data.get('source_excerpt', 'N/A')[:500]}",
-                prompt_text=prompt_data.get('prompt_text', ''),
-                prompt_type=prompt_type,
-                status=SystemPrompt.Status.DRAFT,
-                is_template=False,
-                metadata={
-                    'source_document_id': str(policy_document.id),
-                    'confidence': prompt_data.get('confidence', 0),
-                    'extracted_at': timezone.now().isoformat(),
-                },
-            )
-            created_prompts.append(prompt)
-
-        return created_prompts
-
 
 class PolicyDocumentService:
     """
@@ -408,12 +349,6 @@ class PolicyDocumentService:
             document.analysis_results = analysis
             document.processing_model = model
             document.processed_at = timezone.now()
-
-            # Create prompts
-            prompts = self.processor.create_prompts_from_analysis(document, analysis)
-
-            # Link prompts to document
-            document.generated_prompts.set(prompts)
             document.status = document.Status.ANALYZED
             document.save()
 
