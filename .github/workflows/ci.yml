@@ -74,6 +74,19 @@ jobs:
           pip install pipenv
           pipenv install --dev --deploy --system || pipenv install --dev --system
 
+      # The image installs requirements.txt while this job installs
+      # Pipfile.lock. The two drifted once and the image stopped building
+      # while CI stayed green (#414), so the pins have to agree. Markers are
+      # left out: they are the pipenv version's formatting, not a pin.
+      - name: requirements.txt matches Pipfile.lock
+        working-directory: backend
+        run: |
+          pins() { grep -v '^-i ' | cut -d';' -f1 | sed 's/ *$//' | sort; }
+          if ! diff -u <(pins < requirements.txt) <(pipenv requirements | pins); then
+            echo "::error file=backend/requirements.txt::requirements.txt differs from Pipfile.lock; regenerate it with: cd backend && pipenv requirements > requirements.txt"
+            exit 1
+          fi
+
       # Step 1 of the checklist. A schema ordering violation or a bad import is
       # a service that does not come up on deploy, so it is checked before
       # anything slower runs.
