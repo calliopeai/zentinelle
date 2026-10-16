@@ -50,6 +50,31 @@ class ProviderUsageParserTests(SimpleTestCase):
             'cache_write_tokens': 0, 'usage_reported': True,
         })
 
+    def test_non_gemini_models_on_google_hosts(self):
+        # Claude on Vertex (publishers/anthropic) answers in Anthropic's shape.
+        claude = json.dumps({'type': 'message', 'usage': {
+            'input_tokens': 50, 'output_tokens': 800, 'cache_read_input_tokens': 9000}})
+        self.assertEqual(parse_usage(claude, 'vertex'), {
+            'input_tokens': 50, 'output_tokens': 800, 'cache_read_tokens': 9000,
+            'cache_write_tokens': 0, 'usage_reported': True,
+        })
+        stream = (b'event: message_start\ndata: {"type":"message_start","message":{"usage":'
+                  b'{"input_tokens":12,"cache_creation_input_tokens":300,"output_tokens":1}}}\n\n'
+                  b'event: message_delta\ndata: {"type":"message_delta","usage":{"output_tokens":900}}\n\n')
+        self.assertEqual(parse_usage(stream, 'vertex'), {
+            'input_tokens': 12, 'output_tokens': 900, 'cache_read_tokens': 0,
+            'cache_write_tokens': 300, 'usage_reported': True,
+        })
+        # The OpenAI-compatible chat endpoint on either host.
+        compat = json.dumps({'choices': [], 'usage': {
+            'prompt_tokens': 5000, 'completion_tokens': 800,
+            'prompt_tokens_details': {'cached_tokens': 1000}}})
+        for provider in ('google', 'vertex'):
+            self.assertEqual(parse_usage(compat, provider), {
+                'input_tokens': 4000, 'output_tokens': 800, 'cache_read_tokens': 1000,
+                'cache_write_tokens': 0, 'usage_reported': True,
+            })
+
     def test_cut_short_body_reports_nothing(self):
         self.assertFalse(parse_usage(b'{"usage": {"input_tokens": 1', 'anthropic')['usage_reported'])
         self.assertFalse(parse_usage(b'', 'openai')['usage_reported'])
@@ -84,7 +109,7 @@ class ProxyMeteringTests(TestCase):
         )
         self.auth = SimpleNamespace(valid=True, tenant_id=self.tenant_id, user_id=f'agent:{self.endpoint.id}')
 
-    def _proxy(self, case, provider=None, path=None):
+    def _proxy(self, case, provider=None, path=None, status=200):
         provider = provider or case['provider']
         path = path or case['path'].lstrip('/').split('?')[0]
         if provider == 'openai':
@@ -97,7 +122,7 @@ class ProxyMeteringTests(TestCase):
         with patch('zentinelle.proxy.views.StandaloneTenantResolver._validate_agent_key', return_value=self.auth), \
              patch('httpx.Client', return_value=client):
             response = ProxyView.as_view()(request, provider=provider, path=path)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status)
         return client
 
     def _metrics(self):
@@ -155,3 +180,41 @@ class ProxyMeteringTests(TestCase):
         url = client.request.call_args.args[1]
         self.assertTrue(url.startswith('https://us-central1-aiplatform.googleapis.com/v1/projects/mine/locations/us-central1/'))
         self.assertNotIn('..', url)
+
+    def _deny_output(self):
+        """An enabled output filter that denies every response (audit H4, proxy half)."""
+        from zentinelle.services.policy_engine import EvaluationResult
+
+        def evaluate(engine, endpoint, action, context=None, **kwargs):
+            return EvaluationResult(allowed=action != 'llm:response', reason='blocked')
+
+        filters = MagicMock()
+        filters.exists.return_value = True
+        return patch('zentinelle.services.policy_engine.PolicyEngine.evaluate', evaluate), \
+            patch('zentinelle.models.Policy.objects.filter', return_value=filters)
+
+    def test_a_response_the_output_filter_withholds_is_still_metered(self):
+        for name in ('anthropic messages stream, prompt cache', 'anthropic messages, prompt cache'):
+            case = next(c for c in CASES if c['name'] == name)
+            with self.subTest(name):
+                evaluate, filters = self._deny_output()
+                with evaluate, filters:
+                    self._proxy(case, status=403)
+                self._assert_metered(case)
+
+    def test_an_oversize_stream_is_still_metered(self):
+        case = next(c for c in CASES if c['name'] == 'anthropic messages stream, prompt cache')
+        size = len((FIXTURES / case['file']).read_bytes())
+        # The first half of the stream (message_start) is read before the cap.
+        with patch('zentinelle.proxy.views.MAX_RESPONSE_SIZE', size - 1):
+            self._proxy(case, status=502)
+        metrics = self._metrics()
+        self.assertEqual(metrics[UsageMetric.MetricType.AI_CACHE_READ_TOKENS], case['cache_read_input_tokens'])
+
+    def test_provider_keys_never_reach_the_log(self):
+        case = next(c for c in CASES if c['name'] == 'anthropic messages, prompt cache')
+        with patch.dict('os.environ', {'MANAGED_ANTHROPIC_API_KEY': 'sk-ant-managed-secret'}), \
+                self.assertLogs('zentinelle.proxy.views', level='INFO') as logs:
+            client = self._proxy(case)
+        self.assertEqual(client.request.call_args.kwargs['headers']['x-api-key'], 'sk-ant-managed-secret')
+        self.assertNotIn('sk-ant-managed-secret', '\n'.join(logs.output))

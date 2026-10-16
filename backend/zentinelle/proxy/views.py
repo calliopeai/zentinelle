@@ -116,6 +116,9 @@ _HOP_BY_HOP = frozenset([
     'x-forwarded-host',
 ])
 
+# Credentials that must never reach the log, managed provider keys included.
+_SECRET_HEADERS = frozenset(['authorization', 'x-api-key', 'x-goog-api-key', 'api-key', 'cookie'])
+
 
 def _estimate_input_tokens(messages) -> int:
     """Rough estimate of input token count from a messages list."""
@@ -295,7 +298,7 @@ class ProxyView(View):
             forward_headers['Host'] = urlparse(upstream_url).hostname
 
         # Debug: log forwarded headers (redact auth values)
-        debug_headers = {k: (v[:20] + '...' if k.lower() == 'authorization' else v) for k, v in forward_headers.items()}
+        debug_headers = {k: ('[REDACTED]' if k.lower() in _SECRET_HEADERS else v) for k, v in forward_headers.items()}
         logger.info('Proxy %s %s → %s headers=%s', request.method, path, upstream_url, debug_headers)
 
         try:
@@ -329,6 +332,11 @@ class ProxyView(View):
                         for chunk in upstream_response.iter_bytes():
                             buffered_size += len(chunk)
                             if buffered_size > MAX_RESPONSE_SIZE:
+                                # The provider bills the call whether or not
+                                # the caller gets the answer.
+                                self._log_interaction(endpoint, provider, context, eval_result,
+                                                      response_body=b''.join(buffered_chunks),
+                                                      upstream_status=upstream_status)
                                 return JsonResponse(
                                     {'error': 'response_too_large',
                                      'detail': f'Response exceeded {MAX_RESPONSE_SIZE} bytes limit'},
@@ -351,12 +359,13 @@ class ProxyView(View):
                     if output_text:
                         output_context = dict(context)
                         output_context['output_text'] = output_text
+                        denied = None
                         try:
                             filter_result = engine.evaluate(
                                 endpoint, 'llm:response', context=output_context
                             )
                             if not filter_result.allowed:
-                                return JsonResponse(
+                                denied = JsonResponse(
                                     {
                                         'error': 'output_policy_denied',
                                         'detail': filter_result.reason or 'Response blocked by output filter',
@@ -365,7 +374,13 @@ class ProxyView(View):
                                 )
                         except Exception as exc:
                             logger.warning('Streaming output filter evaluation failed: %s', exc)
-                            return JsonResponse({'error': 'output_inspection_failed'}, status=503)
+                            denied = JsonResponse({'error': 'output_inspection_failed'}, status=503)
+                        if denied is not None:
+                            # The provider bills a call whose answer is withheld.
+                            self._log_interaction(endpoint, provider, context, eval_result,
+                                                  response_body=full_content,
+                                                  upstream_status=upstream_status)
+                            return denied
 
                 self._log_interaction(endpoint, provider, context, eval_result,
                                       response_body=full_content, upstream_status=upstream_status)
@@ -398,20 +413,27 @@ class ProxyView(View):
                 ).exists()
 
                 if output_filter_policies and response_body:
+                    denied = None
                     try:
                         out_text = response_body.decode('utf-8', errors='replace')
                         output_context = dict(context)
                         output_context['output_text'] = out_text
                         filter_result = engine.evaluate(endpoint, 'llm:response', context=output_context)
                         if not filter_result.allowed:
-                            return JsonResponse(
+                            denied = JsonResponse(
                                 {'error': 'output_policy_denied',
                                  'detail': filter_result.reason or 'Response blocked by output filter'},
                                 status=403,
                             )
                     except Exception as exc:
                         logger.warning('Output filter evaluation failed: %s', exc)
-                        return JsonResponse({'error': 'output_inspection_failed'}, status=503)
+                        denied = JsonResponse({'error': 'output_inspection_failed'}, status=503)
+                    if denied is not None:
+                        # The provider bills a call whose answer is withheld.
+                        self._log_interaction(endpoint, provider, context, eval_result,
+                                              response_body=response_body,
+                                              upstream_status=upstream_response.status_code)
+                        return denied
 
                 self._log_interaction(endpoint, provider, context, eval_result,
                                       response_body=response_body,

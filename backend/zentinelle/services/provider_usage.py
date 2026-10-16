@@ -87,8 +87,18 @@ def _usage_map_in(obj):
     return None
 
 
+_GEMINI_KEYS = ('promptTokenCount', 'prompt_token_count', 'candidatesTokenCount',
+                'candidates_token_count', 'totalTokenCount', 'total_token_count')
+
+
 def _parse_usage_map(usage, provider):
     counts = {'prompt': 0, 'completion': 0, 'cache_read': 0, 'cache_write': 0}
+    if provider in ('google', 'vertex') and not any(key in usage for key in _GEMINI_KEYS):
+        # Not every model behind a Google host is Gemini: Vertex serves Claude
+        # (publishers/anthropic, Anthropic usage) and both hosts serve an
+        # OpenAI-compatible chat endpoint. Read those in their own shape, or
+        # they would meter as zero.
+        provider = 'openai' if 'prompt_tokens' in usage or 'completion_tokens' in usage else 'anthropic'
     if provider == 'anthropic':
         # input_tokens is only the uncached remainder; cache reads and writes
         # are billed on top of it.
