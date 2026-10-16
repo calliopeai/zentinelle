@@ -112,8 +112,9 @@ Notable changes to Zentinelle. The format follows
   its own usage; authenticated provider usage still releases it on any
   budget. Showback reads settlement from `reconciled_at`.
 - Budgets follow their action (audit M14, H22). Admission reserves and refuses
-  only for an enforced hard budget whose action refuses (block,
-  require_approval, redact), so an alert-action budget alerts instead. A soft
+  only for an enforced hard budget whose action, or one of its escalation
+  steps, refuses (block, require_approval, redact), so an alert-action budget
+  alerts instead. A soft
   budget (`hard_limit` false) now matches at `alert_threshold_percent` and
   when exceeded, so the seeded budget alerts; under enforce it is capped at
   alert and never refuses.

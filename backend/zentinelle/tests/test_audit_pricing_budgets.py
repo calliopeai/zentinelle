@@ -296,6 +296,16 @@ class BudgetActionsTest(TwoTenantMixin, TestCase):
         # And it reserves nothing: only a budget that refuses does.
         self.assertFalse(BudgetCharge.objects.filter(tenant_id=TENANT_A).exists())
 
+    def test_a_hard_budget_that_escalates_to_block_still_reserves(self):
+        # Its configured action alerts, but an escalation step can refuse the
+        # call, so admission must hold its limit like a block budget does.
+        policy = Policy.objects.create(
+            tenant_id=TENANT_A, policy_type=Policy.PolicyType.BUDGET_LIMIT, name='Budget', enforcement='enforce',
+            config={'monthly_budget_usd': 500, 'alert_threshold_percent': 80, 'hard_limit': True}, action='alert',
+            escalation={'severity': [{'min_severity': 'info', 'action': 'block'}]})
+        self.spend(policy, Decimal('499.9999'))
+        self.assertFalse(call(self.endpoint_a, 'm14-escalates').allowed)
+
     def test_an_enforced_hard_budget_with_the_block_action_still_refuses(self):
         policy = budget(TENANT_A)
         self.spend(policy, 600)
