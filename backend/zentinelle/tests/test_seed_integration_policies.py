@@ -2,7 +2,7 @@
 
 The installer runs `seed_integration_policies` once when Zentinelle is enabled
 with the Workbench or Astrolift. It creates what is missing, never touches what
-an operator has, and what it creates logs and never blocks.
+an operator has, and what it creates alerts and never blocks, under enforce too.
 """
 import io
 
@@ -25,18 +25,19 @@ def seed(tenant=TENANT, source='workbench'):
 
 class SeedTests(TestCase):
 
-    def test_the_three_policies_are_created_org_wide_in_audit_mode(self):
+    def test_the_three_policies_are_created_org_wide_in_audit_mode_with_alert(self):
         output = seed()
 
         policies = Policy.objects.filter(tenant_id=TENANT)
         self.assertEqual({p.policy_type for p in policies}, SEEDED)
         for policy in policies:
-            self.assertEqual((policy.scope_type, policy.enforcement, policy.enabled),
-                             ('organization', 'audit', True))
+            self.assertEqual((policy.scope_type, policy.enforcement, policy.action, policy.enabled),
+                             ('organization', 'audit', 'alert', True))
             self.assertIn('the Workbench', policy.description)
             self.assertIn(f'created {policy.policy_type}', output)
-        self.assertEqual(Policy.objects.get(tenant_id=TENANT, policy_type='budget_limit').config['monthly_budget_usd'],
-                         500)
+        budget = Policy.objects.get(tenant_id=TENANT, policy_type='budget_limit').config
+        self.assertEqual((budget['monthly_budget_usd'], budget['alert_threshold_percent'], budget['hard_limit']),
+                         (500, 80, False))
         self.assertIn('3 created, 0 already present', output)
         self.assertFalse(Policy.objects.filter(tenant_id=OTHER).exists())
 
@@ -73,17 +74,30 @@ class SeedTests(TestCase):
                 call_command('seed_integration_policies', *args, stdout=io.StringIO())
         self.assertFalse(Policy.objects.exists())
 
-    def test_what_they_match_is_logged_and_never_blocked(self):
-        seed()
+    def evaluate_a_risky_spawn(self):
         _, key_hash, prefix = AgentEndpoint.generate_api_key()
         endpoint = AgentEndpoint.objects.create(tenant_id=TENANT, agent_id='agent-1', name='agent-1',
                                                 api_key_hash=key_hash, api_key_prefix=prefix)
 
-        result = PolicyEngine().evaluate(endpoint, 'agent:spawn', 'user-1', {
+        return PolicyEngine().evaluate(endpoint, 'agent:spawn', 'user-1', {
             'has_sensitive_data': True, 'delegation_depth': 9, 'parent_agent_id': 'agent-0',
         })
 
+    def test_what_they_match_alerts_and_is_never_blocked(self):
+        seed()
+
+        result = self.evaluate_a_risky_spawn()
+
         self.assertTrue(result.allowed)
-        self.assertEqual(result.enforcement['action'], 'log')
+        self.assertEqual(result.enforcement['action'], 'alert')
         self.assertTrue(any('Human approval required' in w for w in result.warnings))
         self.assertTrue(any('Delegation depth 9' in w for w in result.warnings))
+
+    def test_switched_to_enforce_they_alert_rather_than_block(self):
+        seed()
+        Policy.objects.filter(tenant_id=TENANT).update(enforcement='enforce')
+
+        result = self.evaluate_a_risky_spawn()
+
+        self.assertTrue(result.allowed)
+        self.assertEqual(result.enforcement['action'], 'alert')

@@ -6686,7 +6686,7 @@
       "name": "SeedTests",
       "file_path": "backend/zentinelle/tests/test_seed_integration_policies.py",
       "line_start": 26,
-      "line_end": 89,
+      "line_end": 103,
       "description": "",
       "metadata": "{}"
     },
@@ -21875,8 +21875,8 @@
       "type": "class",
       "name": "Command",
       "file_path": "backend/zentinelle/management/commands/seed_integration_policies.py",
-      "line_start": 44,
-      "line_end": 81,
+      "line_start": 47,
+      "line_end": 86,
       "description": "",
       "metadata": "{}"
     },
@@ -52930,1419 +52930,1426 @@
     {
       "id": 3816,
       "source_id": "file:backend/zentinelle/management/commands/seed_integration_policies.py",
+      "target_id": "file:zentinelle/models/actions.py",
+      "type": "imports",
+      "metadata": "{}"
+    },
+    {
+      "id": 3817,
+      "source_id": "file:backend/zentinelle/management/commands/seed_integration_policies.py",
       "target_id": "class:backend/zentinelle/management/commands/seed_integration_policies.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3817,
+      "id": 3818,
       "source_id": "class:backend/zentinelle/management/commands/seed_integration_policies.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3818,
+      "id": 3819,
       "source_id": "file:backend/zentinelle/management/commands/generate_secrets.py",
       "target_id": "class:backend/zentinelle/management/commands/generate_secrets.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3819,
+      "id": 3820,
       "source_id": "class:backend/zentinelle/management/commands/generate_secrets.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3820,
+      "id": 3821,
       "source_id": "file:backend/zentinelle/management/commands/prepare_schemas.py",
       "target_id": "class:backend/zentinelle/management/commands/prepare_schemas.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3821,
+      "id": 3822,
       "source_id": "class:backend/zentinelle/management/commands/prepare_schemas.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3822,
+      "id": 3823,
       "source_id": "file:backend/zentinelle/management/commands/bootstrap_token.py",
       "target_id": "file:zentinelle/models/bootstrap_token.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3823,
+      "id": 3824,
       "source_id": "file:backend/zentinelle/management/commands/bootstrap_token.py",
       "target_id": "class:backend/zentinelle/management/commands/bootstrap_token.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3824,
+      "id": 3825,
       "source_id": "class:backend/zentinelle/management/commands/bootstrap_token.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3825,
+      "id": 3826,
       "source_id": "file:backend/zentinelle/management/commands/persistence_smoke.py",
       "target_id": "file:zentinelle/management/commands/persistence_check.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3826,
+      "id": 3827,
       "source_id": "file:backend/zentinelle/management/commands/persistence_smoke.py",
       "target_id": "file:zentinelle/models.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3827,
+      "id": 3828,
       "source_id": "file:backend/zentinelle/management/commands/persistence_smoke.py",
       "target_id": "class:backend/zentinelle/management/commands/persistence_smoke.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3828,
+      "id": 3829,
       "source_id": "class:backend/zentinelle/management/commands/persistence_smoke.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3829,
+      "id": 3830,
       "source_id": "file:backend/zentinelle/management/commands/temporal_worker.py",
       "target_id": "file:zentinelle/temporal/activities.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3830,
+      "id": 3831,
       "source_id": "file:backend/zentinelle/management/commands/temporal_worker.py",
       "target_id": "file:zentinelle/temporal/client.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3831,
+      "id": 3832,
       "source_id": "file:backend/zentinelle/management/commands/temporal_worker.py",
       "target_id": "file:zentinelle/temporal/schedules.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3832,
+      "id": 3833,
       "source_id": "file:backend/zentinelle/management/commands/temporal_worker.py",
       "target_id": "file:zentinelle/temporal/workflows.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3833,
+      "id": 3834,
       "source_id": "file:backend/zentinelle/management/commands/temporal_worker.py",
       "target_id": "class:backend/zentinelle/management/commands/temporal_worker.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3834,
+      "id": 3835,
       "source_id": "class:backend/zentinelle/management/commands/temporal_worker.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3835,
+      "id": 3836,
       "source_id": "file:backend/zentinelle/management/commands/policy_validate.py",
       "target_id": "file:zentinelle/management/commands/policy_apply.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3836,
+      "id": 3837,
       "source_id": "file:backend/zentinelle/management/commands/policy_validate.py",
       "target_id": "class:backend/zentinelle/management/commands/policy_validate.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3837,
+      "id": 3838,
       "source_id": "class:backend/zentinelle/management/commands/policy_validate.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3838,
+      "id": 3839,
       "source_id": "file:backend/zentinelle/management/commands/seed_models.py",
       "target_id": "class:backend/zentinelle/management/commands/seed_models.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3839,
+      "id": 3840,
       "source_id": "class:backend/zentinelle/management/commands/seed_models.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3840,
+      "id": 3841,
       "source_id": "file:backend/zentinelle/management/commands/seed_models.py",
       "target_id": "file:zentinelle/models.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3841,
+      "id": 3842,
       "source_id": "file:backend/zentinelle/management/commands/seed_models.py",
       "target_id": "file:zentinelle/models/model_registry.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3842,
+      "id": 3843,
       "source_id": "file:backend/zentinelle/management/commands/activate_compliance_pack.py",
       "target_id": "file:zentinelle/services/compliance_packs.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3843,
+      "id": 3844,
       "source_id": "file:backend/zentinelle/management/commands/activate_compliance_pack.py",
       "target_id": "class:backend/zentinelle/management/commands/activate_compliance_pack.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3844,
+      "id": 3845,
       "source_id": "class:backend/zentinelle/management/commands/activate_compliance_pack.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3845,
+      "id": 3846,
       "source_id": "file:backend/zentinelle/management/commands/export_usage_to_billing.py",
       "target_id": "file:zentinelle/services/billing_export.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3846,
+      "id": 3847,
       "source_id": "file:backend/zentinelle/management/commands/export_usage_to_billing.py",
       "target_id": "class:backend/zentinelle/management/commands/export_usage_to_billing.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3847,
+      "id": 3848,
       "source_id": "class:backend/zentinelle/management/commands/export_usage_to_billing.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3848,
+      "id": 3849,
       "source_id": "file:backend/zentinelle/management/commands/purge_demo.py",
       "target_id": "class:backend/zentinelle/management/commands/purge_demo.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3849,
+      "id": 3850,
       "source_id": "class:backend/zentinelle/management/commands/purge_demo.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3850,
+      "id": 3851,
       "source_id": "file:backend/zentinelle/management/commands/purge_demo.py",
       "target_id": "file:zentinelle/models.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3851,
+      "id": 3852,
       "source_id": "file:backend/zentinelle/management/commands/policy_apply.py",
       "target_id": "file:zentinelle/models/policy.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3852,
+      "id": 3853,
       "source_id": "file:backend/zentinelle/management/commands/policy_apply.py",
       "target_id": "func:backend/zentinelle/management/commands/policy_apply.py:_parse_policy_files",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3853,
+      "id": 3854,
       "source_id": "file:backend/zentinelle/management/commands/policy_apply.py",
       "target_id": "func:backend/zentinelle/management/commands/policy_apply.py:_validate_doc",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3854,
+      "id": 3855,
       "source_id": "file:backend/zentinelle/management/commands/policy_apply.py",
       "target_id": "class:backend/zentinelle/management/commands/policy_apply.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3855,
+      "id": 3856,
       "source_id": "class:backend/zentinelle/management/commands/policy_apply.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3856,
+      "id": 3857,
       "source_id": "file:backend/zentinelle/management/commands/create_junohub_endpoint.py",
       "target_id": "file:zentinelle/models.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3857,
+      "id": 3858,
       "source_id": "file:backend/zentinelle/management/commands/create_junohub_endpoint.py",
       "target_id": "class:backend/zentinelle/management/commands/create_junohub_endpoint.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3858,
+      "id": 3859,
       "source_id": "class:backend/zentinelle/management/commands/create_junohub_endpoint.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3859,
+      "id": 3860,
       "source_id": "file:backend/zentinelle/management/commands/persistence_check.py",
       "target_id": "file:zentinelle/models.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3860,
+      "id": 3861,
       "source_id": "file:backend/zentinelle/management/commands/persistence_check.py",
       "target_id": "func:backend/zentinelle/management/commands/persistence_check.py:tenant_filter_kwargs",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3861,
+      "id": 3862,
       "source_id": "file:backend/zentinelle/management/commands/persistence_check.py",
       "target_id": "class:backend/zentinelle/management/commands/persistence_check.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3862,
+      "id": 3863,
       "source_id": "class:backend/zentinelle/management/commands/persistence_check.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3863,
+      "id": 3864,
       "source_id": "file:backend/zentinelle/management/commands/sync_models.py",
       "target_id": "file:zentinelle/services/model_sync.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3864,
+      "id": 3865,
       "source_id": "file:backend/zentinelle/management/commands/sync_models.py",
       "target_id": "class:backend/zentinelle/management/commands/sync_models.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3865,
+      "id": 3866,
       "source_id": "class:backend/zentinelle/management/commands/sync_models.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3866,
+      "id": 3867,
       "source_id": "file:backend/zentinelle/management/commands/seed_prompt_library.py",
       "target_id": "file:zentinelle/models/system_prompt.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3867,
+      "id": 3868,
       "source_id": "file:backend/zentinelle/management/commands/seed_prompt_library.py",
       "target_id": "class:backend/zentinelle/management/commands/seed_prompt_library.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3868,
+      "id": 3869,
       "source_id": "class:backend/zentinelle/management/commands/seed_prompt_library.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3869,
+      "id": 3870,
       "source_id": "file:backend/zentinelle/management/commands/setup_sentinel.py",
       "target_id": "class:backend/zentinelle/management/commands/setup_sentinel.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3870,
+      "id": 3871,
       "source_id": "class:backend/zentinelle/management/commands/setup_sentinel.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3871,
+      "id": 3872,
       "source_id": "file:backend/zentinelle/management/commands/setup_sentinel.py",
       "target_id": "file:zentinelle/models.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3872,
+      "id": 3873,
       "source_id": "file:backend/zentinelle/management/commands/setup_sentinel.py",
       "target_id": "file:zentinelle/models/ai_provider.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3873,
+      "id": 3874,
       "source_id": "file:backend/zentinelle/management/commands/policy_export.py",
       "target_id": "file:zentinelle/models/policy.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3874,
+      "id": 3875,
       "source_id": "file:backend/zentinelle/management/commands/policy_export.py",
       "target_id": "func:backend/zentinelle/management/commands/policy_export.py:_name_to_slug",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3875,
+      "id": 3876,
       "source_id": "file:backend/zentinelle/management/commands/policy_export.py",
       "target_id": "class:backend/zentinelle/management/commands/policy_export.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3876,
+      "id": 3877,
       "source_id": "class:backend/zentinelle/management/commands/policy_export.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3877,
+      "id": 3878,
       "source_id": "file:backend/zentinelle/management/commands/policy_diff.py",
       "target_id": "file:zentinelle/management/commands/policy_apply.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3878,
+      "id": 3879,
       "source_id": "file:backend/zentinelle/management/commands/policy_diff.py",
       "target_id": "file:zentinelle/models/policy.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3879,
+      "id": 3880,
       "source_id": "file:backend/zentinelle/management/commands/policy_diff.py",
       "target_id": "class:backend/zentinelle/management/commands/policy_diff.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3880,
+      "id": 3881,
       "source_id": "class:backend/zentinelle/management/commands/policy_diff.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3881,
+      "id": 3882,
       "source_id": "file:backend/zentinelle/management/commands/astrolift_enrollment_code.py",
       "target_id": "file:zentinelle/services/astrolift_clusters.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3882,
+      "id": 3883,
       "source_id": "file:backend/zentinelle/management/commands/astrolift_enrollment_code.py",
       "target_id": "class:backend/zentinelle/management/commands/astrolift_enrollment_code.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3883,
+      "id": 3884,
       "source_id": "class:backend/zentinelle/management/commands/astrolift_enrollment_code.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3884,
+      "id": 3885,
       "source_id": "file:backend/zentinelle/management/commands/qualify_release.py",
       "target_id": "file:zentinelle/services/release_qualification.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3885,
+      "id": 3886,
       "source_id": "file:backend/zentinelle/management/commands/qualify_release.py",
       "target_id": "class:backend/zentinelle/management/commands/qualify_release.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3886,
+      "id": 3887,
       "source_id": "class:backend/zentinelle/management/commands/qualify_release.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3887,
+      "id": 3888,
       "source_id": "file:backend/zentinelle/management/commands/seed_demo.py",
       "target_id": "class:backend/zentinelle/management/commands/seed_demo.py:Command",
       "type": "contains",
       "metadata": "{}"
     },
     {
-      "id": 3888,
+      "id": 3889,
       "source_id": "class:backend/zentinelle/management/commands/seed_demo.py:Command",
       "target_id": "class:*:BaseCommand",
       "type": "inherits",
       "metadata": "{}"
     },
     {
-      "id": 3889,
+      "id": 3890,
       "source_id": "file:backend/zentinelle/management/commands/seed_demo.py",
       "target_id": "file:zentinelle/models.py",
       "type": "imports",
       "metadata": "{}"
     },
     {
-      "id": 3890,
+      "id": 3891,
       "source_id": "url:gql/zentinelle",
       "target_id": "class:*:ZentinelleGraphQLView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3891,
+      "id": 3892,
       "source_id": "url:gql/zentinelle/",
       "target_id": "class:*:ZentinelleGraphQLView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3892,
+      "id": 3893,
       "source_id": "url:health",
       "target_id": "class:*:HealthView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3893,
+      "id": 3894,
       "source_id": "url:ready",
       "target_id": "class:*:ReadyView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3894,
+      "id": 3895,
       "source_id": "url:telemetry/health",
       "target_id": "class:*:TelemetryDeliveryHealthView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3895,
+      "id": 3896,
       "source_id": "url:approvals",
       "target_id": "class:*:ApprovalIssueView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3896,
+      "id": 3897,
       "source_id": "url:approvals/requests",
       "target_id": "class:*:ApprovalRequestListView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3897,
+      "id": 3898,
       "source_id": "url:approvals/requests/<uuid:request_id>",
       "target_id": "class:*:ApprovalRequestStatusView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3898,
+      "id": 3899,
       "source_id": "url:approvals/requests/<uuid:request_id>/decision",
       "target_id": "class:*:ApprovalRequestDecisionView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3899,
+      "id": 3900,
       "source_id": "url:auth/csrf",
       "target_id": "class:*:CSRFTokenView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3900,
+      "id": 3901,
       "source_id": "url:auth/login",
       "target_id": "class:*:LoginView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3901,
+      "id": 3902,
       "source_id": "url:auth/logout",
       "target_id": "class:*:LogoutView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3902,
+      "id": 3903,
       "source_id": "url:auth/me",
       "target_id": "class:*:MeView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3903,
+      "id": 3904,
       "source_id": "url:auth/oidc/login",
       "target_id": "class:*:OIDCLoginView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3904,
+      "id": 3905,
       "source_id": "url:auth/oidc/callback",
       "target_id": "class:*:OIDCCallbackView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3905,
+      "id": 3906,
       "source_id": "url:assistant/chat",
       "target_id": "class:*:AssistantChatView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3906,
+      "id": 3907,
       "source_id": "url:assistant/execute-tool",
       "target_id": "class:*:AssistantExecuteToolView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3907,
+      "id": 3908,
       "source_id": "url:assistant/providers",
       "target_id": "class:*:AssistantProvidersView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3908,
+      "id": 3909,
       "source_id": "url:assistant/models",
       "target_id": "class:*:AssistantModelsListView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3909,
+      "id": 3910,
       "source_id": "url:assistant/models/toggle",
       "target_id": "class:*:AssistantModelsToggleView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3910,
+      "id": 3911,
       "source_id": "url:assistant/models/bulk",
       "target_id": "class:*:AssistantModelsBulkView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3911,
+      "id": 3912,
       "source_id": "url:settings/llm-providers",
       "target_id": "class:*:LLMProviderKeysView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3912,
+      "id": 3913,
       "source_id": "url:settings/llm-providers/<str:provider>",
       "target_id": "class:*:LLMProviderKeyDeleteView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3913,
+      "id": 3914,
       "source_id": "url:settings/astrolift",
       "target_id": "class:*:AstroliftSettingsView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3914,
+      "id": 3915,
       "source_id": "url:settings/astrolift/enrollment-codes",
       "target_id": "class:*:AstroliftEnrollmentCodeView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3915,
+      "id": 3916,
       "source_id": "url:settings/astrolift/installs/<uuid:install_id>",
       "target_id": "class:*:AstroliftInstallAdminView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3916,
+      "id": 3917,
       "source_id": "url:settings/astrolift/clusters/<uuid:cluster_id>",
       "target_id": "class:*:AstroliftClusterAdminView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3917,
+      "id": 3918,
       "source_id": "url:settings/runtime",
       "target_id": "class:*:RuntimeSettingsView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3918,
+      "id": 3919,
       "source_id": "url:settings/runtime/rollback",
       "target_id": "class:*:RuntimeSettingsRollbackView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3919,
+      "id": 3920,
       "source_id": "url:settings/runtime/changes",
       "target_id": "class:*:RuntimeSettingsChangesView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3920,
+      "id": 3921,
       "source_id": "url:settings/runtime/changes/<uuid:change_id>/transition",
       "target_id": "class:*:RuntimeSettingsChangeTransitionView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3921,
+      "id": 3922,
       "source_id": "url:policy-copilot/status",
       "target_id": "class:*:PolicyCopilotStatusView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3922,
+      "id": 3923,
       "source_id": "url:policy-copilot/draft",
       "target_id": "class:*:PolicyCopilotDraftView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3923,
+      "id": 3924,
       "source_id": "url:policy-copilot/explain",
       "target_id": "class:*:PolicyCopilotExplainView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3924,
+      "id": 3925,
       "source_id": "url:policy-copilot/diff",
       "target_id": "class:*:PolicyCopilotDiffView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3925,
+      "id": 3926,
       "source_id": "url:policy-copilot/stage",
       "target_id": "class:*:PolicyCopilotStageView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3926,
+      "id": 3927,
       "source_id": "url:threats/atlas",
       "target_id": "class:*:AtlasControlMapView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3927,
+      "id": 3928,
       "source_id": "url:evidence/controls",
       "target_id": "class:*:ControlEvidenceView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3928,
+      "id": 3929,
       "source_id": "url:budgets/showback",
       "target_id": "class:*:BudgetShowbackView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3929,
+      "id": 3930,
       "source_id": "url:models/route-canary",
       "target_id": "class:*:ModelRouteCanaryView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3930,
+      "id": 3931,
       "source_id": "url:models/route-canary/<uuid:canary_id>/rollback",
       "target_id": "class:*:ModelRouteCanaryRollbackView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3931,
+      "id": 3932,
       "source_id": "url:controls/brocs",
       "target_id": "class:*:BrocsControlMapView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3932,
+      "id": 3933,
       "source_id": "url:operator/agents",
       "target_id": "class:*:OperatorAgentView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3933,
+      "id": 3934,
       "source_id": "url:operator/agents/<slug:agent_id>",
       "target_id": "class:*:OperatorAgentView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3934,
+      "id": 3935,
       "source_id": "url:operator/policies",
       "target_id": "class:*:OperatorPolicyView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3935,
+      "id": 3936,
       "source_id": "url:operator/policies/<uuid:policy_id>",
       "target_id": "class:*:OperatorPolicyView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3936,
+      "id": 3937,
       "source_id": "url:register",
       "target_id": "class:*:RegisterView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3937,
+      "id": 3938,
       "source_id": "url:deregister",
       "target_id": "class:*:DeregisterView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3938,
+      "id": 3939,
       "source_id": "url:config/<str:agent_id>",
       "target_id": "class:*:ConfigView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3939,
+      "id": 3940,
       "source_id": "url:agents/<str:agent_id>/control",
       "target_id": "class:*:AgentControlView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3940,
+      "id": 3941,
       "source_id": "url:secrets",
       "target_id": "class:*:SecretsView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3941,
+      "id": 3942,
       "source_id": "url:secrets/<str:agent_id>",
       "target_id": "class:*:SecretsView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3942,
+      "id": 3943,
       "source_id": "url:events",
       "target_id": "class:*:EventsView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3943,
+      "id": 3944,
       "source_id": "url:otlp/v1/traces",
       "target_id": "class:*:OtlpTracesView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3944,
+      "id": 3945,
       "source_id": "url:astrolift/agents/<str:agent_id>/enforcements",
       "target_id": "class:*:AstroliftEnforcementView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3945,
+      "id": 3946,
       "source_id": "url:astrolift/agents/<str:agent_id>/enforcements/<uuid:action_id>/outcome",
       "target_id": "class:*:AstroliftEnforcementOutcomeView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3946,
+      "id": 3947,
       "source_id": "url:astrolift/agents/<str:agent_id>/evaluate",
       "target_id": "class:*:AstroliftAgentEvaluateView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3947,
+      "id": 3948,
       "source_id": "url:astrolift/agents/<str:agent_id>/approvals/<uuid:request_id>/decision",
       "target_id": "class:*:AstroliftAgentApprovalView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3948,
+      "id": 3949,
       "source_id": "url:heartbeat",
       "target_id": "class:*:HeartbeatView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3949,
+      "id": 3950,
       "source_id": "url:evaluate",
       "target_id": "class:*:EvaluateView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3950,
+      "id": 3951,
       "source_id": "url:gateway/provider-key",
       "target_id": "class:*:GatewayProviderKeyView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3951,
+      "id": 3952,
       "source_id": "url:astrolift/connect",
       "target_id": "class:*:AstroliftConnectView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3952,
+      "id": 3953,
       "source_id": "url:astrolift/enrollment-codes",
       "target_id": "class:*:AstroliftAgentEnrollmentCodeView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3953,
+      "id": 3954,
       "source_id": "url:astrolift/install",
       "target_id": "class:*:AstroliftInstallView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3954,
+      "id": 3955,
       "source_id": "url:astrolift/clusters",
       "target_id": "class:*:AstroliftClustersView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3955,
+      "id": 3956,
       "source_id": "url:astrolift/clusters/<str:cluster_id>",
       "target_id": "class:*:AstroliftClusterView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3956,
+      "id": 3957,
       "source_id": "url:astrolift/clusters/<str:cluster_id>/rotate",
       "target_id": "class:*:AstroliftClusterRotateView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3957,
+      "id": 3958,
       "source_id": "url:astrolift/clusters/<str:cluster_id>/heartbeat",
       "target_id": "class:*:AstroliftClusterHeartbeatView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3958,
+      "id": 3959,
       "source_id": "url:astrolift/agents",
       "target_id": "class:*:AstroliftAgentsView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3959,
+      "id": 3960,
       "source_id": "url:astrolift/agents/<slug:agent_id>",
       "target_id": "class:*:AstroliftAgentView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3960,
+      "id": 3961,
       "source_id": "url:astrolift/agents/<slug:agent_id>/renew",
       "target_id": "class:*:AstroliftAgentRenewView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3961,
+      "id": 3962,
       "source_id": "url:effective-policy",
       "target_id": "class:*:EffectivePolicyView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3962,
+      "id": 3963,
       "source_id": "url:effective-policy/<str:user_id>",
       "target_id": "class:*:EffectivePolicyView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3963,
+      "id": 3964,
       "source_id": "url:prompts",
       "target_id": "class:*:SystemPromptsView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3964,
+      "id": 3965,
       "source_id": "url:prompts/<str:service>",
       "target_id": "class:*:SystemPromptsView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3965,
+      "id": 3966,
       "source_id": "url:scan",
       "target_id": "class:*:ScanContentView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3966,
+      "id": 3967,
       "source_id": "url:scan/async",
       "target_id": "class:*:AsyncScanView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3967,
+      "id": 3968,
       "source_id": "url:scan/<uuid:scan_id>",
       "target_id": "class:*:ScanResultView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3968,
+      "id": 3969,
       "source_id": "url:violations",
       "target_id": "class:*:ViolationsListView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3969,
+      "id": 3970,
       "source_id": "url:alerts",
       "target_id": "class:*:AlertsListView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3970,
+      "id": 3971,
       "source_id": "url:alerts/<uuid:alert_id>/acknowledge",
       "target_id": "class:*:AcknowledgeAlertView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3971,
+      "id": 3972,
       "source_id": "url:alerts/<uuid:alert_id>/resolve",
       "target_id": "class:*:ResolveAlertView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3972,
+      "id": 3973,
       "source_id": "url:interaction",
       "target_id": "class:*:LogInteractionView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3973,
+      "id": 3974,
       "source_id": "url:agent/<slug:agent_id>/summary",
       "target_id": "class:*:AgentSummaryView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3974,
+      "id": 3975,
       "source_id": "url:export/violations.csv",
       "target_id": "class:*:ExportViolationsCSVView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3975,
+      "id": 3976,
       "source_id": "url:export/compliance-report.csv",
       "target_id": "class:*:ExportComplianceReportCSVView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3976,
+      "id": 3977,
       "source_id": "url:export/summary.json",
       "target_id": "class:*:ComplianceReportSummaryView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3977,
+      "id": 3978,
       "source_id": "url:audit/verify",
       "target_id": "class:*:AuditChainVerifyView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3978,
+      "id": 3979,
       "source_id": "url:audit/export/",
       "target_id": "class:*:AuditExportView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3979,
+      "id": 3980,
       "source_id": "url:retention/status/",
       "target_id": "class:*:RetentionStatusView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3980,
+      "id": 3981,
       "source_id": "url:retention/erase",
       "target_id": "class:*:PrivacyEraseView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3981,
+      "id": 3982,
       "source_id": "url:retention/restore",
       "target_id": "class:*:PrivacyRestoreView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3982,
+      "id": 3983,
       "source_id": "url:risks/trend",
       "target_id": "class:*:RiskTrendView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3983,
+      "id": 3984,
       "source_id": "url:policies/<uuid:policy_id>/history/",
       "target_id": "class:*:PolicyHistoryListView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3984,
+      "id": 3985,
       "source_id": "url:policies/<uuid:policy_id>/diff/",
       "target_id": "class:*:PolicyDiffView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3985,
+      "id": 3986,
       "source_id": "url:policy-changes",
       "target_id": "class:*:PolicyChangeSetListView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3986,
+      "id": 3987,
       "source_id": "url:policy-changes/<uuid:change_id>/transition",
       "target_id": "class:*:PolicyChangeSetTransitionView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3987,
+      "id": 3988,
       "source_id": "url:policy-changes/<uuid:change_id>/acknowledge",
       "target_id": "class:*:PolicyChangeAcknowledgementView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3988,
+      "id": 3989,
       "source_id": "url:incidents/",
       "target_id": "class:*:IncidentListView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3989,
+      "id": 3990,
       "source_id": "url:incidents/<uuid:incident_id>/",
       "target_id": "class:*:IncidentDetailView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3990,
+      "id": 3991,
       "source_id": "url:incidents/<uuid:incident_id>/evidence/",
       "target_id": "class:*:IncidentEvidenceView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3991,
+      "id": 3992,
       "source_id": "url:incidents/<uuid:incident_id>/comments/",
       "target_id": "class:*:IncidentCommentView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3992,
+      "id": 3993,
       "source_id": "url:reports/",
       "target_id": "class:*:ReportCreateView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3993,
+      "id": 3994,
       "source_id": "url:reports/<int:report_id>/",
       "target_id": "class:*:ReportStatusView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3994,
+      "id": 3995,
       "source_id": "url:reports/<int:report_id>/download/",
       "target_id": "class:*:ReportDownloadView",
       "type": "routes_to",
       "metadata": "{}"
     },
     {
-      "id": 3995,
+      "id": 3996,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:HumanOversightEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 3996,
+      "id": 3997,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:SecretAccessEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 3997,
+      "id": 3998,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:OutputFilterEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 3998,
+      "id": 3999,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:SystemPromptEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 3999,
+      "id": 4000,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:SessionPolicyEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4000,
+      "id": 4001,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:ModelRestrictionEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4001,
+      "id": 4002,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:MultimodalPolicyEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4002,
+      "id": 4003,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:AgentMemoryEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4003,
+      "id": 4004,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:SessionQuotaEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4004,
+      "id": 4005,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:AgentCapabilityEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4005,
+      "id": 4006,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:AuditPolicyEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4006,
+      "id": 4007,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:DataAccessEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4007,
+      "id": 4008,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:ResourceQuotaEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4008,
+      "id": 4009,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:AIGuardrailEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4009,
+      "id": 4010,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:BehavioralBaselineEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4010,
+      "id": 4011,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:ContextLimitEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4011,
+      "id": 4012,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:ToolPermissionEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4012,
+      "id": 4013,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:RateLimitEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4013,
+      "id": 4014,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:SafetySettingsEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4014,
+      "id": 4015,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:AgentDelegationEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4015,
+      "id": 4016,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:BudgetLimitEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4016,
+      "id": 4017,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:NetworkPolicyEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4017,
+      "id": 4018,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:PromptInjectionEvaluator",
       "type": "evaluates",
       "metadata": "{}"
     },
     {
-      "id": 4018,
+      "id": 4019,
       "source_id": "class:*:PolicyEngine",
       "target_id": "evaluator:DataRetentionEvaluator",
       "type": "evaluates",
