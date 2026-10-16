@@ -14,6 +14,7 @@ Note: httpx is required (already used by ClientCoveTenantResolver).
 """
 import json
 import logging
+import posixpath
 import re
 import uuid
 from urllib.parse import urlparse
@@ -27,6 +28,7 @@ from zentinelle.auth.resolver import StandaloneTenantResolver
 from zentinelle.models import AgentEndpoint
 from zentinelle.services.content_capture import record_interaction
 from zentinelle.services.policy_engine import PolicyEngine
+from zentinelle.services.provider_usage import parse_usage
 
 
 def _extract_sse_text(content: bytes) -> str:
@@ -69,6 +71,16 @@ def _extract_sse_text(content: bytes) -> str:
                 text_parts.append(chunk)
 
     return ''.join(text_parts)
+
+
+def _gemini_model_from_path(path: str) -> str:
+    """The model a Gemini or Vertex path names (.../models/gemini-2.5-pro:generateContent)."""
+    _, sep, rest = ('/' + path).partition('/models/')
+    if not sep:
+        return ''
+    for end in (':', '/'):
+        rest = rest.split(end, 1)[0]
+    return rest
 
 
 logger = logging.getLogger(__name__)
@@ -179,6 +191,15 @@ class ProxyView(View):
                 status=404,
             )
 
+        # Gemini names the model in the path, and the policy check reads it
+        # from there. httpx resolves dot segments before sending, so an
+        # unresolved path could show policy one model (models/cheap/../expensive)
+        # while the provider serves another; the resolved path is the one
+        # checked against the inference routes, read and forwarded. On Vertex
+        # a leading .. would also leave the project the URL is built for, and
+        # a resolved path that is not a publisher model route is refused.
+        if provider in ('google', 'vertex'):
+            path = posixpath.normpath('/' + path).lstrip('/')
         if request.method != 'POST' or not _INFERENCE_PATHS[provider].fullmatch(path):
             return JsonResponse(
                 {'error': 'path_not_allowed',
@@ -202,6 +223,8 @@ class ProxyView(View):
                 status=403,
             )
 
+        gemini_model = _gemini_model_from_path(path) if provider in ('google', 'vertex') else ''
+
         # 4. Build evaluation context from request body
         context = {
             'action': 'llm:invoke',
@@ -209,6 +232,8 @@ class ProxyView(View):
             'path': path,
             'request_id': request.headers.get('X-Request-ID') or str(uuid.uuid4()),
         }
+        if gemini_model:
+            context['model'] = gemini_model
         # Give network_policy evaluators the actual upstream destination before
         # the request is sent. Without this, an allowlist could only enforce
         # allow_outbound and every provider domain would bypass domain rules.
@@ -237,7 +262,7 @@ class ProxyView(View):
                 try:
                     body_json = json.loads(body_bytes)
                     model = body_json.get('model', '')
-                    if model:
+                    if model and not gemini_model:
                         context['model'] = model
                     messages = body_json.get('messages', [])
                     if messages:
@@ -353,6 +378,11 @@ class ProxyView(View):
                         for chunk in upstream_response.iter_bytes():
                             buffered_size += len(chunk)
                             if buffered_size > MAX_RESPONSE_SIZE:
+                                # The provider bills the call whether or not
+                                # the caller gets the answer.
+                                self._log_interaction(endpoint, provider, context, eval_result,
+                                                      response_body=b''.join(buffered_chunks),
+                                                      upstream_status=upstream_status)
                                 return JsonResponse(
                                     {'error': 'response_too_large',
                                      'detail': f'Response exceeded {MAX_RESPONSE_SIZE} bytes limit'},
@@ -375,12 +405,13 @@ class ProxyView(View):
                     if output_text:
                         output_context = dict(context)
                         output_context['output_text'] = output_text
+                        denied = None
                         try:
                             filter_result = engine.evaluate(
                                 endpoint, 'llm:response', context=output_context
                             )
                             if not filter_result.allowed:
-                                return JsonResponse(
+                                denied = JsonResponse(
                                     {
                                         'error': 'output_policy_denied',
                                         'detail': filter_result.reason or 'Response blocked by output filter',
@@ -389,7 +420,13 @@ class ProxyView(View):
                                 )
                         except Exception as exc:
                             logger.warning('Streaming output filter evaluation failed: %s', exc)
-                            return JsonResponse({'error': 'output_inspection_failed'}, status=503)
+                            denied = JsonResponse({'error': 'output_inspection_failed'}, status=503)
+                        if denied is not None:
+                            # The provider bills a call whose answer is withheld.
+                            self._log_interaction(endpoint, provider, context, eval_result,
+                                                  response_body=full_content,
+                                                  upstream_status=upstream_status)
+                            return denied
 
                 self._log_interaction(endpoint, provider, context, eval_result,
                                       response_body=full_content, upstream_status=upstream_status)
@@ -422,20 +459,27 @@ class ProxyView(View):
                 ).exists()
 
                 if output_filter_policies and response_body:
+                    denied = None
                     try:
                         out_text = response_body.decode('utf-8', errors='replace')
                         output_context = dict(context)
                         output_context['output_text'] = out_text
                         filter_result = engine.evaluate(endpoint, 'llm:response', context=output_context)
                         if not filter_result.allowed:
-                            return JsonResponse(
+                            denied = JsonResponse(
                                 {'error': 'output_policy_denied',
                                  'detail': filter_result.reason or 'Response blocked by output filter'},
                                 status=403,
                             )
                     except Exception as exc:
                         logger.warning('Output filter evaluation failed: %s', exc)
-                        return JsonResponse({'error': 'output_inspection_failed'}, status=503)
+                        denied = JsonResponse({'error': 'output_inspection_failed'}, status=503)
+                    if denied is not None:
+                        # The provider bills a call whose answer is withheld.
+                        self._log_interaction(endpoint, provider, context, eval_result,
+                                              response_body=response_body,
+                                              upstream_status=upstream_response.status_code)
+                        return denied
 
                 self._log_interaction(endpoint, provider, context, eval_result,
                                       response_body=response_body,
@@ -547,23 +591,30 @@ class ProxyView(View):
         from zentinelle.services.usage_tracking import UsageTrackingService
 
         model = context.get('model', '')
+        # Canonical counts: input_tokens is uncached input; the cache counts
+        # are input the provider bills beside it.
         input_tokens = context.get('input_tokens', 0)
         output_tokens = 0
+        cache_read_tokens = 0
+        cache_write_tokens = 0
         output_content = ''
         latency_ms = None
-        total_tokens = input_tokens
 
         if response_body:
             parsed = self._parse_provider_response(provider, response_body)
-            output_tokens = parsed.get('output_tokens', 0)
-            input_tokens = parsed.get('input_tokens', input_tokens)
-            total_tokens = input_tokens + output_tokens
+            if parsed.get('usage_reported'):
+                input_tokens = parsed['input_tokens']
+                output_tokens = parsed['output_tokens']
+                cache_read_tokens = parsed['cache_read_tokens']
+                cache_write_tokens = parsed['cache_write_tokens']
             output_content = parsed.get('output_text', '')[:2000]
             latency_ms = parsed.get('latency_ms')
+        billable_input = input_tokens + cache_read_tokens + cache_write_tokens
+        total_tokens = billable_input + output_tokens
 
         cost = None
         if model and total_tokens > 0:
-            in_cost, out_cost = UsageTrackingService.calculate_cost(model, input_tokens, output_tokens, provider)
+            in_cost, out_cost = UsageTrackingService.calculate_cost(model, billable_input, output_tokens, provider)
             # An unpriced model's cost stays unknown (None), never $0.
             cost = None if in_cost is None else float(in_cost + out_cost)
 
@@ -597,7 +648,7 @@ class ProxyView(View):
                 ai_provider=provider,
                 ai_model=model or endpoint.agent_type,
                 input_content=input_preview,
-                input_token_count=input_tokens or None,
+                input_token_count=billable_input or None,
                 output_content=output_content or None,
                 output_token_count=output_tokens or None,
                 total_tokens=total_tokens or None,
@@ -620,6 +671,8 @@ class ProxyView(View):
                     model=model or endpoint.agent_type,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
+                    cache_read_tokens=cache_read_tokens,
+                    cache_write_tokens=cache_write_tokens,
                     endpoint=endpoint,
                     deployment_id_ext=endpoint.deployment_id_ext,
                 )
@@ -628,37 +681,19 @@ class ProxyView(View):
 
     @staticmethod
     def _parse_provider_response(provider, response_body):
-        """Extract token counts from upstream provider response."""
-        result = {}
+        """Extract canonical token counts and the output text from an upstream response."""
+        result = parse_usage(response_body, provider)
         try:
             if isinstance(response_body, bytes):
                 text = response_body.decode('utf-8', errors='replace')
             else:
                 text = str(response_body)
 
-            if text.startswith('data: '):
+            if text.lstrip().startswith(('data:', 'event:')):
                 text_content = _extract_sse_text(response_body if isinstance(response_body, bytes) else response_body.encode())
                 result['output_text'] = text_content
-                for line in text.splitlines():
-                    if not line.startswith('data: '):
-                        continue
-                    data_str = line[6:].strip()
-                    if data_str == '[DONE]':
-                        break
-                    try:
-                        data = json.loads(data_str)
-                        usage = data.get('usage', {})
-                        if usage:
-                            result['input_tokens'] = usage.get('input_tokens', usage.get('prompt_tokens', 0))
-                            result['output_tokens'] = usage.get('output_tokens', usage.get('completion_tokens', 0))
-                    except (ValueError, TypeError):
-                        continue
             else:
                 data = json.loads(text)
-                usage = data.get('usage', {})
-                if usage:
-                    result['input_tokens'] = usage.get('input_tokens', usage.get('prompt_tokens', 0))
-                    result['output_tokens'] = usage.get('output_tokens', usage.get('completion_tokens', 0))
 
                 choices = data.get('choices', [])
                 if choices:
