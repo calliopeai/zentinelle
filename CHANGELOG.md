@@ -111,8 +111,9 @@ Notable changes to Zentinelle. The format follows
 - A portal approval decision is saved only with its audit record. The
   decision and the audit log are written through different database
   connections, and the decision committed first, so a failed audit write left
-  an approval or denial standing unrecorded. The decision's transaction now encloses the audit write and
-  rolls back with it, as the Astrolift decision path already did.
+  an approval or denial standing unrecorded. The decision's transaction now
+  encloses the audit write and rolls back with it, as the Astrolift decision
+  path already did.
 - Model pricing matches exact model IDs only (audit C11). gpt-4 was priced as
   gpt-4o-mini, and current models (gpt-5, gpt-4.1, o3, Claude 4.5 and later,
   Gemini 2.5 and later) priced at $0, so every hard-budget request for them
