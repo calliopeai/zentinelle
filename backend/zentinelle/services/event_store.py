@@ -16,7 +16,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, Generator, List, Optional
 
 from django.core.cache import cache
-from django.db import transaction
+from django.db import router, transaction
 from django.utils import timezone
 
 from zentinelle.temporal.client import start_task
@@ -137,7 +137,7 @@ class EventStore:
         )
 
         # Persist to Event model
-        with transaction.atomic():
+        with transaction.atomic(using=router.db_for_write(Event)):
             event = Event.objects.create(
                 organization=organization,
                 endpoint=endpoint,

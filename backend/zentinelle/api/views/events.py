@@ -5,7 +5,7 @@ POST /api/zentinelle/v1/events
 import logging
 import uuid
 
-from django.db import transaction
+from django.db import router, transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework import status
@@ -98,7 +98,7 @@ class EventsView(APIView):
         duplicates = 0
         conflicts = []
         for event, _event_data in idempotent_events:
-            with transaction.atomic():
+            with transaction.atomic(using=router.db_for_write(Event)):
                 existing, created = Event.objects.get_or_create(
                     tenant_id=event.tenant_id,
                     endpoint=event.endpoint,

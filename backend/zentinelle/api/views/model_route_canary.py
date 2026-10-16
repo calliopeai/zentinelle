@@ -2,7 +2,7 @@
 import json
 import uuid
 
-from django.db import transaction
+from django.db import router, transaction
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -72,7 +72,7 @@ class ModelRouteCanaryRollbackView(APIView):
         tenant_id = get_request_tenant_id(request.user) or ''
         from zentinelle.models import ModelRouteCanary
         try:
-            with transaction.atomic():
+            with transaction.atomic(using=router.db_for_write(ModelRouteCanary)):
                 record = ModelRouteCanary.objects.select_for_update().get(id=canary_id, tenant_id=tenant_id)
                 if record.status == ModelRouteCanary.Status.ROLLED_BACK:
                     return Response({'error': 'Canary is already rolled back'}, status=409)

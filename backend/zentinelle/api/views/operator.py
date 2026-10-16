@@ -3,7 +3,7 @@
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, router, transaction
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import BasePermission
@@ -56,8 +56,13 @@ class OperatorAgentView(APIView):
         )
         return Response({'agents': list(rows)})
 
-    @transaction.atomic
     def post(self, request):
+        # AgentEndpoint's own database: a bare @transaction.atomic covers only
+        # 'default' and so gave the check-then-create no transaction at all.
+        with transaction.atomic(using=router.db_for_write(AgentEndpoint)):
+            return self._create(request)
+
+    def _create(self, request):
         data = request.data if isinstance(request.data, dict) else {}
         agent_id = str(data.get('agent_id', '')).strip()
         name = str(data.get('name', agent_id)).strip()

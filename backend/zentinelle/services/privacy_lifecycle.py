@@ -4,7 +4,7 @@ import json
 import os
 import secrets
 
-from django.db import transaction
+from django.db import router, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -98,7 +98,7 @@ def restore_archive(manifest, tenant_id, *, actor='privacy-operator', commit=Fal
         raise ValueError('Archive contains unsupported model fields')
     restored = 0
     if commit:
-        with transaction.atomic():
+        with transaction.atomic(using=router.db_for_write(model)):
             for record in records:
                 record = dict(record)
                 pk = record.pop('id', None)
