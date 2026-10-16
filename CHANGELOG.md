@@ -146,6 +146,7 @@ Notable changes to Zentinelle. The format follows
   matched made every request with either key fail with a 500 on the evaluate,
   events, config, heartbeat, proxy and provider-key paths. Each candidate is
   now checked against its hash (#400).
+- The agents list links each row to its agent's page (#446).
 
 ### Security
 
