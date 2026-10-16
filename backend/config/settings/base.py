@@ -372,6 +372,12 @@ REST_FRAMEWORK = {
     "NUM_PROXIES": int(os.environ.get("NUM_PROXIES", "0")),
 }
 
+# Hosts an endpoint's config.hub_identity.api_url may name although they
+# resolve to a private address (an in-cluster JupyterHub). Others must
+# resolve to public addresses only (T13).
+HUB_IDENTITY_ALLOWED_HOSTS = frozenset(
+    h.strip().lower() for h in os.environ.get("HUB_IDENTITY_ALLOWED_HOSTS", "").split(",") if h.strip())
+
 # Django admin is a second password login beside the portal, with none of
 # the portal login's throttling. Off unless an operator turns it on.
 ENABLE_DJANGO_ADMIN = os.environ.get("ENABLE_DJANGO_ADMIN", "false").lower() in ("1", "t", "true")

@@ -42,6 +42,15 @@ class IsPlatformOperator(BasePermission):
         return getattr(user, 'has_scope', lambda _: False)(required) or user.has_scope('admin')
 
 
+def _config_error(config):
+    if not isinstance(config, dict):
+        return 'config must be an object'
+    if 'hub_identity' in config:
+        from zentinelle.services.hub_identity import hub_identity_error
+        return hub_identity_error(config['hub_identity'])
+    return None
+
+
 class OperatorAgentView(APIView):
     """List and create tenant-scoped agent endpoints."""
 
@@ -81,6 +90,9 @@ class OperatorAgentView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         expires_at = timezone.now() + timedelta(seconds=ttl) if ttl else None
+        config_error = _config_error(data.get('config', {}))
+        if config_error:
+            return Response({'error': config_error}, status=status.HTTP_400_BAD_REQUEST)
         if AgentEndpoint.objects.filter(
                 tenant_id=request.user.tenant_id, agent_id=agent_id).exists():
             return Response({'error': 'agent_id already exists'}, status=status.HTTP_409_CONFLICT)
