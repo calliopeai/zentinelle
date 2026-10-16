@@ -15,18 +15,22 @@ import hashlib
 import json
 import tempfile
 import uuid
+from datetime import timedelta
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.db import connections, router
+from django.db import DatabaseError, connections, router
 from django.db.models.signals import pre_save
 from django.test import Client, TransactionTestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from zentinelle.models import (AgentEndpoint, ApprovalRequest, BudgetCharge,
-                               Event, ModelRouteCanary, Policy,
-                               PolicyChangeSet, RuntimeSettingsChange)
+from zentinelle.models import (AgentEndpoint, ApprovalRequest, AuditLog,
+                               BudgetCharge, Event, ExecutionApproval,
+                               ModelRouteCanary, Policy, PolicyChangeSet,
+                               RuntimeSettingsChange)
 from zentinelle.tests._two_tenants_portal import TENANT_A, make_agent
 
 ROUTED = override_settings(DATABASE_ROUTERS=['zentinelle.db_router.ZentinelleRouter'])
@@ -127,6 +131,44 @@ class RoutedTransactionTests(TransactionTestCase):
 
         self.assertEqual(decision.status_code, 200, decision.content)
         self.assertEqual(ApprovalRequest.objects.get(pk=held).status, ApprovalRequest.Status.APPROVED)
+
+    def portal_decision(self, held, decision='approve'):
+        return self.admin.post(reverse('zentinelle:approval-request-decision', kwargs={'request_id': held.pk}),
+                               data=json.dumps({'decision': decision, 'reason': 'checked'}),
+                               content_type='application/json')
+
+    def held_call(self):
+        # The flush between these tests skips tables the router keeps off
+        # 'default', so each test needs its own agent name.
+        agent, _ = make_agent(TENANT_A, agent_id=f'held-host-{uuid.uuid4().hex[:8]}',
+                              agent_type=AgentEndpoint.AgentType.AGENT_HOST)
+        return ApprovalRequest.objects.create(
+            tenant_id=TENANT_A, endpoint_id_ext=str(agent.pk), subject='u', action='tool_call',
+            context_digest='0' * 64, context={'harness': 'claude', 'session_id': 's', 'tool_name': 'Bash'},
+            expires_at=timezone.now() + timedelta(seconds=300))
+
+    def test_a_portal_approval_decision_is_saved_and_audited(self):
+        held = self.held_call()
+
+        response = self.portal_decision(held)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        held.refresh_from_db()
+        self.assertEqual(held.status, ApprovalRequest.Status.APPROVED)
+        self.assertIsNotNone(held.approval_id)
+        self.assertTrue(AuditLog.objects.filter(tenant_id=TENANT_A, resource_type='approval_request',
+                                                resource_id=str(held.pk)).exists())
+
+    def test_a_portal_decision_that_cannot_be_audited_is_not_saved(self):
+        held = self.held_call()
+
+        with patch.object(AuditLog, 'log', side_effect=DatabaseError('audit store unavailable')), \
+                self.assertRaises(DatabaseError):
+            self.portal_decision(held)
+
+        held.refresh_from_db()
+        self.assertEqual(held.status, ApprovalRequest.Status.PENDING, 'the decision stood without its audit record')
+        self.assertFalse(ExecutionApproval.objects.filter(endpoint_id_ext=held.endpoint_id_ext).exists())
 
     def test_operator_agent_create_runs_in_a_transaction_on_its_database(self):
         from zentinelle.api.auth import ZentinelleServiceUser

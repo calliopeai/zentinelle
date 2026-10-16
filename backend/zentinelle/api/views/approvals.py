@@ -124,7 +124,10 @@ class ApprovalRequestDecisionView(APIView):
         decision = serializer.validated_data['decision']
         reason = serializer.validated_data['reason']
         try:
-            with transaction.atomic(using=router.db_for_write(AuditLog)):
+            # On the decision's own database: the audit record lives on
+            # another one, so a failed audit write must roll the decision back
+            # rather than leave it standing unrecorded.
+            with transaction.atomic(using=router.db_for_write(ApprovalRequest)):
                 held = decide_approval_request(
                     tenant_id=tenant_id, request_id=request_id, approve=decision == 'approve',
                     decided_by=str(request.user.pk), reason=reason,
