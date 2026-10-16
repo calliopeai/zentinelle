@@ -108,6 +108,22 @@ Notable changes to Zentinelle. The format follows
 
 ### Fixed
 
+- A prompt created or forked in the portal is saved in the caller's tenant
+  (#454). Both saved it with no tenant, so it was missing from the list, null
+  by id, and "Prompt not found" to the builder's save. The tenant is the
+  caller's, never one a request names. A slug only has to be free in that
+  tenant, and a prompt can be forked more than once (the second fork failed on
+  the unique constraint). Migration 0070 moves the prompts already saved that
+  way into their creator's tenant, the portal's. The prompts of a creator who
+  also has prompts in another tenant stay unassigned, a slug the tenant already
+  uses gets a suffix, and the seeded public library, which has no creator, is
+  untouched. Another tenant's prompt, or one with no tenant, can be forked,
+  rated, favourited, updated or deleted only once it is published (public and
+  active), the rule the list and detail queries already applied, and
+  `myPrompts`, `myFavorites`, `promptCount` and `parentPrompt` follow the same
+  rule. The unwired create and fork in `schema/mutations/prompts.py` are
+  removed, and so is the policy-document service's prompt creation, which
+  could not run.
 - A portal approval decision is saved only with its audit record. The
   decision and the audit log are written through different database
   connections, and the decision committed first, so a failed audit write left
@@ -181,7 +197,7 @@ Notable changes to Zentinelle. The format follows
   `astrolift.agent_key.renewed`, with the new and previously recorded expiry
   and the number of renewals since, so a key is never live more than a day
   past what the chain shows. A box renewing twice an hour writes about one
-  record a day. Migration 0070 adds the recorded expiry and the count; a key
+  record a day. Migration 0071 adds the recorded expiry and the count; a key
   minted before it is audited on its first renewal.
 - Usage reports name their source on the server (#412). An `llm:usage`,
   `ai_request`, `model_usage` or `model_request` event's `source` is
