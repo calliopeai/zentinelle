@@ -16,7 +16,8 @@ from strawberry.scalars import JSON
 from zentinelle.models.system_prompt import (PromptCategory, PromptFavorite,
                                              PromptRating, PromptTag,
                                              SystemPrompt)
-from zentinelle.schema.auth_helpers import get_request_tenant_id
+from zentinelle.schema.auth_helpers import (get_request_tenant_id,
+                                            require_request_tenant_id)
 
 # =============================================================================
 # Types
@@ -36,8 +37,9 @@ class PromptCategoryDjangoType:
     created_at: auto
 
     @strawberry.field
-    def prompt_count(self) -> int:
-        return self.prompts.filter(status='active').count()
+    def prompt_count(self, info: strawberry.types.Info) -> int:
+        # Over what the caller can see, not over every tenant's prompts.
+        return _visible_prompts(info.context.request.user).filter(category=self, status='active').count()
 
 
 @strawberry_django.type(PromptTag)
@@ -54,6 +56,13 @@ class PromptTagDjangoType:
     @strawberry.field
     def tag_type_display(self) -> str:
         return self.get_tag_type_display()
+
+
+def _visible_parent(root, info: strawberry.types.Info) -> Optional['SystemPromptDjangoType']:
+    """The prompt this one was forked from, while the caller may still see it."""
+    if not root.parent_prompt_id:
+        return None
+    return _visible_prompts(info.context.request.user).filter(id=root.parent_prompt_id).first()
 
 
 @strawberry_django.type(SystemPrompt)
@@ -79,7 +88,7 @@ class SystemPromptDjangoType:
     best_practices: auto
     limitations: auto
     version: auto
-    parent_prompt: Optional['SystemPromptDjangoType']
+    parent_prompt: Optional['SystemPromptDjangoType'] = strawberry.field(resolver=_visible_parent)
     change_log: auto
     status: auto
     visibility: auto
@@ -157,16 +166,20 @@ class PromptRatingDjangoType:
 # =============================================================================
 
 def _visible_prompts(user):
-    """Prompts this caller may see: their tenant's, and public ones.
+    """Prompts this caller may see: their tenant's, and published public ones.
 
     Every lookup below was `SystemPrompt.objects.filter(id=...)` with no tenant
     and no visibility constraint, so any prompt could be read, forked, rated or
     favourited by its id — and `fork` copies the body into the caller's own
     library, which turns a read leak into a copy of another tenant's private
     prompt text. `slug` was worse than `id`: slugs are chosen, and guessable.
+
+    A public prompt counts once it is active, as in the list and detail
+    queries. A public draft in another tenant, or in none, is not listed or
+    opened there, so it is not forked, rated or favourited there either (#454).
     """
     tenant_id = get_request_tenant_id(user)
-    visible = Q(visibility=SystemPrompt.Visibility.PUBLIC)
+    visible = Q(visibility=SystemPrompt.Visibility.PUBLIC, status=SystemPrompt.Status.ACTIVE)
     if tenant_id:
         visible |= Q(tenant_id=str(tenant_id))
     return SystemPrompt.objects.filter(visible)
@@ -294,7 +307,9 @@ class PromptLibraryQuery:
         user = info.context.request.user
         if not user or not user.is_authenticated:
             return SystemPrompt.objects.none()
-        return SystemPrompt.objects.filter(user_id=str(user.pk))
+        # By author alone this also returned prompts saved with no tenant,
+        # which no tenant's library shows (#454).
+        return _visible_prompts(user).filter(user_id=str(user.pk))
 
     @strawberry.field
     def my_favorites(self, info: strawberry.types.Info) -> list[SystemPromptDjangoType]:
@@ -304,7 +319,8 @@ class PromptLibraryQuery:
         favorite_ids = PromptFavorite.objects.filter(
             ext_user_id=str(user.pk)
         ).values_list('prompt_id', flat=True)
-        return SystemPrompt.objects.filter(id__in=favorite_ids)
+        # A favourite outlives the prompt being made private or unpublished.
+        return _visible_prompts(user).filter(id__in=favorite_ids)
 
 
 # =============================================================================
@@ -432,16 +448,15 @@ def create_system_prompt(info: strawberry.types.Info, input: CreateSystemPromptI
 
     from django.utils.text import slugify
 
-    base_slug = slugify(input.name)
-    slug = base_slug
-    counter = 1
-    while SystemPrompt.objects.filter(slug=slug, version=1).exists():
-        slug = f"{base_slug}-{counter}"
-        counter += 1
+    # The caller's tenant, never one the request names. Saved with none, the
+    # prompt was in no tenant's library: not listed, not opened, not editable
+    # (#454).
+    tenant_id = require_request_tenant_id(user)
 
     prompt = SystemPrompt(
         name=input.name,
-        slug=slug,
+        slug=SystemPrompt.unused_slug(tenant_id, slugify(input.name)),
+        tenant_id=tenant_id,
         description=input.description or '',
         user_id=str(user.pk),
         prompt_text=input.prompt_text,
@@ -530,11 +545,12 @@ def fork_system_prompt(info: strawberry.types.Info, id: uuid.UUID) -> ForkSystem
     if not user or not user.is_authenticated:
         return ForkSystemPromptPayload(success=False, errors=['Authentication required'])
 
+    tenant_id = require_request_tenant_id(user)
     prompt = _visible_prompts(user).filter(id=id).first()
     if not prompt:
         return ForkSystemPromptPayload(success=False, errors=['Prompt not found'])
 
-    forked = prompt.fork(user_id=str(user.pk))
+    forked = prompt.fork(tenant_id=tenant_id, user_id=str(user.pk))
     return ForkSystemPromptPayload(success=True, prompt=forked)
 
 

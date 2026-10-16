@@ -1114,8 +1114,11 @@ class PromptCategoryType:
         return strawberry.ID(str(self.id))
 
     @strawberry.field
-    def prompt_count(self) -> Optional[int]:
-        return self.prompts.filter(status='active').count()
+    def prompt_count(self, info: strawberry.types.Info) -> Optional[int]:
+        from zentinelle.schema.system_prompt import _visible_prompts
+
+        # Over what the caller can see, not over every tenant's prompts.
+        return _visible_prompts(info.context.request.user).filter(category=self, status='active').count()
 
 
 @strawberry.type
