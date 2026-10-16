@@ -22,6 +22,8 @@ x-backend: &backend
     REDIS_URL: redis://redis:6379/0
     TEMPORAL_ADDRESS: temporal:7233
     CONTENT_CAPTURE_MODE: ${CONTENT_CAPTURE_MODE:-metadata}
+    # Caddy appends the client to X-Forwarded-For; login throttles read it.
+    NUM_PROXIES: "1"
   restart: unless-stopped
   depends_on:
     postgres:

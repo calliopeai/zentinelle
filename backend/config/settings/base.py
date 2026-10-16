@@ -364,7 +364,17 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
     ],
+    # How many reverse proxies in front of the backend append to
+    # X-Forwarded-For (compose nginx: 1; an ALB to the task: 1; ALB plus
+    # nginx: 2). Throttles take the client address that many entries from the
+    # right. 0 trusts no header and uses the socket address; DRF's own
+    # default (None) would trust whatever the client put in the header.
+    "NUM_PROXIES": int(os.environ.get("NUM_PROXIES", "0")),
 }
+
+# Django admin is a second password login beside the portal, with none of
+# the portal login's throttling. Off unless an operator turns it on.
+ENABLE_DJANGO_ADMIN = os.environ.get("ENABLE_DJANGO_ADMIN", "false").lower() in ("1", "t", "true")
 
 # =============================================================================
 # Logging

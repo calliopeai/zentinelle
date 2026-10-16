@@ -25,6 +25,8 @@ services:
       - TEMPORAL_ADDRESS=temporal:7233
       # No default: the backend refuses to start without a strong one (.env).
       - ZENTINELLE_BOOTSTRAP_SECRET=${ZENTINELLE_BOOTSTRAP_SECRET:-}
+      # nginx appends the client to X-Forwarded-For; login throttles read it.
+      - NUM_PROXIES=${NUM_PROXIES:-1}
     env_file:
       - .env
     depends_on:

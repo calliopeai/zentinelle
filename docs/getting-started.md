@@ -25,7 +25,7 @@ Open **<http://localhost:8080>** — you're in the portal as admin.
 | `http://localhost:8080/gql/zentinelle/` | GraphQL API |
 | `http://localhost:8080/proxy/<provider>/` | Django LLM Proxy |
 | `http://localhost:8742` | Go LLM Gateway |
-| `http://localhost:8080/admin/` | Django Admin |
+| `http://localhost:8080/admin/` | Django Admin, only with `ENABLE_DJANGO_ADMIN=true` |
 
 For local dev, no further setup is needed. Migrations run automatically.
 
