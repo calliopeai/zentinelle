@@ -30,6 +30,9 @@ class APIKey(Tracking):
         USER = 'user', 'User'
         SERVICE = 'service', 'Service'
 
+    # The only scopes anything enforces (api/views/operator.py).
+    SCOPES = ('read', 'write', 'admin')
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     # TODO: decouple - organization FK removed (use tenant_id instead)

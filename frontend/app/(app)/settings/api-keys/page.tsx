@@ -37,14 +37,11 @@ import {
   useDeleteApiKey,
 } from "@/graphql/api-keys/hooks";
 
+// Must match APIKey.SCOPES on the backend; anything else is refused.
 const SCOPES = [
-  { value: "agents:read", label: "Read Agents" },
-  { value: "agents:write", label: "Write Agents" },
-  { value: "policies:read", label: "Read Policies" },
-  { value: "policies:write", label: "Write Policies" },
-  { value: "events:write", label: "Submit Events" },
-  { value: "audit:read", label: "Read Audit Logs" },
-  { value: "*", label: "Full Access (Admin)" },
+  { value: "read", label: "Read" },
+  { value: "write", label: "Write" },
+  { value: "admin", label: "Full Access (Admin)" },
 ];
 
 function ApiKeysPage() {
@@ -55,7 +52,7 @@ function ApiKeysPage() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [keyName, setKeyName] = useState("");
-  const [selectedScopes, setSelectedScopes] = useState<Set<string>>(new Set(["agents:read"]));
+  const [selectedScopes, setSelectedScopes] = useState<Set<string>>(new Set(["read"]));
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -131,7 +128,7 @@ function ApiKeysPage() {
   const closeDialog = () => {
     setShowCreate(false);
     setKeyName("");
-    setSelectedScopes(new Set(["agents:read"]));
+    setSelectedScopes(new Set(["read"]));
     setCreatedKey(null);
     setCopied(false);
   };

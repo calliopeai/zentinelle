@@ -156,7 +156,7 @@ class StandaloneTenantResolver(TenantResolver):
                         valid=True,
                         tenant_id=key_obj.tenant_id,
                         user_id=key_obj.user_id,
-                        scopes=key_obj.scopes or ["read", "write"],
+                        scopes=key_obj.scopes or [],
                     )
         except Exception:
             pass
