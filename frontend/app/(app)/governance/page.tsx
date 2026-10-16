@@ -48,7 +48,7 @@ const SURFACES = [
     body: "Open and resolved incidents, with their timelines.",
   },
   {
-    href: "/audit",
+    href: "/audit-logs",
     icon: FileTextIcon,
     title: "Audit",
     body: "Tamper-evident audit chain and export for SIEM.",

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation } from "@apollo/client/react";
 import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import { MoreHorizontalIcon, PlusIcon } from "lucide-react";
@@ -94,12 +95,39 @@ function formatTimestamp(ts: string | null) {
   return new Date(ts).toLocaleString();
 }
 
+function IncidentsSkeleton() {
+  return (
+    <div className="flex flex-1 flex-col gap-6 p-6">
+      <div>
+        <Skeleton className="h-7 w-32" />
+        <Skeleton className="mt-1 h-4 w-64" />
+      </div>
+      <Skeleton className="h-[400px] w-full rounded-md" />
+    </div>
+  );
+}
+
 export default function IncidentsPage() {
+  return (
+    <Suspense fallback={<IncidentsSkeleton />}>
+      <Incidents />
+    </Suspense>
+  );
+}
+
+function Incidents() {
   const { incidents, loading, refetch } = useIncidents();
   const [reportOpen, setReportOpen] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<IncidentData | null>(
     null,
   );
+  // Incidents have no page of their own, so a link to one (the notification
+  // bell's) is /incidents?incident=<id>, and it opens as if its row was clicked.
+  const linkedId = useSearchParams().get("incident");
+  const linkedIncident = linkedId
+    ? (incidents.find((i) => i.id === linkedId) ?? null)
+    : null;
+  const shownIncident = selectedIncident ?? linkedIncident;
 
   const [acknowledgeIncident] = useMutation(ACKNOWLEDGE_INCIDENT, {
     refetchQueries: [GET_INCIDENTS],
@@ -317,17 +345,7 @@ export default function IncidentsPage() {
     },
   ];
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 flex-col gap-6 p-6">
-        <div>
-          <Skeleton className="h-7 w-32" />
-          <Skeleton className="mt-1 h-4 w-64" />
-        </div>
-        <Skeleton className="h-[400px] w-full rounded-md" />
-      </div>
-    );
-  }
+  if (loading) return <IncidentsSkeleton />;
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -343,6 +361,11 @@ export default function IncidentsPage() {
           Report Incident
         </Button>
       </div>
+      {linkedId && !linkedIncident && (
+        <p className="text-muted-foreground text-sm" role="status">
+          The linked incident was not found.
+        </p>
+      )}
       <DataTable
         data={incidents}
         columns={columns}
@@ -359,10 +382,14 @@ export default function IncidentsPage() {
       />
 
       <IncidentDetailDialog
-        incident={selectedIncident}
-        open={selectedIncident !== null}
+        incident={shownIncident}
+        open={shownIncident !== null}
         onOpenChange={(open) => {
-          if (!open) setSelectedIncident(null);
+          if (open) return;
+          setSelectedIncident(null);
+          // Closing a linked incident drops it from the URL, so it stays shut.
+          // The History API updates useSearchParams without a server trip.
+          if (linkedId) window.history.replaceState(null, "", "/incidents");
         }}
       />
 

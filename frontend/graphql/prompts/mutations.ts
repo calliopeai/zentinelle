@@ -30,8 +30,11 @@ export const UPDATE_SYSTEM_PROMPT = gql`
   mutation UpdateSystemPrompt($id: ID!, $input: UpdateSystemPromptInput!) {
     updateSystemPrompt(id: $id, input: $input) {
       success
-      promptId
       errors
+      prompt {
+        id
+        name
+      }
     }
   }
 `;

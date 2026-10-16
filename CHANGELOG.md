@@ -158,6 +158,19 @@ Notable changes to Zentinelle. The format follows
   matched made every request with either key fail with a 500 on the evaluate,
   events, config, heartbeat, proxy and provider-key paths. Each candidate is
   now checked against its hash (#400).
+- The agents list links each row to its agent's page (#446).
+- Edit in the prompt library edits the prompt (#446). The builder loads the
+  prompt named by `?id=` and saves it as an update, where it used to start a
+  new prompt.
+- Compliance framework pages (#446). The detail page no longer shows a fixed
+  list of controls marked met, which nothing computed; it says control
+  coverage is not computed yet. The Compliance cards link only to frameworks
+  with a detail page, which SOC 2 Type II and NIST AI RMF now reach, so none
+  opens "Framework not found".
+- Dead links in the console (#446). The governance page's Audit card opens
+  the audit log; the notification bell opens an incident on the incidents
+  list (`/incidents?incident=<id>`) and a budget warning on budget showback;
+  breadcrumb sections that are not pages show as text.
 
 ### Security
 
@@ -198,3 +211,6 @@ Notable changes to Zentinelle. The format follows
   (audit T10).
 - GraphQL answers an anonymous caller with `UNAUTHENTICATED` rather than
   `FORBIDDEN`, and the portal sends it to the login page (audit M1).
+- The assistant renders markdown images in its answers as links, never as
+  images, and the portal's Content-Security-Policy allows images from the
+  portal only (`img-src 'self'`) (#446).

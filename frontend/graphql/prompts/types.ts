@@ -87,6 +87,25 @@ export interface CreateSystemPromptPayload {
   errors: string[];
 }
 
+export interface UpdateSystemPromptInput {
+  name?: string | null;
+  promptText?: string | null;
+  promptType?: string | null;
+}
+
+export interface UpdateSystemPromptData {
+  updateSystemPrompt: {
+    success: boolean;
+    errors: string[];
+    prompt: { id: string; name: string } | null;
+  };
+}
+
+export interface UpdateSystemPromptVariables {
+  id: string;
+  input: UpdateSystemPromptInput;
+}
+
 export interface DeleteSystemPromptPayload {
   success: boolean | null;
   errors: string[];
