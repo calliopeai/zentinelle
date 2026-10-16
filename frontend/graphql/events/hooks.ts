@@ -13,7 +13,7 @@ import type {
 
 export function useEvents(
   variables?: EventListVariables,
-  options?: { pollInterval?: number }
+  options?: { pollInterval?: number },
 ) {
   const { data, loading, error, refetch, startPolling, stopPolling } = useQuery<
     EventListData,

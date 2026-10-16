@@ -225,8 +225,12 @@ export default function ContentRulesPage() {
       ),
       cell: ({ row }) => (
         <Badge variant={actionVariant(row.original.action)}>
-          {ACTIONS.find((a) => a.value === row.original.action)?.label ?? row.original.action}
-          {row.original.escalation && Object.keys(row.original.escalation).length > 0 ? " +" : ""}
+          {ACTIONS.find((a) => a.value === row.original.action)?.label ??
+            row.original.action}
+          {row.original.escalation &&
+          Object.keys(row.original.escalation).length > 0
+            ? " +"
+            : ""}
         </Badge>
       ),
     },

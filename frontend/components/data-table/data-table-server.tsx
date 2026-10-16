@@ -100,10 +100,12 @@ export const DataTableServer = <TData extends RowData>({
   offset,
   tailOffset,
 }: DataTableServerProps<TData>) => {
-  const [sorting, setSorting] = React.useState<SortingState>(initialSorting ?? []);
+  const [sorting, setSorting] = React.useState<SortingState>(
+    initialSorting ?? [],
+  );
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    initialColumnFilters ?? []
+    initialColumnFilters ?? [],
   );
 
   const handleGlobalFilterChange = (value: string) => {
@@ -112,14 +114,18 @@ export const DataTableServer = <TData extends RowData>({
   };
 
   const handleColumnFiltersChange = (
-    updater: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState)
+    updater:
+      ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState),
   ) => {
-    const next = typeof updater === "function" ? updater(columnFilters) : updater;
+    const next =
+      typeof updater === "function" ? updater(columnFilters) : updater;
     setColumnFilters(next);
     onFiltersChange?.(next);
   };
 
-  const handleSortingChange = (updater: SortingState | ((prev: SortingState) => SortingState)) => {
+  const handleSortingChange = (
+    updater: SortingState | ((prev: SortingState) => SortingState),
+  ) => {
     const next = typeof updater === "function" ? updater(sorting) : updater;
     setSorting(next);
     onSortingChange?.(next);
@@ -149,13 +155,18 @@ export const DataTableServer = <TData extends RowData>({
   const canPrev = page > 1;
   const canNext = page < totalPageCount;
 
-  const countLabel = totalCount === 0 ? "0 results" : `${offset}–${tailOffset} of ${totalCount}`;
+  const countLabel =
+    totalCount === 0 ? "0 results" : `${offset}–${tailOffset} of ${totalCount}`;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-start gap-2">
         <div className="flex-1">
-          <DataTableToolbar table={table} filters={filters} searchPlaceholder={searchPlaceholder} />
+          <DataTableToolbar
+            table={table}
+            filters={filters}
+            searchPlaceholder={searchPlaceholder}
+          />
         </div>
         {toolbarExtra}
       </div>
@@ -171,26 +182,42 @@ export const DataTableServer = <TData extends RowData>({
                   <TableHead key={header.id} className="px-0">
                     {header.isPlaceholder
                       ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
                   </TableHead>
                 ))}
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody className={loading ? "opacity-50 transition-opacity" : "transition-opacity"}>
+          <TableBody
+            className={
+              loading ? "opacity-50 transition-opacity" : "transition-opacity"
+            }
+          >
             {table.getRowModel().rows?.length
               ? table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
                       </TableCell>
                     ))}
                   </TableRow>
                 ))
               : !loading && (
                   <TableRow>
-                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                    <TableCell
+                      colSpan={columns.length}
+                      className="h-24 text-center"
+                    >
                       No results.
                     </TableCell>
                   </TableRow>
@@ -202,7 +229,10 @@ export const DataTableServer = <TData extends RowData>({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <p className="text-muted-foreground text-sm">Rows per page</p>
-          <Select value={String(perPage)} onValueChange={(v) => onPerPageChange(Number(v))}>
+          <Select
+            value={String(perPage)}
+            onValueChange={(v) => onPerPageChange(Number(v))}
+          >
             <SelectTrigger className="h-8 w-16">
               <SelectValue />
             </SelectTrigger>
@@ -221,10 +251,20 @@ export const DataTableServer = <TData extends RowData>({
           <p className="text-muted-foreground mr-2 text-sm">
             Page {page} of {totalPageCount}
           </p>
-          <Button variant="outline" size="icon" onClick={onPrevPage} disabled={!canPrev}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onPrevPage}
+            disabled={!canPrev}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={onNextPage} disabled={!canNext}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onNextPage}
+            disabled={!canNext}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

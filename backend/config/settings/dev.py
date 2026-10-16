@@ -2,11 +2,21 @@
 Development settings for Zentinelle.
 """
 
+import os
+
 from .base import *  # noqa: F401, F403
 
-DEBUG = True
+# DEBUG follows the environment: compose sets DEBUG=false unless asked, and
+# a bare `manage.py runserver` still debugs. Only a debugging process
+# accepts any Host; otherwise ALLOWED_HOSTS from the environment, plus the
+# compose service name the gateway and frontend call the backend by.
+DEBUG = os.environ.get("DEBUG", "true").strip().lower() in ("1", "true", "yes")
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["*"] if DEBUG else [*ALLOWED_HOSTS, "backend"]  # noqa: F405
+
+# The GraphiQL IDE (served only while debugging) loads its scripts from a CDN.
+if DEBUG:
+    SECURE_CSP = {}
 
 # In development, allow localhost origins with credentials
 CORS_ALLOW_ALL_ORIGINS = False

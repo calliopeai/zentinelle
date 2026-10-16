@@ -74,7 +74,7 @@ The gateway tier scales independently from the Django backend:
    502 and never falls back to the env key
 6. Gateway drops the client's credentials, injects the key and forwards to provider
 7. Gateway streams response back to agent
-8. After response: async report usage to Zentinelle /events (fire and forget)
+8. After response: async report usage to Zentinelle /events (retried, deduplicated by event_id, drained on shutdown)
 ```
 
 ## Provider Routing
@@ -109,7 +109,7 @@ real provider key is set in the provider's own header.
 SSE streaming is the default for LLM responses:
 - Detect `"stream": true` in request body
 - Forward each SSE chunk immediately via `Flusher`
-- Parse the final chunk for usage data (token counts)
+- Merge usage from every event that carries it (Anthropic splits it across message_start and message_delta)
 - Non-streaming: buffer full response, extract usage, forward
 
 ## Configuration (Environment Variables)
@@ -128,6 +128,7 @@ SSE streaming is the default for LLM responses:
 | `POLICY_TIMEOUT_MS` | `2000` | Policy check timeout |
 | `MAX_RESPONSE_BYTES` | `52428800` | 50MB response cap |
 | `HEARTBEAT_INTERVAL_SECONDS` | `60` | Cluster heartbeat interval until the answer names one; `0` turns it off, otherwise 10 to 3600 |
+| `ASTROLIFT_CONTROL_PLANE_URL` | - | Control plane that agent heartbeat and event routes pass straight through to (#445); unset turns it off |
 
 ## Cluster Heartbeat
 

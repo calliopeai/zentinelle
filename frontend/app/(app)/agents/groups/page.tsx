@@ -92,7 +92,7 @@ function ActionsCell({
         onRefresh();
       } else {
         toast.error(
-          data?.deleteAgentGroup?.errors?.[0] ?? "Failed to delete group"
+          data?.deleteAgentGroup?.errors?.[0] ?? "Failed to delete group",
         );
       }
     } catch {

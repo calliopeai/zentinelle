@@ -65,9 +65,7 @@ function riskBadgeVariant(
 
 function hasCapability(model: AIModelData, cap: string): boolean {
   if (!model.capabilities) return false;
-  return model.capabilities.some(
-    (c) => c.toLowerCase() === cap.toLowerCase(),
-  );
+  return model.capabilities.some((c) => c.toLowerCase() === cap.toLowerCase());
 }
 
 /**
@@ -302,7 +300,9 @@ function findBestIndex(
   higherIsBetter: boolean,
 ): Set<number> {
   const values = models.map((m) => numericValue(m));
-  const valid = values.filter((v): v is number => v !== null && !Number.isNaN(v));
+  const valid = values.filter(
+    (v): v is number => v !== null && !Number.isNaN(v),
+  );
   if (valid.length < 2) return new Set();
   const best = higherIsBetter ? Math.max(...valid) : Math.min(...valid);
   const bestIndices = new Set<number>();
@@ -373,8 +373,7 @@ function ComparisonTable({ models }: { models: AIModelData[] }) {
                         key={m.id}
                         className={cn(
                           "border-l px-4 py-2.5 align-top",
-                          isBest &&
-                            "bg-emerald-500/10 dark:bg-emerald-500/15",
+                          isBest && "bg-emerald-500/10 dark:bg-emerald-500/15",
                         )}
                       >
                         <div className="flex items-center gap-1.5">
@@ -392,12 +391,14 @@ function ComparisonTable({ models }: { models: AIModelData[] }) {
                     );
                   })}
                   {colCount < MAX_MODELS &&
-                    Array.from({ length: MAX_MODELS - colCount }).map((_, i) => (
-                      <td
-                        key={`empty-${rowIdx}-${i}`}
-                        className="border-l px-4 py-2.5"
-                      />
-                    ))}
+                    Array.from({ length: MAX_MODELS - colCount }).map(
+                      (_, i) => (
+                        <td
+                          key={`empty-${rowIdx}-${i}`}
+                          className="border-l px-4 py-2.5"
+                        />
+                      ),
+                    )}
                 </tr>
               );
             })}
@@ -528,7 +529,8 @@ function ModelCompareInner() {
           <h1 className="text-xl font-semibold">Model Comparison</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Compare up to {MAX_MODELS} AI models side-by-side. Best value per
-            row is highlighted. The URL updates so you can share this comparison.
+            row is highlighted. The URL updates so you can share this
+            comparison.
           </p>
         </div>
       </div>

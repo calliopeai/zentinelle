@@ -26,7 +26,13 @@ import type {
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -35,7 +41,9 @@ import { ACTIONS, BLOCK_LEVELS } from "@/components/policy-action-fields";
 import { EditPolicyDialog } from "../edit-policy-dialog";
 import { PolicyHistoryDialog } from "../history-dialog";
 
-function enforcementVariant(level: string): "default" | "secondary" | "destructive" | "outline" {
+function enforcementVariant(
+  level: string,
+): "default" | "secondary" | "destructive" | "outline" {
   switch (level) {
     case "enforce":
       return "default";
@@ -71,7 +79,8 @@ export default function PolicyDetailPage() {
     useMutation<TogglePolicyEnabledPayload>(TOGGLE_POLICY_ENABLED);
   const [deletePolicy, { loading: deleting }] =
     useMutation<DeletePolicyPayload>(DELETE_POLICY);
-  const [duplicatePolicy, { loading: duplicating }] = useMutation(DUPLICATE_POLICY);
+  const [duplicatePolicy, { loading: duplicating }] =
+    useMutation(DUPLICATE_POLICY);
 
   if (loading) {
     return (
@@ -108,9 +117,7 @@ export default function PolicyDetailPage() {
       <div className="p-6">
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">
-              Policy not found.
-            </p>
+            <p className="text-sm text-muted-foreground">Policy not found.</p>
             <Button asChild variant="outline" size="sm" className="mt-3">
               <Link href="/policies">
                 <ArrowLeftIcon className="size-4 mr-1.5" />
@@ -139,14 +146,17 @@ export default function PolicyDetailPage() {
       toast.success("Policy duplicated");
       router.push("/policies");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to duplicate policy");
+      toast.error(
+        e instanceof Error ? e.message : "Failed to duplicate policy",
+      );
     }
   };
 
   const handleDelete = async () => {
     const ok = await confirm({
       title: `Delete policy "${policy.name}"?`,
-      description: "This cannot be undone. Any agents bound by this policy will lose its enforcement.",
+      description:
+        "This cannot be undone. Any agents bound by this policy will lose its enforcement.",
       confirmLabel: "Delete",
     });
     if (!ok) return;
@@ -166,20 +176,33 @@ export default function PolicyDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <Button asChild variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="-ml-2 text-muted-foreground"
+          >
             <Link href="/policies">
               <ArrowLeftIcon className="size-4 mr-1.5" />
               All policies
             </Link>
           </Button>
-          <h1 className="text-2xl font-semibold tracking-tight">{policy.name}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {policy.name}
+          </h1>
           {policy.description && (
-            <p className="text-sm text-muted-foreground max-w-2xl">{policy.description}</p>
+            <p className="text-sm text-muted-foreground max-w-2xl">
+              {policy.description}
+            </p>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setHistoryOpen(true)}
+          >
             <HistoryIcon className="size-4 mr-1.5" />
             History
           </Button>
@@ -220,11 +243,14 @@ export default function PolicyDetailPage() {
           </Field>
           <Field label="Action">
             <span className="text-sm">
-              {ACTIONS.find((a) => a.value === policy.action)?.label ?? policy.action}
+              {ACTIONS.find((a) => a.value === policy.action)?.label ??
+                policy.action}
               {policy.action === "block"
                 ? `: ${BLOCK_LEVELS.find((b) => b.value === policy.blockLevel)?.label ?? policy.blockLevel}`
                 : ""}
-              {policy.escalation && Object.keys(policy.escalation).length > 0 ? ", escalates" : ""}
+              {policy.escalation && Object.keys(policy.escalation).length > 0
+                ? ", escalates"
+                : ""}
             </span>
           </Field>
           <Field label="Priority">
@@ -250,10 +276,14 @@ export default function PolicyDetailPage() {
             </span>
           </Field>
           <Field label="Last updated">
-            <span className="text-xs text-muted-foreground">{formatDate(policy.updatedAt)}</span>
+            <span className="text-xs text-muted-foreground">
+              {formatDate(policy.updatedAt)}
+            </span>
           </Field>
           <Field label="ID">
-            <code className="text-[11px] text-muted-foreground break-all">{policy.id}</code>
+            <code className="text-[11px] text-muted-foreground break-all">
+              {policy.id}
+            </code>
           </Field>
         </CardContent>
       </Card>
@@ -268,7 +298,9 @@ export default function PolicyDetailPage() {
         </CardHeader>
         <CardContent>
           {configEntries.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic">No configuration set.</p>
+            <p className="text-sm text-muted-foreground italic">
+              No configuration set.
+            </p>
           ) : (
             <dl className="space-y-2 text-sm">
               {configEntries.map(([key, value]) => (
@@ -276,15 +308,25 @@ export default function PolicyDetailPage() {
                   key={key}
                   className="grid grid-cols-[200px_1fr] gap-3 border-b border-border/50 pb-2 last:border-0"
                 >
-                  <dt className="font-mono text-xs text-muted-foreground">{key}</dt>
+                  <dt className="font-mono text-xs text-muted-foreground">
+                    {key}
+                  </dt>
                   <dd className="font-mono text-xs break-all">
-                    {Array.isArray(value)
-                      ? value.length === 0
-                        ? <span className="text-muted-foreground italic">empty</span>
-                        : value.map((v) => String(v)).join(", ")
-                      : typeof value === "object" && value !== null
-                        ? <pre className="rounded bg-muted/50 px-2 py-1 overflow-x-auto">{JSON.stringify(value, null, 2)}</pre>
-                        : String(value)}
+                    {Array.isArray(value) ? (
+                      value.length === 0 ? (
+                        <span className="text-muted-foreground italic">
+                          empty
+                        </span>
+                      ) : (
+                        value.map((v) => String(v)).join(", ")
+                      )
+                    ) : typeof value === "object" && value !== null ? (
+                      <pre className="rounded bg-muted/50 px-2 py-1 overflow-x-auto">
+                        {JSON.stringify(value, null, 2)}
+                      </pre>
+                    ) : (
+                      String(value)
+                    )}
                   </dd>
                 </div>
               ))}
@@ -296,8 +338,12 @@ export default function PolicyDetailPage() {
       {/* Danger zone */}
       <Card className="border-destructive/30">
         <CardHeader>
-          <CardTitle className="text-base text-destructive">Danger zone</CardTitle>
-          <CardDescription>Permanently delete this policy. Cannot be undone.</CardDescription>
+          <CardTitle className="text-base text-destructive">
+            Danger zone
+          </CardTitle>
+          <CardDescription>
+            Permanently delete this policy. Cannot be undone.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Button
@@ -331,7 +377,13 @@ export default function PolicyDetailPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1">
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">

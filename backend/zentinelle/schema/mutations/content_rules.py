@@ -5,7 +5,6 @@ GraphQL mutations for managing content scanning/filtering rules.
 
 These mutations require the MONITORING_CUSTOM_RULES feature (Business or Enterprise plan).
 """
-import re
 from typing import Optional
 
 import strawberry
@@ -378,32 +377,25 @@ def test_content_rule(info: strawberry.types.Info, id: strawberry.ID, test_conte
     except ContentRule.DoesNotExist:
         return TestContentRulePayload(success=False, errors=["Rule not found"])
 
-    matches = []
-    matched = False
+    # The rule's own detector, exactly as a live scan runs it. This used to
+    # re-implement matching here by compiling each `patterns` entry, which
+    # crashed on the object-shaped patterns the demo seed writes and, for every
+    # rule type but custom patterns, answered a different question than the
+    # scanner does.
+    from zentinelle.services.content_scanner import ContentScanner
 
-    if rule.config and 'patterns' in rule.config:
-        for pattern in rule.config.get('patterns', []):
-            try:
-                regex = re.compile(pattern, re.IGNORECASE)
-                for match in regex.finditer(test_content):
-                    matches.append({
-                        'pattern': pattern,
-                        'match': match.group(),
-                        'start': match.start(),
-                        'end': match.end(),
-                    })
-                    matched = True
-            except re.error:
-                pass
-
-    if rule.config and 'keywords' in rule.config:
-        for keyword in rule.config.get('keywords', []):
-            if keyword.lower() in test_content.lower():
-                matches.append({
-                    'keyword': keyword,
-                    'matched': True,
-                })
-                matched = True
+    detections = [d for d in ContentScanner(rule.tenant_id)._run_detector(rule, test_content) if d.detected]
+    matches = [
+        {
+            'category': d.category,
+            'pattern': d.matched_pattern,
+            'match': d.matched_text,
+            'start': d.match_start,
+            'end': d.match_end,
+        }
+        for d in detections
+    ]
+    matched = bool(matches)
 
     return TestContentRulePayload(
         success=True,

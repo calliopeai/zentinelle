@@ -84,9 +84,7 @@ function ListCard({
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder={
-              title.includes("Domain")
-                ? "*.example.com"
-                : "192.168.1.0/24"
+              title.includes("Domain") ? "*.example.com" : "192.168.1.0/24"
             }
             className="border-input bg-background flex h-9 flex-1 rounded-md border px-3 text-sm"
           />
@@ -209,7 +207,15 @@ function NetworkPolicyForm({
       });
     }
     setSaving(false);
-  }, [allowedDomains, blockedDomains, allowedIPs, blockedIPs, existingPolicyId, createPolicy, updatePolicy]);
+  }, [
+    allowedDomains,
+    blockedDomains,
+    allowedIPs,
+    blockedIPs,
+    existingPolicyId,
+    createPolicy,
+    updatePolicy,
+  ]);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -234,7 +240,9 @@ function NetworkPolicyForm({
           icon={<ShieldCheckIcon className="h-4 w-4 text-green-500" />}
           items={allowedDomains}
           onAdd={(v) => setAllowedDomains((prev) => [...prev, v])}
-          onRemove={(item) => setAllowedDomains((prev) => prev.filter((i) => i !== item))}
+          onRemove={(item) =>
+            setAllowedDomains((prev) => prev.filter((i) => i !== item))
+          }
           variant="allow"
         />
         <ListCard
@@ -243,7 +251,9 @@ function NetworkPolicyForm({
           icon={<ShieldXIcon className="h-4 w-4 text-red-500" />}
           items={blockedDomains}
           onAdd={(v) => setBlockedDomains((prev) => [...prev, v])}
-          onRemove={(item) => setBlockedDomains((prev) => prev.filter((i) => i !== item))}
+          onRemove={(item) =>
+            setBlockedDomains((prev) => prev.filter((i) => i !== item))
+          }
           variant="block"
         />
         <ListCard
@@ -252,7 +262,9 @@ function NetworkPolicyForm({
           icon={<ShieldCheckIcon className="h-4 w-4 text-green-500" />}
           items={allowedIPs}
           onAdd={(v) => setAllowedIPs((prev) => [...prev, v])}
-          onRemove={(item) => setAllowedIPs((prev) => prev.filter((i) => i !== item))}
+          onRemove={(item) =>
+            setAllowedIPs((prev) => prev.filter((i) => i !== item))
+          }
           variant="allow"
         />
         <ListCard
@@ -261,7 +273,9 @@ function NetworkPolicyForm({
           icon={<ShieldXIcon className="h-4 w-4 text-red-500" />}
           items={blockedIPs}
           onAdd={(v) => setBlockedIPs((prev) => [...prev, v])}
-          onRemove={(item) => setBlockedIPs((prev) => prev.filter((i) => i !== item))}
+          onRemove={(item) =>
+            setBlockedIPs((prev) => prev.filter((i) => i !== item))
+          }
           variant="block"
         />
       </div>
@@ -273,7 +287,9 @@ function NetworkPolicyForm({
           disabled={saving}
         >
           {saving && <LoaderIcon className="mr-2 h-4 w-4 animate-spin" />}
-          {existingPolicyId ? "Update Network Policy" : "Save as Network Policy"}
+          {existingPolicyId
+            ? "Update Network Policy"
+            : "Save as Network Policy"}
         </Button>
       </div>
     </div>

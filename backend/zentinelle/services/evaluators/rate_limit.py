@@ -35,10 +35,16 @@ class RateLimitEvaluator(BasePolicyEvaluator):
         config = policy.config
         warnings = []
 
-        # Build cache key prefix
-        endpoint_id = context.get('endpoint_id', 'unknown')
-        key_prefix = f"zentinelle:ratelimit:{endpoint_id}"
-        if user_id:
+        # Build cache key prefix from the engine's trusted identity. A
+        # caller-supplied endpoint_id shared one bucket across every tenant
+        # and let any caller reset its own count by changing it.
+        tenant_id = context.get('_tenant_id', 'unknown')
+        endpoint_id = context.get('_endpoint_id', 'unknown')
+        key_prefix = f"zentinelle:ratelimit:{tenant_id}:{endpoint_id}"
+        # A claimed user_id is caller input too, so it splits the count only
+        # when it cannot open a fresh bucket: the engine verified it (a hub
+        # user token), or the policy is scoped to that one user.
+        if user_id and (context.get('_user_verified') or policy.scope_type == Policy.ScopeType.USER):
             key_prefix += f":{user_id}"
 
         # Check per-minute limit
@@ -72,7 +78,8 @@ class RateLimitEvaluator(BasePolicyEvaluator):
         # Check daily token limit (for AI requests)
         if action == 'ai_request':
             tokens_limit = config.get('tokens_per_day')
-            tokens_requested = context.get('tokens', 0)
+            # A negative count would wind the daily counter back.
+            tokens_requested = max(0, int(context.get('tokens', 0)))
 
             if tokens_limit is not None:
                 result = self._check_token_limit(

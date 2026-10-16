@@ -3,7 +3,7 @@ import json
 import re
 
 from django.conf import settings
-from django.db import transaction
+from django.db import router, transaction
 from django.http import JsonResponse
 from rest_framework.views import APIView
 
@@ -235,7 +235,7 @@ class RuntimeSettingsView(APIView):
         tenant_id = _tenant_id(request)
         expected = payload.get('expected_revision')
         actor = getattr(request, 'user', None)
-        with transaction.atomic():
+        with transaction.atomic(using=router.db_for_write(TenantConfig)):
             config, _ = TenantConfig.objects.select_for_update().get_or_create(tenant_id=tenant_id)
             latest = RuntimeSettingsRevision.objects.filter(
                 tenant_id=tenant_id).order_by('-revision').first()

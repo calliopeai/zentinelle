@@ -67,14 +67,13 @@ function AssignGroupForm({
         variables: { agentId: agent.id, groupId },
       });
       if (data?.assignAgentToGroup?.success) {
-        const groupName =
-          groups.find((g) => g.id === groupId)?.name ?? "group";
+        const groupName = groups.find((g) => g.id === groupId)?.name ?? "group";
         toast.success(`"${agent.name}" assigned to "${groupName}"`);
         onClose();
         onAssigned();
       } else {
         toast.error(
-          data?.assignAgentToGroup?.errors?.[0] ?? "Failed to assign group"
+          data?.assignAgentToGroup?.errors?.[0] ?? "Failed to assign group",
         );
       }
     } catch {

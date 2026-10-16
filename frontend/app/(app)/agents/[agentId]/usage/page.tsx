@@ -53,10 +53,7 @@ export default function AgentUsagePage({
         label="Tokens (30d)"
         value={(summary.totalTokens ?? 0).toLocaleString()}
       />
-      <Stat
-        label="Estimated cost (30d)"
-        value={`$${cost.toFixed(2)}`}
-      />
+      <Stat label="Estimated cost (30d)" value={`$${cost.toFixed(2)}`} />
     </div>
   );
 }

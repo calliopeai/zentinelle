@@ -1450,13 +1450,16 @@ class Query:
 
         tenant_id = get_request_tenant_id(info.context.request.user)
 
+        # `self` is the root value here, which is None, not a Query: the
+        # helpers are reached through the class.
         from zentinelle.services import clickhouse_service
         if clickhouse_service.is_enabled():
-            return self._audit_analytics_clickhouse(clickhouse_service, tenant_id, days)
+            return Query._audit_analytics_clickhouse(clickhouse_service, tenant_id, days)
 
-        return self._audit_analytics_postgres(tenant_id, days)
+        return Query._audit_analytics_postgres(tenant_id, days)
 
-    def _audit_analytics_clickhouse(self, ch, tenant_id, days):
+    @staticmethod
+    def _audit_analytics_clickhouse(ch, tenant_id, days):
         timeline_rows = ch.event_timeline(days=days, granularity='day', organization_id=tenant_id)
         by_type_rows = ch.event_counts_by_type(days=days, organization_id=tenant_id)
         top_agents_rows = ch.top_agents_by_event_count(days=days, organization_id=tenant_id)
@@ -1816,12 +1819,15 @@ class Query:
         """Get event stream for an aggregate."""
         if not info.context.request.user.is_authenticated:
             return None
+        tenant_id = get_request_tenant_id(info.context.request.user)
+        if not tenant_id:
+            return None
 
         from zentinelle.services.event_store import event_store
 
         events = []
         last_seq = 0
-        for envelope in event_store.get_stream(aggregate_type, aggregate_id, from_sequence):
+        for envelope in event_store.get_stream(tenant_id, aggregate_type, aggregate_id, from_sequence):
             events.append(EventEnvelopeType(
                 event_id=envelope.event_id,
                 event_type=envelope.event_type,
@@ -1855,10 +1861,13 @@ class Query:
         """Get all events in a correlation chain."""
         if not info.context.request.user.is_authenticated:
             return []
+        tenant_id = get_request_tenant_id(info.context.request.user)
+        if not tenant_id:
+            return []
 
         from zentinelle.services.event_store import event_store
 
-        envelopes = event_store.get_events_by_correlation(correlation_id)
+        envelopes = event_store.get_events_by_correlation(tenant_id, correlation_id)
         return [
             EventEnvelopeType(
                 event_id=e.event_id,
@@ -2872,10 +2881,10 @@ class Query:
     ) -> list[UsageAlertType]:
         import uuid as _uuid
 
-        from django.db.models import Sum
         from django.utils import timezone
 
-        from zentinelle.models import InteractionLog, Policy
+        from zentinelle.models import Policy
+        from zentinelle.services.budgets import budget_status
 
         if not info.context.request.user.is_authenticated:
             return []
@@ -2885,51 +2894,48 @@ class Query:
             return []
 
         now = timezone.now()
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
         alerts = []
 
-        # Check budget-limit policies vs current month usage
+        # Each budget_limit policy against its own scoped spend, read the way
+        # the evaluator reads it (services/budgets.budget_status).
         budget_policies = Policy.objects.filter(
             tenant_id=tenant_id,
-            policy_type='BUDGET_LIMIT',
+            policy_type=Policy.PolicyType.BUDGET_LIMIT,
             enabled=True,
         )
-        if budget_policies.exists():
-            current_cost = (
-                InteractionLog.objects.filter(tenant_id=tenant_id, created_at__gte=month_start)
-                .aggregate(total=Sum('estimated_cost_usd'))['total'] or 0
-            )
-            for policy in budget_policies:
-                config = policy.config or {}
-                threshold = config.get('monthly_limit_usd', 0)
-                if not threshold:
-                    continue
-                threshold = float(threshold)
-                current = float(current_cost)
-                ratio = current / threshold if threshold else 0
-                if ratio >= 0.8:
-                    sev = 'critical' if ratio >= 1.0 else 'warning'
-                    if severity and sev != severity:
-                        continue
-                    if acknowledged is not None and acknowledged:
-                        continue  # No stored acknowledgements -- skip filter
-                    if resolved is not None and resolved:
-                        continue
-                    alerts.append(UsageAlertType(
-                        id=str(_uuid.uuid5(_uuid.NAMESPACE_DNS, f"{tenant_id}_{policy.id}_budget")),
-                        alert_type='budget_threshold',
-                        alert_type_display='Budget Threshold',
-                        severity=sev,
-                        severity_display=sev.title(),
-                        title=f"Monthly budget {'exceeded' if ratio >= 1.0 else 'approaching'} ({ratio * 100:.0f}%)",
-                        message=f"Spend ${current:.2f} vs ${threshold:.2f} limit for {policy.name}",
-                        threshold_value=threshold,
-                        current_value=current,
-                        acknowledged=False,
-                        resolved=False,
-                        created_at=now,
-                    ))
+        for policy in budget_policies:
+            try:
+                status = budget_status(policy)
+            except (ValueError, ArithmeticError):
+                continue
+            if not status['level']:
+                continue
+            sev = 'critical' if status['level'] == 'exceeded' else 'warning'
+            if severity and sev != severity:
+                continue
+            if acknowledged is not None and acknowledged:
+                continue  # No stored acknowledgements -- skip filter
+            if resolved is not None and resolved:
+                continue
+            threshold = float(status['limit'])
+            current = float(status['spend'])
+            message = f"Spend ${current:.2f} vs ${threshold:.2f} limit for {policy.name}"
+            if status['unpriced_calls']:
+                message += f"; {status['unpriced_calls']} call(s) used an unpriced model and are not counted"
+            alerts.append(UsageAlertType(
+                id=str(_uuid.uuid5(_uuid.NAMESPACE_DNS, f"{tenant_id}_{policy.id}_budget")),
+                alert_type='budget_threshold',
+                alert_type_display='Budget Threshold',
+                severity=sev,
+                severity_display=sev.title(),
+                title=f"Monthly budget {'exceeded' if sev == 'critical' else 'approaching'} ({status['percent']:.0f}%)",
+                message=message,
+                threshold_value=threshold,
+                current_value=current,
+                acknowledged=False,
+                resolved=False,
+                created_at=now,
+            ))
 
         return alerts
 

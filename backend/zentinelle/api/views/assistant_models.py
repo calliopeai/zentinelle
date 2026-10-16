@@ -12,7 +12,7 @@ import json
 import logging
 import re
 
-from django.db import transaction
+from django.db import router, transaction
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -222,7 +222,7 @@ class AssistantModelsBulkView(APIView):
             return JsonResponse({'error': 'enabled_ids contains unknown models', 'models': unknown_ids[:20]}, status=400)
 
         updated = 0
-        with transaction.atomic():
+        with transaction.atomic(using=router.db_for_write(AIModel)):
             for m in qs.select_for_update():
                 target = m.model_id in enabled_set
                 if m.enabled_for_chat != target:

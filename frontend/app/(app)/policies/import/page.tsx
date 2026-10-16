@@ -177,7 +177,8 @@ const POLICY_KEYWORDS: PolicyKeyword[] = [
     configExtractors: [
       {
         field: "monthly_cost_usd",
-        regex: /\$?(\d+(?:\.\d+)?)\s*(?:usd|dollars?)?\s*(?:per\s+)?(?:month|mo)/i,
+        regex:
+          /\$?(\d+(?:\.\d+)?)\s*(?:usd|dollars?)?\s*(?:per\s+)?(?:month|mo)/i,
         transform: (s) => Number(s),
       },
       {
@@ -329,7 +330,7 @@ export default function PolicyImportPage() {
 
   const selectedCount = useMemo(
     () => candidates.filter((c) => c.selected).length,
-    [candidates]
+    [candidates],
   );
 
   // ── File handling ──
@@ -411,7 +412,7 @@ export default function PolicyImportPage() {
         toast.warning("No policy keywords found in the document");
       } else {
         toast.success(
-          `Found ${result.length} policy candidate${result.length === 1 ? "" : "s"}`
+          `Found ${result.length} policy candidate${result.length === 1 ? "" : "s"}`,
         );
       }
     }, 200);
@@ -419,7 +420,7 @@ export default function PolicyImportPage() {
 
   const toggleCandidate = (id: string) => {
     setCandidates((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, selected: !c.selected } : c))
+      prev.map((c) => (c.id === id ? { ...c, selected: !c.selected } : c)),
     );
   };
 
@@ -452,8 +453,8 @@ export default function PolicyImportPage() {
               policyType: c.policyType,
               config: c.config,
               enforcement: c.enforcement,
-            }))
-          )
+            })),
+          ),
         );
       } catch {
         // sessionStorage can fail in private mode; fall back gracefully
@@ -485,8 +486,8 @@ export default function PolicyImportPage() {
           <h1 className="text-xl font-semibold">Policy Import</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Upload or paste a policy document to extract candidate governance
-            policies. Review, then create policies pre-filled with the
-            extracted config.
+            policies. Review, then create policies pre-filled with the extracted
+            config.
           </p>
         </div>
       </div>
@@ -572,13 +573,13 @@ export default function PolicyImportPage() {
               <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
               <div>
                 <p className="font-medium">
-                  {fileKind === "pdf" ? "PDF" : "DOCX"} parsing requires
-                  backend setup
+                  {fileKind === "pdf" ? "PDF" : "DOCX"} parsing requires backend
+                  setup
                 </p>
                 <p className="mt-0.5 opacity-90">
-                  Open the document, copy its contents, and paste them into
-                  the text area below. Server-side document ingestion is on
-                  the roadmap.
+                  Open the document, copy its contents, and paste them into the
+                  text area below. Server-side document ingestion is on the
+                  roadmap.
                 </p>
               </div>
             </div>
@@ -640,8 +641,8 @@ export default function PolicyImportPage() {
                 </CardTitle>
                 <CardDescription className="text-xs">
                   Review what was detected. Uncheck anything you don&apos;t want
-                  to import. Each policy will be created via the standard
-                  create form so you can fine-tune the config.
+                  to import. Each policy will be created via the standard create
+                  form so you can fine-tune the config.
                 </CardDescription>
               </div>
               {candidates.length > 0 && (
@@ -657,8 +658,7 @@ export default function PolicyImportPage() {
                 <AlertTriangleIcon className="h-6 w-6 opacity-40" />
                 <p>
                   No policy keywords were detected in the document. Try
-                  rewording the source text or pasting a more detailed
-                  policy.
+                  rewording the source text or pasting a more detailed policy.
                 </p>
               </div>
             ) : (
@@ -684,10 +684,7 @@ export default function PolicyImportPage() {
                           <Badge variant="outline" className="text-[10px]">
                             {c.policyType}
                           </Badge>
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px]"
-                          >
+                          <Badge variant="secondary" className="text-[10px]">
                             {c.category}
                           </Badge>
                           <Badge

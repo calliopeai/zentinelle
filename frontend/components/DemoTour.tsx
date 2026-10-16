@@ -102,7 +102,7 @@ export function DemoTour() {
         setTimeout(renderHere, 250);
       }
     },
-    [pathname, router, stop]
+    [pathname, router, stop],
   );
 
   // When pathname matches the current step's route, render the popover

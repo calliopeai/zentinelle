@@ -45,7 +45,9 @@ interface ReviewRiskPayload {
   errors: string[];
 }
 
-function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
+function statusVariant(
+  status: string,
+): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case "open":
     case "identified":
@@ -63,7 +65,9 @@ function statusVariant(status: string): "default" | "secondary" | "destructive" 
   }
 }
 
-function riskLevelVariant(level: string | null): "default" | "secondary" | "destructive" | "outline" {
+function riskLevelVariant(
+  level: string | null,
+): "default" | "secondary" | "destructive" | "outline" {
   switch (level?.toLowerCase()) {
     case "critical":
     case "high":
@@ -109,12 +113,15 @@ export default function RiskDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const confirm = useConfirm();
 
-  const [deleteRisk, { loading: deleting }] =
-    useMutation<{ deleteRisk: DeleteRiskPayload }>(DELETE_RISK);
-  const [reviewRisk, { loading: reviewing }] =
-    useMutation<{ reviewRisk: ReviewRiskPayload }>(REVIEW_RISK);
-  const [updateRisk, { loading: updating }] =
-    useMutation<{ updateRisk: UpdateRiskPayload }>(UPDATE_RISK);
+  const [deleteRisk, { loading: deleting }] = useMutation<{
+    deleteRisk: DeleteRiskPayload;
+  }>(DELETE_RISK);
+  const [reviewRisk, { loading: reviewing }] = useMutation<{
+    reviewRisk: ReviewRiskPayload;
+  }>(REVIEW_RISK);
+  const [updateRisk, { loading: updating }] = useMutation<{
+    updateRisk: UpdateRiskPayload;
+  }>(UPDATE_RISK);
 
   if (loading) {
     return (
@@ -171,14 +178,21 @@ export default function RiskDetailPage() {
         toast.success("Risk marked as reviewed");
         refetch();
       } else {
-        toast.error(data?.reviewRisk?.errors?.[0] ?? "Failed to mark as reviewed");
+        toast.error(
+          data?.reviewRisk?.errors?.[0] ?? "Failed to mark as reviewed",
+        );
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to mark as reviewed");
+      toast.error(
+        e instanceof Error ? e.message : "Failed to mark as reviewed",
+      );
     }
   };
 
-  const updateStatus = async (status: "mitigating" | "closed", successMessage: string) => {
+  const updateStatus = async (
+    status: "mitigating" | "closed",
+    successMessage: string,
+  ) => {
     try {
       const { data } = await updateRisk({
         variables: {
@@ -197,7 +211,8 @@ export default function RiskDetailPage() {
     }
   };
 
-  const handleMitigate = () => updateStatus("mitigating", "Risk moved to mitigating");
+  const handleMitigate = () =>
+    updateStatus("mitigating", "Risk moved to mitigating");
   const handleClose = () => updateStatus("closed", "Risk closed");
 
   const handleDelete = async () => {
@@ -230,7 +245,11 @@ export default function RiskDetailPage() {
     ? severityFromImpact(risk.residualImpact as number)
     : null;
   const residualRpn = hasResidual
-    ? rpn(residualSeverity as number, risk.residualLikelihood as number, risk.residualImpact as number)
+    ? rpn(
+        residualSeverity as number,
+        risk.residualLikelihood as number,
+        risk.residualImpact as number,
+      )
     : null;
 
   const isClosed = risk.status === "closed";
@@ -240,7 +259,12 @@ export default function RiskDetailPage() {
     <div className="space-y-4 p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <Button asChild variant="ghost" size="sm" className="text-muted-foreground -ml-2">
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground -ml-2"
+          >
             <Link href="/risks">
               <ArrowLeftIcon className="mr-1.5 size-4" />
               All risks
@@ -309,7 +333,9 @@ export default function RiskDetailPage() {
           </Field>
           <Field label="Severity">
             <span className="font-mono text-sm font-medium">{severity}</span>
-            <span className="text-muted-foreground ml-1 text-xs">(Fibonacci)</span>
+            <span className="text-muted-foreground ml-1 text-xs">
+              (Fibonacci)
+            </span>
           </Field>
           <Field label="Likelihood">
             <span className="text-sm">
@@ -317,9 +343,7 @@ export default function RiskDetailPage() {
             </span>
           </Field>
           <Field label="Impact">
-            <span className="text-sm">
-              {risk.impactDisplay ?? risk.impact}
-            </span>
+            <span className="text-sm">{risk.impactDisplay ?? risk.impact}</span>
           </Field>
           <Field label="RPN">
             <span className="font-mono text-sm font-medium">{inherentRpn}</span>
@@ -391,9 +415,7 @@ export default function RiskDetailPage() {
         <CardHeader>
           <CardTitle className="text-base">Mitigation Plan</CardTitle>
           {risk.mitigationStatus && (
-            <CardDescription>
-              Status: {risk.mitigationStatus}
-            </CardDescription>
+            <CardDescription>Status: {risk.mitigationStatus}</CardDescription>
           )}
         </CardHeader>
         <CardContent>
@@ -417,7 +439,9 @@ export default function RiskDetailPage() {
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Residual Severity">
-              <span className="font-mono text-sm font-medium">{residualSeverity}</span>
+              <span className="font-mono text-sm font-medium">
+                {residualSeverity}
+              </span>
             </Field>
             <Field label="Residual Likelihood">
               <span className="text-sm">{risk.residualLikelihood}</span>
@@ -426,9 +450,12 @@ export default function RiskDetailPage() {
               <span className="text-sm">{risk.residualImpact}</span>
             </Field>
             <Field label="Residual RPN">
-              <span className="font-mono text-sm font-medium">{residualRpn}</span>
+              <span className="font-mono text-sm font-medium">
+                {residualRpn}
+              </span>
               <span className="text-muted-foreground ml-1 text-[11px]">
-                ({residualSeverity} x {risk.residualLikelihood} x {risk.residualImpact})
+                ({residualSeverity} x {risk.residualLikelihood} x{" "}
+                {risk.residualImpact})
               </span>
             </Field>
           </CardContent>
@@ -454,7 +481,9 @@ export default function RiskDetailPage() {
 
       <Card className="border-destructive/30">
         <CardHeader>
-          <CardTitle className="text-destructive text-base">Danger zone</CardTitle>
+          <CardTitle className="text-destructive text-base">
+            Danger zone
+          </CardTitle>
           <CardDescription>
             Permanently delete this risk. Cannot be undone.
           </CardDescription>
@@ -485,7 +514,13 @@ export default function RiskDetailPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1">
       <div className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">

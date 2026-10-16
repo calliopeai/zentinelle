@@ -98,9 +98,7 @@ export function PromptDetailDialog({
               )}
               {data.visibility && (
                 <Badge
-                  variant={
-                    data.visibility === "public" ? "default" : "outline"
-                  }
+                  variant={data.visibility === "public" ? "default" : "outline"}
                 >
                   {data.visibilityDisplay ?? data.visibility}
                 </Badge>

@@ -76,15 +76,14 @@ const COMPLIANCE_OPTIONS = [
   { value: "custom", label: "Custom Policy" },
 ];
 
-const optionalIntFromInput = z
-  .preprocess((val) => {
-    if (val === "" || val === null || val === undefined) return undefined;
-    if (typeof val === "string") {
-      const n = Number(val);
-      return Number.isNaN(n) ? val : n;
-    }
-    return val;
-  }, z.number().int("Must be a whole number").min(0, "Cannot be negative").max(36500, "Must be 36500 days or less").optional());
+const optionalIntFromInput = z.preprocess((val) => {
+  if (val === "" || val === null || val === undefined) return undefined;
+  if (typeof val === "string") {
+    const n = Number(val);
+    return Number.isNaN(n) ? val : n;
+  }
+  return val;
+}, z.number().int("Must be a whole number").min(0, "Cannot be negative").max(36500, "Must be 36500 days or less").optional());
 
 const retentionDaysFromInput = z.preprocess(
   (val) => {
@@ -203,8 +202,7 @@ export function RetentionPolicyDialog({
         description: editPolicy.description ?? "",
         entityType: editPolicy.entityType,
         retentionDays: editPolicy.retentionDays,
-        minimumRetentionDays:
-          editPolicy.minimumRetentionDays ?? undefined,
+        minimumRetentionDays: editPolicy.minimumRetentionDays ?? undefined,
         expirationAction: editPolicy.expirationAction,
         complianceRequirement: editPolicy.complianceRequirement ?? "none",
         enabled: editPolicy.enabled,
@@ -256,7 +254,7 @@ export function RetentionPolicyDialog({
         } else {
           toast.error(
             data?.updateRetentionPolicy?.errors?.[0] ??
-              "Failed to update policy"
+              "Failed to update policy",
           );
         }
       } else {
@@ -270,12 +268,14 @@ export function RetentionPolicyDialog({
         } else {
           toast.error(
             data?.createRetentionPolicy?.errors?.[0] ??
-              "Failed to create policy"
+              "Failed to create policy",
           );
         }
       }
     } catch {
-      toast.error(isEdit ? "Failed to update policy" : "Failed to create policy");
+      toast.error(
+        isEdit ? "Failed to update policy" : "Failed to create policy",
+      );
     }
   };
 

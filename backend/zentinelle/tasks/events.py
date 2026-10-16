@@ -25,6 +25,7 @@ def process_event_batch(event_ids: list[str], category: str):
         category: Event category (telemetry, audit, alert)
     """
     from zentinelle.models import Event
+    from zentinelle.services.usage_ingest import InvalidUsage
 
     logger.info(f"Processing {len(event_ids)} {category} events")
 
@@ -35,6 +36,12 @@ def process_event_batch(event_ids: list[str], category: str):
             event.mark_processing()
             _process_single_event(event)
             event.mark_processed()
+        except InvalidUsage as e:
+            # The same payload fails the same way on every retry, so it goes
+            # straight to the DLQ rather than through five retries.
+            logger.warning(f"Rejected usage event {event.id}: {e}")
+            event.retry_count = dead_letter_queue.MAX_RETRIES
+            dead_letter_queue.move_to_dlq(event, f"Invalid usage: {e}")
         except Exception as e:
             logger.error(f"Failed to process event {event.id}: {e}")
             event.mark_failed(str(e))
@@ -51,23 +58,23 @@ def process_event_batch(event_ids: list[str], category: str):
 def _process_single_event(event):
     """Process a single event based on its type."""
     from zentinelle.models import AgentEndpoint, Event
+    from zentinelle.services.usage_ingest import (USAGE_EVENT_TYPES,
+                                                  carries_tokens,
+                                                  record_usage_event)
 
     event_type = event.event_type
 
-    # Heartbeat events - update endpoint health
+    # Heartbeat events - update endpoint health, as of when the heartbeat was
+    # sent (never later than its arrival): a delayed event is not a live agent.
     if event_type == Event.EventType.HEARTBEAT:
         if event.endpoint:
             health = event.payload.get('status', AgentEndpoint.Health.HEALTHY)
-            event.endpoint.update_heartbeat(health=health)
+            event.endpoint.update_heartbeat(health=health, at=min(event.occurred_at, event.received_at))
 
-    # Spawn/stop events - track for billing
-    elif event_type in [Event.EventType.SPAWN, Event.EventType.STOP]:
-        _send_to_stripe(event)
-
-    # AI request events - track tokens for billing
-    elif event_type == Event.EventType.AI_REQUEST:
-        _record_ai_usage(event)
-        _send_to_stripe(event)
+    # Usage events, under every producer's name. A failure here must fail the
+    # event: swallowing it marked the usage processed and lost it.
+    elif event_type in USAGE_EVENT_TYPES:
+        record_usage_event(event)
 
     # Policy violation - send alerts
     elif event_type == Event.EventType.POLICY_VIOLATION:
@@ -81,128 +88,47 @@ def _process_single_event(event):
     elif event_type == Event.EventType.ENDPOINT_UNHEALTHY:
         _send_alert(event)
 
+    # Everything else is stored for audit only. Token counts under another
+    # type are not metered, which is the silent loss to make visible.
+    elif carries_tokens(event.payload):
+        logger.warning(
+            f"Event {event.id} of type {event_type!r} carries token counts but is not a "
+            f"usage type ({', '.join(sorted(USAGE_EVENT_TYPES))}); not metered"
+        )
 
-def _send_to_stripe(event):
-    """Send billable event to Stripe billing meters."""
-    import stripe
-    from django.conf import settings
 
-    try:
-        from billing.models import Subscription
-    except ImportError:
-        return  # Managed-only feature, skip in standalone mode
-
-    stripe.api_key = getattr(settings, 'STRIPE_SECRET_KEY', '')
-    if not stripe.api_key:
-        return
-
-    try:
-        # Get subscription for this tenant
-        if not event.tenant_id:
-            return
-
-        subscription = Subscription.objects.filter(
-            organization_id=event.tenant_id,
-            status__in=[Subscription.Status.ACTIVE, Subscription.Status.TRIALING]
-        ).first()
-
-        if not subscription or not subscription.stripe_customer_id:
-            return
-
-        # Determine meter event type based on event type
-        from zentinelle.models import Event
-        if event.event_type == Event.EventType.AI_REQUEST:
-            # Track token usage
-            tokens = event.payload.get('tokens', 0)
-            if tokens > 0:
-                stripe.billing.MeterEvent.create(
-                    event_name='tokens_used',
-                    payload={
-                        'stripe_customer_id': subscription.stripe_customer_id,
-                        'value': str(tokens),
-                    },
-                )
-        elif event.event_type in [Event.EventType.SPAWN, Event.EventType.STOP]:
-            # Track compute hours
-            duration_hours = event.payload.get('duration_hours', 0)
-            if duration_hours > 0:
-                stripe.billing.MeterEvent.create(
-                    event_name='compute_hours',
-                    payload={
-                        'stripe_customer_id': subscription.stripe_customer_id,
-                        'value': str(int(duration_hours * 100)),  # In hundredths
-                    },
-                )
-
-        # Mark event as sent to billing
-        event.lago_event_id = 'stripe_sent'
-        event.save(update_fields=['lago_event_id'])
-
-    except Exception as e:
-        logger.warning(f"Failed to send event to Stripe: {e}")
-        # Don't fail the event processing for billing failures
+# Severity each alert event is dispatched at; NotificationConfig
+# trigger_severities filters on it.
+ALERT_SEVERITY = {
+    'policy_violation': 'high',
+    'budget_exceeded': 'high',
+    'endpoint_unhealthy': 'medium',
+}
 
 
 def _send_alert(event):
-    """Send alert notification."""
-    from zentinelle.services.alert_service import AlertService
+    """Send an alert event to the tenant's configured webhook and Slack channels.
 
-    try:
-        alert_service = AlertService()
-        alert_service.send_alert(event)
-    except Exception as e:
-        logger.warning(f"Failed to send alert: {e}")
-        # Don't fail the event processing for alert failures
-
-
-def _record_ai_usage(event):
+    This is the one place alert events notify, whichever path stored them
+    (REST ingest, /evaluate, the health check). A delivery failure is logged
+    per channel by the dispatcher; anything else fails the event so it is
+    retried rather than marked processed with nobody told.
     """
-    Record AI usage from an AI_REQUEST event.
-    """
-    from zentinelle.services.usage_tracking import UsageTrackingService
+    from zentinelle.services.webhook_dispatcher import dispatch_webhook
 
     if not event.tenant_id:
         return
-
-    payload = event.payload or {}
-
-    # Required fields
-    provider = payload.get('provider', '').lower()
-    model = payload.get('model', '')
-    input_tokens = payload.get('input_tokens', 0)
-    output_tokens = payload.get('output_tokens', 0)
-
-    # User identifier from payload or event
-    user_identifier = payload.get('user_id') or event.user_identifier or 'unknown'
-
-    # Optional fields
-    request_id = payload.get('request_id', '')
-
-    # Validate we have minimum required data
-    if not provider or not model:
-        logger.warning(f"AI_REQUEST event missing provider or model: {event.id}")
-        return
-
-    try:
-        UsageTrackingService.record_usage(
-            tenant_id=event.tenant_id,
-            user_identifier=user_identifier,
-            provider=provider,
-            model=model,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            request_id=request_id,
-            endpoint=event.endpoint,
-            deployment_id_ext=event.deployment or '',
-            occurred_at=event.occurred_at,
-            metadata={
-                'event_id': str(event.id),
-            },
-        )
-        logger.debug(f"Recorded AI usage for event {event.id}")
-
-    except Exception as e:
-        logger.warning(f"Failed to record AI usage for event {event.id}: {e}")
+    dispatch_webhook(
+        tenant_id=event.tenant_id,
+        event_type=event.event_type,
+        severity=ALERT_SEVERITY[event.event_type],
+        payload={
+            **(event.payload or {}),
+            'event_id': str(event.id),
+            'agent_id': event.endpoint.agent_id if event.endpoint else '',
+            'occurred_at': event.occurred_at.isoformat(),
+        },
+    )
 
 
 @task

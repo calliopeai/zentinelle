@@ -26,6 +26,7 @@ from zentinelle.auth.gateway_credential import (
     LOCAL_GATEWAY_NAME, STANDALONE_TENANT_ID, ensure_local_gateway_credential)
 from zentinelle.models import (AgentEndpoint, AuditLog, GatewayCredential,
                                GatewayRegistration, LLMProviderKey)
+from zentinelle.tests.test_secret_guard import STRONG_ENV, STRONG_SETTINGS
 
 TENANT_A = 'tenant-a'
 TENANT_B = 'tenant-b'
@@ -407,7 +408,9 @@ class LocalGatewayCredentialTests(TestCase):
         agent = make_agent(STANDALONE_TENANT_ID, 'standalone-agent')
         store_key(STANDALONE_TENANT_ID, 'openai', KEY_A)
 
-        with override_settings(ZENTINELLE_GATEWAY_CREDENTIAL_FILE=self.path):
+        # The web process also refuses weak secrets when it starts.
+        with override_settings(ZENTINELLE_GATEWAY_CREDENTIAL_FILE=self.path, **STRONG_SETTINGS), \
+                patch.dict('os.environ', STRONG_ENV):
             importlib.reload(importlib.import_module('config.wsgi'))
         response = lookup(agent_key=agent, credential=self.read())
 

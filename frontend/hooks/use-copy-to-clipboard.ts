@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 
-export const useCopyToClipboard = (resetDelay = 2000): [boolean, (text: string) => void] => {
+export const useCopyToClipboard = (
+  resetDelay = 2000,
+): [boolean, (text: string) => void] => {
   const [copied, setCopied] = useState(false);
 
   const copy = useCallback(
@@ -10,7 +12,7 @@ export const useCopyToClipboard = (resetDelay = 2000): [boolean, (text: string) 
         setTimeout(() => setCopied(false), resetDelay);
       });
     },
-    [resetDelay]
+    [resetDelay],
   );
 
   return [copied, copy];

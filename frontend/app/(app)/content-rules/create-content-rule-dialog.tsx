@@ -144,7 +144,9 @@ export function CreateContentRuleDialog({
   const submitting = creating || updating;
   // What the rule does on a match (#396), kept beside the form: its steps
   // are a list, and the backend validates the whole ladder on save.
-  const [actionValue, setActionValue] = useState(() => actionValueFrom(null, "log"));
+  const [actionValue, setActionValue] = useState(() =>
+    actionValueFrom(null, "log"),
+  );
 
   // Trying a rule against a sample before trusting it. The mutation takes a
   // saved rule's id, so this is offered on edit only; a new rule has nothing
@@ -384,7 +386,6 @@ export function CreateContentRuleDialog({
                 )}
               />
             </div>
-
           </div>
 
           <ActionFields value={actionValue} onChange={setActionValue} />

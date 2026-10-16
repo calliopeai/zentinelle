@@ -43,7 +43,7 @@ class ConfigView(APIView):
             )
 
         # Try cache first (gracefully handle cache failures)
-        cache_key = f"zentinelle:config:{agent_id}"
+        cache_key = config_cache_key(auth_endpoint.tenant_id, agent_id)
         try:
             cached = cache.get(cache_key)
             if cached:
@@ -81,10 +81,19 @@ class ConfigView(APIView):
         return Response(response_data)
 
 
-def invalidate_config_cache(agent_id: str):
+def config_cache_key(tenant_id: str, agent_id: str) -> str:
+    """The config cache key of one agent.
+
+    agent_id is unique per tenant only, so the tenant is part of the key: two
+    tenants with an agent of the same name must never read each other's
+    cached policies.
+    """
+    return f"zentinelle:config:{tenant_id}:{agent_id}"
+
+
+def invalidate_config_cache(tenant_id: str, agent_id: str):
     """Helper to invalidate config cache when config changes."""
-    cache_key = f"zentinelle:config:{agent_id}"
-    cache.delete(cache_key)
+    cache.delete(config_cache_key(tenant_id, agent_id))
 
 
 def invalidate_org_config_cache(tenant_id):
@@ -94,4 +103,4 @@ def invalidate_org_config_cache(tenant_id):
     ).values_list('agent_id', flat=True)
 
     for agent_id in endpoints:
-        invalidate_config_cache(agent_id)
+        invalidate_config_cache(tenant_id, agent_id)

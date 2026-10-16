@@ -107,7 +107,7 @@
   --accent-foreground: #60a5fa;
   --destructive: #ef4444;
   --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.10);
+  --input: rgba(255, 255, 255, 0.1);
   --ring: #22d3ee;
   --chart-1: #22d3ee;
   --chart-2: #818cf8;
@@ -135,8 +135,13 @@
 
 /* ── Chat bubble pulse animation ─────────────────────────────────── */
 @keyframes pulse-subtle {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(55, 239, 237, 0.4); }
-  50% { box-shadow: 0 0 0 8px rgba(55, 239, 237, 0); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(55, 239, 237, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(55, 239, 237, 0);
+  }
 }
 .animate-pulse-subtle {
   animation: pulse-subtle 3s ease-in-out infinite;
@@ -164,8 +169,15 @@
 
 /* ── Live indicator dot ──────────────────────────────────────────── */
 @keyframes live-pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
-  50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  }
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
 }
 .animate-live-pulse {
   animation: live-pulse 1.6s ease-in-out infinite;
@@ -192,7 +204,7 @@ body.zentinelle-embed [data-sidebar="inset"] {
   width: 100% !important;
   max-width: 100% !important;
 }
-body.zentinelle-embed [data-tour='dashboard-stats'],
+body.zentinelle-embed [data-tour="dashboard-stats"],
 body.zentinelle-embed .flex.flex-1 {
   padding: 1rem !important;
 }

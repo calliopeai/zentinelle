@@ -38,11 +38,11 @@ class ZentinelleAPIKeyAuthentication(authentication.BaseAuthentication):
         if not api_key.startswith('sk_agent_'):
             raise exceptions.AuthenticationFailed('Invalid API key format')
 
-        # The stored prefix is `sk_agent_` and three random characters, so two
-        # live keys can share it (#400): check each one's hash.
-        key_prefix = api_key[:12]
+        # Keys minted before T10 store `sk_agent_` and three random
+        # characters, so two live keys can share a prefix (#400): check each
+        # one's hash.
         candidates = AgentEndpoint.objects.filter(
-            api_key_prefix=key_prefix,
+            api_key_prefix__in=AgentEndpoint.key_prefixes(api_key),
             status__in=[AgentEndpoint.Status.ACTIVE, AgentEndpoint.Status.PROVISIONING],
         )
         endpoint = next(
@@ -145,19 +145,8 @@ class ZentinelleServiceKeyAuthentication(authentication.BaseAuthentication):
             # Not a service key. Let another authenticator handle it.
             return None
 
-        key_prefix = api_key[:15]
-
-        try:
-            record = APIKey.objects.get(
-                key_prefix=key_prefix,
-                key_type=APIKey.KeyType.SERVICE,
-            )
-        except APIKey.DoesNotExist:
-            raise exceptions.AuthenticationFailed('Invalid service key')
-        except APIKey.MultipleObjectsReturned:
-            raise exceptions.AuthenticationFailed('Invalid service key')
-
-        if not APIKey.verify_api_key(api_key, record.key_hash):
+        record = _matching_api_key(api_key, key_type=APIKey.KeyType.SERVICE)
+        if record is None:
             raise exceptions.AuthenticationFailed('Invalid service key')
 
         # is_active covers both revocation and expiry.
@@ -173,6 +162,16 @@ class ZentinelleServiceKeyAuthentication(authentication.BaseAuthentication):
 
     def authenticate_header(self, request):
         return self.keyword
+
+
+def _matching_api_key(api_key, **filters):
+    """The APIKey whose hash `api_key` matches, or None.
+
+    Every key sharing the prefix is checked: a .get() made two keys with the
+    same prefix (possible for keys minted before T10) lock each other out.
+    """
+    candidates = APIKey.objects.filter(key_prefix__in=APIKey.key_prefixes(api_key), **filters)
+    return next((c for c in candidates if APIKey.verify_api_key(api_key, c.key_hash)), None)
 
 
 def get_endpoint_from_request(request) -> AgentEndpoint:
@@ -226,12 +225,10 @@ class ZentinellePlatformKeyAuthentication(ZentinelleServiceKeyAuthentication):
         if not (api_key.startswith(KeyPrefixes.PLATFORM)
                 or api_key.startswith(KeyPrefixes.SERVICE)):
             return None
-        key_prefix = api_key[:15]
-        try:
-            record = APIKey.objects.get(key_prefix=key_prefix)
-        except (APIKey.DoesNotExist, APIKey.MultipleObjectsReturned):
+        record = _matching_api_key(api_key)
+        if record is None:
             raise exceptions.AuthenticationFailed('Invalid platform key')
-        if not APIKey.verify_api_key(api_key, record.key_hash) or not record.is_active:
+        if not record.is_active:
             raise exceptions.AuthenticationFailed('Platform key is not active')
         if not record.tenant_id:
             raise exceptions.AuthenticationFailed('Platform key has no tenant')

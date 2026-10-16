@@ -14,6 +14,8 @@ Note: httpx is required (already used by ClientCoveTenantResolver).
 """
 import json
 import logging
+import posixpath
+import re
 import uuid
 from urllib.parse import urlparse
 
@@ -26,6 +28,7 @@ from zentinelle.auth.resolver import StandaloneTenantResolver
 from zentinelle.models import AgentEndpoint
 from zentinelle.services.content_capture import record_interaction
 from zentinelle.services.policy_engine import PolicyEngine
+from zentinelle.services.provider_usage import parse_usage
 
 
 def _extract_sse_text(content: bytes) -> str:
@@ -70,6 +73,16 @@ def _extract_sse_text(content: bytes) -> str:
     return ''.join(text_parts)
 
 
+def _gemini_model_from_path(path: str) -> str:
+    """The model a Gemini or Vertex path names (.../models/gemini-2.5-pro:generateContent)."""
+    _, sep, rest = ('/' + path).partition('/models/')
+    if not sep:
+        return ''
+    for end in (':', '/'):
+        rest = rest.split(end, 1)[0]
+    return rest
+
+
 logger = logging.getLogger(__name__)
 
 MAX_RESPONSE_SIZE = 50 * 1024 * 1024  # 50 MB
@@ -84,6 +97,29 @@ VERTEX_REGIONS = {
     'us-central1', 'us-east1', 'us-west1', 'europe-west1',
     'europe-west4', 'asia-northeast1', 'asia-southeast1',
 }
+
+# A Google Cloud project id. It is placed into the upstream path, which
+# carries the provider key.
+_VERTEX_PROJECT = re.compile(r'[a-z][a-z0-9-]{4,29}')
+
+# The inference routes, relative to each provider's base URL. Only these are
+# forwarded: everything else on a provider's API (files, batches, fine-tunes,
+# vector stores, account endpoints) would run on the injected key, and policy
+# only ever sees a request body.
+_INFERENCE_PATHS = {
+    'openai': re.compile(r'chat/completions|completions|responses|embeddings'),
+    'anthropic': re.compile(r'v1/messages|v1/messages/count_tokens|v1/complete'),
+    'google': re.compile(
+        r'v1(beta)?/models/[A-Za-z0-9._-]+:(generateContent|streamGenerateContent|countTokens|embedContent|batchEmbedContents)'),
+    'vertex': re.compile(
+        r'publishers/[a-z0-9-]+/models/[A-Za-z0-9._@-]+:'
+        r'(generateContent|streamGenerateContent|countTokens|rawPredict|streamRawPredict)'),
+}
+
+
+class _ProviderKeyUnreadable(Exception):
+    """A tenant's stored provider key exists but cannot be decrypted."""
+
 
 # Headers that must not be forwarded to the upstream provider.
 _HOP_BY_HOP = frozenset([
@@ -155,6 +191,22 @@ class ProxyView(View):
                 status=404,
             )
 
+        # Gemini names the model in the path, and the policy check reads it
+        # from there. httpx resolves dot segments before sending, so an
+        # unresolved path could show policy one model (models/cheap/../expensive)
+        # while the provider serves another; the resolved path is the one
+        # checked against the inference routes, read and forwarded. On Vertex
+        # a leading .. would also leave the project the URL is built for, and
+        # a resolved path that is not a publisher model route is refused.
+        if provider in ('google', 'vertex'):
+            path = posixpath.normpath('/' + path).lstrip('/')
+        if request.method != 'POST' or not _INFERENCE_PATHS[provider].fullmatch(path):
+            return JsonResponse(
+                {'error': 'path_not_allowed',
+                 'detail': f"Only {provider} inference requests are proxied"},
+                status=403,
+            )
+
         # 3. Look up AgentEndpoint for policy evaluation
         agent_user_id = auth.user_id or ''
         endpoint = None
@@ -171,6 +223,8 @@ class ProxyView(View):
                 status=403,
             )
 
+        gemini_model = _gemini_model_from_path(path) if provider in ('google', 'vertex') else ''
+
         # 4. Build evaluation context from request body
         context = {
             'action': 'llm:invoke',
@@ -178,10 +232,26 @@ class ProxyView(View):
             'path': path,
             'request_id': request.headers.get('X-Request-ID') or str(uuid.uuid4()),
         }
+        if gemini_model:
+            context['model'] = gemini_model
         # Give network_policy evaluators the actual upstream destination before
         # the request is sent. Without this, an allowlist could only enforce
         # allow_outbound and every provider domain would bypass domain rules.
-        upstream_base = PROVIDERS.get(provider, 'https://aiplatform.googleapis.com')
+        if provider == 'vertex':
+            try:
+                upstream_url = self._build_vertex_url(request, path)
+            except ValueError as exc:
+                return JsonResponse({'error': 'vertex_config_invalid', 'detail': str(exc)}, status=400)
+            if not upstream_url:
+                return JsonResponse(
+                    {'error': 'vertex_config_missing',
+                     'detail': 'Set X-Vertex-Region and X-Vertex-Project headers'},
+                    status=400,
+                )
+            upstream_base = f'https://{urlparse(upstream_url).hostname}'
+        else:
+            upstream_base = PROVIDERS[provider]
+            upstream_url = f"{upstream_base}/{path}"
         context['url'] = upstream_base
         context['domain'] = urlparse(upstream_base).hostname or ''
 
@@ -192,7 +262,7 @@ class ProxyView(View):
                 try:
                     body_json = json.loads(body_bytes)
                     model = body_json.get('model', '')
-                    if model:
+                    if model and not gemini_model:
                         context['model'] = model
                     messages = body_json.get('messages', [])
                     if messages:
@@ -229,18 +299,9 @@ class ProxyView(View):
                 status=403,
             )
 
-        # 6. Forward to upstream provider via httpx
-        if provider == 'vertex':
-            upstream_url = self._build_vertex_url(request, path)
-            if not upstream_url:
-                return JsonResponse(
-                    {'error': 'vertex_config_missing',
-                     'detail': 'Set X-Vertex-Region and X-Vertex-Project headers'},
-                    status=400,
-                )
-        else:
-            base_url = PROVIDERS[provider]
-            upstream_url = f"{base_url}/{path}"
+        # 6. Forward to upstream provider via httpx. The query string can carry
+        # a provider key (Google's ?key=), so logs use the URL without it.
+        log_url = upstream_url
         if request.META.get('QUERY_STRING'):
             upstream_url += '?' + request.META['QUERY_STRING']
 
@@ -253,14 +314,26 @@ class ProxyView(View):
             forward_headers.pop(h, None)
             forward_headers.pop(h.title(), None)
         # Managed gateway mode: if tenant has a stored provider key, inject it
-        managed_key = self._get_managed_provider_key(tenant_id, provider)
+        try:
+            managed_key = self._get_managed_provider_key(tenant_id, provider)
+        except _ProviderKeyUnreadable:
+            logger.error('Stored %s key for tenant %s cannot be decrypted', provider, tenant_id)
+            return JsonResponse(
+                {'error': 'provider_key_unreadable',
+                 'detail': f'The stored {provider} key cannot be decrypted'},
+                status=503,
+            )
         if managed_key:
+            # Drop the client's own credentials whatever their case: Django
+            # gives 'X-Api-Key', and httpx would send it beside the injected
+            # 'x-api-key', leaving the upstream to pick whose account pays.
+            for header in [h for h in forward_headers
+                           if h.lower() in ('authorization', 'x-api-key', 'x-goog-api-key')]:
+                del forward_headers[header]
             if provider == 'anthropic':
                 forward_headers['x-api-key'] = managed_key
-                forward_headers.pop('Authorization', None)
             elif provider == 'google':
                 forward_headers['x-goog-api-key'] = managed_key
-                forward_headers.pop('Authorization', None)
             else:
                 forward_headers['Authorization'] = f'Bearer {managed_key}'
 
@@ -270,9 +343,9 @@ class ProxyView(View):
         else:
             forward_headers['Host'] = urlparse(upstream_url).hostname
 
-        # Debug: log forwarded headers (redact auth values)
-        debug_headers = {k: (v[:20] + '...' if k.lower() == 'authorization' else v) for k, v in forward_headers.items()}
-        logger.info('Proxy %s %s → %s headers=%s', request.method, path, upstream_url, debug_headers)
+        # Header names only: values include provider keys, the injected
+        # managed key among them, and production logs at INFO.
+        logger.info('Proxy %s %s → %s headers=%s', request.method, path, log_url, sorted(forward_headers))
 
         try:
             import httpx
@@ -305,6 +378,11 @@ class ProxyView(View):
                         for chunk in upstream_response.iter_bytes():
                             buffered_size += len(chunk)
                             if buffered_size > MAX_RESPONSE_SIZE:
+                                # The provider bills the call whether or not
+                                # the caller gets the answer.
+                                self._log_interaction(endpoint, provider, context, eval_result,
+                                                      response_body=b''.join(buffered_chunks),
+                                                      upstream_status=upstream_status)
                                 return JsonResponse(
                                     {'error': 'response_too_large',
                                      'detail': f'Response exceeded {MAX_RESPONSE_SIZE} bytes limit'},
@@ -327,12 +405,13 @@ class ProxyView(View):
                     if output_text:
                         output_context = dict(context)
                         output_context['output_text'] = output_text
+                        denied = None
                         try:
                             filter_result = engine.evaluate(
                                 endpoint, 'llm:response', context=output_context
                             )
                             if not filter_result.allowed:
-                                return JsonResponse(
+                                denied = JsonResponse(
                                     {
                                         'error': 'output_policy_denied',
                                         'detail': filter_result.reason or 'Response blocked by output filter',
@@ -341,7 +420,13 @@ class ProxyView(View):
                                 )
                         except Exception as exc:
                             logger.warning('Streaming output filter evaluation failed: %s', exc)
-                            return JsonResponse({'error': 'output_inspection_failed'}, status=503)
+                            denied = JsonResponse({'error': 'output_inspection_failed'}, status=503)
+                        if denied is not None:
+                            # The provider bills a call whose answer is withheld.
+                            self._log_interaction(endpoint, provider, context, eval_result,
+                                                  response_body=full_content,
+                                                  upstream_status=upstream_status)
+                            return denied
 
                 self._log_interaction(endpoint, provider, context, eval_result,
                                       response_body=full_content, upstream_status=upstream_status)
@@ -374,20 +459,27 @@ class ProxyView(View):
                 ).exists()
 
                 if output_filter_policies and response_body:
+                    denied = None
                     try:
                         out_text = response_body.decode('utf-8', errors='replace')
                         output_context = dict(context)
                         output_context['output_text'] = out_text
                         filter_result = engine.evaluate(endpoint, 'llm:response', context=output_context)
                         if not filter_result.allowed:
-                            return JsonResponse(
+                            denied = JsonResponse(
                                 {'error': 'output_policy_denied',
                                  'detail': filter_result.reason or 'Response blocked by output filter'},
                                 status=403,
                             )
                     except Exception as exc:
                         logger.warning('Output filter evaluation failed: %s', exc)
-                        return JsonResponse({'error': 'output_inspection_failed'}, status=503)
+                        denied = JsonResponse({'error': 'output_inspection_failed'}, status=503)
+                    if denied is not None:
+                        # The provider bills a call whose answer is withheld.
+                        self._log_interaction(endpoint, provider, context, eval_result,
+                                              response_body=response_body,
+                                              upstream_status=upstream_response.status_code)
+                        return denied
 
                 self._log_interaction(endpoint, provider, context, eval_result,
                                       response_body=response_body,
@@ -404,19 +496,19 @@ class ProxyView(View):
                 return django_response
 
         except httpx.ConnectError as exc:
-            logger.error('Proxy connect error to %s: %s', upstream_url, exc)
+            logger.error('Proxy connect error to %s: %s', log_url, exc)
             return JsonResponse(
                 {'error': 'upstream_unreachable', 'detail': str(exc)},
                 status=502,
             )
         except httpx.TimeoutException as exc:
-            logger.error('Proxy timeout to %s: %s', upstream_url, exc)
+            logger.error('Proxy timeout to %s: %s', log_url, exc)
             return JsonResponse(
                 {'error': 'upstream_timeout', 'detail': str(exc)},
                 status=504,
             )
         except Exception as exc:  # noqa: BLE001
-            logger.error('Proxy error forwarding to %s: %s', upstream_url, exc)
+            logger.error('Proxy error forwarding to %s: %s', log_url, exc)
             return JsonResponse(
                 {'error': 'proxy_error', 'detail': 'An internal proxy error occurred'},
                 status=502,
@@ -424,15 +516,37 @@ class ProxyView(View):
 
     @staticmethod
     def _get_managed_provider_key(tenant_id, provider):
-        """Look up a stored provider API key for this tenant.
-        Falls back to env vars for single-tenant deployments.
+        """The provider key to inject for this tenant, or None to forward the client's own.
+
+        The tenant's stored LLMProviderKey first. The install's env keys are
+        one account's keys, so, as on the gateway, they serve a tenant with no
+        stored key only when ALLOW_ENV_PROVIDER_KEYS marks the install single
+        tenant. A stored key that cannot be decrypted raises
+        _ProviderKeyUnreadable rather than falling back: serving the tenant on
+        another account's key is no recovery.
         """
         import os
+
+        from django.conf import settings
+
+        from zentinelle.models import LLMProviderKey
+
+        record = LLMProviderKey.objects.filter(tenant_id=tenant_id, provider=provider, is_active=True).first()
+        # A row without ciphertext is a keyless provider toggle, not a key.
+        if record is not None and record.encrypted_key:
+            key = record.get_key()
+            if not key:
+                raise _ProviderKeyUnreadable(provider)
+            return key
+        if not settings.ALLOW_ENV_PROVIDER_KEYS:
+            return None
+        # No vertex entry: GOOGLE_API_KEY is a Gemini API key, and Vertex
+        # takes an OAuth token, so injecting it would only replace the
+        # caller's working credential with one Vertex refuses.
         env_map = {
             'openai': 'OPENAI_API_KEY',
             'anthropic': 'ANTHROPIC_API_KEY',
             'google': 'GOOGLE_API_KEY',
-            'vertex': 'GOOGLE_API_KEY',
         }
         env_var = env_map.get(provider)
         if not env_var:
@@ -442,7 +556,12 @@ class ProxyView(View):
 
     @staticmethod
     def _build_vertex_url(request, path):
-        """Build Vertex AI upstream URL from request headers."""
+        """Build Vertex AI upstream URL from request headers.
+
+        Returns None when the region or project is missing. Raises ValueError
+        for a region or project that is not a real one: both go into the
+        upstream URL, which receives the provider key.
+        """
         region = (request.headers.get('X-Vertex-Region', '') or
                   request.META.get('HTTP_X_VERTEX_REGION', '')).strip()
         project = (request.headers.get('X-Vertex-Project', '') or
@@ -457,7 +576,9 @@ class ProxyView(View):
             return None
 
         if region not in VERTEX_REGIONS:
-            logger.warning('Unknown Vertex AI region: %s', region)
+            raise ValueError('Unsupported Vertex AI region')
+        if not _VERTEX_PROJECT.fullmatch(project):
+            raise ValueError('Invalid Vertex AI project id')
 
         return f'https://{region}-aiplatform.googleapis.com/v1/projects/{project}/locations/{region}/{path}'
 
@@ -470,24 +591,32 @@ class ProxyView(View):
         from zentinelle.services.usage_tracking import UsageTrackingService
 
         model = context.get('model', '')
+        # Canonical counts: input_tokens is uncached input; the cache counts
+        # are input the provider bills beside it.
         input_tokens = context.get('input_tokens', 0)
         output_tokens = 0
+        cache_read_tokens = 0
+        cache_write_tokens = 0
         output_content = ''
         latency_ms = None
-        total_tokens = input_tokens
 
         if response_body:
             parsed = self._parse_provider_response(provider, response_body)
-            output_tokens = parsed.get('output_tokens', 0)
-            input_tokens = parsed.get('input_tokens', input_tokens)
-            total_tokens = input_tokens + output_tokens
+            if parsed.get('usage_reported'):
+                input_tokens = parsed['input_tokens']
+                output_tokens = parsed['output_tokens']
+                cache_read_tokens = parsed['cache_read_tokens']
+                cache_write_tokens = parsed['cache_write_tokens']
             output_content = parsed.get('output_text', '')[:2000]
             latency_ms = parsed.get('latency_ms')
+        billable_input = input_tokens + cache_read_tokens + cache_write_tokens
+        total_tokens = billable_input + output_tokens
 
         cost = None
         if model and total_tokens > 0:
-            in_cost, out_cost = UsageTrackingService.calculate_cost(model, input_tokens, output_tokens)
-            cost = float(in_cost + out_cost)
+            in_cost, out_cost = UsageTrackingService.calculate_cost(model, billable_input, output_tokens, provider)
+            # An unpriced model's cost stays unknown (None), never $0.
+            cost = None if in_cost is None else float(in_cost + out_cost)
 
         body_bytes = context.get('_body_bytes', b'')
         input_preview = ''
@@ -519,7 +648,7 @@ class ProxyView(View):
                 ai_provider=provider,
                 ai_model=model or endpoint.agent_type,
                 input_content=input_preview,
-                input_token_count=input_tokens or None,
+                input_token_count=billable_input or None,
                 output_content=output_content or None,
                 output_token_count=output_tokens or None,
                 total_tokens=total_tokens or None,
@@ -542,6 +671,8 @@ class ProxyView(View):
                     model=model or endpoint.agent_type,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
+                    cache_read_tokens=cache_read_tokens,
+                    cache_write_tokens=cache_write_tokens,
                     endpoint=endpoint,
                     deployment_id_ext=endpoint.deployment_id_ext,
                 )
@@ -550,37 +681,19 @@ class ProxyView(View):
 
     @staticmethod
     def _parse_provider_response(provider, response_body):
-        """Extract token counts from upstream provider response."""
-        result = {}
+        """Extract canonical token counts and the output text from an upstream response."""
+        result = parse_usage(response_body, provider)
         try:
             if isinstance(response_body, bytes):
                 text = response_body.decode('utf-8', errors='replace')
             else:
                 text = str(response_body)
 
-            if text.startswith('data: '):
+            if text.lstrip().startswith(('data:', 'event:')):
                 text_content = _extract_sse_text(response_body if isinstance(response_body, bytes) else response_body.encode())
                 result['output_text'] = text_content
-                for line in text.splitlines():
-                    if not line.startswith('data: '):
-                        continue
-                    data_str = line[6:].strip()
-                    if data_str == '[DONE]':
-                        break
-                    try:
-                        data = json.loads(data_str)
-                        usage = data.get('usage', {})
-                        if usage:
-                            result['input_tokens'] = usage.get('input_tokens', usage.get('prompt_tokens', 0))
-                            result['output_tokens'] = usage.get('output_tokens', usage.get('completion_tokens', 0))
-                    except (ValueError, TypeError):
-                        continue
             else:
                 data = json.loads(text)
-                usage = data.get('usage', {})
-                if usage:
-                    result['input_tokens'] = usage.get('input_tokens', usage.get('prompt_tokens', 0))
-                    result['output_tokens'] = usage.get('output_tokens', usage.get('completion_tokens', 0))
 
                 choices = data.get('choices', [])
                 if choices:

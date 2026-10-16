@@ -4,8 +4,9 @@ from django.db import models
 from django.utils import timezone
 
 from zentinelle.models.base import Tracking
-from zentinelle.utils.api_keys import KeyPrefixes
+from zentinelle.utils.api_keys import PREFIX_RANDOM_CHARS, KeyPrefixes
 from zentinelle.utils.api_keys import generate_api_key as _generate_api_key
+from zentinelle.utils.api_keys import lookup_prefixes
 from zentinelle.utils.api_keys import verify_api_key as _verify_api_key
 
 
@@ -95,13 +96,18 @@ class AgentEndpoint(Tracking):
     # Registration & Auth
     api_key_hash = models.CharField(max_length=255)
     api_key_prefix = models.CharField(
-        max_length=12,
-        help_text='First 8 chars of API key for identification'
+        max_length=32,
+        help_text='sk_agent_ and the first 16 random characters of the key (3 for keys minted before)'
     )
     # Null means the key never expires. Short-lived keys are minted per task
     # by platforms such as Astrolift and refused once past this time.
     api_key_expires_at = models.DateTimeField(null=True, blank=True)
     registered_at = models.DateTimeField(auto_now_add=True)
+    # True only for an agent the bootstrap /register path created. That path
+    # may re-register (restart) only these: an agent the portal, the operator
+    # API, a management command or Astrolift made has a key someone else
+    # issued, and a tenant-wide bootstrap token must not replace it.
+    bootstrap_registered = models.BooleanField(default=False)
     last_heartbeat = models.DateTimeField(null=True, blank=True)
 
     # Status
@@ -186,15 +192,22 @@ class AgentEndpoint(Tracking):
 
         Uses the centralized API key utility with bcrypt hashing.
         """
-        return _generate_api_key(prefix=KeyPrefixes.AGENT, prefix_length=12)
+        return _generate_api_key(prefix=KeyPrefixes.AGENT,
+                                 prefix_length=len(KeyPrefixes.AGENT) + PREFIX_RANDOM_CHARS)
+
+    @classmethod
+    def key_prefixes(cls, api_key: str) -> list[str]:
+        """The stored api_key_prefix values `api_key` can match."""
+        return lookup_prefixes(api_key, KeyPrefixes.AGENT, legacy_length=12)
 
     @classmethod
     def verify_api_key(cls, api_key: str, key_hash: str) -> bool:
         """
         Verify an API key against its bcrypt hash.
-        Uses constant-time comparison to prevent timing attacks.
+        Uses constant-time comparison to prevent timing attacks. Unsalted
+        SHA-256 hashes are refused: nothing mints them.
         """
-        return _verify_api_key(api_key, key_hash, allow_legacy_sha256=True)
+        return _verify_api_key(api_key, key_hash, allow_legacy_sha256=False)
 
     def api_key_expired(self) -> bool:
         return self.api_key_expires_at is not None and self.api_key_expires_at <= timezone.now()
@@ -210,12 +223,26 @@ class AgentEndpoint(Tracking):
         self.save(update_fields=['api_key_hash', 'api_key_prefix', 'updated_at'])
         return full_key
 
-    def update_heartbeat(self, health: str = None):
-        """Update last heartbeat timestamp and optionally health status."""
-        self.last_heartbeat = timezone.now()
-        if health and health in self.Health.values:
-            self.health = health
-        self.save(update_fields=['last_heartbeat', 'health', 'updated_at'])
+    def update_heartbeat(self, health: str = None, at=None):
+        """Record a heartbeat sent at `at` (default now), and optionally its health.
+
+        A heartbeat no newer than the one on record changes nothing, and one
+        already past the health threshold moves the timestamp but not the
+        health: a delayed heartbeat must not mark a dead agent healthy. The
+        update is conditional in SQL so a slow writer cannot move the
+        timestamp backwards past a concurrent newer one.
+        """
+        at = at or timezone.now()
+        fields = {'last_heartbeat': at, 'updated_at': timezone.now()}
+        if health and health in self.Health.values and \
+                at >= timezone.now() - timezone.timedelta(minutes=5):
+            fields['health'] = health
+        updated = type(self).objects.filter(pk=self.pk).filter(
+            models.Q(last_heartbeat__isnull=True) | models.Q(last_heartbeat__lt=at),
+        ).update(**fields)
+        if updated:
+            for name, value in fields.items():
+                setattr(self, name, value)
 
     def is_healthy(self, threshold_minutes: int = 5) -> bool:
         """Check if endpoint has sent a heartbeat recently."""

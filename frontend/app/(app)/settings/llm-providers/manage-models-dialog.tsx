@@ -2,7 +2,6 @@
 
 import { authenticatedFetch } from "@/lib/auth/fetch";
 
-
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Loader2Icon, SearchIcon } from "lucide-react";
@@ -19,8 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
 
 interface ModelEntry {
   id: string;
@@ -63,7 +61,9 @@ export function ManageModelsDialog({
         const list = data.models as ModelEntry[];
         setModels(list);
         setEnabledIds(
-          new Set(list.filter((m) => m.enabled_for_chat).map((m) => m.model_id))
+          new Set(
+            list.filter((m) => m.enabled_for_chat).map((m) => m.model_id),
+          ),
         );
       })
       .catch(() => {})
@@ -74,8 +74,7 @@ export function ManageModelsDialog({
     if (!filter) return true;
     const f = filter.toLowerCase();
     return (
-      m.name.toLowerCase().includes(f) ||
-      m.model_id.toLowerCase().includes(f)
+      m.name.toLowerCase().includes(f) || m.model_id.toLowerCase().includes(f)
     );
   });
 
@@ -110,7 +109,7 @@ export function ManageModelsDialog({
       }
       const data = await res.json();
       toast.success(
-        `Updated ${data.updated} ${providerLabel} model${data.updated === 1 ? "" : "s"}`
+        `Updated ${data.updated} ${providerLabel} model${data.updated === 1 ? "" : "s"}`,
       );
       onOpenChange(false);
     } finally {
@@ -128,8 +127,8 @@ export function ManageModelsDialog({
           <DialogTitle>Manage {providerLabel} models</DialogTitle>
           <DialogDescription>
             Pick which models appear in the assistant chat picker. Disabled
-            models are hidden but their keys, history, and policy decisions
-            are unaffected.
+            models are hidden but their keys, history, and policy decisions are
+            unaffected.
           </DialogDescription>
         </DialogHeader>
 
@@ -213,7 +212,11 @@ export function ManageModelsDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving || loading}>

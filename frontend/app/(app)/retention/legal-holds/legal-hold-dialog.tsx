@@ -93,13 +93,10 @@ const legalHoldSchema = z
     notifyOnAccess: z.boolean(),
     notificationEmails: z.array(z.string().email("Invalid email")),
   })
-  .refine(
-    (val) => val.appliesToAll || val.entityTypes.length > 0,
-    {
-      message: "Select at least one entity type, or enable Applies to all",
-      path: ["entityTypes"],
-    },
-  )
+  .refine((val) => val.appliesToAll || val.entityTypes.length > 0, {
+    message: "Select at least one entity type, or enable Applies to all",
+    path: ["entityTypes"],
+  })
   .refine(
     (val) => {
       if (!val.dataFrom || !val.dataTo) return true;

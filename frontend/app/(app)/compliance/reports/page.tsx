@@ -119,9 +119,7 @@ function formatDate(iso: string | null) {
 
 /* ── API URL helper ───────────────────────────────────────────── */
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ||
-  "";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "";
 
 function resolveDownloadUrl(report: ComplianceReportData): string | null {
   if (!report.downloadUrl) return null;
@@ -151,7 +149,7 @@ export default function ComplianceReportsPage() {
 
   const handleGenerate = async () => {
     const vars: Record<string, string | null> = {
-      framework: reportType === "framework" ? framework : null,
+      frameworkId: reportType === "framework" ? framework : null,
       startDate: startDate || null,
       endDate: endDate || null,
     };
@@ -160,7 +158,8 @@ export default function ComplianceReportsPage() {
       const { data } = await generateReport({ variables: vars });
       if (data?.generateComplianceReport?.success) {
         toast.success("Report generation started", {
-          description: "You will be notified when the report is ready for download.",
+          description:
+            "You will be notified when the report is ready for download.",
         });
         refetch();
       } else {
@@ -252,9 +251,21 @@ export default function ComplianceReportsPage() {
               <div className="grid grid-cols-3 gap-2">
                 {(
                   [
-                    { value: "full", label: "Full Assessment", desc: "All frameworks" },
-                    { value: "framework", label: "Framework-Specific", desc: "Single framework" },
-                    { value: "executive", label: "Executive Summary", desc: "High-level overview" },
+                    {
+                      value: "full",
+                      label: "Full Assessment",
+                      desc: "All frameworks",
+                    },
+                    {
+                      value: "framework",
+                      label: "Framework-Specific",
+                      desc: "Single framework",
+                    },
+                    {
+                      value: "executive",
+                      label: "Executive Summary",
+                      desc: "High-level overview",
+                    },
                   ] as const
                 ).map((opt) => (
                   <button
@@ -406,7 +417,8 @@ export default function ComplianceReportsPage() {
                   Framework
                 </p>
                 <p className="mt-1 text-sm">
-                  {FRAMEWORKS.find((f) => f.value === framework)?.label ?? framework}
+                  {FRAMEWORKS.find((f) => f.value === framework)?.label ??
+                    framework}
                 </p>
               </div>
             )}
@@ -454,7 +466,8 @@ export default function ComplianceReportsPage() {
         <CardContent>
           {displayReports.length === 0 ? (
             <p className="text-muted-foreground py-8 text-center text-sm">
-              No reports generated yet. Use the form above to create your first report.
+              No reports generated yet. Use the form above to create your first
+              report.
             </p>
           ) : (
             <Table>
@@ -479,8 +492,9 @@ export default function ComplianceReportsPage() {
                         <Badge variant="outline">
                           {report.framework === "all"
                             ? "All Frameworks"
-                            : FRAMEWORKS.find((f) => f.value === report.framework)
-                                ?.label ?? report.framework}
+                            : (FRAMEWORKS.find(
+                                (f) => f.value === report.framework,
+                              )?.label ?? report.framework)}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -500,11 +514,7 @@ export default function ComplianceReportsPage() {
                           const downloadHref = resolveDownloadUrl(report);
                           if (downloadHref) {
                             return (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                asChild
-                              >
+                              <Button variant="ghost" size="sm" asChild>
                                 <a
                                   href={downloadHref}
                                   target="_blank"

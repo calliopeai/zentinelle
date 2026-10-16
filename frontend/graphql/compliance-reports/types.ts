@@ -29,7 +29,7 @@ export interface GenerateComplianceReportData {
 }
 
 export interface GenerateComplianceReportVariables {
-  framework?: string | null;
+  frameworkId?: string | null;
   startDate?: string | null;
   endDate?: string | null;
 }

@@ -27,14 +27,46 @@ import {
 import { GET_POLICY_OPTIONS } from "@/graphql/policies/queries";
 
 const POLICY_TYPE_CONFIGS: Record<string, Record<string, unknown>> = {
-  rate_limit: { requests_per_minute: 60, requests_per_hour: 500, tokens_per_day: 100000 },
-  tool_permission: { denied_tools: ["shell", "Bash"], allowed_tools: ["web_search", "Read"] },
-  model_restriction: { allowed_models: ["gpt-4o", "claude-sonnet-4-20250514"], blocked_providers: [] },
-  budget_limit: { monthly_budget_usd: 500, hard_limit: true, alert_threshold_percent: 80 },
-  network_policy: { allowed_domains: ["*.openai.com", "*.anthropic.com"], blocked_domains: ["*.evil.com"] },
-  output_filter: { patterns: [{ name: "pii_email", pattern: "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}" }] },
-  safety_settings: { block_none_disabled: true, min_thresholds: { HARM_CATEGORY_HARASSMENT: "BLOCK_MEDIUM_AND_ABOVE" } },
-  multimodal_policy: { allow_images: true, allow_audio: false, allow_video: false, max_media_bytes: 10485760 },
+  rate_limit: {
+    requests_per_minute: 60,
+    requests_per_hour: 500,
+    tokens_per_day: 100000,
+  },
+  tool_permission: {
+    denied_tools: ["shell", "Bash"],
+    allowed_tools: ["web_search", "Read"],
+  },
+  model_restriction: {
+    allowed_models: ["gpt-4o", "claude-sonnet-4-20250514"],
+    blocked_providers: [],
+  },
+  budget_limit: {
+    monthly_budget_usd: 500,
+    hard_limit: true,
+    alert_threshold_percent: 80,
+  },
+  network_policy: {
+    allowed_domains: ["*.openai.com", "*.anthropic.com"],
+    blocked_domains: ["*.evil.com"],
+  },
+  output_filter: {
+    patterns: [
+      {
+        name: "pii_email",
+        pattern: "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
+      },
+    ],
+  },
+  safety_settings: {
+    block_none_disabled: true,
+    min_thresholds: { HARM_CATEGORY_HARASSMENT: "BLOCK_MEDIUM_AND_ABOVE" },
+  },
+  multimodal_policy: {
+    allow_images: true,
+    allow_audio: false,
+    allow_video: false,
+    max_media_bytes: 10485760,
+  },
 };
 
 export default function PolicySimulatorPage() {
@@ -44,15 +76,17 @@ export default function PolicySimulatorPage() {
   const [config, setConfig] = useState(
     JSON.stringify(POLICY_TYPE_CONFIGS["rate_limit"], null, 2),
   );
-  const [result, setResult] = useState<SimulatePolicyResult["simulatePolicy"] | null>(null);
+  const [result, setResult] = useState<
+    SimulatePolicyResult["simulatePolicy"] | null
+  >(null);
 
   // Pre-fetch policy options for future use (e.g. dynamic policy type list)
   useQuery(GET_POLICY_OPTIONS);
 
-  const [executeSimulation, { loading: running }] = useLazyQuery<SimulatePolicyResult>(
-    SIMULATE_POLICY,
-    { fetchPolicy: "network-only" },
-  );
+  const [executeSimulation, { loading: running }] =
+    useLazyQuery<SimulatePolicyResult>(SIMULATE_POLICY, {
+      fetchPolicy: "network-only",
+    });
 
   const runSimulation = async () => {
     let parsedConfig: Record<string, unknown>;
@@ -82,7 +116,8 @@ export default function PolicySimulatorPage() {
       }
     } catch (err: unknown) {
       toast.error("Simulation failed", {
-        description: err instanceof Error ? err.message : "An unexpected error occurred.",
+        description:
+          err instanceof Error ? err.message : "An unexpected error occurred.",
       });
     }
   };
@@ -110,8 +145,8 @@ export default function PolicySimulatorPage() {
               Policy Configuration
             </CardTitle>
             <CardDescription>
-              Configure a policy to simulate against the last {lookbackDays} days
-              of activity
+              Configure a policy to simulate against the last {lookbackDays}{" "}
+              days of activity
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -166,7 +201,9 @@ export default function PolicySimulatorPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Configuration (JSON)</label>
+              <label className="text-sm font-medium">
+                Configuration (JSON)
+              </label>
               <textarea
                 value={config}
                 onChange={(e) => setConfig(e.target.value)}
@@ -175,7 +212,11 @@ export default function PolicySimulatorPage() {
               />
             </div>
 
-            <Button onClick={runSimulation} disabled={running} className="w-full">
+            <Button
+              onClick={runSimulation}
+              disabled={running}
+              className="w-full"
+            >
               <PlayIcon className="mr-2 h-4 w-4" />
               {running ? "Simulating..." : "Run Simulation"}
             </Button>
@@ -191,7 +232,8 @@ export default function PolicySimulatorPage() {
                   <CardTitle>Simulation Results</CardTitle>
                   {result.inconclusive > 0 && (
                     <p role="status" className="text-sm text-amber-600">
-                      {result.inconclusive} events could not be evaluated. They are excluded from pass counts.
+                      {result.inconclusive} events could not be evaluated. They
+                      are excluded from pass counts.
                     </p>
                   )}
                   <CardDescription>
@@ -221,9 +263,7 @@ export default function PolicySimulatorPage() {
                       <div className="flex items-center justify-center gap-1 text-yellow-500">
                         <AlertTriangleIcon className="h-5 w-5" />
                       </div>
-                      <div className="mt-2 text-2xl font-bold">
-                        {wouldWarn}
-                      </div>
+                      <div className="mt-2 text-2xl font-bold">{wouldWarn}</div>
                       <div className="text-muted-foreground text-xs">
                         Would Warn
                       </div>
@@ -275,15 +315,14 @@ export default function PolicySimulatorPage() {
               {result.blockedSamples.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm">Sample Blocked Events</CardTitle>
+                    <CardTitle className="text-sm">
+                      Sample Blocked Events
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-2">
                       {result.blockedSamples.map((s, i) => (
-                        <li
-                          key={i}
-                          className="flex items-center gap-2 text-sm"
-                        >
+                        <li key={i} className="flex items-center gap-2 text-sm">
                           <ShieldXIcon className="h-4 w-4 shrink-0 text-red-500" />
                           <code className="bg-muted rounded px-2 py-1 text-xs">
                             {s}
@@ -297,7 +336,10 @@ export default function PolicySimulatorPage() {
 
               {result.simulatedPolicyType && (
                 <div className="text-muted-foreground text-xs">
-                  Simulated policy type: <Badge variant="outline" className="ml-1 text-xs">{result.simulatedPolicyType}</Badge>
+                  Simulated policy type:{" "}
+                  <Badge variant="outline" className="ml-1 text-xs">
+                    {result.simulatedPolicyType}
+                  </Badge>
                 </div>
               )}
             </>

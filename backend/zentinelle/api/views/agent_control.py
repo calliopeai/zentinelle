@@ -1,7 +1,7 @@
 """Role-protected agent suspension, revocation and tool containment."""
 import json
 
-from django.db import transaction
+from django.db import router, transaction
 from django.http import JsonResponse
 from rest_framework.views import APIView
 
@@ -83,7 +83,7 @@ class AgentControlView(APIView):
                                      action=f'agent_control:{action}', digest=context_digest(approval_context))
             if not approval or not consume_approvals([approval.pk], tenant_id=tenant_id):
                 return JsonResponse({'error': 'Current human approval for this exact control action is required'}, status=403)
-        with transaction.atomic():
+        with transaction.atomic(using=router.db_for_write(AgentEndpoint)):
             endpoint = AgentEndpoint.objects.select_for_update().filter(
                 tenant_id=tenant_id, agent_id=agent_id,
             ).first()

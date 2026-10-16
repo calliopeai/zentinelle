@@ -2,13 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "@apollo/client/react";
-import { gql } from "@apollo/client";
 import { toast } from "sonner";
 import { useComplianceOverview } from "@/graphql/compliance/hooks";
-import { RUN_COMPLIANCE_CHECK, ACTIVATE_COMPLIANCE_PACK } from "@/graphql/compliance/mutations";
+import {
+  RUN_COMPLIANCE_CHECK,
+  ACTIVATE_COMPLIANCE_PACK,
+  TOGGLE_FRAMEWORK,
+} from "@/graphql/compliance/mutations";
 import { LIST_COMPLIANCE_PACKS } from "@/graphql/compliance/queries";
 import { SectionErrorBoundary } from "@/components/section-error-boundary";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,17 +30,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/hooks/use-confirm";
-import { CheckCircleIcon, XCircleIcon, ShieldCheckIcon, ToggleLeftIcon, ToggleRightIcon, RefreshCwIcon, PackageIcon, ChevronDownIcon } from "lucide-react";
-
-const TOGGLE_FRAMEWORK = gql`
-  mutation ToggleFramework($frameworkId: String!) {
-    toggleFramework(frameworkId: $frameworkId) {
-      success
-      enabled
-      frameworkId
-    }
-  }
-`;
+import {
+  CheckCircleIcon,
+  XCircleIcon,
+  ShieldCheckIcon,
+  ToggleLeftIcon,
+  ToggleRightIcon,
+  RefreshCwIcon,
+  PackageIcon,
+  ChevronDownIcon,
+} from "lucide-react";
 
 type CompliancePackMeta = {
   name: string | null;
@@ -90,7 +98,7 @@ export default function CompliancePage() {
 
   const frameworks = useMemo(
     () => overview?.frameworkCoverage ?? [],
-    [overview?.frameworkCoverage]
+    [overview?.frameworkCoverage],
   );
 
   const radarData = useMemo(
@@ -100,7 +108,7 @@ export default function CompliancePage() {
         coverage: Math.round(fw.requiredPercentage),
         fullMark: 100,
       })),
-    [frameworks]
+    [frameworks],
   );
 
   const radarConfig: ChartConfig = {
@@ -109,15 +117,20 @@ export default function CompliancePage() {
 
   // ALL hooks must be declared before any early return — moving these up
   // fixes the previous rule-of-hooks violation that crashed the page.
-  const [enabledFrameworks, setEnabledFrameworks] = useState<Set<string>>(new Set());
+  const [enabledFrameworks, setEnabledFrameworks] = useState<Set<string>>(
+    new Set(),
+  );
   const [toggleFramework] = useMutation(TOGGLE_FRAMEWORK);
   const [runCheck, { loading: running }] = useMutation(RUN_COMPLIANCE_CHECK);
   const [packs, setPacks] = useState<CompliancePackMeta[]>([]);
   const [packsLoaded, setPacksLoaded] = useState(false);
   const [activatingPack, setActivatingPack] = useState<string | null>(null);
   const [packsMenuOpen, setPacksMenuOpen] = useState(false);
-  const [fetchPacks, { loading: packsLoading }] = useMutation<ListCompliancePacksData>(LIST_COMPLIANCE_PACKS);
-  const [activatePack] = useMutation<ActivateCompliancePackData>(ACTIVATE_COMPLIANCE_PACK);
+  const [fetchPacks, { loading: packsLoading }] =
+    useMutation<ListCompliancePacksData>(LIST_COMPLIANCE_PACKS);
+  const [activatePack] = useMutation<ActivateCompliancePackData>(
+    ACTIVATE_COMPLIANCE_PACK,
+  );
 
   useEffect(() => {
     if (!packsMenuOpen || packsLoaded) return;
@@ -132,7 +145,10 @@ export default function CompliancePage() {
           toast.error("Failed to load compliance packs");
         }
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Failed to load compliance packs";
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "Failed to load compliance packs";
         toast.error(msg);
       }
     })();
@@ -182,9 +198,7 @@ export default function CompliancePage() {
     try {
       const result: any = await runCheck();
       if (result?.data?.runComplianceCheck?.success) {
-        toast.success(
-          `Created ${result.data.runComplianceCheck.assessmentsCreated} assessments`,
-        );
+        toast.success("Compliance check complete");
       } else {
         toast.error(
           result?.data?.runComplianceCheck?.errors?.[0] ?? "Check failed",
@@ -222,7 +236,8 @@ export default function CompliancePage() {
         toast.error(payload?.error ?? "Failed to activate pack");
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to activate pack";
+      const msg =
+        err instanceof Error ? err.message : "Failed to activate pack";
       toast.error(msg);
     } finally {
       setActivatingPack(null);
@@ -238,8 +253,12 @@ export default function CompliancePage() {
     }
     setEnabledFrameworks(newEnabled);
     try {
-      await toggleFramework({ variables: { frameworkId } });
-      toast.success(`Framework ${newEnabled.has(frameworkId) ? "enabled" : "disabled"}`);
+      await toggleFramework({
+        variables: { frameworkId, enabled: newEnabled.has(frameworkId) },
+      });
+      toast.success(
+        `Framework ${newEnabled.has(frameworkId) ? "enabled" : "disabled"}`,
+      );
     } catch {
       toast.error("Failed to update framework");
     }
@@ -282,9 +301,13 @@ export default function CompliancePage() {
               <DropdownMenuLabel>Compliance Packs</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {packsLoading && !packsLoaded ? (
-                <div className="text-muted-foreground px-2 py-2 text-xs">Loading packs...</div>
+                <div className="text-muted-foreground px-2 py-2 text-xs">
+                  Loading packs...
+                </div>
               ) : packs.length === 0 && packsLoaded ? (
-                <div className="text-muted-foreground px-2 py-2 text-xs">No packs available</div>
+                <div className="text-muted-foreground px-2 py-2 text-xs">
+                  No packs available
+                </div>
               ) : (
                 packs.map((pack) => (
                   <DropdownMenuItem
@@ -312,7 +335,8 @@ export default function CompliancePage() {
                       </span>
                     )}
                     <span className="text-muted-foreground text-[10px]">
-                      {pack.policyCount ?? 0} {(pack.policyCount ?? 0) === 1 ? "policy" : "policies"}
+                      {pack.policyCount ?? 0}{" "}
+                      {(pack.policyCount ?? 0) === 1 ? "policy" : "policies"}
                     </span>
                   </DropdownMenuItem>
                 ))
@@ -326,7 +350,9 @@ export default function CompliancePage() {
             disabled={running}
             className="text-xs uppercase"
           >
-            <RefreshCwIcon className={`mr-1 h-3 w-3 ${running ? "animate-spin" : ""}`} />
+            <RefreshCwIcon
+              className={`mr-1 h-3 w-3 ${running ? "animate-spin" : ""}`}
+            />
             {running ? "Running" : "Run Check"}
           </Button>
           <a
@@ -359,8 +385,16 @@ export default function CompliancePage() {
           </CardHeader>
           <CardContent className="flex items-center justify-center">
             <SectionErrorBoundary section="Compliance radar">
-  <ChartContainer config={radarConfig} className="h-[320px] w-full max-w-[500px]">
-                <RadarChart data={activeRadarData} cx="50%" cy="50%" outerRadius="75%">
+              <ChartContainer
+                config={radarConfig}
+                className="h-[320px] w-full max-w-[500px]"
+              >
+                <RadarChart
+                  data={activeRadarData}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius="75%"
+                >
                   <PolarGrid
                     stroke="var(--color-border)"
                     strokeDasharray="3 3"
@@ -379,9 +413,7 @@ export default function CompliancePage() {
                   />
                   <ChartTooltip
                     content={
-                      <ChartTooltipContent
-                        formatter={(value) => `${value}%`}
-                      />
+                      <ChartTooltipContent formatter={(value) => `${value}%`} />
                     }
                   />
                   <Radar
@@ -420,7 +452,7 @@ export default function CompliancePage() {
               className={`h-full rounded-full transition-all ${coverageBg(
                 totalCapabilities > 0
                   ? (enabledCapabilities / totalCapabilities) * 100
-                  : 0
+                  : 0,
               )}`}
               style={{
                 width: `${
@@ -438,16 +470,15 @@ export default function CompliancePage() {
               </p>
               <div className="mt-1.5 space-y-1">
                 {(overview?.observeCapabilities ?? []).map((cap) => (
-                  <div
-                    key={cap.id}
-                    className="flex items-center gap-2 text-sm"
-                  >
+                  <div key={cap.id} className="flex items-center gap-2 text-sm">
                     {cap.enabled ? (
                       <CheckCircleIcon className="h-3.5 w-3.5 text-emerald-500" />
                     ) : (
                       <XCircleIcon className="text-muted-foreground h-3.5 w-3.5" />
                     )}
-                    <span className={cap.enabled ? "" : "text-muted-foreground"}>
+                    <span
+                      className={cap.enabled ? "" : "text-muted-foreground"}
+                    >
                       {cap.name}
                     </span>
                   </div>
@@ -460,16 +491,15 @@ export default function CompliancePage() {
               </p>
               <div className="mt-1.5 space-y-1">
                 {(overview?.controlCapabilities ?? []).map((cap) => (
-                  <div
-                    key={cap.id}
-                    className="flex items-center gap-2 text-sm"
-                  >
+                  <div key={cap.id} className="flex items-center gap-2 text-sm">
                     {cap.enabled ? (
                       <CheckCircleIcon className="h-3.5 w-3.5 text-emerald-500" />
                     ) : (
                       <XCircleIcon className="text-muted-foreground h-3.5 w-3.5" />
                     )}
-                    <span className={cap.enabled ? "" : "text-muted-foreground"}>
+                    <span
+                      className={cap.enabled ? "" : "text-muted-foreground"}
+                    >
                       {cap.name}
                     </span>
                   </div>
@@ -486,108 +516,119 @@ export default function CompliancePage() {
           {frameworks.map((fw) => {
             const isEnabled = fw.id != null && enabledFrameworks.has(fw.id);
             return (
-            <Card
-              key={fw.id}
-              className={`${isEnabled ? "cursor-pointer hover:border-primary/50 transition-colors" : "opacity-50"}`}
-              onClick={() => {
-                if (isEnabled) {
-                  const slug = (fw.name ?? "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-                  window.location.href = `/compliance/${slug}`;
-                }
-              }}
-            >
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>{fw.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-sm font-bold ${coverageColor(
-                        fw.requiredPercentage
-                      )}`}
-                    >
-                      {isEnabled ? `${Math.round(fw.requiredPercentage)}%` : "Off"}
-                    </span>
-                    <button
-                      onClick={() => fw.id && handleToggleFramework(fw.id)}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                      title={isEnabled ? "Disable framework" : "Enable framework"}
-                    >
-                      {isEnabled ? (
-                        <ToggleRightIcon className="h-5 w-5 text-primary" />
-                      ) : (
-                        <ToggleLeftIcon className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                </CardTitle>
-                {fw.description && (
-                  <CardDescription className="line-clamp-2">
-                    {fw.description}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div>
-                    <div className="mb-1 flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Required</span>
-                      <span className="font-medium">
-                        {fw.requiredCovered} / {fw.requiredTotal}
-                      </span>
-                    </div>
-                    <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
-                      <div
-                        className={`h-full rounded-full ${coverageBg(
-                          fw.requiredPercentage
+              <Card
+                key={fw.id}
+                className={`${isEnabled ? "cursor-pointer hover:border-primary/50 transition-colors" : "opacity-50"}`}
+                onClick={() => {
+                  if (isEnabled) {
+                    const slug = (fw.name ?? "")
+                      .toLowerCase()
+                      .replace(/\s+/g, "-")
+                      .replace(/[^a-z0-9-]/g, "");
+                    window.location.href = `/compliance/${slug}`;
+                  }
+                }}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>{fw.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-sm font-bold ${coverageColor(
+                          fw.requiredPercentage,
                         )}`}
-                        style={{
-                          width: `${fw.requiredPercentage}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="mb-1 flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">
-                        Total (incl. recommended)
+                      >
+                        {isEnabled
+                          ? `${Math.round(fw.requiredPercentage)}%`
+                          : "Off"}
                       </span>
-                      <span className="font-medium">
-                        {fw.totalCovered} / {fw.totalCount}
-                      </span>
-                    </div>
-                    <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
-                      <div
-                        className={`h-full rounded-full ${coverageBg(
-                          fw.totalPercentage
-                        )}`}
-                        style={{
-                          width: `${fw.totalPercentage}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                  {fw.missingRequired.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-muted-foreground mb-1 text-xs font-medium">
-                        Missing required:
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {fw.missingRequired.slice(0, 5).map((cap) => (
-                          <Badge key={cap} variant="destructive" className="text-[10px]">
-                            {cap}
-                          </Badge>
-                        ))}
-                        {fw.missingRequired.length > 5 && (
-                          <Badge variant="secondary" className="text-[10px]">
-                            +{fw.missingRequired.length - 5} more
-                          </Badge>
+                      <button
+                        onClick={() => fw.id && handleToggleFramework(fw.id)}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title={
+                          isEnabled ? "Disable framework" : "Enable framework"
+                        }
+                      >
+                        {isEnabled ? (
+                          <ToggleRightIcon className="h-5 w-5 text-primary" />
+                        ) : (
+                          <ToggleLeftIcon className="h-5 w-5" />
                         )}
+                      </button>
+                    </div>
+                  </CardTitle>
+                  {fw.description && (
+                    <CardDescription className="line-clamp-2">
+                      {fw.description}
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="mb-1 flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Required</span>
+                        <span className="font-medium">
+                          {fw.requiredCovered} / {fw.requiredTotal}
+                        </span>
+                      </div>
+                      <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
+                        <div
+                          className={`h-full rounded-full ${coverageBg(
+                            fw.requiredPercentage,
+                          )}`}
+                          style={{
+                            width: `${fw.requiredPercentage}%`,
+                          }}
+                        />
                       </div>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    <div>
+                      <div className="mb-1 flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          Total (incl. recommended)
+                        </span>
+                        <span className="font-medium">
+                          {fw.totalCovered} / {fw.totalCount}
+                        </span>
+                      </div>
+                      <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
+                        <div
+                          className={`h-full rounded-full ${coverageBg(
+                            fw.totalPercentage,
+                          )}`}
+                          style={{
+                            width: `${fw.totalPercentage}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    {fw.missingRequired.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-muted-foreground mb-1 text-xs font-medium">
+                          Missing required:
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {fw.missingRequired.slice(0, 5).map((cap) => (
+                            <Badge
+                              key={cap}
+                              variant="destructive"
+                              className="text-[10px]"
+                            >
+                              {cap}
+                            </Badge>
+                          ))}
+                          {fw.missingRequired.length > 5 && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              +{fw.missingRequired.length - 5} more
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             );
           })}
         </div>

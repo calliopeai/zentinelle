@@ -60,17 +60,40 @@ const CAPABILITY_SUGGESTIONS = [
 ];
 
 const TAXONOMY_SUGGESTIONS = [
-  "function:customer_service", "function:legal", "function:coding",
-  "function:operations", "function:research", "function:sales",
-  "mode:single_agent", "mode:workflow", "mode:swarm", "mode:delegated",
-  "mode:human_assisted", "mode:scheduled", "data:public", "data:internal",
-  "data:confidential", "data:restricted", "data:regulated",
-  "authority:read_only", "authority:write", "authority:external_egress",
-  "authority:destructive", "authority:privileged", "environment:development",
-  "environment:staging", "environment:production", "environment:emergency",
-  "service:customer_service", "service:legal", "service:coding",
-  "service:research", "service:operations", "service_subcategory:billing",
-  "service_subcategory:technical_support", "service_subcategory:claims",
+  "function:customer_service",
+  "function:legal",
+  "function:coding",
+  "function:operations",
+  "function:research",
+  "function:sales",
+  "mode:single_agent",
+  "mode:workflow",
+  "mode:swarm",
+  "mode:delegated",
+  "mode:human_assisted",
+  "mode:scheduled",
+  "data:public",
+  "data:internal",
+  "data:confidential",
+  "data:restricted",
+  "data:regulated",
+  "authority:read_only",
+  "authority:write",
+  "authority:external_egress",
+  "authority:destructive",
+  "authority:privileged",
+  "environment:development",
+  "environment:staging",
+  "environment:production",
+  "environment:emergency",
+  "service:customer_service",
+  "service:legal",
+  "service:coding",
+  "service:research",
+  "service:operations",
+  "service_subcategory:billing",
+  "service_subcategory:technical_support",
+  "service_subcategory:claims",
   "service_subcategory:contracts",
 ];
 
@@ -79,18 +102,25 @@ const editSchema = z.object({
   agentType: z.string().min(1, "Agent type is required"),
   capabilities: z.array(z.string()),
   taxonomyTags: z.array(z.string()),
-  metadata: z.string().optional().refine(
-    (val) => {
-      if (!val || val.trim() === "") return true;
-      try {
-        const parsed = JSON.parse(val);
-        return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed);
-      } catch {
-        return false;
-      }
-    },
-    { message: "Metadata must be a valid JSON object" }
-  ),
+  metadata: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val.trim() === "") return true;
+        try {
+          const parsed = JSON.parse(val);
+          return (
+            parsed !== null &&
+            typeof parsed === "object" &&
+            !Array.isArray(parsed)
+          );
+        } catch {
+          return false;
+        }
+      },
+      { message: "Metadata must be a valid JSON object" },
+    ),
 });
 
 type EditFormValues = z.infer<typeof editSchema>;
@@ -116,10 +146,13 @@ function formatMetadata(metadata: Record<string, unknown> | null): string {
 
 function formatTaxonomy(metadata: Record<string, unknown> | null): string[] {
   const taxonomy = metadata?.taxonomy;
-  if (Array.isArray(taxonomy)) return taxonomy.filter((tag): tag is string => typeof tag === "string");
+  if (Array.isArray(taxonomy))
+    return taxonomy.filter((tag): tag is string => typeof tag === "string");
   if (taxonomy && typeof taxonomy === "object" && "supported" in taxonomy) {
     const supported = (taxonomy as { supported?: unknown }).supported;
-    return Array.isArray(supported) ? supported.filter((tag): tag is string => typeof tag === "string") : [];
+    return Array.isArray(supported)
+      ? supported.filter((tag): tag is string => typeof tag === "string")
+      : [];
   }
   return [];
 }
@@ -201,7 +234,9 @@ export function EditAgentDialog({
         onUpdated();
         handleClose(false);
       } else {
-        toast.error(data?.updateAgentEndpoint?.error ?? "Failed to update agent");
+        toast.error(
+          data?.updateAgentEndpoint?.error ?? "Failed to update agent",
+        );
       }
     } catch {
       toast.error("Failed to update agent");
@@ -214,7 +249,8 @@ export function EditAgentDialog({
         <DialogHeader>
           <DialogTitle>Edit Agent</DialogTitle>
           <DialogDescription>
-            Update this agent endpoint&apos;s name, type, capabilities, and metadata.
+            Update this agent endpoint&apos;s name, type, capabilities, and
+            metadata.
           </DialogDescription>
         </DialogHeader>
 
@@ -267,7 +303,9 @@ export function EditAgentDialog({
               )}
             />
             {errors.agentType && (
-              <p className="text-destructive text-sm">{errors.agentType.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.agentType.message}
+              </p>
             )}
           </div>
 
@@ -302,7 +340,8 @@ export function EditAgentDialog({
               )}
             />
             <p className="text-muted-foreground text-xs">
-              Tags select the policies that apply to this agent, workflow, swarm, or client.
+              Tags select the policies that apply to this agent, workflow,
+              swarm, or client.
             </p>
           </div>
 
@@ -317,16 +356,24 @@ export function EditAgentDialog({
               aria-invalid={!!errors.metadata}
             />
             {errors.metadata && (
-              <p className="text-destructive text-sm">{errors.metadata.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.metadata.message}
+              </p>
             )}
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleClose(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleClose(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting && (
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Save Changes
             </Button>
           </DialogFooter>

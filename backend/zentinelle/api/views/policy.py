@@ -6,6 +6,7 @@ GET /api/zentinelle/v1/prompts
 GET /api/zentinelle/v1/prompts/{service}
 """
 import logging
+import uuid
 from typing import Optional
 
 from rest_framework import status
@@ -13,11 +14,27 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from zentinelle.api.auth import (ZentinelleAPIKeyAuthentication,
-                                 get_endpoint_from_request)
+from zentinelle.api.auth import (ZentinelleAgentUser,
+                                 ZentinelleAPIKeyAuthentication,
+                                 get_endpoint_from_request,
+                                 get_tenant_id_from_request)
+from zentinelle.api.permissions import PORTAL_OR_AGENT_AUTH, OpenOrAgentAuth
 from zentinelle.models import AgentEndpoint, Policy
 
 logger = logging.getLogger(__name__)
+
+
+class EffectivePolicyAccess(OpenOrAgentAuth):
+    """Portal viewers and above, or any key that authenticated.
+
+    An agent key keeps the access it had under IsAuthenticated, so a
+    PROVISIONING endpoint can still resolve its policies at spawn time.
+    """
+
+    def has_permission(self, request, view):
+        if isinstance(request.user, ZentinelleAgentUser):
+            return True
+        return super().has_permission(request, view)
 
 
 class EffectivePolicyView(APIView):
@@ -28,17 +45,24 @@ class EffectivePolicyView(APIView):
     Organization → Deployment → Endpoint → User
 
     Used by JunoHub at spawn time to get the configuration
-    that should apply to a specific user session.
+    that should apply to a specific user session, and by the portal's
+    Effective Policy Viewer.
+
+    An agent key resolves for its own endpoint and nothing else. A portal
+    session names the endpoint with ?endpoint=<id>, looked up inside the
+    caller's tenant, so an operator can only resolve endpoints they can list.
     """
 
-    authentication_classes = [ZentinelleAPIKeyAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = PORTAL_OR_AGENT_AUTH
+    permission_classes = [EffectivePolicyAccess]
 
     def get(self, request, user_id: str = None):
         """
         GET /api/zentinelle/v1/effective-policy/{user_id}
 
         Query params:
+            endpoint: AgentEndpoint id; required for a portal session,
+                      ignored for an agent key (the key names its endpoint)
             policy_types: Comma-separated list of policy types to include
                          (e.g., 'system_prompt,ai_guardrail,tool_permission')
 
@@ -52,8 +76,23 @@ class EffectivePolicyView(APIView):
                 "budget_limits": {...},
             }
         """
-        # Get authenticated endpoint
-        endpoint = get_endpoint_from_request(request)
+        if isinstance(request.user, ZentinelleAgentUser):
+            endpoint = get_endpoint_from_request(request)
+        else:
+            endpoint_id = request.query_params.get('endpoint', '').strip()
+            try:
+                uuid.UUID(endpoint_id)
+            except ValueError:
+                return Response(
+                    {'error': 'endpoint (an agent endpoint id) is required'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            endpoint = AgentEndpoint.objects.filter(
+                id=endpoint_id,
+                tenant_id=get_tenant_id_from_request(request),
+            ).first()
+            if endpoint is None:
+                return Response({'error': 'Endpoint not found'}, status=status.HTTP_404_NOT_FOUND)
 
         # Parse policy types filter
         policy_types_param = request.query_params.get('policy_types', '')

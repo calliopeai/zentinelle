@@ -16,7 +16,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, Generator, List, Optional
 
 from django.core.cache import cache
-from django.db import transaction
+from django.db import router, transaction
 from django.utils import timezone
 
 from zentinelle.temporal.client import start_task
@@ -108,7 +108,8 @@ class EventStore:
             correlation_id = event_id
 
         # Get next sequence number for this aggregate
-        sequence_number = self._next_sequence(aggregate_type, aggregate_id)
+        sequence_number = self._next_sequence(
+            str(getattr(organization, 'id', organization)), aggregate_type, aggregate_id)
 
         # Build metadata
         event_metadata = metadata or {}
@@ -135,12 +136,12 @@ class EventStore:
             metadata=event_metadata,
         )
 
-        # Persist to Event model
-        with transaction.atomic():
+        # Persist to Event model, in a transaction on Event's own database
+        with transaction.atomic(using=router.db_for_write(Event)):
             event = Event.objects.create(
-                organization=organization,
+                tenant_id=str(getattr(organization, 'id', organization)),
                 endpoint=endpoint,
-                deployment=endpoint.deployment if endpoint else None,
+                deployment_id_ext=endpoint.deployment_id_ext if endpoint else '',
                 event_type=event_type,
                 event_category=category,
                 payload={
@@ -164,19 +165,23 @@ class EventStore:
 
     def get_stream(
         self,
+        tenant_id: str,
         aggregate_type: str,
         aggregate_id: str,
         from_sequence: int = 0,
         to_sequence: Optional[int] = None,
     ) -> Generator[EventEnvelope, None, None]:
         """
-        Read events for a specific aggregate stream.
+        Read one tenant's events for a specific aggregate stream.
 
-        Used for rebuilding aggregate state from events.
+        Used for rebuilding aggregate state from events. The envelope is part
+        of the payload an agent posts, so without the tenant filter any agent
+        could plant events into another tenant's stream.
         """
         from zentinelle.models import Event
 
         query = Event.objects.filter(
+            tenant_id=tenant_id,
             payload__envelope__aggregate_type=aggregate_type,
             payload__envelope__aggregate_id=aggregate_id,
             payload__envelope__sequence_number__gte=from_sequence,
@@ -194,13 +199,15 @@ class EventStore:
 
     def get_events_by_correlation(
         self,
+        tenant_id: str,
         correlation_id: str,
     ) -> List[EventEnvelope]:
-        """Get all events in a correlation chain."""
+        """Get all of one tenant's events in a correlation chain."""
         from zentinelle.models import Event
 
         events = Event.objects.filter(
-            correlation_id=correlation_id
+            tenant_id=tenant_id,
+            correlation_id=correlation_id,
         ).order_by('occurred_at')
 
         return [
@@ -228,7 +235,8 @@ class EventStore:
         """
         from zentinelle.models import Event
 
-        query = Event.objects.filter(organization=organization)
+        tenant_id = str(getattr(organization, 'id', organization))
+        query = Event.objects.filter(tenant_id=tenant_id)
 
         if from_timestamp:
             query = query.filter(occurred_at__gte=from_timestamp)
@@ -249,11 +257,12 @@ class EventStore:
                 handler(envelope)
             count += 1
 
-        logger.info(f"Replayed {count} events for org {organization.id}")
+        logger.info(f"Replayed {count} events for tenant {tenant_id}")
         return count
 
     def save_snapshot(
         self,
+        tenant_id: str,
         aggregate_type: str,
         aggregate_id: str,
         state: Dict[str, Any],
@@ -265,7 +274,7 @@ class EventStore:
         Snapshots speed up replay by providing a known-good state
         to start from instead of replaying all events.
         """
-        snapshot_key = f"{self.SNAPSHOT_KEY_PREFIX}{aggregate_type}:{aggregate_id}"
+        snapshot_key = f"{self.SNAPSHOT_KEY_PREFIX}{tenant_id}:{aggregate_type}:{aggregate_id}"
         cache.set(
             snapshot_key,
             {
@@ -278,15 +287,17 @@ class EventStore:
 
     def get_snapshot(
         self,
+        tenant_id: str,
         aggregate_type: str,
         aggregate_id: str,
     ) -> Optional[Dict[str, Any]]:
-        """Get latest snapshot for an aggregate."""
-        snapshot_key = f"{self.SNAPSHOT_KEY_PREFIX}{aggregate_type}:{aggregate_id}"
+        """Get latest snapshot for one tenant's aggregate."""
+        snapshot_key = f"{self.SNAPSHOT_KEY_PREFIX}{tenant_id}:{aggregate_type}:{aggregate_id}"
         return cache.get(snapshot_key)
 
     def rebuild_aggregate(
         self,
+        tenant_id: str,
         aggregate_type: str,
         aggregate_id: str,
         apply_event: Callable[[Dict[str, Any], EventEnvelope], Dict[str, Any]],
@@ -297,7 +308,7 @@ class EventStore:
         Uses snapshot if available, then applies subsequent events.
         """
         # Try to load from snapshot
-        snapshot = self.get_snapshot(aggregate_type, aggregate_id)
+        snapshot = self.get_snapshot(tenant_id, aggregate_type, aggregate_id)
         if snapshot:
             state = snapshot['state']
             from_sequence = snapshot['sequence_number'] + 1
@@ -306,7 +317,7 @@ class EventStore:
             from_sequence = 0
 
         # Apply events from snapshot point forward
-        for envelope in self.get_stream(aggregate_type, aggregate_id, from_sequence):
+        for envelope in self.get_stream(tenant_id, aggregate_type, aggregate_id, from_sequence):
             state = apply_event(state, envelope)
 
         return state
@@ -325,9 +336,9 @@ class EventStore:
         self._projections[name] = handler
         logger.info(f"Registered projection: {name}")
 
-    def _next_sequence(self, aggregate_type: str, aggregate_id: str) -> int:
-        """Atomically get the next sequence number for an aggregate stream."""
-        key = f"{self.SEQUENCE_KEY_PREFIX}{aggregate_type}:{aggregate_id}"
+    def _next_sequence(self, tenant_id: str, aggregate_type: str, aggregate_id: str) -> int:
+        """Atomically get the next sequence number for one tenant's aggregate stream."""
+        key = f"{self.SEQUENCE_KEY_PREFIX}{tenant_id}:{aggregate_type}:{aggregate_id}"
         # ``add`` initializes only the first writer; ``incr`` is atomic on the
         # Redis cache used in production, avoiding duplicate sequence numbers
         # when concurrent requests append to the same aggregate.
@@ -401,7 +412,7 @@ class DeadLetterQueue:
         from zentinelle.models import Event
 
         return Event.objects.filter(
-            organization=organization,
+            tenant_id=str(getattr(organization, 'id', organization)),
             status=Event.Status.FAILED,
             retry_count__gte=self.MAX_RETRIES,
         ).order_by('-received_at')[:limit]
@@ -465,20 +476,19 @@ class AuditLogProjection:
         metadata['event_id'] = envelope.event_id
         metadata['correlation_id'] = envelope.correlation_id
 
-        # Get organization from event
+        # Get the tenant from the event
         from zentinelle.models import Event
         event = Event.objects.filter(correlation_id=envelope.correlation_id).first()
-        if not event or not event.organization:
+        if not event or not event.tenant_id:
             return
 
         # Create audit log entry
         AuditLog.log(
-            organization=event.organization,
+            tenant_id=event.tenant_id,
             action=action,
             resource_type=envelope.aggregate_type,
             resource_id=envelope.aggregate_id,
             resource_name=payload.get('resource_name', ''),
-            user=None,  # Could look up from user_identifier
             api_key_prefix=payload.get('api_key_prefix', ''),
             ip_address=payload.get('ip_address'),
             user_agent=payload.get('user_agent', ''),

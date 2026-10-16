@@ -306,4 +306,7 @@ function CreateSystemPromptPage() {
   );
 }
 
-export default withPermissionAuthenticationRequired(CreateSystemPromptPage, "mutate");
+export default withPermissionAuthenticationRequired(
+  CreateSystemPromptPage,
+  "mutate",
+);

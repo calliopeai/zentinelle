@@ -38,7 +38,9 @@ class BehavioralBaselineEvaluator(BasePolicyEvaluator):
         "tool_calls_this_session" int — tool calls so far in this session
         "domains_today"        int   — unique external domains contacted today
         "requests_this_hour"   int   — request count in the current hour
-        "agent_id"             str   — agent identifier (for baseline lookup)
+
+    The baseline is looked up for the authenticated agent: the engine's
+    trusted `_tenant_id` and `_agent_id`, never caller-supplied keys.
 
     Deviation thresholds: X means "N * p95_baseline triggers alert".
     e.g. threshold=5.0 and p95=100 → alert at 500+ tokens.
@@ -57,16 +59,15 @@ class BehavioralBaselineEvaluator(BasePolicyEvaluator):
         config = policy.config
         warnings = []
 
-        # Resolve agent identifier
-        agent_id = context.get('agent_id', '')
-        if not agent_id:
+        # The authenticated agent, as the engine set it. A caller-supplied
+        # tenant or agent would read another tenant's baseline.
+        tenant_id = context.get('_tenant_id', '')
+        agent_id = context.get('_agent_id', '')
+        if not tenant_id or not agent_id:
             # Can't evaluate without knowing which agent we're looking at
-            return PolicyResult(passed=True, warnings=["BehavioralBaseline: no agent_id in context, skipping."])
+            return PolicyResult(passed=True, warnings=["BehavioralBaseline: no authenticated agent, skipping."])
 
         # Load baseline from Redis (no DB hit)
-        endpoint = getattr(policy, '_endpoint', None)
-        tenant_id = getattr(endpoint, 'tenant_id', '') if endpoint else context.get('tenant_id', '')
-
         baseline = get_baseline(tenant_id, agent_id)
 
         min_samples = config.get('min_samples_before_enforce', 50)

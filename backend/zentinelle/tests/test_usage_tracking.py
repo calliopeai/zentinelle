@@ -2,7 +2,7 @@
 Tests for zentinelle.services.usage_tracking.UsageTrackingService.
 
 Exercises cost calculation for known models, unknown models,
-and fuzzy model name matching. No database required.
+and exact model ID matching. No database required.
 """
 import unittest
 from decimal import Decimal
@@ -37,10 +37,10 @@ class TestCalculateCostKnownModels(unittest.TestCase):
         self.assertEqual(input_cost, expected_input)
         self.assertEqual(output_cost, expected_output)
 
-    def test_claude_35_sonnet(self):
-        # claude-3-5-sonnet-20240620: input=$3.00/M, output=$15.00/M
+    def test_claude_sonnet_4_5(self):
+        # claude-sonnet-4-5-20250929: input=$3.00/M, output=$15.00/M
         input_cost, output_cost = UsageTrackingService.calculate_cost(
-            model='claude-3-5-sonnet-20240620',
+            model='claude-sonnet-4-5-20250929',
             input_tokens=500_000,
             output_tokens=100_000,
         )
@@ -61,10 +61,10 @@ class TestCalculateCostKnownModels(unittest.TestCase):
         self.assertEqual(input_cost, expected_input)
         self.assertEqual(output_cost, expected_output)
 
-    def test_claude_3_opus(self):
-        # claude-3-opus-20240229: input=$15.00/M, output=$75.00/M
+    def test_claude_opus_4_1(self):
+        # claude-opus-4-1-20250805: input=$15.00/M, output=$75.00/M
         input_cost, output_cost = UsageTrackingService.calculate_cost(
-            model='claude-3-opus-20240229',
+            model='claude-opus-4-1-20250805',
             input_tokens=100_000,
             output_tokens=50_000,
         )
@@ -94,58 +94,36 @@ class TestCalculateCostKnownModels(unittest.TestCase):
 
 
 class TestCalculateCostUnknownModel(unittest.TestCase):
-    """Unknown models should return zero cost."""
+    """An unpriced model's cost is unknown (None), never zero."""
 
     def test_completely_unknown_model(self):
-        input_cost, output_cost = UsageTrackingService.calculate_cost(
-            model='some-hypothetical-model-v99',
-            input_tokens=1_000_000,
-            output_tokens=1_000_000,
-        )
-        self.assertEqual(input_cost, Decimal('0.0'))
-        self.assertEqual(output_cost, Decimal('0.0'))
+        self.assertEqual(UsageTrackingService.calculate_cost(
+            model='some-hypothetical-model-v99', input_tokens=1_000_000, output_tokens=1_000_000,
+        ), (None, None))
 
     def test_empty_model_name(self):
-        """Empty model name fuzzy-matches against the first pricing entry
-        because '' is a substring of every string in Python ('' in 'gpt-4o' == True).
-        This is a known quirk of the fuzzy matcher -- not a critical bug since
-        empty model names are invalid inputs from the caller, but worth noting
-        for future hardening."""
-        input_cost, output_cost = UsageTrackingService.calculate_cost(
-            model='',
-            input_tokens=1000,
-            output_tokens=1000,
-        )
-        # Empty string fuzzy-matches the first dict entry, so cost is nonzero.
-        # If this is ever fixed to return zero, update this test.
-        self.assertIsInstance(input_cost, Decimal)
-        self.assertIsInstance(output_cost, Decimal)
+        self.assertEqual(UsageTrackingService.calculate_cost(model='', input_tokens=1000, output_tokens=1000),
+                         (None, None))
 
 
-class TestCalculateCostFuzzyMatching(unittest.TestCase):
-    """Fuzzy matching should find pricing for versioned model names."""
+class TestCalculateCostExactMatching(unittest.TestCase):
+    """Model IDs match exactly; a snapshot is priced only when listed."""
 
-    def test_gpt4o_with_date_suffix(self):
-        """'gpt-4o-2024-08-06' should fuzzy-match against 'gpt-4o'."""
+    def test_listed_gpt4o_snapshot(self):
+        """'gpt-4o-2024-08-06' is listed in the catalog at the gpt-4o price."""
         input_cost, output_cost = UsageTrackingService.calculate_cost(
             model='gpt-4o-2024-08-06',
             input_tokens=1_000_000,
             output_tokens=1_000_000,
         )
-        # Should match gpt-4o pricing via fuzzy match (key 'gpt-4o' is in 'gpt-4o-2024-08-06')
         self.assertEqual(input_cost, Decimal('2.50'))
         self.assertEqual(output_cost, Decimal('10.00'))
 
-    def test_claude_sonnet_variant(self):
-        """A claude-3-5-sonnet variant should fuzzy-match."""
-        input_cost, output_cost = UsageTrackingService.calculate_cost(
-            model='claude-3-5-sonnet-20240620-v2',
-            input_tokens=1_000_000,
-            output_tokens=1_000_000,
-        )
-        # 'claude-3-5-sonnet-20240620' in 'claude-3-5-sonnet-20240620-v2'
-        self.assertEqual(input_cost, Decimal('3.00'))
-        self.assertEqual(output_cost, Decimal('15.00'))
+    def test_unlisted_variant_is_unpriced(self):
+        """A name that only contains a priced ID is not priced as it."""
+        self.assertEqual(UsageTrackingService.calculate_cost(
+            model='claude-sonnet-4-5-20250929-v2', input_tokens=1_000_000, output_tokens=1_000_000,
+        ), (None, None))
 
 
 class TestCostReturnType(unittest.TestCase):
@@ -160,11 +138,11 @@ class TestCostReturnType(unittest.TestCase):
         self.assertIsInstance(input_cost, Decimal)
         self.assertIsInstance(output_cost, Decimal)
 
-    def test_unknown_returns_decimal_pair(self):
+    def test_unknown_returns_none_pair(self):
         input_cost, output_cost = UsageTrackingService.calculate_cost(
             model='unknown',
             input_tokens=100,
             output_tokens=100,
         )
-        self.assertIsInstance(input_cost, Decimal)
-        self.assertIsInstance(output_cost, Decimal)
+        self.assertIsNone(input_cost)
+        self.assertIsNone(output_cost)

@@ -5,8 +5,9 @@ import { GET_COMPLIANCE_OVERVIEW } from "./queries";
 import type { ComplianceOverviewData } from "./types";
 
 export function useComplianceOverview() {
-  const { data, loading, error, refetch } =
-    useQuery<ComplianceOverviewData>(GET_COMPLIANCE_OVERVIEW);
+  const { data, loading, error, refetch } = useQuery<ComplianceOverviewData>(
+    GET_COMPLIANCE_OVERVIEW,
+  );
 
   return {
     data,

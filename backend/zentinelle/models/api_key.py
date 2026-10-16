@@ -10,8 +10,9 @@ from django.db import models
 from django.utils import timezone
 
 from zentinelle.models.base import Tracking
-from zentinelle.utils.api_keys import KeyPrefixes
+from zentinelle.utils.api_keys import PREFIX_RANDOM_CHARS, KeyPrefixes
 from zentinelle.utils.api_keys import generate_api_key as _generate_api_key
+from zentinelle.utils.api_keys import lookup_prefixes
 from zentinelle.utils.api_keys import verify_api_key as _verify_api_key
 
 
@@ -28,6 +29,9 @@ class APIKey(Tracking):
     class KeyType(models.TextChoices):
         USER = 'user', 'User'
         SERVICE = 'service', 'Service'
+
+    # The only scopes anything enforces (api/views/operator.py).
+    SCOPES = ('read', 'write', 'admin')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
@@ -49,7 +53,7 @@ class APIKey(Tracking):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     key_prefix = models.CharField(
-        max_length=20,
+        max_length=32,
         db_index=True,
         help_text='First chars of API key for identification'
     )
@@ -108,7 +112,13 @@ class APIKey(Tracking):
             if key_type == cls.KeyType.SERVICE
             else KeyPrefixes.PLATFORM
         )
-        return _generate_api_key(prefix=prefix, prefix_length=15)
+        return _generate_api_key(prefix=prefix, prefix_length=len(prefix) + PREFIX_RANDOM_CHARS)
+
+    @classmethod
+    def key_prefixes(cls, api_key: str) -> list[str]:
+        """The stored key_prefix values `api_key` can match."""
+        prefix = KeyPrefixes.SERVICE if api_key.startswith(KeyPrefixes.SERVICE) else KeyPrefixes.PLATFORM
+        return lookup_prefixes(api_key, prefix, legacy_length=15)
 
     @classmethod
     def verify_api_key(cls, api_key: str, key_hash: str) -> bool:
