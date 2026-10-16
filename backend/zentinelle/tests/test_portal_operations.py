@@ -44,7 +44,7 @@ OTHER = '00000000-0000-0000-0000-0000000000b2'
 # rather than being repaired here; the test fails if one starts validating, so
 # this list can only shrink.
 DEAD_OPERATIONS = {
-    'Me', 'UpdateSystemPrompt', 'TestSystemPrompt', 'RateSystemPrompt', 'TogglePromptFavorite',
+    'UpdateSystemPrompt', 'TestSystemPrompt', 'RateSystemPrompt', 'TogglePromptFavorite',
 }
 
 _GQL = re.compile(r'gql`(.*?)`', re.S)
@@ -61,6 +61,11 @@ def frontend_operations():
     found = []
     for path in sorted(FRONTEND.rglob('*.ts*')):
         if {'node_modules', '.next'} & set(path.parts) or path.suffix not in ('.ts', '.tsx'):
+            continue
+        # Tests send nothing, and the frontend's own operation validator
+        # (graphql/operations.test.ts, which names gql`...` in its comments)
+        # skips them too.
+        if path.name.endswith(('.test.ts', '.test.tsx')):
             continue
         text = path.read_text()
         if 'gql`' not in text:
