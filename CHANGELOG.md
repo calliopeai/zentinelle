@@ -186,3 +186,6 @@ Notable changes to Zentinelle. The format follows
   (audit T10).
 - GraphQL answers an anonymous caller with `UNAUTHENTICATED` rather than
   `FORBIDDEN`, and the portal sends it to the login page (audit M1).
+- The assistant renders markdown images in its answers as links, never as
+  images, and the portal's Content-Security-Policy allows images from the
+  portal only (`img-src 'self'`) (#446).

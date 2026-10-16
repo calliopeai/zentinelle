@@ -162,6 +162,31 @@ function StreamingDots() {
 }
 
 /* ── Single message row ──────────────────────────────────────────── */
+
+// Markdown images never render as <img>: the browser would fetch an image's
+// URL as soon as the message showed, with nobody choosing to open it, and the
+// portal loads no remote images. Each one renders as a link to the image, or
+// as its text when it is already inside a link, so nothing is requested until
+// someone clicks.
+const InsideMarkdownLink = React.createContext(false);
+
+function MarkdownImage({ src, alt }: React.ComponentProps<"img">) {
+  const insideLink = React.useContext(InsideMarkdownLink);
+  const url = typeof src === "string" ? src : "";
+  const label = alt || url || "image";
+  if (!url || insideLink) return <>{label}</>;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-primary underline underline-offset-2"
+    >
+      {label}
+    </a>
+  );
+}
+
 function MarkdownContent({ content }: { content: string }) {
   // Strip emojis (Unicode emoji ranges) — defense in depth in case the LLM ignores instructions
   const cleaned = content.replace(
@@ -216,9 +241,12 @@ function MarkdownContent({ content }: { content: string }) {
             rel="noopener noreferrer"
             className="text-primary underline underline-offset-2"
           >
-            {children}
+            <InsideMarkdownLink.Provider value={true}>
+              {children}
+            </InsideMarkdownLink.Provider>
           </a>
         ),
+        img: MarkdownImage,
       }}
     >
       {cleaned}
