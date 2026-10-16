@@ -42,7 +42,7 @@ Registering each session through `/register` was rejected. Sessions are short-li
 | `context.chat_id` | no | The chat within the session. |
 | `context.tool_call_id` | no | The pending tool call. Recommended: it binds an approval to this one call. |
 | `context.tool_name` | yes | The tool, as the harness names it. |
-| `context.tool_input` | no | The tool's arguments. Bound into approvals and stored only when content capture allows. No shipped policy type inspects them yet. |
+| `context.tool_input` | no | The tool's arguments. Bound into approvals and stored only when content capture allows. Command and path rules read them; see [rules on tool arguments](#rules-on-tool-arguments). |
 
 ```json
 {
@@ -58,6 +58,30 @@ Registering each session through `/register` was rejected. Sessions are short-li
   }
 }
 ```
+
+### Rules on tool arguments
+
+A `tool_permission` policy names argument rules per tool under `tool_configs`, keyed by the tool's name as the harness sends it (#384):
+
+```json
+{
+  "tool_configs": {
+    "Bash": {"blocked_commands": ["rm -rf *"], "allowed_commands": ["npm test", "npm run *"]},
+    "Write": {"allowed_paths": ["/workspace"], "blocked_paths": ["/workspace/.git"]}
+  }
+}
+```
+
+With that policy, `{"tool_name": "Bash", "tool_input": {"command": "rm -rf /"}}` is denied and `{"command": "npm test"}` is allowed.
+
+- **Commands** come from `command` or `cmd`, a string or an argv list. The command is split into simple commands at `;`, `&&`, `||`, `|`, `&`, newlines, parentheses, backticks and `$(`, and the script of `sh -c`, `bash -lc` and the like, or of `eval`, is split the same way. Quotes are removed and whitespace collapsed, then each simple command is matched against glob patterns (`*` matches anything, spaces included).
+- A **blocked** pattern refuses the call if it matches any simple command, or its tail from any word on, so `rm -rf *` also refuses `sudo rm -rf /`. It matches text, not meaning: `rm -fr /`, or a command assembled from variables, is a different text. Blocked patterns are a guard.
+- With **allowed** patterns, every simple command must match one in full, so anything not listed is refused. That is the boundary.
+- **Paths** come from `file_path`, `path`, `notebook_path`, `paths` and the file headers of an `apply_patch` patch, and a call with none is checked by its working directory. A relative path resolves against `workdir` or `cwd` in the arguments, else `context.cwd`. A path is inside a listed prefix when it is the prefix or below it after `.` and `..` are resolved. Every path must be inside an allowed prefix and none inside a blocked one. Symbolic links are not visible to Zentinelle.
+- A command that cannot be parsed, a call with no command or path to check, and a relative path with no working directory where a rule names absolute paths are refused.
+- A call its arguments refuse is `deny`, never `ask`: no approval can release it.
+
+The rules read `context.tool_input` and `context.tool_args`, the older field; a call carrying both must pass with each.
 
 A host tool call missing `harness`, `session_id` or `tool_name`, or with a malformed one, is refused before evaluation:
 

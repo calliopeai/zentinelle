@@ -5,6 +5,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from zentinelle.models import Policy
+from zentinelle.services import tool_arguments
 from zentinelle.services.evaluators.base import (BasePolicyEvaluator,
                                                  PolicyResult)
 
@@ -27,9 +28,25 @@ class ToolPermissionEvaluator(BasePolicyEvaluator):
             "execute_sql": {
                 "read_only": true,
                 "max_rows": 1000,
+            },
+            "Bash": {
+                "blocked_commands": ["rm -rf *"],
+                "allowed_commands": ["npm test", "npm run *"],
+            },
+            "Write": {
+                "allowed_paths": ["/workspace"],
+                "blocked_paths": ["/workspace/.git"],
             }
         }
     }
+
+    tool_configs is keyed by the tool's name as the caller sends it, so a
+    harness's own tools (Claude's Bash, Read, Write, Edit; Codex's shell and
+    apply_patch; Calliope AI's shell, read_file, write_file) take command and
+    path rules. They read context.tool_input, as agent hosts send it, and
+    context.tool_args, as older callers do; a call carrying both must pass
+    with each. See services/tool_arguments.py for how commands and paths are
+    matched.
     """
 
     def evaluate(
@@ -66,6 +83,15 @@ class ToolPermissionEvaluator(BasePolicyEvaluator):
                 message=f"Tool '{tool_name}' is not in allowed list. Allowed: {', '.join(allowed_tools)}"
             )
 
+        # Argument rules come before approval: a call its arguments refuse is
+        # denied outright, never held for a human to release.
+        tool_configs = config.get('tool_configs') or {}
+        tool_config = tool_configs.get(tool_name) if isinstance(tool_configs, dict) else None
+        if tool_config:
+            validation_result = self._validate_tool_args(tool_name, tool_config, context)
+            if not validation_result.passed:
+                return validation_result
+
         # Check if tool requires approval
         requires_approval = config.get('requires_approval', [])
         if tool_name in requires_approval:
@@ -84,35 +110,35 @@ class ToolPermissionEvaluator(BasePolicyEvaluator):
             if not validation_result.passed:
                 return validation_result
 
-        # Check tool-specific configs
-        tool_configs = config.get('tool_configs', {})
-        tool_config = tool_configs.get(tool_name)
-
-        if tool_config:
-            validation_result = self._validate_tool_args(
-                tool_name, tool_config, context.get('tool_args', {})
-            )
-            if not validation_result.passed:
-                return validation_result
-
         return PolicyResult(passed=True)
 
     def _validate_tool_args(
         self,
         tool_name: str,
-        tool_config: Dict[str, Any],
-        tool_args: Dict[str, Any],
+        tool_config: Any,
+        context: Dict[str, Any],
     ) -> PolicyResult:
-        """Validate tool arguments against tool-specific config."""
+        """Validate the call's arguments against the tool's config."""
+        if not isinstance(tool_config, dict):
+            return PolicyResult(passed=False, message=f"Tool '{tool_name}' rules must be an object")
+        argument_sets = [context[key] for key in ('tool_input', 'tool_args') if context.get(key) is not None]
 
         # SQL-specific validations
         if tool_name == 'execute_sql':
-            return self._validate_sql(tool_config, tool_args)
+            for tool_args in argument_sets or [{}]:
+                result = self._validate_sql(tool_config, tool_args if isinstance(tool_args, dict) else {})
+                if not result.passed:
+                    return result
+            return PolicyResult(passed=True)
 
-        # File operation validations
-        if tool_name in ['read_file', 'write_file', 'delete_file']:
-            return self._validate_file_op(tool_config, tool_args)
-
+        try:
+            for arguments in argument_sets or [None]:
+                reason = (tool_arguments.check_command(tool_name, tool_config, arguments)
+                          or tool_arguments.check_paths(tool_name, tool_config, arguments, context))
+                if reason:
+                    return PolicyResult(passed=False, message=reason)
+        except tool_arguments.Unreadable as exc:
+            return PolicyResult(passed=False, message=f"Tool '{tool_name}' call refused: {exc}")
         return PolicyResult(passed=True)
 
     def _validate_sql(
@@ -138,37 +164,6 @@ class ToolPermissionEvaluator(BasePolicyEvaluator):
         if max_rows:
             # Add to context for downstream enforcement
             args['_max_rows'] = max_rows
-
-        return PolicyResult(passed=True)
-
-    def _validate_file_op(
-        self,
-        config: Dict[str, Any],
-        args: Dict[str, Any],
-    ) -> PolicyResult:
-        """Validate file operations against restrictions."""
-        file_path = args.get('path', '')
-
-        # Check allowed paths
-        allowed_paths = config.get('allowed_paths', [])
-        if allowed_paths:
-            path_allowed = any(
-                file_path.startswith(allowed) for allowed in allowed_paths
-            )
-            if not path_allowed:
-                return PolicyResult(
-                    passed=False,
-                    message=f"File path '{file_path}' is not in allowed paths"
-                )
-
-        # Check blocked paths
-        blocked_paths = config.get('blocked_paths', [])
-        for blocked in blocked_paths:
-            if file_path.startswith(blocked):
-                return PolicyResult(
-                    passed=False,
-                    message=f"File path '{file_path}' is in blocked paths"
-                )
 
         return PolicyResult(passed=True)
 
