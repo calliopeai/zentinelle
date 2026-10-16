@@ -45,6 +45,23 @@ class CommandRuleTests(SimpleTestCase):
             with self.subTest(command=command):
                 self.assertFalse(self.check(BASH_ALLOWLIST, {'command': command}).passed)
 
+    def test_an_allowlist_reads_quotes_as_a_shell_does(self):
+        # Each of these runs `rm -rf ~` in bash, hidden from a reader that
+        # sees quoted text as one word.
+        for command in ('npm run "$(rm -rf ~)"', 'npm run "`rm -rf ~`"', 'npm run x <(rm -rf ~)',
+                        'npm run x >(rm -rf ~)', "bash -c 'npm run \"$(rm -rf ~)\"'",
+                        'bash -c "npm run \\"\\$(rm -rf ~)\\""', "npm run $'\\'' ; rm -rf ~ ; echo \\'"):
+            with self.subTest(command=command):
+                self.assertFalse(self.check(BASH_ALLOWLIST, {'command': command}).passed)
+        heredoc = "ls <<ls\nls '\n$(rm -rf ~)\n'\nls"
+        self.assertFalse(self.check({'allowed_commands': ['ls', 'ls *']}, {'command': heredoc}).passed)
+        self.assertTrue(self.check(BASH_ALLOWLIST, {'command': "bash -lc 'npm test && git status'"}).passed)
+        self.assertTrue(self.check(BASH_ALLOWLIST, {'command': "npm run 'a b' 2>&1"}).passed)
+
+    def test_every_command_key_is_checked(self):
+        self.assertFalse(self.check(BASH_ALLOWLIST, {'command': 'npm test', 'cmd': 'rm -rf /'}).passed)
+        self.assertFalse(self.check(BASH_GUARD, {'command': 'npm test', 'cmd': ['rm', '-rf', '/']}).passed)
+
     def test_a_blocked_pattern_sees_inside_compound_and_wrapped_commands(self):
         for command in ('cd /tmp && rm -rf /', 'echo ok; rm -rf /', 'true || rm -rf /', 'sudo rm -rf /',
                         'bash -lc "rm -rf /"', 'sh -c \'echo; rm -rf "/"\'', 'eval "rm -rf /"',
@@ -135,6 +152,12 @@ class PathRuleTests(SimpleTestCase):
         self.assertFalse(self.check('apply_patch', {'input': escaping}, cwd='/workspace').passed)
         moving = '*** Begin Patch\n*** Update File: src/a.py\n*** Move to: .git/hooks/pre-commit\n*** End Patch'
         self.assertFalse(self.check('apply_patch', {'input': moving}, cwd='/workspace').passed)
+
+    def test_indented_or_unreadable_patch_headers_do_not_fall_back_to_the_working_directory(self):
+        indented = '*** Begin Patch\n  *** Add File: /etc/cron.d/x\n+x\n*** End Patch'
+        self.assertFalse(self.check('apply_patch', {'input': indented}, cwd='/workspace').passed)
+        headless = '*** Begin Patch\n***  Add File: /etc/cron.d/x\n+x\n*** End Patch'
+        self.assertFalse(self.check('apply_patch', {'input': headless}, cwd='/workspace').passed)
 
     def test_a_call_without_a_path_checks_its_working_directory(self):
         self.assertTrue(self.check('Grep', {'pattern': 'x'}, cwd='/workspace').passed)

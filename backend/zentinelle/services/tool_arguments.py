@@ -23,7 +23,11 @@ matters).
   It matches text, not meaning: `rm -fr /` or a command built from variables
   is a different text. Use blocked patterns as a guard.
 - With allowed patterns, every simple command must match one in full. This is
-  the boundary: anything not listed is refused.
+  the boundary: anything not listed is refused. For them the command is read
+  as a shell reads it: only unquoted newlines, backticks and `$(` separate,
+  and what this reader could read differently from a shell is refused
+  (command substitution, or a backslash before `$`, a backtick or a newline,
+  inside double quotes; `$'...'` quoting; here-documents).
 - A command that cannot be read (unbalanced quotes, nesting deeper than
   MAX_DEPTH) is refused.
 
@@ -53,31 +57,88 @@ SHELLS = frozenset({'sh', 'bash', 'zsh', 'dash', 'ksh', 'ash', 'mksh'})
 # Reserved words that open a compound command; the command follows them.
 LEADING_WORDS = frozenset({'{', '}', '!', 'if', 'then', 'else', 'elif', 'fi', 'do', 'done',
                            'while', 'until', 'time', 'case', 'esac', 'select'})
-SEPARATOR_CHARS = frozenset(';&|()')
-PATCH_HEADER = re.compile(r'^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+?)\s*$', re.M)
+SHLEX_PUNCTUATION = frozenset('();<>|&')
+SEPARATOR_CHARS = frozenset(';|()')
+# Hunk headers; leading whitespace allowed, as Codex trims each line.
+PATCH_HEADER = re.compile(r'^\s*\*\*\* (?:Add File|Update File|Delete File|Move to): (.+?)\s*$', re.M)
 
 
 class Unreadable(ValueError):
     """The command cannot be split reliably, so no rule can pass it."""
 
 
-def _tokens(command: str) -> List[str]:
-    # Newlines and backticks separate commands; `$(` opens one. Rewriting them
-    # inside quotes only makes the split finer, which no rule can lose by.
-    text = command.replace('\r', '\n').replace('\n', ' ; ').replace('`', ' ; ').replace('$(', ' ( ')
+def _shell_text(command: str) -> str:
+    """`command` with its unquoted newlines, backticks and `$(` made separators.
+
+    For allowed patterns: quoted text is kept as the shell keeps it, so the
+    script of `sh -c '...'` reaches the next level whole. What shlex would
+    read differently from a shell is refused, never guessed.
+    """
+    out: List[str] = []
+    quote = None
+    index = 0
+    while index < len(command):
+        char = command[index]
+        pair = command[index:index + 2]
+        if quote == "'":
+            quote = None if char == "'" else quote
+        elif quote == '"':
+            if char == '`' or pair == '$(':
+                raise Unreadable('command substitution inside double quotes cannot be checked')
+            if char == '\\' and pair[1:] in ('$', '`', '\n', '\r'):
+                raise Unreadable('escapes inside double quotes cannot be checked')
+            if char == '\\':
+                out.append(pair)
+                index += 2
+                continue
+            quote = None if char == '"' else quote
+        elif char == '\\':
+            out.append(pair)
+            index += 2
+            continue
+        elif pair == "$'":
+            raise Unreadable("$'...' quoting cannot be checked")
+        elif char in '\'"':
+            quote = char
+        elif char in '\r\n`':
+            out.append(' ; ')
+            index += 1
+            continue
+        elif pair == '$(':
+            out.append(' ( ')
+            index += 2
+            continue
+        out.append(char)
+        index += 1
+    return ''.join(out)
+
+
+def _tokens(command: str, strict: bool = False) -> List[str]:
+    if strict:
+        text = _shell_text(command)
+    else:
+        # Newlines and backticks separate commands; `$(` opens one. Rewriting
+        # them inside quotes too makes the split finer for blocked patterns.
+        text = command.replace('\r', '\n').replace('\n', ' ; ').replace('`', ' ; ').replace('$(', ' ( ')
     lexer = shlex.shlex(text, posix=True, punctuation_chars=True)
     lexer.whitespace_split = True
     # bash starts a comment only at the start of a word; shlex would also cut
     # `a#; rm -rf /` at the `#` and hide the rest. Keep every character.
     lexer.commenters = ''
     try:
-        return list(lexer)
+        tokens = list(lexer)
     except ValueError as exc:
         raise Unreadable(f'command cannot be parsed: {exc}') from exc
+    if strict and any(token.startswith('<<') and not token.startswith('<<<') for token in tokens):
+        raise Unreadable('here-documents cannot be checked')
+    return tokens
 
 
 def _is_separator(token: str) -> bool:
-    return bool(token) and set(token) <= SEPARATOR_CHARS
+    # `;`, `|`, `&&`, `|&`, parentheses, and `<(` `>(` (process substitution
+    # runs a command); `>&` and `&>` are redirections.
+    chars = set(token)
+    return bool(token) and chars <= SHLEX_PUNCTUATION and (bool(chars & SEPARATOR_CHARS) or chars == {'&'})
 
 
 def _shell_script(words: List[str]) -> Optional[Tuple[str, ...]]:
@@ -101,14 +162,17 @@ def _shell_script(words: List[str]) -> Optional[Tuple[str, ...]]:
     return None
 
 
-def simple_commands(command: str, depth: int = 0) -> List[str]:
-    """Each simple command in `command`, quotes removed and words joined by one space."""
+def simple_commands(command: str, depth: int = 0, strict: bool = False) -> List[str]:
+    """Each simple command in `command`, quotes removed and words joined by one space.
+
+    `strict` reads it as a shell would, for allowed patterns (see _shell_text).
+    """
     if depth > MAX_DEPTH:
         raise Unreadable('commands nest too deeply to check')
     if len(command) > MAX_COMMAND_LENGTH:
         raise Unreadable('command is too long to check')
     segments: List[List[str]] = [[]]
-    for token in _tokens(command):
+    for token in _tokens(command, strict):
         if _is_separator(token):
             segments.append([])
         else:
@@ -122,24 +186,26 @@ def simple_commands(command: str, depth: int = 0) -> List[str]:
         script = _shell_script(words)
         if script is not None:
             for inner in script:
-                found.extend(simple_commands(inner, depth + 1))
+                found.extend(simple_commands(inner, depth + 1, strict))
             continue
         found.append(' '.join(words))
     return found
 
 
-def _command_text(arguments: Any) -> Optional[str]:
+def _command_texts(arguments: Any) -> List[str]:
+    """Every command the call carries: a call with both `command` and `cmd` passes with each."""
     if isinstance(arguments, str):
-        return arguments
+        return [arguments]
     if not isinstance(arguments, dict):
-        return None
+        return []
+    texts = []
     for key in COMMAND_KEYS:
         value = arguments.get(key)
         if isinstance(value, str):
-            return value
-        if isinstance(value, list) and value and all(isinstance(item, str) for item in value):
-            return shlex.join(value)
-    return None
+            texts.append(value)
+        elif isinstance(value, list) and value and all(isinstance(item, str) for item in value):
+            texts.append(shlex.join(value))
+    return texts
 
 
 def _patterns(config: Dict[str, Any], key: str) -> List[str]:
@@ -155,20 +221,27 @@ def check_command(tool: str, config: Dict[str, Any], arguments: Any) -> Optional
     allowed = _patterns(config, 'allowed_commands')
     if not blocked and not allowed:
         return None
-    text = _command_text(arguments)
-    if text is None:
+    texts = _command_texts(arguments)
+    if not texts:
         return f"Tool '{tool}' has command rules but the call carries no command"
-    commands = simple_commands(text)
-    if not commands:
-        return f"Tool '{tool}' has command rules but the call carries no command"
-    for command in commands:
-        words = command.split(' ')
-        tails = [' '.join(words[index:]) for index in range(len(words))]
-        for pattern in blocked:
-            if any(fnmatchcase(tail, pattern) for tail in tails):
-                return f"Tool '{tool}' command '{command[:200]}' matches blocked pattern '{pattern}'"
-        if allowed and not any(fnmatchcase(command, pattern) for pattern in allowed):
-            return f"Tool '{tool}' command '{command[:200]}' is not in the allowed commands"
+    for text in texts:
+        commands = simple_commands(text)
+        if not commands:
+            return f"Tool '{tool}' has command rules but the call carries no command"
+        for command in commands:
+            words = command.split(' ')
+            tails = [' '.join(words[index:]) for index in range(len(words))]
+            for pattern in blocked:
+                if any(fnmatchcase(tail, pattern) for tail in tails):
+                    return f"Tool '{tool}' command '{command[:200]}' matches blocked pattern '{pattern}'"
+        if not allowed:
+            continue
+        commands = simple_commands(text, strict=True)
+        if not commands:
+            return f"Tool '{tool}' has command rules but the call carries no command"
+        for command in commands:
+            if not any(fnmatchcase(command, pattern) for pattern in allowed):
+                return f"Tool '{tool}' command '{command[:200]}' is not in the allowed commands"
     return None
 
 
@@ -194,7 +267,11 @@ def _paths(arguments: Any) -> List[str]:
         texts.extend(arguments[key] for key in ('input', 'patch') if isinstance(arguments.get(key), str))
     for text in texts:
         if '*** Begin Patch' in text:
-            found.extend(PATCH_HEADER.findall(text))
+            headers = PATCH_HEADER.findall(text)
+            if not headers:
+                # Never fall back to the working directory for a patch.
+                raise Unreadable('the patch names no file this can read')
+            found.extend(headers)
     return found
 
 
