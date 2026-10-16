@@ -48,6 +48,10 @@ class BootstrapTokenPermission(BasePermission):
         if tenant_id:
             request._zentinelle_tenant_id = tenant_id
             return True
+        # A database token that is revoked, expired or used up stays refused;
+        # it never gets a second chance as an HMAC token.
+        if BootstrapToken.is_issued(bootstrap_token):
+            return False
 
         # Fall back to HMAC validation (simple deployments)
         return self._validate_hmac(request, bootstrap_token)
