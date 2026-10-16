@@ -32,6 +32,22 @@ def resource_type_for_action(action):
     return 'action'
 
 
+def with_resource_defaults(action, context):
+    """The context with the resource fields /evaluate fills in when absent.
+
+    /evaluate digests the context after adding these, so an approval issued
+    for the same call has to digest them too (#383). `action` is canonical.
+    A boundary without an explicit resource ID is still represented as a
+    resource, so downstream traces cannot collapse retrieval/workflow
+    decisions into an indistinguishable generic action.
+    """
+    context = dict(context)
+    context.setdefault('resource_type', resource_type_for_action(action))
+    context.setdefault('resource_id', context.get('workload_id') or context.get('tool')
+                       or context.get('tool_name') or '')
+    return context
+
+
 def build_contract(*, endpoint, action, user_id='', context=None):
     """Build the canonical subject/action/resource envelope.
 
