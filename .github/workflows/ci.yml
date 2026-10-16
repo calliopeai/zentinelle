@@ -58,13 +58,13 @@ jobs:
       CLICKHOUSE_URL: ""
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # The backend support-matrix contract verifies the pinned SDK tree;
           # initialize it here so the test matches the clean CI checkout.
           submodules: recursive
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -128,7 +128,7 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
 
       - name: Upload release evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: zentinelle-release-evidence-${{ github.run_id }}
           path: |
@@ -137,13 +137,13 @@ jobs:
 
       - name: Attest release SBOM
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: backend/release-sbom-*.txt
 
       - name: Attest release qualification evidence
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: backend/release-qualification-*.json
 
@@ -154,7 +154,7 @@ jobs:
           flake8
           isort --check-only .
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.22'
 
@@ -195,9 +195,9 @@ jobs:
     name: Gateway
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.22'
 
@@ -213,11 +213,11 @@ jobs:
     name: SDK contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -227,7 +227,7 @@ jobs:
         working-directory: sdk/java
         run: mvn -B test
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
 
@@ -241,9 +241,9 @@ jobs:
     name: Frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           # Node 20 is end of life; graphql 17 and vitest need 22 or 24.
           node-version: '24'
