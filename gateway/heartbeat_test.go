@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -118,6 +119,7 @@ func heartbeatGateway(t *testing.T) (*Gateway, *clusterControlPlane) {
 	cfg := storedKeyConfig(control.URL)
 	cfg.ClusterID = "c1"
 	cfg.HeartbeatInterval = 45 * time.Second
+	cfg.Instance = "gw-0"
 	return NewGateway(cfg), cp
 }
 
@@ -188,6 +190,7 @@ func TestAHeartbeatCarriesExactlyTheContractPayload(t *testing.T) {
 	want := map[string]interface{}{
 		"status":   "healthy",
 		"version":  "dev",
+		"instance": "gw-0",
 		"counters": map[string]interface{}{"requests": 6.0, "blocked": 2.0, "agents_seen": 3.0},
 	}
 	if !reflect.DeepEqual(beat.body, want) {
@@ -762,5 +765,21 @@ func TestHeartbeatIntervalFromTheEnvironment(t *testing.T) {
 		if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "HEARTBEAT_INTERVAL_SECONDS") {
 			t.Errorf("HEARTBEAT_INTERVAL_SECONDS=%q: err = %v, want it refused", value, err)
 		}
+	}
+}
+
+// #398: every replica beats for the same cluster, so each names itself.
+func TestTheHeartbeatInstanceIsTheHostName(t *testing.T) {
+	t.Setenv("ZENTINELLE_GATEWAY_CREDENTIAL", testGatewayCredential)
+	host, err := os.Hostname()
+	if err != nil {
+		t.Skipf("no host name: %v", err)
+	}
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Instance != host || host == "" {
+		t.Errorf("instance = %q, want the host name %q", cfg.Instance, host)
 	}
 }

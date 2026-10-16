@@ -62,6 +62,11 @@ type Config struct {
 	// HEARTBEAT_INTERVAL_SECONDS, 60 by default. Zero turns heartbeats off.
 	HeartbeatInterval time.Duration
 
+	// Instance names this replica in its heartbeat, so Zentinelle adds up the
+	// counters of a cluster's replicas instead of keeping the latest one's
+	// (#398): the host name, which in Kubernetes is the pod name.
+	Instance string
+
 	// ControlPlaneURL is the Astrolift control plane an agent's heartbeat and
 	// events are passed straight through to (#445), so they do not depend on
 	// Zentinelle answering: ASTROLIFT_CONTROL_PLANE_URL, scheme and host only.
@@ -118,6 +123,10 @@ func LoadConfig() (*Config, error) {
 		}
 		heartbeatInterval = time.Duration(seconds) * time.Second
 	}
+
+	// An unknown host name leaves the instance empty: Zentinelle counts the
+	// gateway as one replica, as before.
+	instance, _ := os.Hostname()
 
 	controlPlaneURL := ""
 	if v := os.Getenv("ASTROLIFT_CONTROL_PLANE_URL"); v != "" {
@@ -183,6 +192,7 @@ func LoadConfig() (*Config, error) {
 		TenantID:              os.Getenv("ZENTINELLE_TENANT_ID"),
 		ClusterID:             os.Getenv("ZENTINELLE_CLUSTER_ID"),
 		HeartbeatInterval:     heartbeatInterval,
+		Instance:              instance,
 		ControlPlaneURL:       controlPlaneURL,
 		FailOpen:              failOpen,
 		PolicyTimeout:         time.Duration(policyTimeoutMs) * time.Millisecond,

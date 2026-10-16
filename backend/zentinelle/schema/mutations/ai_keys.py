@@ -14,10 +14,10 @@ from deployments.models import Deployment
 from deployments.models.ai_keys import AIKeyMode
 from deployments.models.ai_keys import AIProvider as AIProviderChoices
 from deployments.models.ai_keys import DeploymentAIKey, OrganizationAIAdminKey
-from graphql_relay import from_global_id
 from organization.models import Organization
 
 from zentinelle.schema.auth_helpers import user_has_org_access
+from zentinelle.schema.global_id import from_global_id
 
 logger = logging.getLogger(__name__)
 

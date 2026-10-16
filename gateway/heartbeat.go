@@ -26,7 +26,9 @@ import (
 // Zentinelle stores each beat's counters as they are and drops the ones it
 // does not know, so the counters are running totals since the gateway
 // started. A beat never resets them, and a beat that fails loses nothing: the
-// next one carries the same totals, grown.
+// next one carries the same totals, grown. Each replica names itself as the
+// instance, and Zentinelle sums the totals of the replicas still reporting
+// (#398).
 
 const (
 	defaultHeartbeatInterval = 60 * time.Second
@@ -167,6 +169,7 @@ func heartbeatStatus(from, to statsSnapshot) string {
 type heartbeatPayload struct {
 	Status   string            `json:"status"`
 	Version  string            `json:"version"`
+	Instance string            `json:"instance"`
 	Counters heartbeatCounters `json:"counters"`
 }
 
@@ -339,8 +342,9 @@ func (h *heartbeat) beat(ctx context.Context) (beatOutcome, error) {
 
 	snapshot := h.stats.snapshot()
 	body, err := json.Marshal(heartbeatPayload{
-		Status:  heartbeatStatus(h.delivered, snapshot),
-		Version: version,
+		Status:   heartbeatStatus(h.delivered, snapshot),
+		Version:  version,
+		Instance: h.cfg.Instance,
 		Counters: heartbeatCounters{
 			Requests: snapshot.requests, Blocked: snapshot.blocked, AgentsSeen: snapshot.agentsSeen,
 		},

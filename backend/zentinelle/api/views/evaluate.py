@@ -19,7 +19,8 @@ from zentinelle.models.compliance import InteractionLog
 from zentinelle.services.actions import refusal
 from zentinelle.services.approvals import open_approval_request
 from zentinelle.services.boundary_contract import (build_contract,
-                                                   canonical_action)
+                                                   canonical_action,
+                                                   with_resource_defaults)
 from zentinelle.services.content_capture import record_interaction
 from zentinelle.temporal.client import start_task
 
@@ -80,12 +81,7 @@ class EvaluateView(APIView):
         context = dict(data.get('context', {}) or {})
         if data.get('authority'):
             context['authority'] = data['authority']
-        context.setdefault('resource_type', self._resource_type_for_action(action))
-        # A boundary without an explicit resource ID is still represented as
-        # a resource, so downstream traces cannot collapse retrieval/workflow
-        # decisions into an indistinguishable generic action.
-        context.setdefault('resource_id', context.get('workload_id') or context.get('tool')
-                           or context.get('tool_name') or '')
+        context = with_resource_defaults(action, context)
         context['trace_id'] = trace_id
         # Evaluate policies
         from zentinelle.services.policy_engine import PolicyEngine
@@ -171,22 +167,6 @@ class EvaluateView(APIView):
             }
 
         return Response(response_data, status=status.HTTP_200_OK)
-
-    @staticmethod
-    def _resource_type_for_action(action):
-        """Canonical resource classes shared by SDK/gateway evaluations."""
-        normalized = str(action or '').lower()
-        if normalized in {'tool_call', 'tool.invoke', 'mcp.tool_call'}:
-            return 'tool'
-        if normalized in {'retrieval', 'retrieve', 'rag.retrieve', 'data_access'}:
-            return 'retrieval'
-        if normalized in {'workflow.transition', 'workflow_step', 'workflow'}:
-            return 'workflow'
-        if normalized in {'egress', 'network.egress', 'llm:response'}:
-            return 'egress'
-        if normalized.startswith('llm:') or normalized in {'llm_call', 'ai_request'}:
-            return 'model'
-        return 'action'
 
     @staticmethod
     def _output_filter_required(endpoint) -> bool:

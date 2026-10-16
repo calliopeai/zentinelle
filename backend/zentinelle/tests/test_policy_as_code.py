@@ -40,7 +40,7 @@ class TestPolicyValidate(SimpleTestCase):
         """Valid YAML document passes _validate_doc without error."""
         from zentinelle.management.commands.policy_apply import _validate_doc
 
-        name, spec_type, spec_config, scope, enforcement, priority = _validate_doc(
+        name, spec_type, spec_config, scope, enforcement, priority, actions = _validate_doc(
             VALID_POLICY_YAML, 'test.yaml'
         )
         self.assertEqual(name, 'Production Model Allowlist')
@@ -48,6 +48,8 @@ class TestPolicyValidate(SimpleTestCase):
         self.assertEqual(scope, 'organization')
         self.assertEqual(enforcement, 'enforce')
         self.assertEqual(priority, 100)
+        # A file that names no action leaves the policy's action alone.
+        self.assertEqual(actions, {})
 
     def test_validate_missing_kind_fails(self):
         """Document without 'kind: Policy' raises ValueError."""
@@ -141,6 +143,10 @@ class TestPolicyExport(SimpleTestCase):
         policy.scope_type = 'organization'
         policy.priority = 50
         policy.config = {'allowed_providers': ['anthropic']}
+        policy.action = 'alert'
+        policy.block_level = 'tool_call'
+        policy.steer_message = ''
+        policy.escalation = {}
         mock_policy_cls.objects.filter.return_value = [policy]
 
         tmpdir = tempfile.mkdtemp()

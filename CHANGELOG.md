@@ -7,6 +7,29 @@ Notable changes to Zentinelle. The format follows
 
 ### Added
 
+- Rules on tool arguments (#384). A tool_permission policy's `tool_configs`,
+  keyed by the tool's name as the harness sends it (Claude's `Bash`, `Read`,
+  `Write`, `Edit`; Codex's `shell`, `apply_patch`; Calliope AI's `shell`,
+  `read_file`, `write_file`), takes `blocked_commands` and `allowed_commands`
+  (glob patterns over each simple command, including the scripts of
+  `sh -c` and `eval`) and `allowed_paths` and `blocked_paths` (path prefixes
+  after `.` and `..` are resolved, relative paths against the call's working
+  directory). They read `context.tool_input` and `context.tool_args`; a call
+  carrying both must pass with each. A call its arguments refuse is denied
+  before any approval hold. A command that cannot be parsed, a call with no
+  command or path to check, and a relative path with no working directory
+  are refused. Blocked patterns match text, so use allowed patterns as the
+  boundary.
+- Policy actions everywhere (#409). `policy_export` writes `spec.action`,
+  `spec.block_level`, `spec.steer_message` and `spec.escalation`, and
+  `policy_apply`, `policy_validate` and `policy_diff` read and check them; a
+  file that names none leaves an existing policy's action as it is. Copilot
+  drafts, diffs and staged drafts, the assistant's `create_policy`,
+  `update_policy`, `get_policy_details` and `list_policies` tools, and
+  `activate_pack` (with `activate_compliance_pack --action` and
+  `--block-level`) carry the four fields, validated together with the stored
+  ones, and `/register` and `/config` hand them to agents with each policy.
+
 - Portal approvals inbox (#382). Governance > Approvals (`/approvals`) lists
   the tenant's held agent actions, newest first, with their agent, user,
   harness, session, policy reason and time left, and refreshes every 15
@@ -91,6 +114,20 @@ Notable changes to Zentinelle. The format follows
 
 ### Changed
 
+- Backend dependencies: graphene-django is removed. Nothing used it beyond
+  `INSTALLED_APPS`; its graphql-relay pinned graphql-core below 3.3, which
+  held strawberry-graphql at 0.327.7. The relay global-ID helpers the schema
+  used now live in `zentinelle/schema/global_id.py` with the same encoding, so
+  IDs the portal holds still decode. strawberry-graphql is 0.335.0,
+  strawberry-graphql-django 0.93.0 and graphql-core 3.3.0.
+- Cluster heartbeats count every gateway replica (#398). The gateway sends
+  its host name (the pod name) as `instance`; Zentinelle keeps each replica's
+  latest totals, shows the cluster their sum and the worst replica's health,
+  and drops a replica silent for five minutes. Before, the latest beat won, so
+  with two or more replicas the counters were one replica's.
+- CI fails a change where `backend/requirements.txt`, which the image
+  installs, pins differently from `Pipfile.lock`, which CI installs (#414).
+
 - The gateway never forwards a client-supplied provider key: `Authorization`,
   `x-api-key`, `x-goog-api-key` and Google's `key` query parameter are dropped
   on every request.
@@ -108,6 +145,15 @@ Notable changes to Zentinelle. The format follows
 
 ### Fixed
 
+- An approval issued with `POST /approvals` now matches the agent's
+  `/evaluate` retry (#383). `/evaluate` adds `resource_type` and
+  `resource_id` to the context before it is digested and the issuing view did
+  not, so the retry was denied. Both now fill them in through one function,
+  and the issued approval uses the canonical action name.
+- Captured evidence keeps the UUIDs it names (#404). The passport and
+  drivers_license patterns matched a UUID's first segment about 2% of the
+  time, so a stored policy, endpoint or approval id could stop resolving. PII
+  patterns now skip standalone UUIDs; secret patterns still scan everything.
 - A prompt created or forked in the portal is saved in the caller's tenant
   (#454). Both saved it with no tenant, so it was missing from the list, null
   by id, and "Prompt not found" to the builder's save. The tenant is the

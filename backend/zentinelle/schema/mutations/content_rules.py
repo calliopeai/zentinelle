@@ -10,12 +10,12 @@ from typing import Optional
 import strawberry
 from django.core.exceptions import ValidationError
 from graphql import GraphQLError
-from graphql_relay import from_global_id
 from strawberry.scalars import JSON
 
 from zentinelle.models import AgentEndpoint, ContentRule
 from zentinelle.models.actions import CONTENT_RULE_ACTION_FROM_ENFORCEMENT
 from zentinelle.schema.auth_helpers import get_request_tenant_id
+from zentinelle.schema.global_id import from_global_id
 from zentinelle.services.actions import validate_rule_action
 
 try:

@@ -12,12 +12,12 @@ from typing import Optional
 import strawberry
 from django.utils import timezone
 from graphql import GraphQLError
-from graphql_relay import from_global_id
 from strawberry.scalars import JSON
 
 from zentinelle.models import LegalHold, RetentionPolicy
 from zentinelle.schema.auth_helpers import (get_request_tenant_id,
                                             user_has_org_access)
+from zentinelle.schema.global_id import from_global_id
 
 try:
     from billing.features import Features, require_feature_for_mutation

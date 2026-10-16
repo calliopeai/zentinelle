@@ -5,12 +5,12 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.urls import reverse
-from graphql_relay import to_global_id
 from rest_framework.test import APIClient
 
 from zentinelle.api.auth import ZentinelleServiceUser
 from zentinelle.models import AgentEndpoint
 from zentinelle.schema import schema
+from zentinelle.schema.global_id import to_global_id
 from zentinelle.services.hub_identity import hub_identity_error
 from zentinelle.tests._graphql_helpers import admin_context
 from zentinelle.tests._two_tenants_portal import TENANT_A, make_agent

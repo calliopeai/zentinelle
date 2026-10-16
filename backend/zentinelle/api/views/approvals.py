@@ -13,6 +13,8 @@ from zentinelle.models import AgentEndpoint, ApprovalRequest, AuditLog
 from zentinelle.schema.auth_helpers import get_request_tenant_id
 from zentinelle.services.approvals import (decide_approval_request,
                                            issue_approval, sign_approval)
+from zentinelle.services.boundary_contract import (canonical_action,
+                                                   with_resource_defaults)
 from zentinelle.services.evaluation_context import normalize_context
 from zentinelle.services.policy_engine import PolicyEngine
 
@@ -31,8 +33,11 @@ class ApprovalIssueView(APIView):
         action = request.data.get('action')
         if not isinstance(action, str) or not action:
             return Response({'error': 'Action is required'}, status=400)
+        # Approve the call as /evaluate will see it: the canonical action and
+        # the resource fields it fills in, which the digest covers (#383).
+        action = canonical_action(action)
         try:
-            context = normalize_context(request.data.get('context', {}))
+            context = with_resource_defaults(action, normalize_context(request.data.get('context', {})))
         except (ValueError, TypeError):
             return Response({'error': 'Invalid action context'}, status=400)
         user_id = request.data.get('user_id')

@@ -34,7 +34,7 @@ bury the changes the chain exists to show.
 """
 import logging
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.db import IntegrityError, router, transaction
@@ -57,6 +57,14 @@ DEFAULT_OVERLAP = timedelta(minutes=10)
 MAX_OVERLAP = timedelta(hours=24)
 
 HEARTBEAT_COUNTERS = ('requests', 'blocked', 'agents_seen')
+
+# A cluster's health is that of its worst reporting replica.
+HEALTH_ORDER = ('healthy', 'degraded', 'unhealthy')
+
+# The most gateway replicas a cluster keeps counters for; past it the one
+# heard from longest ago is dropped, so a gateway that sends a new instance
+# on every beat cannot grow the row without bound.
+MAX_HEARTBEAT_INSTANCES = 100
 
 # The longest an agent key minted for an install's task or box lives without
 # a renewal: the operator API's bound (#379).
@@ -514,17 +522,40 @@ def revoke_agent_key(install, agent_id, tenant_id='', request=None):
     return agent
 
 
-def record_heartbeat(credential, cluster_id, health, version='', counters=None):
+def record_heartbeat(credential, cluster_id, health, version='', counters=None, instance=''):
     """Store a gateway's heartbeat on its cluster.
 
     The credential names the gateway, and so the one cluster it may report
     for; the cluster id in the request has to be that one.
+
+    Every replica of the gateway beats for the same cluster with its own
+    running totals, so each is kept under its instance (#398) and the
+    cluster's counters are their sum, its health the worst of theirs. A
+    replica silent for STALE_AFTER no longer counts. A gateway that names no
+    instance is one replica, keyed ''.
     """
     cluster = credential.registration.astrolift_cluster
     if cluster is None or not cluster.is_active or cluster.external_id != cluster_id:
         raise AstroliftError('cluster_not_found', 'This gateway is not registered for that cluster.', status=404)
     now = timezone.now()
     counters = {name: value for name, value in (counters or {}).items() if name in HEARTBEAT_COUNTERS}
-    AstroliftCluster.objects.filter(pk=cluster.pk).update(
-        health=health, gateway_version=version, counters=counters, last_seen_at=now, updated_at=now)
+    with transaction.atomic(using=_using()):
+        # Replicas beat concurrently; the lock keeps one from overwriting
+        # another's entry.
+        locked = AstroliftCluster.objects.select_for_update().get(pk=cluster.pk)
+        cutoff = now - AstroliftCluster.STALE_AFTER
+        instances = {name: entry for name, entry in (locked.instances or {}).items()
+                     if name != instance and datetime.fromisoformat(entry['seen_at']) >= cutoff}
+        if len(instances) >= MAX_HEARTBEAT_INSTANCES:
+            newest = sorted(instances.items(), key=lambda item: datetime.fromisoformat(item[1]['seen_at']))
+            instances = dict(newest[-(MAX_HEARTBEAT_INSTANCES - 1):])
+        instances[instance] = {'health': health, 'counters': counters, 'seen_at': now.isoformat()}
+        totals = {}
+        for entry in instances.values():
+            for name, value in entry['counters'].items():
+                totals[name] = totals.get(name, 0) + value
+        worst = max((entry['health'] for entry in instances.values()), key=HEALTH_ORDER.index)
+        AstroliftCluster.objects.filter(pk=cluster.pk).update(
+            health=worst, gateway_version=version, counters=totals, instances=instances,
+            last_seen_at=now, updated_at=now)
     GatewayCredential.objects.filter(pk=credential.pk).update(last_used_at=now)

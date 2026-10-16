@@ -8,12 +8,12 @@ import uuid
 from typing import Optional
 
 import strawberry
-from graphql_relay import from_global_id
 from strawberry.scalars import JSON
 
 from zentinelle.models import AgentEndpoint
 from zentinelle.models.tenant_config import TenantConfig
 from zentinelle.schema.auth_helpers import get_request_tenant_id
+from zentinelle.schema.global_id import from_global_id
 from zentinelle.schema.types import AgentEndpointType
 
 logger = logging.getLogger(__name__)

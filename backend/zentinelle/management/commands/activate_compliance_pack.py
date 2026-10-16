@@ -5,9 +5,11 @@ Usage:
     python manage.py activate_compliance_pack hipaa --tenant myorg
     python manage.py activate_compliance_pack soc2 --tenant myorg --enforcement audit
     python manage.py activate_compliance_pack gdpr --tenant myorg --dry-run
+    python manage.py activate_compliance_pack soc2 --tenant myorg --action alert
 """
 from django.core.management.base import BaseCommand, CommandError
 
+from zentinelle.models.actions import ACTION_ORDER, BLOCK_LEVEL_ORDER
 from zentinelle.services.compliance_packs import (activate_pack, get_pack,
                                                   list_packs)
 
@@ -34,6 +36,18 @@ class Command(BaseCommand):
             help='Enforcement level for all policies in the pack (default: enforce)',
         )
         parser.add_argument(
+            '--action',
+            default=None,
+            choices=ACTION_ORDER,
+            help='What a match does, for every policy in the pack (default: each policy keeps its own)',
+        )
+        parser.add_argument(
+            '--block-level',
+            default=None,
+            choices=BLOCK_LEVEL_ORDER,
+            help='How far a block reaches, for every policy in the pack',
+        )
+        parser.add_argument(
             '--dry-run',
             action='store_true',
             default=False,
@@ -45,6 +59,7 @@ class Command(BaseCommand):
         tenant_id = options['tenant']
         enforcement = options['enforcement']
         dry_run = options['dry_run']
+        actions = {key: options[key] for key in ('action', 'block_level') if options.get(key)}
 
         # Validate pack exists
         pack = get_pack(pack_name)
@@ -82,6 +97,7 @@ class Command(BaseCommand):
                 tenant_id=tenant_id,
                 pack_name=pack_name,
                 enforcement=enforcement,
+                actions=actions,
             )
         except ValueError as e:
             raise CommandError(str(e))

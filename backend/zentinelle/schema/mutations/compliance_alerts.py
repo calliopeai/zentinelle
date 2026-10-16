@@ -8,10 +8,10 @@ from typing import Optional
 import strawberry
 from django.utils import timezone
 from graphql import GraphQLError
-from graphql_relay import from_global_id
 
 from zentinelle.models import ComplianceAlert
 from zentinelle.schema.auth_helpers import user_has_org_access
+from zentinelle.schema.global_id import from_global_id
 
 
 def _decode_id(global_or_raw_id):

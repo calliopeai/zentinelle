@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("zentinelle", "0070_assign_tenantless_prompts"),
+        ("zentinelle", "0071_astrolift_cluster_instances"),
     ]
 
     operations = [

@@ -352,7 +352,8 @@ class AstroliftClusterHeartbeatView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         try:
-            record_heartbeat(request.auth, cluster_id, data['status'], data['version'], data.get('counters'))
+            record_heartbeat(request.auth, cluster_id, data['status'], data['version'], data.get('counters'),
+                             data['instance'])
         except AstroliftError as error:
             return _refusal(error)
         return Response({
