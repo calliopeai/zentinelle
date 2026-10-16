@@ -24,7 +24,7 @@ import time
 from datetime import datetime
 from datetime import timezone as dt_timezone
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, router, transaction
 from django.db.models import F
 from django.http import JsonResponse
 from django.utils import timezone
@@ -251,6 +251,16 @@ def astrolift_audit_webhook(request):
         except (ValueError, TypeError, KeyError):
             return _error("bad_session_scope", "Session evidence is malformed or outside the integration scope", 400)
 
+    if event_type == "AUDIT.agent.model_spend":
+        # Checked before the marker is claimed. A malformed spend payload fails
+        # the same way on every retry, so it is refused here instead of
+        # surfacing as a 500 the sender redelivers forever.
+        try:
+            _model_spend_fields(envelope["payload"])
+            datetime.fromtimestamp(envelope["occurred_at_unix"], tz=dt_timezone.utc)
+        except (ValueError, TypeError, OverflowError, OSError):
+            return _error("bad_payload", "invalid agent model spend payload", 400)
+
     # The delivery marker and the evidence row live on different database
     # aliases (the router sends AuditLog to `analytics`), so no single atomic
     # block covers both. The marker is claimed first to keep concurrent
@@ -273,7 +283,14 @@ def astrolift_audit_webhook(request):
 
     envelope["payload"]
     try:
-        entry = _write_evidence(request, tenant_id, envelope, event_type, org_id, actor)
+        # AuditLog and UsageMetric share one alias (`analytics`), so the
+        # evidence and the spend it records commit together or not at all. A
+        # failed spend write then leaves no evidence row behind for the retry
+        # to duplicate, and releasing the marker below lets that retry record it.
+        with transaction.atomic(using=router.db_for_write(AuditLog)):
+            entry = _write_evidence(request, tenant_id, envelope, event_type, org_id, actor)
+            if event_type == "AUDIT.agent.model_spend":
+                _record_model_spend(tenant_id, envelope)
         if session_endpoint is not None:
             from zentinelle.services.astrolift_sessions import observe
             observe(tenant_id, envelope, session_endpoint, str(entry.pk))
@@ -287,9 +304,6 @@ def astrolift_audit_webhook(request):
 
     delivery.audit_log_id = entry.id
     delivery.save(update_fields=["audit_log_id"])
-
-    if event_type == "AUDIT.agent.model_spend":
-        _record_model_spend(tenant_id, envelope)
 
     # F() so concurrent deliveries do not clobber each other's count.
     AstroliftIntegration.objects.filter(pk=integration.pk).update(
@@ -332,9 +346,8 @@ def _write_evidence(request, tenant_id, envelope, event_type, org_id, actor):
     )
 
 
-def _record_model_spend(tenant_id, envelope):
-    """Project a verified runner spend event into existing usage rollups."""
-    payload = envelope["payload"]
+def _model_spend_fields(payload):
+    """Return (input_tokens, output_tokens, provider, model) or raise ValueError."""
     input_tokens = payload.get("input_tokens", 0)
     output_tokens = payload.get("output_tokens", 0)
     provider = payload.get("provider", "")
@@ -345,6 +358,13 @@ def _record_model_spend(tenant_id, envelope):
             max(input_tokens, output_tokens) > 10_000_000_000 or
             not isinstance(provider, str) or not isinstance(model, str)):
         raise ValueError("invalid agent model spend payload")
+    return input_tokens, output_tokens, provider, model
+
+
+def _record_model_spend(tenant_id, envelope):
+    """Project a verified runner spend event into existing usage rollups."""
+    payload = envelope["payload"]
+    input_tokens, output_tokens, provider, model = _model_spend_fields(payload)
 
     from zentinelle.models import AgentEndpoint, UsageMetric
     endpoint = None
