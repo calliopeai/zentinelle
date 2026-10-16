@@ -162,7 +162,11 @@ class RegisterView(APIView):
             existing.capabilities = data.get('capabilities', existing.capabilities)
             existing.metadata = metadata
             existing.health = AgentEndpoint.Health.UNKNOWN
-            existing.save()
+            # Named fields only: a full save would write back the status read
+            # before the key was minted, and so undo a suspend that landed
+            # in between.
+            existing.save(update_fields=['name', 'api_key_hash', 'api_key_prefix', 'capabilities',
+                                         'metadata', 'health', 'updated_at'])
 
             endpoint = existing
             created = False

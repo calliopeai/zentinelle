@@ -183,6 +183,19 @@ class ReregisterTests(TwoTenantTestCase):
 
         self.assert_untouched(self.agent_a, self.register(TENANT_A), 'agent_stopped')
 
+    def test_a_suspend_during_the_re_register_stands(self):
+        real_generate = AgentEndpoint.generate_api_key
+
+        def suspend_then_generate():
+            AgentEndpoint.objects.filter(pk=self.agent_a.pk).update(status=AgentEndpoint.Status.SUSPENDED)
+            return real_generate()
+
+        with patch.object(AgentEndpoint, 'generate_api_key', side_effect=suspend_then_generate):
+            self.register(TENANT_A)
+
+        self.agent_a.refresh_from_db()
+        self.assertEqual(self.agent_a.status, AgentEndpoint.Status.SUSPENDED)
+
     def test_a_terminated_agent_stays_terminated(self):
         AgentEndpoint.objects.filter(pk=self.agent_a.pk).update(status=AgentEndpoint.Status.TERMINATED)
         self.agent_a.refresh_from_db()

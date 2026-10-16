@@ -3966,7 +3966,7 @@
       "name": "ReregisterTests",
       "file_path": "backend/zentinelle/tests/test_audit_tenant_isolation.py",
       "line_start": 154,
-      "line_end": 212,
+      "line_end": 225,
       "description": "",
       "metadata": "{}"
     },
@@ -3975,8 +3975,8 @@
       "type": "class",
       "name": "EvaluatorIdentityTests",
       "file_path": "backend/zentinelle/tests/test_audit_tenant_isolation.py",
-      "line_start": 219,
-      "line_end": 307,
+      "line_start": 232,
+      "line_end": 320,
       "description": "",
       "metadata": "{}"
     },
@@ -3985,8 +3985,8 @@
       "type": "class",
       "name": "AssistantProvidersAuthTests",
       "file_path": "backend/zentinelle/tests/test_audit_tenant_isolation.py",
-      "line_start": 315,
-      "line_end": 331,
+      "line_start": 328,
+      "line_end": 344,
       "description": "",
       "metadata": "{}"
     },
@@ -3995,8 +3995,8 @@
       "type": "class",
       "name": "CreateIncidentTenancyTests",
       "file_path": "backend/zentinelle/tests/test_audit_tenant_isolation.py",
-      "line_start": 338,
-      "line_end": 370,
+      "line_start": 351,
+      "line_end": 383,
       "description": "",
       "metadata": "{}"
     },
@@ -4005,8 +4005,8 @@
       "type": "class",
       "name": "ProxyTenancyTests",
       "file_path": "backend/zentinelle/tests/test_audit_tenant_isolation.py",
-      "line_start": 386,
-      "line_end": 500,
+      "line_start": 399,
+      "line_end": 513,
       "description": "",
       "metadata": "{}"
     },
@@ -4015,8 +4015,8 @@
       "type": "class",
       "name": "Recording",
       "file_path": "backend/zentinelle/tests/test_audit_tenant_isolation.py",
-      "line_start": 395,
-      "line_end": 398,
+      "line_start": 408,
+      "line_end": 411,
       "description": "",
       "metadata": "{}"
     },
@@ -17486,7 +17486,7 @@
       "name": "RegisterView",
       "file_path": "backend/zentinelle/api/views/register.py",
       "line_start": 91,
-      "line_end": 253,
+      "line_end": 257,
       "description": "Register a new agent endpoint.\n\n    This is called by agents on startup to register themselves.\n    Returns an API key that must be used for subsequent requests.",
       "metadata": "{}"
     },
