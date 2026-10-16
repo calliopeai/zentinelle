@@ -36,8 +36,9 @@ def _build_audit_log_row(audit_log_id: str) -> dict | None:
         'event_id': str(log.id),
         'event_type': log.action,
         'event_category': 'audit_log',
-        'organization_id': str(log.organization_id),
-        'user_id': str(log.user_id) if log.user_id else None,
+        'organization_id': log.tenant_id,
+        'tenant_id': log.tenant_id,
+        'user_id': log.ext_user_id or None,
         'agent_id': None,
         'action': log.action,
         'resource_type': log.resource_type,
@@ -74,7 +75,8 @@ def _build_event_row(event_id: str) -> dict | None:
         'event_id': str(event.id),
         'event_type': event.event_type,
         'event_category': 'agent_event',
-        'organization_id': str(event.organization_id),
+        'organization_id': event.tenant_id,
+        'tenant_id': event.tenant_id,
         'user_id': None,
         'agent_id': agent_id,
         'action': event.event_type,
@@ -191,7 +193,7 @@ def backfill_clickhouse(
     # Backfill AuditLog records
     audit_qs = AuditLog.objects.filter(timestamp__gte=since)
     if organization_id:
-        audit_qs = audit_qs.filter(organization_id=organization_id)
+        audit_qs = audit_qs.filter(tenant_id=organization_id)
 
     audit_count = 0
     batch = []
@@ -200,8 +202,9 @@ def backfill_clickhouse(
             'event_id': str(log.id),
             'event_type': log.action,
             'event_category': 'audit_log',
-            'organization_id': str(log.organization_id),
-            'user_id': str(log.user_id) if log.user_id else None,
+            'organization_id': log.tenant_id,
+            'tenant_id': log.tenant_id,
+            'user_id': log.ext_user_id or None,
             'agent_id': None,
             'action': log.action,
             'resource_type': log.resource_type,
@@ -229,7 +232,7 @@ def backfill_clickhouse(
     # Backfill Event records
     event_qs = Event.objects.filter(occurred_at__gte=since).select_related('endpoint')
     if organization_id:
-        event_qs = event_qs.filter(organization_id=organization_id)
+        event_qs = event_qs.filter(tenant_id=organization_id)
 
     event_count = 0
     batch = []
@@ -242,7 +245,8 @@ def backfill_clickhouse(
             'event_id': str(event.id),
             'event_type': event.event_type,
             'event_category': 'agent_event',
-            'organization_id': str(event.organization_id),
+            'organization_id': event.tenant_id,
+            'tenant_id': event.tenant_id,
             'user_id': None,
             'agent_id': agent_id,
             'action': event.event_type,

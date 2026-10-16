@@ -223,12 +223,26 @@ class AgentEndpoint(Tracking):
         self.save(update_fields=['api_key_hash', 'api_key_prefix', 'updated_at'])
         return full_key
 
-    def update_heartbeat(self, health: str = None):
-        """Update last heartbeat timestamp and optionally health status."""
-        self.last_heartbeat = timezone.now()
-        if health and health in self.Health.values:
-            self.health = health
-        self.save(update_fields=['last_heartbeat', 'health', 'updated_at'])
+    def update_heartbeat(self, health: str = None, at=None):
+        """Record a heartbeat sent at `at` (default now), and optionally its health.
+
+        A heartbeat no newer than the one on record changes nothing, and one
+        already past the health threshold moves the timestamp but not the
+        health: a delayed heartbeat must not mark a dead agent healthy. The
+        update is conditional in SQL so a slow writer cannot move the
+        timestamp backwards past a concurrent newer one.
+        """
+        at = at or timezone.now()
+        fields = {'last_heartbeat': at, 'updated_at': timezone.now()}
+        if health and health in self.Health.values and \
+                at >= timezone.now() - timezone.timedelta(minutes=5):
+            fields['health'] = health
+        updated = type(self).objects.filter(pk=self.pk).filter(
+            models.Q(last_heartbeat__isnull=True) | models.Q(last_heartbeat__lt=at),
+        ).update(**fields)
+        if updated:
+            for name, value in fields.items():
+                setattr(self, name, value)
 
     def is_healthy(self, threshold_minutes: int = 5) -> bool:
         """Check if endpoint has sent a heartbeat recently."""

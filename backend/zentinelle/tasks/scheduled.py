@@ -22,16 +22,19 @@ def check_endpoint_health():
     within the threshold period.
     """
     from zentinelle.models import AgentEndpoint, Event
+    from zentinelle.tasks.events import process_event_batch
 
     threshold_minutes = 5
     threshold = timezone.now() - timedelta(minutes=threshold_minutes)
 
-    # Find endpoints that should be healthy but haven't sent heartbeat
-    unhealthy_endpoints = AgentEndpoint.objects.filter(
+    # Find endpoints that should be healthy but haven't sent heartbeat. A list,
+    # not a queryset: counting the queryset after the loop re-runs the filter
+    # against rows it just changed, which always counted 0.
+    unhealthy_endpoints = list(AgentEndpoint.objects.filter(
         status=AgentEndpoint.Status.ACTIVE,
         health__in=[AgentEndpoint.Health.HEALTHY, AgentEndpoint.Health.DEGRADED],
         last_heartbeat__lt=threshold,
-    )
+    ))
 
     for endpoint in unhealthy_endpoints:
         logger.warning(f"Endpoint {endpoint.agent_id} is unhealthy - no heartbeat since {endpoint.last_heartbeat}")
@@ -40,8 +43,9 @@ def check_endpoint_health():
         endpoint.health = AgentEndpoint.Health.UNHEALTHY
         endpoint.save(update_fields=['health', 'updated_at'])
 
-        # Create alert event
-        Event.objects.create(
+        # Create alert event, and queue it so the alert goes out now rather
+        # than when the stale-pending sweep finds it.
+        event = Event.objects.create(
             tenant_id=endpoint.tenant_id,
             endpoint=endpoint,
             deployment_id_ext=endpoint.deployment_id_ext,
@@ -55,13 +59,15 @@ def check_endpoint_health():
             occurred_at=timezone.now(),
             status=Event.Status.PENDING,
         )
+        start_task(process_event_batch, [str(event.id)], Event.Category.ALERT,
+                   workflow_id=str(event.id), wait=False)
 
     # Also check for endpoints that were unhealthy but are now healthy
-    recovered_endpoints = AgentEndpoint.objects.filter(
+    recovered_endpoints = list(AgentEndpoint.objects.filter(
         status=AgentEndpoint.Status.ACTIVE,
         health=AgentEndpoint.Health.UNHEALTHY,
         last_heartbeat__gte=threshold,
-    )
+    ))
 
     for endpoint in recovered_endpoints:
         logger.info(f"Endpoint {endpoint.agent_id} has recovered")
@@ -69,8 +75,8 @@ def check_endpoint_health():
         endpoint.save(update_fields=['health', 'updated_at'])
 
     return {
-        'unhealthy_count': unhealthy_endpoints.count(),
-        'recovered_count': recovered_endpoints.count(),
+        'unhealthy_count': len(unhealthy_endpoints),
+        'recovered_count': len(recovered_endpoints),
     }
 
 
@@ -95,8 +101,13 @@ def sync_deployment_health():
     """
     import asyncio
 
-    from deployments.models import Deployment
-    from deployments.services.deployment_manager import get_deployment_manager
+    try:
+        from deployments.models import Deployment
+        from deployments.services.deployment_manager import \
+            get_deployment_manager
+    except ImportError:
+        logger.info("Managed-only task skipped in standalone mode")
+        return
 
     manager = get_deployment_manager()
 

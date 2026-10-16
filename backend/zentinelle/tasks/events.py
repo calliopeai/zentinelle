@@ -64,11 +64,12 @@ def _process_single_event(event):
 
     event_type = event.event_type
 
-    # Heartbeat events - update endpoint health
+    # Heartbeat events - update endpoint health, as of when the heartbeat was
+    # sent (never later than its arrival): a delayed event is not a live agent.
     if event_type == Event.EventType.HEARTBEAT:
         if event.endpoint:
             health = event.payload.get('status', AgentEndpoint.Health.HEALTHY)
-            event.endpoint.update_heartbeat(health=health)
+            event.endpoint.update_heartbeat(health=health, at=min(event.occurred_at, event.received_at))
 
     # Usage events, under every producer's name. A failure here must fail the
     # event: swallowing it marked the usage processed and lost it.
@@ -96,16 +97,38 @@ def _process_single_event(event):
         )
 
 
-def _send_alert(event):
-    """Send alert notification."""
-    from zentinelle.services.alert_service import AlertService
+# Severity each alert event is dispatched at; NotificationConfig
+# trigger_severities filters on it.
+ALERT_SEVERITY = {
+    'policy_violation': 'high',
+    'budget_exceeded': 'high',
+    'endpoint_unhealthy': 'medium',
+}
 
-    try:
-        alert_service = AlertService()
-        alert_service.send_alert(event)
-    except Exception as e:
-        logger.warning(f"Failed to send alert: {e}")
-        # Don't fail the event processing for alert failures
+
+def _send_alert(event):
+    """Send an alert event to the tenant's configured webhook and Slack channels.
+
+    This is the one place alert events notify, whichever path stored them
+    (REST ingest, /evaluate, the health check). A delivery failure is logged
+    per channel by the dispatcher; anything else fails the event so it is
+    retried rather than marked processed with nobody told.
+    """
+    from zentinelle.services.webhook_dispatcher import dispatch_webhook
+
+    if not event.tenant_id:
+        return
+    dispatch_webhook(
+        tenant_id=event.tenant_id,
+        event_type=event.event_type,
+        severity=ALERT_SEVERITY[event.event_type],
+        payload={
+            **(event.payload or {}),
+            'event_id': str(event.id),
+            'agent_id': event.endpoint.agent_id if event.endpoint else '',
+            'occurred_at': event.occurred_at.isoformat(),
+        },
+    )
 
 
 @task
