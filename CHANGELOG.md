@@ -155,6 +155,10 @@ Notable changes to Zentinelle. The format follows
   coverage is not computed yet. The Compliance cards link only to frameworks
   with a detail page, which SOC 2 Type II and NIST AI RMF now reach, so none
   opens "Framework not found".
+- Dead links in the console (#446). The governance page's Audit card opens
+  the audit log; the notification bell opens an incident on the incidents
+  list (`/incidents?incident=<id>`) and a budget warning on budget showback;
+  breadcrumb sections that are not pages show as text.
 
 ### Security
 
