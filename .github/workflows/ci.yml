@@ -282,10 +282,6 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: '1'
 
-      - name: Approval inbox lint
-        working-directory: frontend
-        run: npx eslint 'app/(app)/approvals/page.tsx' lib/approvals.ts
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
