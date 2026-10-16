@@ -233,8 +233,8 @@ class Mutation:
 
     # Platform API Keys
     @strawberry.mutation
-    def create_platform_api_key(self, info: strawberry.types.Info, name: str, scopes: list[str] = None) -> m.CreatePlatformAPIKeyPayload:
-        return m.create_platform_api_key(info, name, scopes)
+    def create_platform_api_key(self, info: strawberry.types.Info, name: str, scopes: Optional[list[str]] = None) -> m.CreatePlatformAPIKeyPayload:
+        return m.create_platform_api_key(info, name, scopes=scopes)
 
     @strawberry.mutation
     def revoke_api_key(self, info: strawberry.types.Info, id: strawberry.ID) -> m.RevokeAPIKeyPayload:

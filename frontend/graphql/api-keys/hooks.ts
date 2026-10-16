@@ -16,7 +16,7 @@ export interface ApiKeyData {
   lastUsedAt?: string;
   expiresAt?: string;
   createdAt: string;
-  createdBy?: string;
+  createdByUsername?: string;
 }
 
 export function useApiKeys(args?: { search?: string; status?: string }) {
