@@ -1,12 +1,12 @@
 """Transactional staging and application of runtime settings."""
-from django.db import transaction
+from django.db import router, transaction
 
 from zentinelle.models import (RuntimeSettingsChange, RuntimeSettingsRevision,
                                TenantConfig)
 
 
 def apply_change(change_id, tenant_id, *, actor=''):
-    with transaction.atomic():
+    with transaction.atomic(using=router.db_for_write(RuntimeSettingsChange)):
         change = RuntimeSettingsChange.objects.select_for_update().get(id=change_id, tenant_id=tenant_id)
         if change.status != RuntimeSettingsChange.Status.APPROVED:
             raise ValueError('Only approved runtime settings changes can be applied')

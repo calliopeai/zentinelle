@@ -43,18 +43,21 @@ const editPolicySchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(255),
   description: z.string().optional(),
   enforcement: z.string().optional(),
-  config: z.string().optional().refine(
-    (val) => {
-      if (!val || val.trim() === "") return true;
-      try {
-        JSON.parse(val);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    { message: "Config must be valid JSON" }
-  ),
+  config: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val.trim() === "") return true;
+        try {
+          JSON.parse(val);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "Config must be valid JSON" },
+    ),
   enabled: z.boolean(),
   priority: z.number().int().min(0).max(1000),
 });
@@ -154,14 +157,19 @@ export function EditPolicyDialog({
         <DialogHeader>
           <DialogTitle>Edit Policy</DialogTitle>
           <DialogDescription>
-            Update the policy configuration. Type and scope cannot be changed after creation.
+            Update the policy configuration. Type and scope cannot be changed
+            after creation.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="edit-name">Name *</Label>
-            <Input id="edit-name" {...register("name")} aria-invalid={!!errors.name} />
+            <Input
+              id="edit-name"
+              {...register("name")}
+              aria-invalid={!!errors.name}
+            />
             {errors.name && (
               <p className="text-destructive text-sm">{errors.name.message}</p>
             )}
@@ -169,7 +177,11 @@ export function EditPolicyDialog({
 
           <div className="space-y-2">
             <Label htmlFor="edit-description">Description</Label>
-            <Textarea id="edit-description" {...register("description")} rows={2} />
+            <Textarea
+              id="edit-description"
+              {...register("description")}
+              rows={2}
+            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -206,7 +218,9 @@ export function EditPolicyDialog({
                 aria-invalid={!!errors.priority}
               />
               {errors.priority && (
-                <p className="text-destructive text-sm">{errors.priority.message}</p>
+                <p className="text-destructive text-sm">
+                  {errors.priority.message}
+                </p>
               )}
             </div>
           </div>
@@ -223,7 +237,9 @@ export function EditPolicyDialog({
               aria-invalid={!!errors.config}
             />
             {errors.config && (
-              <p className="text-destructive text-sm">{errors.config.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.config.message}
+              </p>
             )}
           </div>
 
@@ -243,11 +259,17 @@ export function EditPolicyDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting && (
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Save Changes
             </Button>
           </DialogFooter>

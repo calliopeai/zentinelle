@@ -14,6 +14,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
+from zentinelle.api.views.config import config_cache_key
 from zentinelle.auth.resolver import StandaloneTenantResolver
 from zentinelle.models import AgentEndpoint, Event
 from zentinelle.temporal.client import start_task
@@ -21,7 +22,6 @@ from zentinelle.temporal.client import start_task
 logger = logging.getLogger(__name__)
 
 # Cache key templates — must match what other services write.
-_CONFIG_CACHE_KEY = "zentinelle:config:{agent_id}"
 _BASELINE_CACHE_KEY = "baseline:{tenant_id}:{agent_id}"
 
 
@@ -105,7 +105,7 @@ class DeregisterView(View):
     def _purge_agent_cache(self, agent_id: str, tenant_id: str) -> None:
         """Delete per-agent Redis cache entries."""
         keys_to_delete = [
-            _CONFIG_CACHE_KEY.format(agent_id=agent_id),
+            config_cache_key(tenant_id, agent_id),
             _BASELINE_CACHE_KEY.format(tenant_id=tenant_id, agent_id=agent_id),
         ]
         for key in keys_to_delete:

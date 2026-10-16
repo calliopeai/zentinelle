@@ -19,7 +19,9 @@ export const DataTableColumnHeader = <TData extends RowData, TValue>({
 
   if (!canSort) {
     return (
-      <span className="text-foreground flex h-8 items-center text-sm font-medium">{title}</span>
+      <span className="text-foreground flex h-8 items-center text-sm font-medium">
+        {title}
+      </span>
     );
   }
 

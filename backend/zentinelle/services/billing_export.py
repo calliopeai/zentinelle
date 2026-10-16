@@ -36,7 +36,8 @@ import logging
 
 import httpx
 from django.conf import settings
-from django.db import transaction
+from django.db import router, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -96,6 +97,17 @@ def _event_id(tenant_id: str, request_id: str, provider: str, model: str,
     return hashlib.sha256('|'.join(parts).encode('utf-8')).hexdigest()
 
 
+def _call_key(metric):
+    """The fields that make one call, and so one `event_id`."""
+    return (
+        metric.tenant_id,
+        metric.ai_request_id,
+        metric.ai_provider,
+        metric.ai_model,
+        metric.occurred_at,
+    )
+
+
 def collect_pending(limit: int = DEFAULT_BATCH_SIZE):
     """Group unexported token metrics into `AIUsage`-shaped rows.
 
@@ -107,30 +119,43 @@ def collect_pending(limit: int = DEFAULT_BATCH_SIZE):
     immediately: rows are only marked exported once the receiver has accepted
     them, so a failed POST leaves them to be retried rather than silently
     dropping a customer's usage.
+
+    `limit` is a soft cap. A call's metrics share one `occurred_at`, so a cut
+    at `limit` can only split calls at the last timestamp in the batch. The
+    rest of every call already in the batch is pulled in as well; otherwise it
+    would go out in the next batch under the same `event_id`, and a receiver
+    that dedupes on it would drop those tokens. Only those calls are completed,
+    not every metric at that timestamp: `occurred_at` comes from the client, and
+    one timestamp shared by many calls must not grow a batch without bound. So
+    a batch never carries more than `limit` calls.
     """
     from zentinelle.models.usage import UsageMetric
 
-    metrics = list(
-        UsageMetric.objects
-        .filter(
-            metric_type__in=_TOKEN_METRICS.keys(),
-            billing_exported_at__isnull=True,
-        )
-        .order_by('occurred_at')[:limit]
+    pending = UsageMetric.objects.filter(
+        metric_type__in=_TOKEN_METRICS.keys(),
+        billing_exported_at__isnull=True,
     )
+    metrics = list(pending.order_by('occurred_at', 'id')[:limit])
+    if metrics and len(metrics) == limit:
+        boundary = metrics[-1].occurred_at
+        started = {_call_key(m) for m in metrics if m.occurred_at == boundary}
+        same_call = Q()
+        for tenant_id, request_id, provider, model, _ in started:
+            same_call |= Q(tenant_id=tenant_id, ai_request_id=request_id,
+                           ai_provider=provider, ai_model=model)
+        taken = {metric.id for metric in metrics}
+        metrics.extend(
+            metric for metric in pending.filter(same_call, occurred_at=boundary)
+            .order_by('id')
+            if metric.id not in taken
+        )
 
     grouped = {}
     metric_ids = []
 
     for metric in metrics:
         metric_ids.append(metric.id)
-        key = (
-            metric.tenant_id,
-            metric.ai_request_id,
-            metric.ai_provider,
-            metric.ai_model,
-            metric.occurred_at,
-        )
+        key = _call_key(metric)
         row = grouped.get(key)
         if row is None:
             row = {
@@ -223,7 +248,7 @@ def export_pending(limit: int = DEFAULT_BATCH_SIZE,
     from zentinelle.models.usage import UsageMetric
 
     now = timezone.now()
-    with transaction.atomic():
+    with transaction.atomic(using=router.db_for_write(UsageMetric)):
         UsageMetric.objects.filter(id__in=metric_ids).update(
             billing_exported_at=now
         )

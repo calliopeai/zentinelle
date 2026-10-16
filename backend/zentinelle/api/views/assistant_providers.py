@@ -13,9 +13,10 @@ import os
 
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
-from django.views import View
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework.views import APIView
 
+from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.auth.mode import is_open_mode
 from zentinelle.services.llm_provider import OPENAI_COMPAT_PROVIDERS
 
@@ -90,8 +91,13 @@ def _has_credentials(provider: str, tenant_id: str = None,
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class AssistantProvidersView(View):
+class AssistantProvidersView(APIView):
     """List providers + their available chat models from the AIModel registry."""
+
+    # A portal page's read. Anonymous callers were answered from a shared
+    # 'default' tenant and could start live discovery against provider APIs.
+    permission_classes = [PortalAccess]
+    authentication_classes = PORTAL_AUTH
 
     def get(self, request):
         from zentinelle.models import AIModel
@@ -103,7 +109,7 @@ class AssistantProvidersView(View):
         if not tenant_id and is_open_mode():
             tenant_id = '00000000-0000-0000-0000-000000000001'
         if not tenant_id:
-            tenant_id = 'default'
+            return JsonResponse({'error': 'Tenant required'}, status=403)
 
         from zentinelle.models import TenantConfig
         runtime = TenantConfig.objects.filter(tenant_id=tenant_id).values_list('settings', flat=True).first() or {}

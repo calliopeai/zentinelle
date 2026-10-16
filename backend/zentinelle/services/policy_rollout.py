@@ -1,5 +1,5 @@
 """Transactional promotion checks for staged policy change sets."""
-from django.db import transaction
+from django.db import router, transaction
 
 from zentinelle.models import (Policy, PolicyChangeAcknowledgement,
                                PolicyChangeSet)
@@ -38,9 +38,15 @@ def _snapshot(policy):
     }
 
 
-@transaction.atomic
 def promote_change_set(change_id, tenant_id, actor=''):
     """Apply an approved change set only if all base versions still match."""
+    # The models' own database: an atomic block on another alias leaves
+    # select_for_update outside any transaction.
+    with transaction.atomic(using=router.db_for_write(PolicyChangeSet)):
+        return _promote_change_set(change_id, tenant_id, actor)
+
+
+def _promote_change_set(change_id, tenant_id, actor):
     change = PolicyChangeSet.objects.select_for_update().get(
         id=change_id, tenant_id=tenant_id,
     )
@@ -109,9 +115,13 @@ def promote_change_set(change_id, tenant_id, actor=''):
     return change
 
 
-@transaction.atomic
 def rollback_change_set(change_id, tenant_id, actor=''):
     """Restore pre-promotion fields for a promoted change set."""
+    with transaction.atomic(using=router.db_for_write(PolicyChangeSet)):
+        return _rollback_change_set(change_id, tenant_id, actor)
+
+
+def _rollback_change_set(change_id, tenant_id, actor):
     change = PolicyChangeSet.objects.select_for_update().get(
         id=change_id, tenant_id=tenant_id,
     )

@@ -51,7 +51,11 @@ docker run -p 8742:8742 \
 4. If allowed, gateway resolves the provider key (see below), drops any
    credential the client sent, injects the key and forwards the request
 5. Response is streamed back to agent (SSE-aware, chunk-by-chunk)
-6. After response completes, usage data is reported async to Zentinelle `/api/zentinelle/v1/events`
+6. After the response, usage is reported async to Zentinelle `/api/zentinelle/v1/events`, one
+   `llm:usage` event per call that reached the provider, including calls the output filter
+   withheld or the client abandoned. The event carries an `event_id`, so a retried report is
+   deduplicated. The gateway asks providers for `Accept-Encoding: identity` so it can read
+   what it meters and filters.
 
 ## Provider Keys
 
@@ -167,17 +171,47 @@ more until its credential file changes, which is what Astrolift registering or
 adopting the gateway does. No redirect is followed, and no log line holds a
 credential or an agent key.
 
+## Control Plane Passthrough
+
+An agent whose egress is the gateway alone still has to reach the Astrolift
+control plane for its keepalive. With `ASTROLIFT_CONTROL_PLANE_URL` set, the
+gateway passes exactly these routes straight through to it, with no policy check,
+provider-key lookup or metering, so a degraded Zentinelle does not make a live
+agent look like an outage:
+
+| Route | Caller |
+|-------|--------|
+| `POST /api/dispatch/v1/agents/<task id>/callback/` | The agent runner's state heartbeat and its event stream |
+| `POST /api/clusters/v1/<cluster id>/heartbeat/` | The keep-alive agent's cluster heartbeat |
+| `POST /api/clusters/v1/<cluster id>/model-test-result/` | The keep-alive agent's model test result, derived from its `HEARTBEAT_URL` |
+
+It is not an open proxy. Only `POST` with `Authorization: Bearer ...` is
+passed, and the control plane authenticates that key. Each id is one plain
+path segment (letters, digits, `-`, `_`); the query is dropped. Only
+`Authorization` and `Content-Type` are sent on, never `X-Zentinelle-Key`, and
+only the status, `Content-Type` and body come back. No redirect is followed.
+These calls are not counted in `requests` or the metrics. Unset, the routes
+are refused like any other unknown path.
+
 ## Route Detection
 
 | Path | Provider | Upstream |
 |------|----------|----------|
 | `/v1/chat/completions` | openai | api.openai.com |
 | `/v1/completions` | openai | api.openai.com |
-| `/v1/models` | openai | api.openai.com |
 | `/v1/messages` | anthropic | api.anthropic.com |
 | `/v1beta/models/*` | google | generativelanguage.googleapis.com |
 | `/proxy/{provider}/*` | explicit | per provider |
 | `/health` | - | health check |
+
+Only `POST` to an inference route is forwarded; anything else is `403
+path_not_allowed`, because files, batches, fine-tunes and vector stores would
+run on the tenant's key while policy sees no request body. The routes:
+
+- OpenAI: `/v1/chat/completions`, `/v1/completions`, `/v1/responses`, `/v1/embeddings`
+- Anthropic: `/v1/messages`, `/v1/messages/count_tokens`, `/v1/complete`
+- Google: `/v1(beta)/models/<model>:` with `generateContent`,
+  `streamGenerateContent`, `countTokens`, `embedContent` or `batchEmbedContents`
 
 ## Environment Variables
 
@@ -187,7 +221,8 @@ credential or an agent key.
 |------|---------|
 | `/health` | Liveness, and which providers have env keys the gateway will use (empty unless `ALLOW_ENV_PROVIDER_KEYS=true`) |
 | `/metrics` | Prometheus text format. No authentication — scrape it from inside the cluster, not from the internet |
-| everything else | Proxied to the provider the path selects |
+| `/api/dispatch/v1/agents/<id>/callback/`, `/api/clusters/v1/<id>/heartbeat/`, `/api/clusters/v1/<id>/model-test-result/` | Passed to the control plane when `ASTROLIFT_CONTROL_PLANE_URL` is set. See [Control Plane Passthrough](#control-plane-passthrough) |
+| an inference route | Proxied to the provider the path selects (see Route Detection) |
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -203,6 +238,7 @@ credential or an agent key.
 | `ZENTINELLE_TENANT_ID` | - | Tenant this gateway speaks for; sent as `X-Zentinelle-Tenant`. Omit for a single-tenant deployment |
 | `ZENTINELLE_CLUSTER_ID` | - | Cluster this gateway speaks for; sent as `X-Zentinelle-Cluster`, and the Astrolift cluster its heartbeat reports on. Omit for a single-cluster deployment |
 | `HEARTBEAT_INTERVAL_SECONDS` | `60` | Seconds between cluster heartbeats until Zentinelle's answer names its own interval, which then wins. `0` turns heartbeats off; otherwise 10 to 3600. See [Cluster Heartbeat](#cluster-heartbeat) |
+| `ASTROLIFT_CONTROL_PLANE_URL` | - | Astrolift control plane (`https://host[:port]`, no path) that agent heartbeats and events are passed through to. Unset turns the passthrough off. See [Control Plane Passthrough](#control-plane-passthrough) |
 | `LOG_INTERACTIONS` | `false` | Send the prompt and completion to Zentinelle after each request, so they appear as reasoning traces. Set `false` where prompt text must not leave the cluster. An unparseable value is treated as `false` |
 | `FAIL_OPEN` | `false` | Policy/authentication failures deny access; `true` is rejected |
 | `POLICY_TIMEOUT_MS` | `2000` | Max time (ms) to wait for the policy check, and for the provider-key lookup |
@@ -253,7 +289,7 @@ go test -v ./...
 
 - **Zero external dependencies** -- net/http, encoding/json, io, sync, log only
 - **Streaming first** -- http.Flusher for SSE, chunk-by-chunk forwarding
-- **Non-blocking usage** -- goroutine, fire-and-forget
+- **Non-blocking usage** -- goroutine, retried on 5xx/429/no answer, drained on shutdown
 - **Graceful shutdown** -- SIGTERM/SIGINT, drain connections
 - **Structured logging** -- JSON to stderr
 - **Request tracing** -- UUID per request, forwarded as X-Request-ID

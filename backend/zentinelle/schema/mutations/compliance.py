@@ -9,6 +9,8 @@ from typing import Optional
 
 import strawberry
 
+from zentinelle.schema.auth_helpers import require_request_tenant_id
+
 try:
     from billing.features import Features, require_feature_for_mutation
 except ImportError:
@@ -54,18 +56,14 @@ def run_compliance_check(info: strawberry.types.Info, framework_id: Optional[str
         return RunComplianceCheckPayload(success=False, errors=['Authentication required'])
 
     user = info.context.request.user
-    membership = user.memberships.filter(is_active=True).first()
-    if not membership:
-        return RunComplianceCheckPayload(success=False, errors=['No active organization membership'])
-
-    org = membership.organization
+    tenant_id = require_request_tenant_id(user)
 
     if async_mode:
         from zentinelle.tasks.compliance import run_compliance_check_task
         from zentinelle.temporal.client import start_task
         check_id = start_task(
             run_compliance_check_task,
-            organization_id=str(org.id),
+            organization_id=tenant_id,
             framework_id=framework_id,
             user_id=str(user.id),
             assessment_type='manual',
@@ -75,7 +73,7 @@ def run_compliance_check(info: strawberry.types.Info, framework_id: Optional[str
         from zentinelle.tasks.compliance import run_compliance_check_task
         try:
             assessment_id = run_compliance_check_task(
-                organization_id=str(org.id),
+                organization_id=tenant_id,
                 framework_id=framework_id,
                 user_id=str(user.id),
                 assessment_type='manual',
@@ -90,11 +88,7 @@ def generate_compliance_report(info: strawberry.types.Info, framework: Optional[
         return GenerateComplianceReportPayload(success=False, errors=['Authentication required'])
 
     user = info.context.request.user
-    membership = user.memberships.filter(is_active=True).first()
-    if not membership:
-        return GenerateComplianceReportPayload(success=False, errors=['No active organization membership'])
-
-    org = membership.organization
+    tenant_id = require_request_tenant_id(user)
 
     report_url = '/api/zentinelle/v1/export/summary.json'
     params = []
@@ -110,7 +104,7 @@ def generate_compliance_report(info: strawberry.types.Info, framework: Optional[
     try:
         start_task(
             run_compliance_check_task,
-            organization_id=str(org.id),
+            organization_id=tenant_id,
             framework_id=framework,
             user_id=str(user.id),
             assessment_type='manual',
@@ -130,7 +124,6 @@ def toggle_framework(info: strawberry.types.Info, framework_id: strawberry.ID, e
         return ToggleFrameworkPayload(framework=None, errors=['Authentication required'])
 
     from zentinelle.models import ComplianceFrameworkConfig
-    from zentinelle.schema.auth_helpers import require_request_tenant_id
     tenant_id = require_request_tenant_id(info.context.request.user)
 
     config, _ = ComplianceFrameworkConfig.objects.update_or_create(

@@ -2,7 +2,6 @@
 
 import { authenticatedFetch } from "@/lib/auth/fetch";
 
-
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronDownIcon,
@@ -32,8 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { PolicyData } from "@/graphql/policies/types";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
 
 /* ── Types ───────────────────────────────────────────────────────── */
 
@@ -80,9 +78,11 @@ function formatJSON(value: unknown): string {
   }
 }
 
-function isConfigSubDiff(
-  v: unknown,
-): v is { added?: Record<string, unknown>; removed?: Record<string, unknown>; changed?: Record<string, unknown> } {
+function isConfigSubDiff(v: unknown): v is {
+  added?: Record<string, unknown>;
+  removed?: Record<string, unknown>;
+  changed?: Record<string, unknown>;
+} {
   return (
     typeof v === "object" &&
     v !== null &&
@@ -146,10 +146,13 @@ function HistoryDialogBody({ policy }: { policy: PolicyData }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await authenticatedFetch(`${API_URL}/policies/${policyId}/history/`, {
-        credentials: "include",
-        headers: { Accept: "application/json" },
-      });
+      const res = await authenticatedFetch(
+        `${API_URL}/policies/${policyId}/history/`,
+        {
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        },
+      );
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         throw new Error(
@@ -232,186 +235,177 @@ function HistoryDialogBody({ policy }: { policy: PolicyData }) {
 
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-hidden p-6">
-          {/* Toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-muted-foreground text-xs">
-              {versions.length > 0
-                ? `${versions.length} version${versions.length === 1 ? "" : "s"}`
-                : null}
-              {selected.size > 0 && (
-                <span className="ml-2">
-                  · Selected:{" "}
-                  <span className="text-foreground font-medium tabular-nums">
-                    {selectedVersions.map((v) => `v${v}`).join(" → ")}
-                  </span>
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={loadHistory}
-                disabled={loading}
-              >
-                <RefreshCwIcon
-                  className={cn(
-                    "mr-1.5 h-3.5 w-3.5",
-                    loading && "animate-spin",
-                  )}
-                />
-                Refresh
-              </Button>
-              <Button
-                size="sm"
-                onClick={runDiff}
-                disabled={!compareEnabled || diffLoading}
-              >
-                {diffLoading ? (
-                  <Loader2Icon className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <GitCompareArrowsIcon className="mr-1.5 h-3.5 w-3.5" />
-                )}
-                Compare {compareEnabled ? "selected" : "(pick 2)"}
-              </Button>
-            </div>
-          </div>
-
-          {/* Diff result */}
-          {diffError && (
-            <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
-              {diffError}
-            </div>
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-muted-foreground text-xs">
+          {versions.length > 0
+            ? `${versions.length} version${versions.length === 1 ? "" : "s"}`
+            : null}
+          {selected.size > 0 && (
+            <span className="ml-2">
+              · Selected:{" "}
+              <span className="text-foreground font-medium tabular-nums">
+                {selectedVersions.map((v) => `v${v}`).join(" → ")}
+              </span>
+            </span>
           )}
-          {diff && <DiffView diff={diff} />}
-
-          {/* History table */}
-          <div className="min-h-0 flex-1 overflow-auto rounded-md border">
-            {error ? (
-              <div className="text-muted-foreground p-6 text-center text-sm">
-                <span className="text-red-600 dark:text-red-400">
-                  {error}
-                </span>
-              </div>
-            ) : loading ? (
-              <div className="text-muted-foreground flex items-center justify-center gap-2 p-10 text-sm">
-                <Loader2Icon className="h-4 w-4 animate-spin" />
-                Loading history…
-              </div>
-            ) : versions.length === 0 ? (
-              <div className="text-muted-foreground p-10 text-center text-sm">
-                No history recorded for this policy yet. Future edits will
-                appear here.
-              </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={loadHistory}
+            disabled={loading}
+          >
+            <RefreshCwIcon
+              className={cn("mr-1.5 h-3.5 w-3.5", loading && "animate-spin")}
+            />
+            Refresh
+          </Button>
+          <Button
+            size="sm"
+            onClick={runDiff}
+            disabled={!compareEnabled || diffLoading}
+          >
+            {diffLoading ? (
+              <Loader2Icon className="mr-1.5 h-3.5 w-3.5 animate-spin" />
             ) : (
-              <Table>
-                <TableHeader className="bg-muted/40 sticky top-0 z-10">
-                  <TableRow>
-                    <TableHead className="w-[44px]" />
-                    <TableHead className="w-[40px]">Pick</TableHead>
-                    <TableHead>Version</TableHead>
-                    <TableHead>When</TableHead>
-                    <TableHead>Author</TableHead>
-                    <TableHead>Change</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {versions.map((v) => {
-                    const isExpanded = expanded === v.version;
-                    const isSelected = selected.has(v.version);
-                    return (
-                      <Fragment key={v.version}>
-                        <TableRow
-                          data-state={isSelected ? "selected" : undefined}
-                          className={cn(
-                            "cursor-pointer",
-                            isSelected && "bg-primary/5",
-                          )}
-                          onClick={() =>
-                            setExpanded(isExpanded ? null : v.version)
-                          }
-                        >
-                          <TableCell className="pl-3">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setExpanded(isExpanded ? null : v.version);
-                              }}
-                              aria-label={isExpanded ? "Collapse" : "Expand"}
-                            >
-                              {isExpanded ? (
-                                <ChevronDownIcon className="h-3.5 w-3.5" />
-                              ) : (
-                                <ChevronRightIcon className="h-3.5 w-3.5" />
-                              )}
-                            </Button>
-                          </TableCell>
-                          <TableCell onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              className="border-input text-primary focus-visible:ring-ring h-4 w-4 cursor-pointer rounded border bg-transparent focus:outline-none focus-visible:ring-2"
-                              checked={isSelected}
-                              onChange={() => toggleSelected(v.version)}
-                              aria-label={`Select version ${v.version} for comparison`}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className="font-mono tabular-nums"
-                            >
-                              v{v.version}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-xs">
-                            {formatDate(v.changed_at)}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {v.changed_by || (
-                              <span className="text-muted-foreground italic">
-                                system
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground max-w-[400px] truncate text-sm">
-                            {v.change_summary || (
-                              <span className="italic">no summary</span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                        {isExpanded && (
-                          <TableRow className="bg-muted/30 hover:bg-muted/30">
-                            <TableCell colSpan={6} className="p-0">
-                              <div className="px-4 py-3">
-                                <div className="text-muted-foreground mb-2 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider">
-                                  <span>
-                                    Snapshot · v{v.version}
-                                  </span>
-                                  <button
-                                    className="hover:text-foreground inline-flex items-center gap-1 normal-case tracking-normal"
-                                    onClick={() => setExpanded(null)}
-                                  >
-                                    <XIcon className="h-3 w-3" />
-                                    Collapse
-                                  </button>
-                                </div>
-                                <pre className="bg-background max-h-[320px] overflow-auto rounded-md border p-3 font-mono text-[11px] leading-relaxed">
-                                  {formatJSON(v.snapshot)}
-                                </pre>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <GitCompareArrowsIcon className="mr-1.5 h-3.5 w-3.5" />
             )}
+            Compare {compareEnabled ? "selected" : "(pick 2)"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Diff result */}
+      {diffError && (
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+          {diffError}
+        </div>
+      )}
+      {diff && <DiffView diff={diff} />}
+
+      {/* History table */}
+      <div className="min-h-0 flex-1 overflow-auto rounded-md border">
+        {error ? (
+          <div className="text-muted-foreground p-6 text-center text-sm">
+            <span className="text-red-600 dark:text-red-400">{error}</span>
           </div>
+        ) : loading ? (
+          <div className="text-muted-foreground flex items-center justify-center gap-2 p-10 text-sm">
+            <Loader2Icon className="h-4 w-4 animate-spin" />
+            Loading history…
+          </div>
+        ) : versions.length === 0 ? (
+          <div className="text-muted-foreground p-10 text-center text-sm">
+            No history recorded for this policy yet. Future edits will appear
+            here.
+          </div>
+        ) : (
+          <Table>
+            <TableHeader className="bg-muted/40 sticky top-0 z-10">
+              <TableRow>
+                <TableHead className="w-[44px]" />
+                <TableHead className="w-[40px]">Pick</TableHead>
+                <TableHead>Version</TableHead>
+                <TableHead>When</TableHead>
+                <TableHead>Author</TableHead>
+                <TableHead>Change</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {versions.map((v) => {
+                const isExpanded = expanded === v.version;
+                const isSelected = selected.has(v.version);
+                return (
+                  <Fragment key={v.version}>
+                    <TableRow
+                      data-state={isSelected ? "selected" : undefined}
+                      className={cn(
+                        "cursor-pointer",
+                        isSelected && "bg-primary/5",
+                      )}
+                      onClick={() => setExpanded(isExpanded ? null : v.version)}
+                    >
+                      <TableCell className="pl-3">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpanded(isExpanded ? null : v.version);
+                          }}
+                          aria-label={isExpanded ? "Collapse" : "Expand"}
+                        >
+                          {isExpanded ? (
+                            <ChevronDownIcon className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronRightIcon className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="border-input text-primary focus-visible:ring-ring h-4 w-4 cursor-pointer rounded border bg-transparent focus:outline-none focus-visible:ring-2"
+                          checked={isSelected}
+                          onChange={() => toggleSelected(v.version)}
+                          aria-label={`Select version ${v.version} for comparison`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className="font-mono tabular-nums"
+                        >
+                          v{v.version}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">
+                        {formatDate(v.changed_at)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {v.changed_by || (
+                          <span className="text-muted-foreground italic">
+                            system
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground max-w-[400px] truncate text-sm">
+                        {v.change_summary || (
+                          <span className="italic">no summary</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {isExpanded && (
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableCell colSpan={6} className="p-0">
+                          <div className="px-4 py-3">
+                            <div className="text-muted-foreground mb-2 flex items-center justify-between text-[11px] font-medium uppercase tracking-wider">
+                              <span>Snapshot · v{v.version}</span>
+                              <button
+                                className="hover:text-foreground inline-flex items-center gap-1 normal-case tracking-normal"
+                                onClick={() => setExpanded(null)}
+                              >
+                                <XIcon className="h-3 w-3" />
+                                Collapse
+                              </button>
+                            </div>
+                            <pre className="bg-background max-h-[320px] overflow-auto rounded-md border p-3 font-mono text-[11px] leading-relaxed">
+                              {formatJSON(v.snapshot)}
+                            </pre>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </div>
     </div>
   );
 }
@@ -461,7 +455,12 @@ function DiffView({ diff }: { diff: DiffPayload }) {
         ) : (
           <div className="flex flex-col gap-1 font-mono text-[11px] leading-relaxed">
             {addedKeys.map((k) => (
-              <DiffLine key={`a-${k}`} kind="added" field={k} value={diff.added[k]} />
+              <DiffLine
+                key={`a-${k}`}
+                kind="added"
+                field={k}
+                value={diff.added[k]}
+              />
             ))}
             {removedKeys.map((k) => (
               <DiffLine

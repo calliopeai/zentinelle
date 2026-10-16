@@ -8,6 +8,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from django.utils.csp import CSP
 from dotenv import load_dotenv
 
 # Load zentinelle.yaml config file (env vars always win over file values).
@@ -34,7 +35,9 @@ load_config()
 # Core
 # =============================================================================
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
+# An empty value (as .env.example ships) is the placeholder too, so the
+# startup guard names it instead of Django failing on first use.
+SECRET_KEY = os.environ.get("SECRET_KEY") or "change-me-in-production"
 
 DEBUG = False
 
@@ -83,9 +86,22 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "zentinelle.api.middleware.SessionIdleTimeoutMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django.middleware.csp.ContentSecurityPolicyMiddleware",
 ]
+
+# Every backend response is JSON or the opt-in Django admin, so nothing loads
+# from elsewhere, frames it, or posts it anywhere. dev.py drops it while
+# debugging, for the GraphiQL IDE's CDN scripts.
+SECURE_CSP = {
+    "default-src": [CSP.SELF],
+    "base-uri": [CSP.SELF],
+    "form-action": [CSP.SELF],
+    "frame-ancestors": [CSP.NONE],
+    "object-src": [CSP.NONE],
+}
 
 # =============================================================================
 # Templates
@@ -183,7 +199,9 @@ if AUTH_MODE not in {"open", "local", "standalone", "sso", "client_cove"}:
 # Session-based auth (httpOnly cookies — immune to XSS)
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 1 week
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 1 week, however active
+# Signed out after this long without a request (SessionIdleTimeoutMiddleware).
+SESSION_IDLE_TIMEOUT_SECONDS = int(os.environ.get("SESSION_IDLE_TIMEOUT_SECONDS", str(30 * 60)))
 SESSION_COOKIE_NAME = "zentinelle_session"
 CSRF_COOKIE_HTTPONLY = False  # frontend needs to read CSRF token
 CSRF_COOKIE_SAMESITE = "Lax"
@@ -362,7 +380,23 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
     ],
+    # How many reverse proxies in front of the backend append to
+    # X-Forwarded-For (compose nginx: 1; an ALB to the task: 1; ALB plus
+    # nginx: 2). Throttles take the client address that many entries from the
+    # right. 0 trusts no header and uses the socket address; DRF's own
+    # default (None) would trust whatever the client put in the header.
+    "NUM_PROXIES": int(os.environ.get("NUM_PROXIES", "0")),
 }
+
+# Hosts an endpoint's config.hub_identity.api_url may name although they
+# resolve to a private address (an in-cluster JupyterHub). Others must
+# resolve to public addresses only (T13).
+HUB_IDENTITY_ALLOWED_HOSTS = frozenset(
+    h.strip().lower() for h in os.environ.get("HUB_IDENTITY_ALLOWED_HOSTS", "").split(",") if h.strip())
+
+# Django admin is a second password login beside the portal, with none of
+# the portal login's throttling. Off unless an operator turns it on.
+ENABLE_DJANGO_ADMIN = os.environ.get("ENABLE_DJANGO_ADMIN", "false").lower() in ("1", "t", "true")
 
 # =============================================================================
 # Logging
@@ -431,6 +465,15 @@ BILLING_MODE = os.environ.get("BILLING_MODE", "governance_only")
 # Empty disables it. See zentinelle/auth/gateway_credential.py.
 ZENTINELLE_GATEWAY_CREDENTIAL_FILE = os.environ.get(
     "ZENTINELLE_GATEWAY_CREDENTIAL_FILE", "/var/run/zentinelle/gateway-credential")
+
+# The Django proxy injects the install's env provider keys (MANAGED_*, then
+# OPENAI/ANTHROPIC/GOOGLE_API_KEY) for a tenant with no stored LLMProviderKey
+# only when this is set. Single-tenant only: an env key is one account's key,
+# and every tenant without a stored key would run on it. The gateway reads the
+# same variable for its own env keys.
+ALLOW_ENV_PROVIDER_KEYS = os.environ.get(
+    "ALLOW_ENV_PROVIDER_KEYS", "false"
+).lower() in ("1", "t", "true")
 
 # Metadata-only by default; full prompt capture requires an explicit operator choice.
 CONTENT_CAPTURE_MODE = os.environ.get("CONTENT_CAPTURE_MODE", "metadata").lower()

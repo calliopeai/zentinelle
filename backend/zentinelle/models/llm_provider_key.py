@@ -2,8 +2,7 @@
 LLM provider API keys stored per-tenant with encryption-at-rest.
 
 Used by the AI assistant chat endpoint and policy enforcement layer to
-look up provider credentials at runtime. Falls back to env vars if no
-tenant-specific key exists.
+look up provider credentials at runtime.
 """
 import os
 
@@ -12,16 +11,16 @@ from django.db import models
 
 
 def _get_fernet() -> Fernet:
-    """Get the Fernet cipher for encrypting provider keys."""
+    """Get the Fernet cipher for encrypting provider keys.
+
+    ZENTINELLE_SECRET_KEY is required. There is no derived fallback: it came
+    from a fixed seed anyone can read here, so it encrypted nothing.
+    """
     secret = os.environ.get("ZENTINELLE_SECRET_KEY", "")
     if not secret:
-        # Dev fallback — generates a stable key from a seed
-        # Production must set ZENTINELLE_SECRET_KEY to a Fernet.generate_key() value
-        import base64
-        import hashlib
-        seed = os.environ.get("DJANGO_SECRET_KEY", "dev-insecure-fallback")
-        key = base64.urlsafe_b64encode(hashlib.sha256(seed.encode()).digest())
-        return Fernet(key)
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured(
+            "ZENTINELLE_SECRET_KEY is not set. Run `python manage.py generate_secrets`.")
     return Fernet(secret.encode() if isinstance(secret, str) else secret)
 
 

@@ -43,9 +43,7 @@ import {
   RetentionPolicyDialog,
   type RetentionPolicyEditData,
 } from "./retention-policy-dialog";
-import {
-  DELETE_RETENTION_POLICY,
-} from "@/graphql/retention/mutations";
+import { DELETE_RETENTION_POLICY } from "@/graphql/retention/mutations";
 
 interface RetentionPolicyData {
   id: string;
@@ -126,8 +124,8 @@ const GET_RETENTION_DATA = gql`
 `;
 
 const TOGGLE_RETENTION_POLICY_ENABLED = gql`
-  mutation ToggleRetentionPolicyEnabled($id: ID!) {
-    toggleRetentionPolicyEnabled(id: $id) {
+  mutation ToggleRetentionPolicyEnabled($id: ID!, $enabled: Boolean!) {
+    toggleRetentionPolicyEnabled(id: $id, enabled: $enabled) {
       success
       policyId
     }
@@ -217,8 +215,9 @@ export default function RetentionPage() {
   const confirm = useConfirm();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editPolicy, setEditPolicy] =
-    useState<RetentionPolicyEditData | null>(null);
+  const [editPolicy, setEditPolicy] = useState<RetentionPolicyEditData | null>(
+    null,
+  );
 
   const retentionPolicies = data?.retentionPolicies ?? [];
   const legalHolds = data?.legalHolds ?? [];
@@ -236,10 +235,10 @@ export default function RetentionPage() {
       p.entityType === "interactions",
   );
 
-  const handleToggle = async (policyId: string) => {
+  const handleToggle = async (policyId: string, enabled: boolean) => {
     try {
       const { data: result } = await toggleEnabled({
-        variables: { id: policyId },
+        variables: { id: policyId, enabled },
       });
       if (result?.toggleRetentionPolicyEnabled?.success) {
         toast.success("Retention policy updated");
@@ -280,7 +279,8 @@ export default function RetentionPage() {
         refetch();
       } else {
         toast.error(
-          result?.deleteRetentionPolicy?.errors?.[0] ?? "Failed to delete policy",
+          result?.deleteRetentionPolicy?.errors?.[0] ??
+            "Failed to delete policy",
         );
       }
     } catch {
@@ -374,8 +374,8 @@ export default function RetentionPage() {
           {retentionPolicies.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-8 text-center">
               <p className="text-muted-foreground text-sm">
-                No retention policies configured. Create policies to manage
-                data lifecycle.
+                No retention policies configured. Create policies to manage data
+                lifecycle.
               </p>
               <Button size="sm" onClick={handleCreate}>
                 <PlusIcon className="mr-1.5 h-4 w-4" />
@@ -432,13 +432,15 @@ export default function RetentionPage() {
                             p.complianceRequirement}
                         </Badge>
                       ) : (
-                        <span className="text-muted-foreground text-xs">--</span>
+                        <span className="text-muted-foreground text-xs">
+                          --
+                        </span>
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Switch
                         checked={p.enabled}
-                        onCheckedChange={() => handleToggle(p.id)}
+                        onCheckedChange={() => handleToggle(p.id, !p.enabled)}
                         aria-label={`Toggle ${p.name}`}
                       />
                     </TableCell>
@@ -459,7 +461,7 @@ export default function RetentionPage() {
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => handleToggle(p.id)}
+                            onClick={() => handleToggle(p.id, !p.enabled)}
                           >
                             {p.enabled ? "Disable" : "Enable"}
                           </DropdownMenuItem>

@@ -34,17 +34,20 @@ class BudgetShowbackView(APIView):
         for row in rows:
             committed = row['committed'] or Decimal('0')
             actual = row['actual']
-            unresolved = actual is None
             actual_value = actual or Decimal('0')
+            # Settled to an actual cost; a charge with only reported usage
+            # on a budget that keeps its reservations is still unreconciled.
+            unreconciled = BudgetCharge.objects.filter(tenant_id=tenant_id, **{dimension: row[dimension]},
+                                                       reconciled_at__isnull=True).count()
             entries.append({
                 'dimension': requested, 'dimension_id': str(row[dimension] or ''),
                 'endpoint_id': str(row.get('endpoint_id_ext') or '') if dimension == 'endpoint_id_ext' else None,
                 'requests': row['requests'],
                 'committed_usd': float(committed), 'actual_usd': float(actual_value) if actual is not None else None,
-                'unreconciled_requests': BudgetCharge.objects.filter(tenant_id=tenant_id,
-                                                                     **{dimension: row[dimension]}, actual_usd__isnull=True).count(),
+                'unreconciled_requests': unreconciled,
                 'anomaly': bool(actual is not None and actual_value > committed),
-                'status': 'unreconciled' if unresolved else ('anomaly' if actual_value > committed else 'reconciled'),
+                'status': ('anomaly' if actual is not None and actual_value > committed else
+                           'unreconciled' if unreconciled else 'reconciled'),
             })
         totals = BudgetCharge.objects.filter(
             tenant_id=tenant_id).aggregate(
@@ -53,4 +56,4 @@ class BudgetShowbackView(APIView):
         return Response({'entries': entries, 'totals': {
             'committed_usd': float(totals['committed'] or 0),
             'actual_usd': float(totals['actual']) if totals['actual'] is not None else None,
-        }, 'source': 'trusted-provider-api-reconciliation'})
+        }, 'source': 'budget-reconciliation'})

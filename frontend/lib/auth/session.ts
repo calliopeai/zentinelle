@@ -13,8 +13,7 @@ export interface SessionUser {
 // env var cannot change it, so an absolute dev default ships to every
 // deployment and makes the browser call its own machine. login() and logout()
 // run in the browser, so same-origin is both correct and host-agnostic.
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
 
 export async function fetchSessionUser(
   cookieHeader?: string,

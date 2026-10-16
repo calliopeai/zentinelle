@@ -9,6 +9,7 @@ money:
 - sending the same usage twice with nothing to dedupe on
 - billing a BYOK customer for tokens they already paid their own provider for
 """
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -238,6 +239,86 @@ class BillingExportTest(TestCase):
         rows, _ = billing_export.collect_pending()
 
         self.assertEqual(len({r["event_id"] for r in rows}), 2)
+
+    @override_settings(**ENABLED)
+    def test_a_batch_boundary_never_splits_a_call(self):
+        """One event_id must carry the whole call, in exactly one batch.
+
+        A receiver that dedupes on event_id drops whatever arrives second, so
+        a call split across two batches loses the tokens in the later one.
+        """
+        start = timezone.now()
+        later = start + timedelta(seconds=1)
+        _metric(TENANT_A, "ai_input_tokens", 100, request_id="req-1",
+                occurred_at=start)
+        _metric(TENANT_A, "ai_output_tokens", 10, request_id="req-1",
+                occurred_at=start)
+        # Two calls at the same instant, so the cut lands inside them.
+        _metric(TENANT_A, "ai_input_tokens", 200, request_id="req-2",
+                occurred_at=later)
+        _metric(TENANT_A, "ai_input_tokens", 300, request_id="req-3",
+                occurred_at=later)
+        _metric(TENANT_A, "ai_output_tokens", 20, request_id="req-2",
+                occurred_at=later)
+        _metric(TENANT_A, "ai_output_tokens", 30, request_id="req-3",
+                occurred_at=later)
+
+        batches = []
+        with patch("zentinelle.services.billing_export.httpx.post",
+                   return_value=_Response(202)) as post:
+            for _ in range(4):
+                billing_export.export_pending(limit=3)
+            for call in post.call_args_list:
+                batches.append(call.kwargs["json"]["events"])
+
+        seen = {}
+        for batch in batches:
+            for row in batch:
+                self.assertNotIn(row["event_id"], seen)
+                seen[row["event_id"]] = (row["input_tokens"],
+                                         row["output_tokens"])
+        self.assertEqual(sorted(seen.values()),
+                         [(100, 10), (200, 20), (300, 30)])
+        self.assertFalse(UsageMetric.objects.filter(
+            billing_exported_at__isnull=True,
+            metric_type__in=["ai_input_tokens", "ai_output_tokens"],
+        ).exists())
+
+    @override_settings(**ENABLED)
+    def test_a_shared_timestamp_does_not_grow_a_batch_without_bound(self):
+        """Completing a call must not pull in every call at its timestamp.
+
+        `occurred_at` is client-supplied, so many calls can share one. A batch
+        that took them all would grow past anything a receiver accepts, and
+        the export would retry that same oversized batch forever.
+        """
+        at = timezone.now()
+        for n in range(5):
+            for tenant in (TENANT_A, TENANT_B):
+                _metric(tenant, "ai_input_tokens", 100 + n,
+                        request_id=f"req-{n}", occurred_at=at)
+                _metric(tenant, "ai_output_tokens", 10 + n,
+                        request_id=f"req-{n}", occurred_at=at)
+
+        seen = {}
+        with patch("zentinelle.services.billing_export.httpx.post",
+                   return_value=_Response(202)) as post:
+            for _ in range(10):
+                billing_export.export_pending(limit=3)
+            for call in post.call_args_list:
+                batch = call.kwargs["json"]["events"]
+                self.assertLessEqual(len(batch), 3)
+                for row in batch:
+                    self.assertNotIn(row["event_id"], seen)
+                    seen[row["event_id"]] = (row["organization"],
+                                             row["input_tokens"],
+                                             row["output_tokens"])
+
+        self.assertEqual(sorted(seen.values()), sorted(
+            (tenant, 100 + n, 10 + n)
+            for n in range(5) for tenant in (TENANT_A, TENANT_B)))
+        self.assertFalse(UsageMetric.objects.filter(
+            billing_exported_at__isnull=True).exists())
 
     # ---- shape -------------------------------------------------------
 

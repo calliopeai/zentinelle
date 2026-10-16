@@ -2,12 +2,12 @@ import { gql } from "@apollo/client";
 
 export const GENERATE_COMPLIANCE_REPORT = gql`
   mutation GenerateComplianceReport(
-    $framework: String
+    $frameworkId: String
     $startDate: Date
     $endDate: Date
   ) {
     generateComplianceReport(
-      framework: $framework
+      frameworkId: $frameworkId
       startDate: $startDate
       endDate: $endDate
     ) {

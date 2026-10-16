@@ -12,10 +12,20 @@ import { DELETE_RISK, REVIEW_RISK } from "@/graphql/risks/mutations";
 import { useConfirm } from "@/hooks/use-confirm";
 import type { RiskData } from "@/graphql/risks/types";
 import { SectionErrorBoundary } from "@/components/section-error-boundary";
-import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableColumnHeader,
+  type FilterConfig,
+} from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -67,19 +77,31 @@ function statusVariant(status: string) {
 
 const MATRIX_SIZE = 5;
 const IMPACT_LABELS = ["Negligible", "Minor", "Moderate", "Major", "Severe"];
-const LIKELIHOOD_LABELS = ["Rare", "Unlikely", "Possible", "Likely", "Almost Certain"];
+const LIKELIHOOD_LABELS = [
+  "Rare",
+  "Unlikely",
+  "Possible",
+  "Likely",
+  "Almost Certain",
+];
 
 function matrixCellColor(score: number): string {
-  if (score <= 4)  return "bg-emerald-600/30 hover:bg-emerald-500/50 border-emerald-500/40";
-  if (score <= 9)  return "bg-yellow-500/30 hover:bg-yellow-400/50 border-yellow-500/40";
-  if (score <= 15) return "bg-orange-500/35 hover:bg-orange-400/55 border-orange-500/50";
+  if (score <= 4)
+    return "bg-emerald-600/30 hover:bg-emerald-500/50 border-emerald-500/40";
+  if (score <= 9)
+    return "bg-yellow-500/30 hover:bg-yellow-400/50 border-yellow-500/40";
+  if (score <= 15)
+    return "bg-orange-500/35 hover:bg-orange-400/55 border-orange-500/50";
   return "bg-red-500/40 hover:bg-red-400/60 border-red-500/50";
 }
 
 function matrixCellColorSelected(score: number): string {
-  if (score <= 4)  return "bg-emerald-500/60 border-emerald-400 ring-2 ring-emerald-400/60";
-  if (score <= 9)  return "bg-yellow-500/60 border-yellow-400 ring-2 ring-yellow-400/60";
-  if (score <= 15) return "bg-orange-500/60 border-orange-400 ring-2 ring-orange-400/60";
+  if (score <= 4)
+    return "bg-emerald-500/60 border-emerald-400 ring-2 ring-emerald-400/60";
+  if (score <= 9)
+    return "bg-yellow-500/60 border-yellow-400 ring-2 ring-yellow-400/60";
+  if (score <= 15)
+    return "bg-orange-500/60 border-orange-400 ring-2 ring-orange-400/60";
   return "bg-red-500/60 border-red-400 ring-2 ring-red-400/60";
 }
 
@@ -187,7 +209,9 @@ function RiskMatrix({
                       return (
                         <button
                           key={`${cell.likelihood}-${cell.impact}`}
-                          onClick={() => onCellClick(cell.likelihood, cell.impact)}
+                          onClick={() =>
+                            onCellClick(cell.likelihood, cell.impact)
+                          }
                           className={`relative flex min-h-[52px] flex-col items-center justify-center border transition-all ${
                             isSelected
                               ? matrixCellColorSelected(cell.score)
@@ -228,7 +252,9 @@ function RiskMatrix({
               <div className="grid flex-1 grid-cols-5 gap-1 pt-1">
                 {IMPACT_LABELS.map((label) => (
                   <div key={label} className="text-center">
-                    <span className="text-muted-foreground text-[11px]">{label}</span>
+                    <span className="text-muted-foreground text-[11px]">
+                      {label}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -314,7 +340,7 @@ export default function RisksPage() {
         setSelectedCell({ likelihood, impact });
       }
     },
-    [selectedCell]
+    [selectedCell],
   );
 
   const filteredRisks = useMemo(() => {
@@ -322,7 +348,7 @@ export default function RisksPage() {
     return risks.filter(
       (r) =>
         r.likelihood === selectedCell.likelihood &&
-        r.impact === selectedCell.impact
+        r.impact === selectedCell.impact,
     );
   }, [risks, selectedCell]);
 
@@ -565,19 +591,20 @@ export default function RisksPage() {
       </div>
 
       <div data-tour="risk-overview">
-      <SectionErrorBoundary section="Risk matrix">
-  <RiskMatrix
-          risks={risks}
-          selectedCell={selectedCell}
-          onCellClick={handleCellClick}
-        />
-      </SectionErrorBoundary>
+        <SectionErrorBoundary section="Risk matrix">
+          <RiskMatrix
+            risks={risks}
+            selectedCell={selectedCell}
+            onCellClick={handleCellClick}
+          />
+        </SectionErrorBoundary>
       </div>
 
       {selectedCell && (
         <p className="text-muted-foreground -mt-2 text-sm">
-          Showing {filteredRisks.length} risk{filteredRisks.length !== 1 ? "s" : ""} at
-          likelihood {selectedCell.likelihood}, impact {selectedCell.impact}
+          Showing {filteredRisks.length} risk
+          {filteredRisks.length !== 1 ? "s" : ""} at likelihood{" "}
+          {selectedCell.likelihood}, impact {selectedCell.impact}
           (score {selectedCell.likelihood * selectedCell.impact})
         </p>
       )}

@@ -87,9 +87,8 @@ export default function SystemPromptsPage() {
   const [pendingDelete, setPendingDelete] = useState<SystemPromptData | null>(
     null,
   );
-  const [analyzingPrompt, setAnalyzingPrompt] = useState<SystemPromptData | null>(
-    null,
-  );
+  const [analyzingPrompt, setAnalyzingPrompt] =
+    useState<SystemPromptData | null>(null);
   const [forkingId, setForkingId] = useState<string | null>(null);
 
   const [deletePrompt, { loading: deleting }] = useMutation<
@@ -252,9 +251,7 @@ export default function SystemPromptsPage() {
               <PencilIcon className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setAnalyzingPrompt(row.original)}
-            >
+            <DropdownMenuItem onClick={() => setAnalyzingPrompt(row.original)}>
               <WandSparklesIcon className="mr-2 h-4 w-4" />
               Analyze
             </DropdownMenuItem>
@@ -281,10 +278,14 @@ export default function SystemPromptsPage() {
   ];
 
   const promptTypes = [
-    ...new Set(prompts.map((p) => p.promptType).filter((v): v is string => !!v)),
+    ...new Set(
+      prompts.map((p) => p.promptType).filter((v): v is string => !!v),
+    ),
   ].sort();
   const visibilities = [
-    ...new Set(prompts.map((p) => p.visibility).filter((v): v is string => !!v)),
+    ...new Set(
+      prompts.map((p) => p.visibility).filter((v): v is string => !!v),
+    ),
   ].sort();
 
   const filters: FilterConfig[] = [
@@ -376,8 +377,8 @@ export default function SystemPromptsPage() {
               <span className="font-medium">
                 {pendingDelete?.name ?? "this prompt"}
               </span>
-              . Agents currently referencing it may stop working. This cannot
-              be undone.
+              . Agents currently referencing it may stop working. This cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

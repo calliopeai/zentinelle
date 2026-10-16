@@ -17,7 +17,8 @@ import { routeLabels } from "@/lib/routes";
 import { NotificationBell } from "@/components/NotificationBell";
 
 const toLabel = (segment: string) =>
-  routeLabels[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+  routeLabels[segment] ??
+  segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
 
 /**
  * Map portal route prefixes to wiki anchors.
@@ -26,8 +27,10 @@ const toLabel = (segment: string) =>
 function helpUrlFor(pathname: string): string {
   const wiki = "https://github.com/calliopeai/zentinelle/wiki";
   if (pathname.startsWith("/policies")) return `${wiki}/Policy-Reference`;
-  if (pathname.startsWith("/risks")) return `${wiki}/Policy-Reference#fmea-risk-priority`;
-  if (pathname.startsWith("/compliance")) return `${wiki}/Compliance-Frameworks`;
+  if (pathname.startsWith("/risks"))
+    return `${wiki}/Policy-Reference#fmea-risk-priority`;
+  if (pathname.startsWith("/compliance"))
+    return `${wiki}/Compliance-Frameworks`;
   if (pathname.startsWith("/agents")) return `${wiki}/SDK-Guide`;
   if (pathname.startsWith("/audit")) return `${wiki}/API-Reference#audit-chain`;
   if (pathname.startsWith("/events") || pathname.startsWith("/monitoring"))
@@ -35,7 +38,8 @@ function helpUrlFor(pathname: string): string {
   if (pathname.startsWith("/settings/llm-providers"))
     return `${wiki}/Deployment-Guide#llm-providers`;
   if (pathname.startsWith("/settings")) return `${wiki}/Deployment-Guide`;
-  if (pathname.startsWith("/assistant")) return `${wiki}/API-Reference#ai-assistant-endpoints`;
+  if (pathname.startsWith("/assistant"))
+    return `${wiki}/API-Reference#ai-assistant-endpoints`;
   return wiki;
 }
 
@@ -69,7 +73,9 @@ export const PageHeader = () => {
                   {crumb.isLast ? (
                     <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
                   ) : (
-                    <BreadcrumbLink href={crumb.href}>{crumb.label}</BreadcrumbLink>
+                    <BreadcrumbLink href={crumb.href}>
+                      {crumb.label}
+                    </BreadcrumbLink>
                   )}
                 </BreadcrumbItem>
               </span>

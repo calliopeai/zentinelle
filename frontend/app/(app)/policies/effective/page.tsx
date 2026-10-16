@@ -2,7 +2,6 @@
 
 import { authenticatedFetch } from "@/lib/auth/fetch";
 
-
 import { useMemo, useState } from "react";
 import {
   ArrowDownIcon,
@@ -109,9 +108,7 @@ function scopeIcon(scope: string) {
 }
 
 function scopeLabel(scope: string) {
-  return scope
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return scope.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function enforcementVariant(
@@ -132,9 +129,7 @@ function enforcementVariant(
 }
 
 function policyTypeLabel(type: string) {
-  return type
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /* ── Inheritance ladder ──────────────────────────────────────── */
@@ -184,10 +179,7 @@ function PolicyTypeGroup({
 }) {
   // Sort by priority (most specific scope = lowest scopeRank wins)
   const sorted = useMemo(
-    () =>
-      [...policies].sort(
-        (a, b) => scopeRank(a.scope) - scopeRank(b.scope),
-      ),
+    () => [...policies].sort((a, b) => scopeRank(a.scope) - scopeRank(b.scope)),
     [policies],
   );
 
@@ -200,9 +192,7 @@ function PolicyTypeGroup({
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <ShieldCheckIcon className="text-primary h-4 w-4" />
-            <CardTitle className="text-base">
-              {policyTypeLabel(type)}
-            </CardTitle>
+            <CardTitle className="text-base">{policyTypeLabel(type)}</CardTitle>
           </div>
           <Badge variant="outline" className="text-[10px]">
             {policies.length} policy{policies.length !== 1 ? "ies" : ""}
@@ -216,16 +206,14 @@ function PolicyTypeGroup({
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <CheckCircleIcon className="h-4 w-4 text-emerald-500" />
-                <span className="text-sm font-semibold">
-                  {winner.name}
-                </span>
+                <span className="text-sm font-semibold">{winner.name}</span>
               </div>
               <p className="text-muted-foreground text-xs">
                 Effective from{" "}
                 <span className="font-medium capitalize">
                   {scopeLabel(winner.scope)}
-                </span>
-                {" "}scope · priority {winner.priority}
+                </span>{" "}
+                scope · priority {winner.priority}
               </p>
             </div>
             <Badge variant={enforcementVariant(winner.enforcement)}>
@@ -288,28 +276,21 @@ function PolicyTypeGroup({
 /* ── API helper ───────────────────────────────────────────────── */
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ||
-  "/api/zentinelle/v1";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "/api/zentinelle/v1";
 
 async function fetchEffectivePolicy(
-  endpointKey: string | null,
+  endpointId: string,
   userId: string | null,
 ): Promise<EffectivePolicyResponse> {
   const path = userId
     ? `/effective-policy/${encodeURIComponent(userId)}`
     : `/effective-policy`;
+  const query = `?endpoint=${encodeURIComponent(endpointId)}`;
 
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-  };
-  if (endpointKey) {
-    headers["X-Zentinelle-Key"] = endpointKey;
-  }
-
-  const res = await authenticatedFetch(`${API_BASE_URL}${path}`, {
+  const res = await authenticatedFetch(`${API_BASE_URL}${path}${query}`, {
     method: "GET",
     credentials: "include",
-    headers,
+    headers: { Accept: "application/json" },
   });
 
   if (!res.ok) {
@@ -479,7 +460,7 @@ export default function EffectivePolicyViewerPage() {
     setResolving(true);
     try {
       const data = await fetchEffectivePolicy(
-        null, // session-based auth — no key here
+        endpointId,
         userId.trim() || null,
       );
       setResult(data);
@@ -564,10 +545,7 @@ export default function EffectivePolicyViewerPage() {
                         <span className="flex items-center gap-2">
                           <ServerIcon className="h-3.5 w-3.5" />
                           <span>{e.name}</span>
-                          <Badge
-                            variant="outline"
-                            className="ml-1 text-[10px]"
-                          >
+                          <Badge variant="outline" className="ml-1 text-[10px]">
                             {e.agentType}
                           </Badge>
                         </span>
@@ -583,7 +561,8 @@ export default function EffectivePolicyViewerPage() {
                 htmlFor="user-id-input"
                 className="text-foreground text-xs font-medium"
               >
-                User ID <span className="text-muted-foreground">(optional)</span>
+                User ID{" "}
+                <span className="text-muted-foreground">(optional)</span>
               </label>
               <Input
                 id="user-id-input"
@@ -591,7 +570,7 @@ export default function EffectivePolicyViewerPage() {
                 value={userId}
                 onChange={(ev) => setUserId(ev.target.value)}
                 onKeyDown={(ev) => {
-                  if (ev.key === "Enter" && !resolving) {
+                  if (ev.key === "Enter" && !resolving && endpointId) {
                     handleResolve();
                   }
                 }}
@@ -601,7 +580,7 @@ export default function EffectivePolicyViewerPage() {
 
             <Button
               onClick={handleResolve}
-              disabled={resolving}
+              disabled={resolving || !endpointId}
               className="h-9 md:w-32"
             >
               {resolving ? (
@@ -652,9 +631,12 @@ export default function EffectivePolicyViewerPage() {
               <div className="flex items-center gap-2">
                 <CheckCircleIcon className="h-4 w-4 text-emerald-500" />
                 <span>
-                  <span className="font-semibold">{result.policies.length}</span>
+                  <span className="font-semibold">
+                    {result.policies.length}
+                  </span>
                   <span className="text-muted-foreground">
-                    {" "}policies effective
+                    {" "}
+                    policies effective
                   </span>
                 </span>
               </div>
@@ -668,9 +650,7 @@ export default function EffectivePolicyViewerPage() {
               <div className="flex items-center gap-1.5">
                 <UserIcon className="text-muted-foreground h-3.5 w-3.5" />
                 <span className="text-muted-foreground">User:</span>
-                <span className="font-medium">
-                  {submittedUserId ?? "—"}
-                </span>
+                <span className="font-medium">{submittedUserId ?? "—"}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <LayersIcon className="text-muted-foreground h-3.5 w-3.5" />
@@ -692,11 +672,7 @@ export default function EffectivePolicyViewerPage() {
               {Array.from(grouped.entries())
                 .sort(([a], [b]) => a.localeCompare(b))
                 .map(([type, policies]) => (
-                  <PolicyTypeGroup
-                    key={type}
-                    type={type}
-                    policies={policies}
-                  />
+                  <PolicyTypeGroup key={type} type={type} policies={policies} />
                 ))}
             </div>
           )}
@@ -714,8 +690,8 @@ export default function EffectivePolicyViewerPage() {
             <div className="text-sm font-medium">No resolution yet</div>
             <p className="text-muted-foreground max-w-sm text-xs">
               Pick an endpoint, optionally enter a user ID, and click{" "}
-              <span className="font-medium">Resolve</span> to see which
-              policies apply after inheritance.
+              <span className="font-medium">Resolve</span> to see which policies
+              apply after inheritance.
             </p>
           </CardContent>
         </Card>

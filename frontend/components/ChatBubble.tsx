@@ -38,7 +38,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
-import { useChat, useAvailableModels, MODELS, type Message, type ChatModel } from "@/hooks/use-chat";
+import {
+  useChat,
+  useAvailableModels,
+  MODELS,
+  type Message,
+  type ChatModel,
+} from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
 
 /* ── Provider color mapping ──────────────────────────────────────── */
@@ -85,7 +91,11 @@ function ModelSelector({
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger className={cn("h-7 text-xs", className)}>
         <SelectValue>
-          {loading ? "Loading models…" : selected ? selected.label : "Select model"}
+          {loading
+            ? "Loading models…"
+            : selected
+              ? selected.label
+              : "Select model"}
         </SelectValue>
       </SelectTrigger>
       <SelectContent className="max-h-[400px]">
@@ -99,7 +109,8 @@ function ModelSelector({
             <SelectLabel className="flex items-center justify-between">
               <span>{provider}</span>
               <span className="text-[9px] text-muted-foreground">
-                {providerModels.length} model{providerModels.length !== 1 ? "s" : ""}
+                {providerModels.length} model
+                {providerModels.length !== 1 ? "s" : ""}
               </span>
             </SelectLabel>
             {providerModels.map((m) => (
@@ -165,7 +176,9 @@ function MarkdownContent({ content }: { content: string }) {
   return (
     <Markdown
       components={{
-        p: ({ children }: any) => <p className="mb-1.5 last:mb-0">{children}</p>,
+        p: ({ children }: any) => (
+          <p className="mb-1.5 last:mb-0">{children}</p>
+        ),
         ul: ({ children }: any) => (
           <ul className="my-1.5 space-y-0.5 list-disc pl-4">{children}</ul>
         ),
@@ -187,9 +200,15 @@ function MarkdownContent({ content }: { content: string }) {
             {children}
           </pre>
         ),
-        h1: ({ children }: any) => <h1 className="font-semibold mt-2 mb-1">{children}</h1>,
-        h2: ({ children }: any) => <h2 className="font-semibold mt-2 mb-1">{children}</h2>,
-        h3: ({ children }: any) => <h3 className="font-semibold mt-2 mb-1">{children}</h3>,
+        h1: ({ children }: any) => (
+          <h1 className="font-semibold mt-2 mb-1">{children}</h1>
+        ),
+        h2: ({ children }: any) => (
+          <h2 className="font-semibold mt-2 mb-1">{children}</h2>
+        ),
+        h3: ({ children }: any) => (
+          <h3 className="font-semibold mt-2 mb-1">{children}</h3>
+        ),
         a: ({ children, href }: any) => (
           <a
             href={href}
@@ -212,7 +231,9 @@ function humanizeToolName(name: string): string {
 }
 
 function summarizeArgs(args: Record<string, unknown>): string {
-  const entries = Object.entries(args).filter(([, v]) => v !== undefined && v !== null && v !== "");
+  const entries = Object.entries(args).filter(
+    ([, v]) => v !== undefined && v !== null && v !== "",
+  );
   if (entries.length === 0) return "";
   return entries
     .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
@@ -225,7 +246,8 @@ function summarizeResult(result: unknown): string {
   const r = result as Record<string, unknown>;
   if (r.error) return `error: ${String(r.error).slice(0, 60)}`;
   if (r.success) return "done";
-  if (typeof r.count === "number") return `${r.count} result${r.count === 1 ? "" : "s"}`;
+  if (typeof r.count === "number")
+    return `${r.count} result${r.count === 1 ? "" : "s"}`;
   if (typeof r.missing_count === "number") return `${r.missing_count} gaps`;
   return "";
 }
@@ -250,7 +272,9 @@ function ToolCallList({ calls }: { calls: NonNullable<Message["toolCalls"]> }) {
             <div className="flex-1 min-w-0">
               <div className="font-mono">
                 {humanizeToolName(c.name)}
-                {argSummary && <span className="opacity-70"> ({argSummary})</span>}
+                {argSummary && (
+                  <span className="opacity-70"> ({argSummary})</span>
+                )}
               </div>
               {resultSummary && (
                 <div className="opacity-70 italic">{resultSummary}</div>
@@ -263,7 +287,11 @@ function ToolCallList({ calls }: { calls: NonNullable<Message["toolCalls"]> }) {
   );
 }
 
-function NavigationList({ items }: { items: NonNullable<Message["navigation"]> }) {
+function NavigationList({
+  items,
+}: {
+  items: NonNullable<Message["navigation"]>;
+}) {
   // Dedupe by path
   const seen = new Set<string>();
   const unique = items.filter((i) => {
@@ -314,14 +342,18 @@ function PendingActionList({
               isApproved && "border-emerald-500/40 bg-emerald-500/5",
               isCompleted && "border-emerald-500/40 bg-emerald-500/5",
               isFailed && "border-destructive/50 bg-destructive/5",
-              isRejected && "border-muted-foreground/30 bg-muted/40 opacity-70"
+              isRejected && "border-muted-foreground/30 bg-muted/40 opacity-70",
             )}
           >
             <div className="flex items-start gap-1.5">
               <WrenchIcon className="size-3 shrink-0 mt-0.5 opacity-70" />
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-foreground">Confirmation required</div>
-                <div className="text-muted-foreground break-words">{a.preview}</div>
+                <div className="font-medium text-foreground">
+                  Confirmation required
+                </div>
+                <div className="text-muted-foreground break-words">
+                  {a.preview}
+                </div>
               </div>
             </div>
             {isPending && canMutate && (
@@ -344,16 +376,22 @@ function PendingActionList({
               </div>
             )}
             {isApproved && (
-              <div className="mt-1.5 text-[10px] text-emerald-500">Approved — running…</div>
+              <div className="mt-1.5 text-[10px] text-emerald-500">
+                Approved — running…
+              </div>
             )}
             {isCompleted && (
-              <div className="mt-1.5 text-[10px] text-emerald-500">Completed</div>
+              <div className="mt-1.5 text-[10px] text-emerald-500">
+                Completed
+              </div>
             )}
             {isFailed && (
               <div className="mt-1.5 text-[10px] text-destructive">Failed</div>
             )}
             {isRejected && (
-              <div className="mt-1.5 text-[10px] text-muted-foreground">Cancelled</div>
+              <div className="mt-1.5 text-[10px] text-muted-foreground">
+                Cancelled
+              </div>
             )}
           </div>
         );
@@ -380,7 +418,7 @@ function ChatMessage({
     <div
       className={cn(
         "flex gap-2.5 max-w-[85%]",
-        isUser ? "ml-auto flex-row-reverse" : "mr-auto"
+        isUser ? "ml-auto flex-row-reverse" : "mr-auto",
       )}
     >
       <div
@@ -388,17 +426,21 @@ function ChatMessage({
           "flex size-7 shrink-0 items-center justify-center rounded-full",
           isUser
             ? "bg-primary/20 text-primary"
-            : "bg-muted text-muted-foreground"
+            : "bg-muted text-muted-foreground",
         )}
       >
-        {isUser ? <UserIcon className="size-3.5" /> : <BotIcon className="size-3.5" />}
+        {isUser ? (
+          <UserIcon className="size-3.5" />
+        ) : (
+          <BotIcon className="size-3.5" />
+        )}
       </div>
       <div
         className={cn(
           "rounded-lg px-3 py-2 text-sm leading-relaxed break-words space-y-2",
           isUser
             ? "bg-primary/15 text-foreground whitespace-pre-wrap"
-            : "bg-muted text-foreground"
+            : "bg-muted text-foreground",
         )}
       >
         {!isUser && message.toolCalls && message.toolCalls.length > 0 && (
@@ -468,7 +510,13 @@ function ChatInput({
       handleSend();
     }
     // Plain Enter without shift also sends in compact mode
-    if (!compact && e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+    if (
+      !compact &&
+      e.key === "Enter" &&
+      !e.shiftKey &&
+      !e.metaKey &&
+      !e.ctrlKey
+    ) {
       e.preventDefault();
       handleSend();
     }
@@ -484,7 +532,7 @@ function ChatInput({
         placeholder="Ask Zentinelle AI..."
         className={cn(
           "min-h-10 max-h-32 resize-none",
-          compact ? "text-sm" : "text-sm"
+          compact ? "text-sm" : "text-sm",
         )}
         rows={1}
       />
@@ -538,7 +586,12 @@ function MessageList({
 
   if (messages.length === 0) {
     return (
-      <div className={cn("flex flex-1 flex-col items-center justify-center gap-3 text-center", className)}>
+      <div
+        className={cn(
+          "flex flex-1 flex-col items-center justify-center gap-3 text-center",
+          className,
+        )}
+      >
         <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
           <SparklesIcon className="size-6 text-primary" />
         </div>
@@ -557,7 +610,7 @@ function MessageList({
       ref={scrollRef}
       className={cn(
         "flex-1 overflow-y-auto space-y-4 scroll-smooth",
-        className
+        className,
       )}
     >
       {messages.map((msg, i) => (
@@ -565,9 +618,7 @@ function MessageList({
           key={msg.id}
           message={msg}
           isStreaming={
-            isStreaming &&
-            msg.role === "assistant" &&
-            i === messages.length - 1
+            isStreaming && msg.role === "assistant" && i === messages.length - 1
           }
           onApprove={onApprove}
           onReject={onReject}
@@ -603,7 +654,7 @@ export function ChatBubble() {
         className={cn(
           "fixed bottom-6 right-6 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-all hover:scale-105 active:scale-95",
           "bg-[#37efed] text-black",
-          !open && "animate-pulse-subtle"
+          !open && "animate-pulse-subtle",
         )}
       >
         <SparklesIcon className="size-5" />
@@ -622,7 +673,9 @@ export function ChatBubble() {
               <div className="flex size-7 items-center justify-center rounded-full bg-[#37efed]/15">
                 <SparklesIcon className="size-3.5 text-[#37efed]" />
               </div>
-              <SheetTitle className="text-sm font-semibold">Zentinelle AI</SheetTitle>
+              <SheetTitle className="text-sm font-semibold">
+                Zentinelle AI
+              </SheetTitle>
             </div>
             <SheetDescription className="sr-only">
               AI assistant for Zentinelle GRC platform
@@ -687,7 +740,6 @@ export function ChatBubble() {
           </div>
         </SheetContent>
       </Sheet>
-
     </>
   );
 }

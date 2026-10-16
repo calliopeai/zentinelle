@@ -24,6 +24,9 @@ Agent-facing REST endpoints:
 - POST /api/zentinelle/v1/astrolift/agents      (install credential: a task's agent key)
 - POST /api/zentinelle/v1/astrolift/agents/{agent_id}/renew
 - DELETE /api/zentinelle/v1/astrolift/agents/{agent_id}
+- GET  /api/zentinelle/v1/astrolift/usage       (install credential: its agents' usage)
+- GET  /api/zentinelle/v1/astrolift/policies
+- GET  /api/zentinelle/v1/astrolift/audit
 - GET  /api/zentinelle/v1/approvals/requests/{request_id}   (poll a held action)
 - GET  /api/zentinelle/v1/effective-policy/{user_id}
 - GET  /api/zentinelle/v1/prompts
@@ -113,6 +116,9 @@ from zentinelle.api.views.astrolift_clusters import (
     AstroliftInstallView, AstroliftSettingsView)
 from zentinelle.api.views.astrolift_enforcement import (
     AstroliftEnforcementOutcomeView, AstroliftEnforcementView)
+from zentinelle.api.views.astrolift_reads import (AstroliftAuditView,
+                                                  AstroliftPoliciesView,
+                                                  AstroliftUsageView)
 from zentinelle.api.views.atlas import AtlasControlMapView
 from zentinelle.api.views.auth import (CSRFTokenView, LoginView, LogoutView,
                                        MeView)
@@ -224,6 +230,10 @@ urlpatterns = [
     path('astrolift/agents/<slug:agent_id>', AstroliftAgentView.as_view(), name='astrolift-agent'),
     path('astrolift/agents/<slug:agent_id>/renew', AstroliftAgentRenewView.as_view(),
          name='astrolift-agent-renew'),
+    # ...and read back their agents' usage, policies and audit records (#390).
+    path('astrolift/usage', AstroliftUsageView.as_view(), name='astrolift-usage'),
+    path('astrolift/policies', AstroliftPoliciesView.as_view(), name='astrolift-policies'),
+    path('astrolift/audit', AstroliftAuditView.as_view(), name='astrolift-audit-read'),
 
     # Policy endpoints
     path('effective-policy', EffectivePolicyView.as_view(), name='effective-policy'),

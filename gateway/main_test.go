@@ -664,7 +664,7 @@ func TestExtractModel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := extractModel([]byte(tt.body), tt.provider)
+			got := extractModel([]byte(tt.body), tt.provider, "/v1/chat/completions")
 			if got != tt.want {
 				t.Errorf("extractModel() = %q, want %q", got, tt.want)
 			}
@@ -845,7 +845,7 @@ func TestUsageClientReusesConnections(t *testing.T) {
 	cfg := &Config{ZentinelleURL: srv.URL}
 	usage := UsageData{PromptTokens: 1, CompletionTokens: 1}
 	for i := 0; i < 10; i++ {
-		ReportUsage(cfg, "key", "openai", "gpt-4", usage, 12, "req")
+		ReportUsage(cfg, "key", "openai", "gpt-4", usage, 12, "req", http.StatusOK, outcomeCompleted)
 		select {
 		case <-idle:
 		case <-time.After(5 * time.Second):
@@ -1353,5 +1353,20 @@ func TestInteractionLoggingRequiresExplicitOptIn(t *testing.T) {
 	t.Setenv("LOG_INTERACTIONS", "")
 	if interactionLoggingEnabled() {
 		t.Error("prompt logging must require explicit opt-in")
+	}
+}
+
+// Gemini names the model in the URL path, never in the body (audit H7).
+func TestExtractModelFromTheGeminiPath(t *testing.T) {
+	body := []byte(`{"contents":[{"parts":[{"text":"hi"}]}],"generationConfig":{"maxOutputTokens":256}}`)
+	for path, want := range map[string]string{
+		"/v1beta/models/gemini-2.5-pro:generateContent":         "gemini-2.5-pro",
+		"/v1beta/models/gemini-2.5-flash:streamGenerateContent": "gemini-2.5-flash",
+		"/v1/models/gemini-2.0-flash:countTokens":               "gemini-2.0-flash",
+		"/v1beta/models": "",
+	} {
+		if got := extractModel(body, "google", path); got != want {
+			t.Errorf("extractModel(%s) = %q, want %q", path, got, want)
+		}
 	}
 }

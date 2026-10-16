@@ -179,9 +179,9 @@ class Event(models.Model):
     ) -> 'Event':
         """Factory method to create an event from agent data."""
         return cls.objects.create(
-            organization=organization,
+            tenant_id=str(getattr(organization, 'id', organization)),
             endpoint=endpoint,
-            deployment=endpoint.deployment if endpoint else None,
+            deployment_id_ext=endpoint.deployment_id_ext if endpoint else '',
             event_type=event_type,
             event_category=category,
             payload=payload,

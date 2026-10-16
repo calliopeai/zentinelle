@@ -328,7 +328,7 @@ they differ in what else they do and in what they can see.
 | Output filtering | yes, since #218 | yes |
 | Interaction logging | usage only | full `InteractionLog` |
 | Providers | ~20, config-driven | anthropic, openai, google, vertex |
-| Provider key | the agent's tenant's stored `LLMProviderKey` (#380); env keys only with the deprecated `ALLOW_ENV_PROVIDER_KEYS` | `MANAGED_*`/env key, else the client's own |
+| Provider key | the agent's tenant's stored `LLMProviderKey` (#380); env keys only with the deprecated `ALLOW_ENV_PROVIDER_KEYS` | the agent's tenant's stored `LLMProviderKey`; `MANAGED_*`/env keys only with `ALLOW_ENV_PROVIDER_KEYS`; else the client's own |
 
 The gateway holds an agent key, not a database. That is the whole reason for
 the split: it cannot query `Policy`, so anything it must decide has to be
@@ -416,7 +416,17 @@ curl -X POST http://localhost:8742/proxy/vertex/publishers/google/models/gemini-
 ```
 
 Or set `VERTEX_REGION` and `VERTEX_PROJECT` env vars on the Zentinelle backend.
+The region must be one of the proxy's `VERTEX_REGIONS` and the project a Google
+Cloud project id; anything else is refused with 400, since both go into the
+upstream URL.
 
+- Forwards inference requests only: `POST` to `chat/completions`, `completions`,
+  `responses` and `embeddings` (OpenAI), `v1/messages`, `v1/messages/count_tokens`
+  and `v1/complete` (Anthropic), `models/<model>:generateContent` and its streaming,
+  `countTokens` and `embedContent` siblings (Google), and the `publishers/<p>/models/<model>:`
+  generate and predict routes (Vertex). Files, batches, fine-tunes and the rest of a
+  provider's API are refused with 403 `path_not_allowed`.
+- Logs header names only, and the upstream URL without its query string.
 - CSRF exempt (API-authenticated, not browser forms)
 - Strips `X-Zentinelle-Key` and reverse-proxy headers before forwarding
 - Streaming SSE supported (buffered for output filter evaluation)
@@ -639,6 +649,13 @@ Two consequences the implementation has to honour:
   fresh API key, because registration is the only time the plaintext key
   exists and the new workload needs one. Existing `config` is preserved, since
   it may have been tuned since first registration.
+- **Only agents register made can re-register.** A bootstrap token is
+  tenant-wide, so it may only restart an active agent of the same type that
+  the bootstrap path created (`bootstrap_registered`). Agents made in the
+  portal, by the operator API, by Astrolift or by a management command are
+  refused with `409`, as are stopped agents. Agents registered before
+  migration 0066 carry no marker; an operator opts a known SDK agent in with
+  `manage.py allow_bootstrap_reregister --tenant <id> <agent_id>`.
 
 ### Deeplink URL convention
 

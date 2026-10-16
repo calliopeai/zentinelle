@@ -8,6 +8,10 @@ git clone https://github.com/calliopeai/zentinelle
 cd zentinelle
 cp .env.example .env
 
+# Zentinelle refuses to start on empty or placeholder secrets. Generate them
+# and paste the three lines into .env:
+docker compose run --rm --no-deps backend python manage.py generate_secrets
+
 # Default AUTH_MODE=local — create an administrator after startup.
 docker compose up -d
 ```
@@ -21,7 +25,7 @@ Open **<http://localhost:8080>** — you're in the portal as admin.
 | `http://localhost:8080/gql/zentinelle/` | GraphQL API |
 | `http://localhost:8080/proxy/<provider>/` | Django LLM Proxy |
 | `http://localhost:8742` | Go LLM Gateway |
-| `http://localhost:8080/admin/` | Django Admin |
+| `http://localhost:8080/admin/` | Django Admin, only with `ENABLE_DJANGO_ADMIN=true` |
 
 For local dev, no further setup is needed. Migrations run automatically.
 

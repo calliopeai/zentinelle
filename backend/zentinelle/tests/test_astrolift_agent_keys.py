@@ -150,10 +150,10 @@ class AstroliftAgentKeyTests(TestCase):
         minted = AuditLog.objects.get(action='astrolift.agent_key.minted')
         revoked = AuditLog.objects.get(action='astrolift.agent_key.revoked')
         self.assertEqual((minted.tenant_id, revoked.tenant_id), (TENANT_A, TENANT_A))
-        self.assertEqual(minted.metadata['key_prefix'], key[:12])
+        self.assertEqual(minted.metadata['key_prefix'], key[:25])
         self.assertEqual(minted.metadata['install_id'], str(self.install.id))
         self.assertNotIn(key, audit_text())
-        self.assertNotIn(key[12:], audit_text())
+        self.assertNotIn(key[25:], audit_text())
 
     def test_disconnecting_the_install_terminates_the_agents_it_minted(self):
         first = mint(self.credential).json()['api_key']

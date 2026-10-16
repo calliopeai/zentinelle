@@ -1,28 +1,4 @@
 {
-  "nav": {
-    "section": "Platform",
-    "playground": "Playground",
-    "models": "Models",
-    "documentation": "Documentation",
-    "settings": "Settings",
-    "table": "Table",
-    "form": "Form",
-    "history": "History",
-    "starred": "Starred",
-    "genesis": "Genesis",
-    "explorer": "Explorer",
-    "quantum": "Quantum",
-    "introduction": "Introduction",
-    "getStarted": "Get Started",
-    "tutorials": "Tutorials",
-    "changelog": "Changelog",
-    "general": "General",
-    "team": "Team",
-    "billing": "Billing",
-    "limits": "Limits",
-    "hooks": "Hooks",
-    "secured": "Secured page"
-  },
   "user": {
     "account": "Account",
     "notifications": "Notifications",
@@ -45,29 +21,6 @@
       "customers": "Customers",
       "products": "Products",
       "fromLastMonth": "from last month"
-    },
-    "revenue": {
-      "title": "Revenue",
-      "description": "Monthly revenue for the last 12 months",
-      "label": "Revenue"
-    },
-    "channels": {
-      "title": "Channels",
-      "description": "Sales by acquisition channel",
-      "organic": "Organic",
-      "direct": "Direct",
-      "referral": "Referral",
-      "paid": "Paid"
-    },
-    "sales": {
-      "title": "Sales by category",
-      "description": "Units sold per product category this quarter",
-      "label": "Units sold",
-      "electronics": "Electronics",
-      "clothing": "Clothing",
-      "accessories": "Accessories",
-      "footwear": "Footwear",
-      "sports": "Sports"
     }
   },
   "dataTable": {

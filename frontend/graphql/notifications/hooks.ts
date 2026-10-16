@@ -1,14 +1,8 @@
 "use client";
 
 import { useQuery, useMutation } from "@apollo/client/react";
-import {
-  GET_NOTIFICATIONS,
-  GET_UNREAD_NOTIFICATIONS,
-} from "./queries";
-import {
-  UPDATE_NOTIFICATION,
-  MARK_ALL_NOTIFICATIONS_READ,
-} from "./mutations";
+import { GET_NOTIFICATIONS, GET_UNREAD_NOTIFICATIONS } from "./queries";
+import { UPDATE_NOTIFICATION, MARK_ALL_NOTIFICATIONS_READ } from "./mutations";
 import type {
   NotificationsData,
   NotificationsVariables,

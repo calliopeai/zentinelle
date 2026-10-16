@@ -78,9 +78,25 @@ const PROMPT_TYPES: PromptTypeOption[] = [
     description:
       "Core instructions that define the AI's role, constraints, and output format. The foundation of agent behavior.",
     configFields: [
-      { key: "role", label: "Role", placeholder: "e.g. Senior Code Reviewer", type: "text", required: true },
-      { key: "constraints", label: "Constraints", placeholder: "e.g. Only review Python and TypeScript code", type: "textarea" },
-      { key: "outputFormat", label: "Output Format", placeholder: "e.g. Markdown with code blocks and severity labels", type: "text" },
+      {
+        key: "role",
+        label: "Role",
+        placeholder: "e.g. Senior Code Reviewer",
+        type: "text",
+        required: true,
+      },
+      {
+        key: "constraints",
+        label: "Constraints",
+        placeholder: "e.g. Only review Python and TypeScript code",
+        type: "textarea",
+      },
+      {
+        key: "outputFormat",
+        label: "Output Format",
+        placeholder: "e.g. Markdown with code blocks and severity labels",
+        type: "text",
+      },
     ],
   },
   {
@@ -91,9 +107,26 @@ const PROMPT_TYPES: PromptTypeOption[] = [
     description:
       "Define a character with personality traits, speaking style, and knowledge areas. The AI adopts this identity.",
     configFields: [
-      { key: "characterTraits", label: "Character Traits", placeholder: "e.g. patient, detail-oriented, encouraging", type: "text", required: true },
-      { key: "speakingStyle", label: "Speaking Style", placeholder: "e.g. professional but warm, uses analogies", type: "text" },
-      { key: "knowledgeAreas", label: "Knowledge Areas", placeholder: "e.g. distributed systems, database optimization", type: "text", required: true },
+      {
+        key: "characterTraits",
+        label: "Character Traits",
+        placeholder: "e.g. patient, detail-oriented, encouraging",
+        type: "text",
+        required: true,
+      },
+      {
+        key: "speakingStyle",
+        label: "Speaking Style",
+        placeholder: "e.g. professional but warm, uses analogies",
+        type: "text",
+      },
+      {
+        key: "knowledgeAreas",
+        label: "Knowledge Areas",
+        placeholder: "e.g. distributed systems, database optimization",
+        type: "text",
+        required: true,
+      },
     ],
   },
   {
@@ -104,9 +137,26 @@ const PROMPT_TYPES: PromptTypeOption[] = [
     description:
       "Structured instructions for a specific task with an objective, steps to follow, and success criteria.",
     configFields: [
-      { key: "objective", label: "Objective", placeholder: "e.g. Review pull requests for security vulnerabilities", type: "text", required: true },
-      { key: "steps", label: "Steps", placeholder: "Add the steps the AI should follow", type: "list" },
-      { key: "successCriteria", label: "Success Criteria", placeholder: "e.g. All critical vulnerabilities identified, no false positives", type: "textarea" },
+      {
+        key: "objective",
+        label: "Objective",
+        placeholder: "e.g. Review pull requests for security vulnerabilities",
+        type: "text",
+        required: true,
+      },
+      {
+        key: "steps",
+        label: "Steps",
+        placeholder: "Add the steps the AI should follow",
+        type: "list",
+      },
+      {
+        key: "successCriteria",
+        label: "Success Criteria",
+        placeholder:
+          "e.g. All critical vulnerabilities identified, no false positives",
+        type: "textarea",
+      },
     ],
   },
   {
@@ -117,9 +167,27 @@ const PROMPT_TYPES: PromptTypeOption[] = [
     description:
       "Define boundaries: what the AI must never do, what topics are allowed or restricted, and fallback behaviors.",
     configFields: [
-      { key: "boundaries", label: "Boundaries (Never Do)", placeholder: "Add things the AI must never do", type: "list", required: true },
-      { key: "allowedTopics", label: "Allowed Topics", placeholder: "e.g. Technical support, billing questions, product features", type: "textarea" },
-      { key: "restrictedTopics", label: "Restricted Topics", placeholder: "e.g. Competitor comparisons, legal advice, medical diagnoses", type: "textarea" },
+      {
+        key: "boundaries",
+        label: "Boundaries (Never Do)",
+        placeholder: "Add things the AI must never do",
+        type: "list",
+        required: true,
+      },
+      {
+        key: "allowedTopics",
+        label: "Allowed Topics",
+        placeholder:
+          "e.g. Technical support, billing questions, product features",
+        type: "textarea",
+      },
+      {
+        key: "restrictedTopics",
+        label: "Restricted Topics",
+        placeholder:
+          "e.g. Competitor comparisons, legal advice, medical diagnoses",
+        type: "textarea",
+      },
     ],
   },
   {
@@ -130,11 +198,39 @@ const PROMPT_TYPES: PromptTypeOption[] = [
     description:
       "Teach the AI by providing input/output example pairs. Ensures consistent response format and quality.",
     configFields: [
-      { key: "taskDescription", label: "Task Description", placeholder: "e.g. Classify customer support tickets by urgency", type: "text", required: true },
-      { key: "example1Input", label: "Example 1 Input", placeholder: "e.g. My payment failed and I can't access my account", type: "textarea", required: true },
-      { key: "example1Output", label: "Example 1 Output", placeholder: "e.g. Category: Billing, Urgency: High", type: "textarea", required: true },
-      { key: "example2Input", label: "Example 2 Input", placeholder: "e.g. How do I change my notification preferences?", type: "textarea" },
-      { key: "example2Output", label: "Example 2 Output", placeholder: "e.g. Category: Account Settings, Urgency: Low", type: "textarea" },
+      {
+        key: "taskDescription",
+        label: "Task Description",
+        placeholder: "e.g. Classify customer support tickets by urgency",
+        type: "text",
+        required: true,
+      },
+      {
+        key: "example1Input",
+        label: "Example 1 Input",
+        placeholder: "e.g. My payment failed and I can't access my account",
+        type: "textarea",
+        required: true,
+      },
+      {
+        key: "example1Output",
+        label: "Example 1 Output",
+        placeholder: "e.g. Category: Billing, Urgency: High",
+        type: "textarea",
+        required: true,
+      },
+      {
+        key: "example2Input",
+        label: "Example 2 Input",
+        placeholder: "e.g. How do I change my notification preferences?",
+        type: "textarea",
+      },
+      {
+        key: "example2Output",
+        label: "Example 2 Output",
+        placeholder: "e.g. Category: Account Settings, Urgency: Low",
+        type: "textarea",
+      },
     ],
   },
   {
@@ -145,9 +241,26 @@ const PROMPT_TYPES: PromptTypeOption[] = [
     description:
       "Control how the AI structures its output: sections, formatting rules, length limits, and data formats.",
     configFields: [
-      { key: "sections", label: "Sections", placeholder: "Add the sections for the output", type: "list", required: true },
-      { key: "formattingRules", label: "Formatting Rules", placeholder: "e.g. Use markdown headings, include code blocks for examples", type: "textarea" },
-      { key: "maxLength", label: "Max Length (words)", placeholder: "e.g. 500", type: "text" },
+      {
+        key: "sections",
+        label: "Sections",
+        placeholder: "Add the sections for the output",
+        type: "list",
+        required: true,
+      },
+      {
+        key: "formattingRules",
+        label: "Formatting Rules",
+        placeholder:
+          "e.g. Use markdown headings, include code blocks for examples",
+        type: "textarea",
+      },
+      {
+        key: "maxLength",
+        label: "Max Length (words)",
+        placeholder: "e.g. 500",
+        type: "text",
+      },
     ],
   },
   {
@@ -158,10 +271,34 @@ const PROMPT_TYPES: PromptTypeOption[] = [
     description:
       "Define a single step in a multi-step prompt workflow. Passes context between steps for complex tasks.",
     configFields: [
-      { key: "stepNumber", label: "Step Number", placeholder: "e.g. 1", type: "text", required: true },
-      { key: "totalSteps", label: "Total Steps", placeholder: "e.g. 3", type: "text", required: true },
-      { key: "currentTask", label: "Current Step Task", placeholder: "e.g. Parse and categorize the raw input data", type: "textarea", required: true },
-      { key: "outputForNext", label: "Output for Next Step", placeholder: "e.g. Structured JSON with categories and confidence scores", type: "text" },
+      {
+        key: "stepNumber",
+        label: "Step Number",
+        placeholder: "e.g. 1",
+        type: "text",
+        required: true,
+      },
+      {
+        key: "totalSteps",
+        label: "Total Steps",
+        placeholder: "e.g. 3",
+        type: "text",
+        required: true,
+      },
+      {
+        key: "currentTask",
+        label: "Current Step Task",
+        placeholder: "e.g. Parse and categorize the raw input data",
+        type: "textarea",
+        required: true,
+      },
+      {
+        key: "outputForNext",
+        label: "Output for Next Step",
+        placeholder:
+          "e.g. Structured JSON with categories and confidence scores",
+        type: "text",
+      },
     ],
   },
 ];
@@ -172,13 +309,20 @@ const PROMPT_TYPES: PromptTypeOption[] = [
 
 function generatePrompt(
   type: string,
-  config: Record<string, string | string[]>
+  config: Record<string, string | string[]>,
 ): string {
   switch (type) {
     case "system": {
       const lines = [`You are a ${config.role || "helpful AI assistant"}.`];
       if (config.constraints) {
-        lines.push("", "Constraints:", ...String(config.constraints).split("\n").map((l) => `- ${l.trim()}`).filter((l) => l !== "- "));
+        lines.push(
+          "",
+          "Constraints:",
+          ...String(config.constraints)
+            .split("\n")
+            .map((l) => `- ${l.trim()}`)
+            .filter((l) => l !== "- "),
+        );
       }
       if (config.outputFormat) {
         lines.push("", `Output format: ${config.outputFormat}`);
@@ -188,7 +332,7 @@ function generatePrompt(
         "Guidelines:",
         "- Ask clarifying questions when the request is ambiguous",
         "- Acknowledge limitations honestly",
-        "- Provide accurate, well-structured responses"
+        "- Provide accurate, well-structured responses",
       );
       return lines.join("\n");
     }
@@ -203,12 +347,17 @@ function generatePrompt(
       if (config.speakingStyle) {
         lines.push("", `Communication style: ${config.speakingStyle}`);
       }
-      lines.push("", "Stay in character throughout the conversation. Draw on your expertise to provide thoughtful, well-informed responses.");
+      lines.push(
+        "",
+        "Stay in character throughout the conversation. Draw on your expertise to provide thoughtful, well-informed responses.",
+      );
       return lines.join("\n");
     }
 
     case "task": {
-      const lines = [`Objective: ${config.objective || "Complete the assigned task"}`];
+      const lines = [
+        `Objective: ${config.objective || "Complete the assigned task"}`,
+      ];
       const steps = Array.isArray(config.steps) ? config.steps : [];
       if (steps.length > 0) {
         lines.push("", "Steps:");
@@ -217,13 +366,22 @@ function generatePrompt(
         });
       }
       if (config.successCriteria) {
-        lines.push("", "Success criteria:", ...String(config.successCriteria).split("\n").map((l) => `- ${l.trim()}`).filter((l) => l !== "- "));
+        lines.push(
+          "",
+          "Success criteria:",
+          ...String(config.successCriteria)
+            .split("\n")
+            .map((l) => `- ${l.trim()}`)
+            .filter((l) => l !== "- "),
+        );
       }
       return lines.join("\n");
     }
 
     case "safety": {
-      const boundaries = Array.isArray(config.boundaries) ? config.boundaries : [];
+      const boundaries = Array.isArray(config.boundaries)
+        ? config.boundaries
+        : [];
       const lines = ["Safety Guidelines:", ""];
       if (boundaries.length > 0) {
         lines.push("NEVER:");
@@ -236,7 +394,9 @@ function generatePrompt(
       if (config.restrictedTopics) {
         lines.push(`Restricted topics: ${config.restrictedTopics}`, "");
       }
-      lines.push("When uncertain, decline gracefully and suggest the user contact a human representative.");
+      lines.push(
+        "When uncertain, decline gracefully and suggest the user contact a human representative.",
+      );
       return lines.join("\n");
     }
 
@@ -247,10 +407,20 @@ function generatePrompt(
         "Learn from these examples:",
       ];
       if (config.example1Input && config.example1Output) {
-        lines.push("", "Example 1:", `Input: ${config.example1Input}`, `Output: ${config.example1Output}`);
+        lines.push(
+          "",
+          "Example 1:",
+          `Input: ${config.example1Input}`,
+          `Output: ${config.example1Output}`,
+        );
       }
       if (config.example2Input && config.example2Output) {
-        lines.push("", "Example 2:", `Input: ${config.example2Input}`, `Output: ${config.example2Output}`);
+        lines.push(
+          "",
+          "Example 2:",
+          `Input: ${config.example2Input}`,
+          `Output: ${config.example2Output}`,
+        );
       }
       lines.push("", "Now apply the same pattern to new inputs.");
       return lines.join("\n");
@@ -311,7 +481,11 @@ function StepIndicator({ current }: { current: number }) {
           <div
             key={i}
             className={`h-1 flex-1 rounded-full transition-colors ${
-              i < current ? "bg-[#37efed]" : i === current ? "bg-[#37efed]/50" : "bg-muted"
+              i < current
+                ? "bg-[#37efed]"
+                : i === current
+                  ? "bg-[#37efed]/50"
+                  : "bg-muted"
             }`}
           />
         ))}
@@ -321,7 +495,9 @@ function StepIndicator({ current }: { current: number }) {
           <span
             key={label}
             className={`text-xs ${
-              i <= current ? "text-foreground font-medium" : "text-muted-foreground"
+              i <= current
+                ? "text-foreground font-medium"
+                : "text-muted-foreground"
             }`}
           >
             {label}
@@ -433,7 +609,7 @@ export default function PromptGeneratorPage() {
   const typeOption = PROMPT_TYPES.find((t) => t.value === selectedType);
   const tokenCount = useMemo(
     () => Math.ceil(generatedPrompt.length / 4),
-    [generatedPrompt]
+    [generatedPrompt],
   );
 
   // Navigation
@@ -478,7 +654,7 @@ export default function PromptGeneratorPage() {
     (key: string, value: string | string[]) => {
       setConfig((prev) => ({ ...prev, [key]: value }));
     },
-    []
+    [],
   );
 
   const handleRegenerate = useCallback(() => {
@@ -493,7 +669,7 @@ export default function PromptGeneratorPage() {
     // Simulate a test response — in production this would hit the test_system_prompt mutation
     await new Promise((resolve) => setTimeout(resolve, 1200));
     setTestResult(
-      `[Preview] Given the system prompt and your input "${testInput.slice(0, 50)}...", the AI would respond following the configured guidelines. This is a simulated preview — connect the test_system_prompt mutation for live testing.`
+      `[Preview] Given the system prompt and your input "${testInput.slice(0, 50)}...", the AI would respond following the configured guidelines. This is a simulated preview — connect the test_system_prompt mutation for live testing.`,
     );
     setTestLoading(false);
   }, [testInput]);
@@ -676,11 +852,7 @@ export default function PromptGeneratorPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-medium">Review Generated Prompt</h2>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRegenerate}
-                >
+                <Button variant="outline" size="sm" onClick={handleRegenerate}>
                   <SparklesIcon className="mr-1.5 h-3.5 w-3.5" />
                   Regenerate
                 </Button>
@@ -769,8 +941,8 @@ export default function PromptGeneratorPage() {
                 <CardHeader>
                   <CardTitle className="text-sm">Try It</CardTitle>
                   <CardDescription className="text-xs">
-                    Send a test message to see how the AI would respond with this
-                    system prompt
+                    Send a test message to see how the AI would respond with
+                    this system prompt
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -851,11 +1023,7 @@ export default function PromptGeneratorPage() {
             )}
 
             {step < 3 && (
-              <Button
-                size="sm"
-                onClick={handleNext}
-                disabled={!canAdvance}
-              >
+              <Button size="sm" onClick={handleNext} disabled={!canAdvance}>
                 {step === 2 ? "Test" : "Next"}
                 <ArrowRightIcon className="ml-1.5 h-4 w-4" />
               </Button>

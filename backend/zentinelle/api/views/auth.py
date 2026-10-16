@@ -28,15 +28,20 @@ class LoginIPThrottle(SimpleRateThrottle):
     rate = '20/min'
 
     def get_cache_key(self, request, view):
-        return 'login-ip:' + request.META.get('REMOTE_ADDR', '')
+        # The client address, behind NUM_PROXIES trusted proxies. Behind a
+        # load balancer REMOTE_ADDR is the balancer, which made this one
+        # limit for every user at once.
+        return 'login-ip:' + self.get_ident(request)
 
 
 class LoginUserThrottle(SimpleRateThrottle):
     rate = '20/hour'
 
     def get_cache_key(self, request, view):
+        # Per account and client address: per account alone, anyone could
+        # lock a named user out for an hour with 20 bad passwords.
         username = str(request.data.get('username', '')).strip().casefold()
-        return 'login-user:' + hashlib.sha256(username.encode()).hexdigest()
+        return 'login-user:' + hashlib.sha256(f'{username}\n{self.get_ident(request)}'.encode()).hexdigest()
 
 
 class CSRFTokenView(APIView):

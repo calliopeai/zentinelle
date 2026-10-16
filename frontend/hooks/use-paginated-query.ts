@@ -31,12 +31,18 @@ function sanitizePage(page: number, totalPageCount: number): number {
 }
 
 function stripNullish(obj: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== null && v !== undefined));
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== null && v !== undefined),
+  );
 }
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type PaginatedQueryOptions<TVariables extends OperationVariables, TItem, TExtractedData> = {
+type PaginatedQueryOptions<
+  TVariables extends OperationVariables,
+  TItem,
+  TExtractedData,
+> = {
   query: DocumentNode;
   variables: Partial<TVariables>;
   dataExtractor: (items: TItem[]) => TExtractedData[];
@@ -54,7 +60,9 @@ type PaginatedQueryOptions<TVariables extends OperationVariables, TItem, TExtrac
    *  Synced as ?${prefix}filter-${id}=value. Requires urlSync. */
   filterKeys?: string[];
   /** Map current filter values to query variables. */
-  variablesFromFilters?: (filters: Record<string, string | undefined>) => Partial<TVariables>;
+  variablesFromFilters?: (
+    filters: Record<string, string | undefined>,
+  ) => Partial<TVariables>;
   /** Map current sort state to query variables. */
   variablesFromSorting?: (sorting: SortingState) => Partial<TVariables>;
 };
@@ -112,7 +120,11 @@ export function usePaginatedQuery<
   filterKeys = [],
   variablesFromFilters,
   variablesFromSorting,
-}: PaginatedQueryOptions<TVariables, TItem, TExtractedData>): PaginatedQueryResult<TExtractedData> {
+}: PaginatedQueryOptions<
+  TVariables,
+  TItem,
+  TExtractedData
+>): PaginatedQueryResult<TExtractedData> {
   const searchParams = useSearchParams();
 
   const prefix = typeof urlSync === "string" ? `${urlSync}-` : "";
@@ -122,9 +134,13 @@ export function usePaginatedQuery<
   const sortKey = `${prefix}sort`;
 
   // Read initial values from URL once on mount — useState ignores subsequent changes
-  const initialPage = urlSync ? parseInt(searchParams.get(pageKey) ?? "") || 1 : 1;
+  const initialPage = urlSync
+    ? parseInt(searchParams.get(pageKey) ?? "") || 1
+    : 1;
   const initialSearch = urlSync ? (searchParams.get(searchKey) ?? "") : "";
-  const urlInitPerPage = urlSync ? parseInt(searchParams.get(perPageKey) ?? "") || null : null;
+  const urlInitPerPage = urlSync
+    ? parseInt(searchParams.get(perPageKey) ?? "") || null
+    : null;
 
   // Initial filters from URL
   const initialFilterValues: Record<string, string> = {};
@@ -149,7 +165,7 @@ export function usePaginatedQuery<
 
   const [storedPerPage, setStoredPerPage] = useLocalStorage<number>(
     storageKey,
-    sanitizePerPage(urlInitPerPage ?? initialPerPage ?? DEFAULT_PER_PAGE)
+    sanitizePerPage(urlInitPerPage ?? initialPerPage ?? DEFAULT_PER_PAGE),
   );
   const perPage = sanitizePerPage(storedPerPage);
 
@@ -190,14 +206,20 @@ export function usePaginatedQuery<
     }
 
     const qs = params.toString();
-    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+    window.history.replaceState(
+      null,
+      "",
+      qs ? `?${qs}` : window.location.pathname,
+    );
     // keys and urlSync are stable; exclude to avoid stale closure lint noise
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, search, perPage, filterValues, sorting]);
 
   const queryOffset = (page - 1) * perPage;
 
-  const filterVars = variablesFromFilters ? variablesFromFilters(filterValues) : {};
+  const filterVars = variablesFromFilters
+    ? variablesFromFilters(filterValues)
+    : {};
   const sortingVars = variablesFromSorting ? variablesFromSorting(sorting) : {};
 
   const mergedVariables = stripNullish({
@@ -217,7 +239,12 @@ export function usePaginatedQuery<
   });
 
   const ancestorData = (
-    data as Record<string, { edges: TItem[]; totalCount: number } | null | undefined> | undefined
+    data as
+      | Record<
+          string,
+          { edges: TItem[]; totalCount: number } | null | undefined
+        >
+      | undefined
   )?.[ancestor];
 
   const edges = ancestorData?.edges ?? [];

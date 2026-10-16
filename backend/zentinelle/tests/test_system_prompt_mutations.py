@@ -124,7 +124,7 @@ class ForkSystemPromptTests(TestCase):
             context=anon_context(),
         )
         self.assertTrue(result.errors)
-        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
+        self.assertEqual(result.errors[0].extensions['code'], 'UNAUTHENTICATED')
 
 
 class AnalyzeSystemPromptTests(TestCase):
@@ -217,4 +217,4 @@ class AnalyzeSystemPromptTests(TestCase):
             )
 
         self.assertTrue(result.errors)
-        self.assertEqual(result.errors[0].extensions['code'], 'FORBIDDEN')
+        self.assertEqual(result.errors[0].extensions['code'], 'UNAUTHENTICATED')

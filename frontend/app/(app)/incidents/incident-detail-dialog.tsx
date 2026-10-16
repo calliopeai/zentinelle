@@ -2,7 +2,6 @@
 
 import { authenticatedFetch } from "@/lib/auth/fetch";
 
-
 import { useCallback, useEffect, useState } from "react";
 import { Loader2Icon, MessageSquareIcon, SendIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -28,8 +27,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
 
 /* ── Comment types ──────────────────────────────────────────────── */
 
@@ -233,9 +231,7 @@ function CommentsThread({ incidentId }: { incidentId: string }) {
       setSubmitting(true);
       try {
         const body =
-          severity === "info"
-            ? trimmed
-            : `[severity:${severity}] ${trimmed}`;
+          severity === "info" ? trimmed : `[severity:${severity}] ${trimmed}`;
 
         const res = await authenticatedFetch(
           `${API_URL}/incidents/${incidentId}/comments/`,
@@ -318,17 +314,18 @@ function CommentsThread({ incidentId }: { incidentId: string }) {
                   <span className="text-sm font-medium">
                     {c.author_id || "system"}
                   </span>
-                  {sev && (() => {
-                    const cfg = severityBadge(sev);
-                    return (
-                      <Badge
-                        variant={cfg.variant}
-                        className={cn("text-[10px] uppercase", cfg.className)}
-                      >
-                        {sev}
-                      </Badge>
-                    );
-                  })()}
+                  {sev &&
+                    (() => {
+                      const cfg = severityBadge(sev);
+                      return (
+                        <Badge
+                          variant={cfg.variant}
+                          className={cn("text-[10px] uppercase", cfg.className)}
+                        >
+                          {sev}
+                        </Badge>
+                      );
+                    })()}
                   <span className="text-muted-foreground ml-auto text-xs">
                     {formatTimestamp(c.created_at)}
                   </span>

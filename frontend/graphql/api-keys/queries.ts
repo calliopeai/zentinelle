@@ -12,7 +12,7 @@ export const GET_API_KEYS = gql`
       lastUsedAt
       expiresAt
       createdAt
-      createdBy
+      createdByUsername
     }
   }
 `;

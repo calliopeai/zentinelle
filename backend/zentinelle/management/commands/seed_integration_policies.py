@@ -5,8 +5,10 @@ Usage:
     python manage.py seed_integration_policies --tenant <id> --source <workbench|astrolift>
 
 Creates one organization-wide agent_delegation, human_oversight and
-budget_limit policy for the tenant, in audit mode: a match is logged and
-never blocks. Operators tighten them later by switching a policy to enforce.
+budget_limit policy for the tenant, in audit mode with the alert action: a
+match is recorded and the tenant's owners are notified, and nothing is ever
+blocked. Switching a policy to enforce keeps it alerting rather than blocking;
+operators who want a block change its action (and the budget's hard_limit).
 
 A type the tenant already has an organization-wide policy of is skipped,
 whatever its name, mode or settings, so an operator's policy is never
@@ -16,6 +18,7 @@ when Zentinelle is enabled with the Workbench or with Astrolift.
 from django.core.management.base import BaseCommand, CommandError
 
 from zentinelle.models import Policy
+from zentinelle.models.actions import Action
 
 SOURCES = {'workbench': 'the Workbench', 'astrolift': 'Astrolift'}
 
@@ -36,13 +39,14 @@ SEEDS = (
     (Policy.PolicyType.BUDGET_LIMIT, 'Monthly budget', {
         'monthly_budget_usd': 500,
         'alert_threshold_percent': 80,
-        'hard_limit': True,
+        'hard_limit': False,
     }),
 )
 
 
 class Command(BaseCommand):
-    help = 'Seed agent_delegation, human_oversight and budget_limit policies in audit mode'
+    help = ('Seed agent_delegation, human_oversight and budget_limit policies in audit mode '
+            'with the alert action, so switching one to enforce alerts rather than blocks')
 
     def add_arguments(self, parser):
         parser.add_argument('--tenant', required=True, help='The tenant to seed the policies for')
@@ -68,11 +72,12 @@ class Command(BaseCommand):
                 policy_type=policy_type,
                 name=name,
                 description=(
-                    f'Seeded in audit mode when Zentinelle was enabled with {source}. It logs '
-                    'matches and never blocks; switch it to enforce once the settings fit.'
+                    f'Seeded in audit mode when Zentinelle was enabled with {source}. It alerts '
+                    'on matches and never blocks, under enforce too, until its action is changed.'
                 ),
                 config=dict(config),
                 enforcement=Policy.Enforcement.AUDIT,
+                action=Action.ALERT,
             )
             created += 1
             self.stdout.write(f'created {policy_type}: "{name}" in audit mode')

@@ -360,6 +360,7 @@ def _persist_to_registry(provider_slug: str, models: list) -> None:
     from datetime import datetime
 
     from zentinelle.models import AIModel, AIProvider
+    from zentinelle.services.usage_tracking import MODEL_PRICING
 
     provider, _ = AIProvider.objects.get_or_create(
         slug=provider_slug,
@@ -397,6 +398,13 @@ def _persist_to_registry(provider_slug: str, models: list) -> None:
         if created:
             obj.enabled_for_chat = bool(m.get('defaultEnabledForChat', True))
             obj.save(update_fields=['enabled_for_chat'])
+        # A discovered model the catalog prices gets that price, so the
+        # registry shows what the resolver charges; a held price is kept.
+        shipped = MODEL_PRICING.get(m['value'])
+        if (shipped and shipped['provider'] == provider_slug
+                and obj.input_price_per_million is None and obj.output_price_per_million is None):
+            obj.input_price_per_million, obj.output_price_per_million = shipped['input'], shipped['output']
+            obj.save(update_fields=['input_price_per_million', 'output_price_per_million'])
 
 
 def clear_cache(provider: str = None, tenant_id: str = None) -> None:

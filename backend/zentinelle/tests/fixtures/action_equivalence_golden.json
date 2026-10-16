@@ -9097,17 +9097,7 @@
     },
     "side_effects": {
      "approval_requests": [],
-     "content_scans": [
-      [
-       "user_input",
-       false,
-       0,
-       null,
-       null,
-       false,
-       false
-      ]
-     ],
+     "content_scans": [],
      "events": [
       {
        "action": "llm:response",
@@ -9177,17 +9167,7 @@
     },
     "side_effects": {
      "approval_requests": [],
-     "content_scans": [
-      [
-       "user_input",
-       false,
-       0,
-       null,
-       null,
-       false,
-       false
-      ]
-     ],
+     "content_scans": [],
      "events": [
       {
        "action": "llm:response",
@@ -9384,17 +9364,7 @@
     },
     "side_effects": {
      "approval_requests": [],
-     "content_scans": [
-      [
-       "user_input",
-       false,
-       0,
-       null,
-       null,
-       false,
-       false
-      ]
-     ],
+     "content_scans": [],
      "events": [
       {
        "action": "llm:response",
@@ -9440,17 +9410,7 @@
     },
     "side_effects": {
      "approval_requests": [],
-     "content_scans": [
-      [
-       "user_input",
-       false,
-       0,
-       null,
-       null,
-       false,
-       false
-      ]
-     ],
+     "content_scans": [],
      "events": [
       {
        "action": "llm:response",
@@ -9714,17 +9674,7 @@
     },
     "side_effects": {
      "approval_requests": [],
-     "content_scans": [
-      [
-       "user_input",
-       false,
-       0,
-       null,
-       null,
-       false,
-       false
-      ]
-     ],
+     "content_scans": [],
      "events": [
       {
        "action": "llm:response",
@@ -9792,17 +9742,7 @@
     },
     "side_effects": {
      "approval_requests": [],
-     "content_scans": [
-      [
-       "user_input",
-       false,
-       0,
-       null,
-       null,
-       false,
-       false
-      ]
-     ],
+     "content_scans": [],
      "events": [
       {
        "action": "llm:response",

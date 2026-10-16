@@ -108,8 +108,11 @@ class ScanContentView(APIView):
         user_id = request.data.get('user_id', 'anonymous')
         content_type = request.data.get('content_type', ContentScan.ContentType.USER_INPUT)
         from zentinelle.services.actions import normalize_capabilities
+        from zentinelle.services.usage_ingest import cost_amount, token_count
         try:
             capabilities = normalize_capabilities(request.data.get('target_capabilities'))
+            tokens = token_count(request.data.get('token_count'), 'token_count')
+            cost = cost_amount(request.data.get('estimated_cost'), 'estimated_cost')
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -130,8 +133,8 @@ class ScanContentView(APIView):
                 session_id=request.data.get('session_id', ''),
                 request_id=request.data.get('request_id', ''),
                 ip_address=self._get_client_ip(request),
-                token_count=request.data.get('token_count'),
-                estimated_cost=request.data.get('estimated_cost'),
+                token_count=tokens,
+                estimated_cost=cost,
                 target_capabilities=capabilities,
             )
         except Exception as e:
@@ -211,6 +214,14 @@ class AsyncScanView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        from zentinelle.services.usage_ingest import (InvalidUsage,
+                                                      cost_amount, token_count)
+        try:
+            tokens = token_count(request.data.get('token_count'), 'token_count')
+            cost = cost_amount(request.data.get('estimated_cost'), 'estimated_cost')
+        except InvalidUsage as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
         user_id = request.data.get('user_id', 'anonymous')
         content_type = request.data.get('content_type', ContentScan.ContentType.USER_INPUT)
         endpoint = get_endpoint_from_request(request)
@@ -236,8 +247,8 @@ class AsyncScanView(APIView):
             status=ContentScan.ScanStatus.PENDING,
             session_id=request.data.get('session_id', ''),
             request_id=request.data.get('request_id', ''),
-            token_count=request.data.get('token_count'),
-            estimated_cost_usd=request.data.get('estimated_cost'),
+            token_count=tokens,
+            estimated_cost_usd=cost,
         )
 
         # Queue for async processing
@@ -576,37 +587,81 @@ class LogInteractionView(APIView):
             "estimated_cost_usd": 0.05,
             "occurred_at": "2024-01-15T10:30:00Z"
         }
+
+        The SDK `log_interaction` spelling is accepted too: `prompt`,
+        `response`, `model`, `provider`, `input_tokens`, `output_tokens`,
+        `cost_usd`, and `user_id`/`session_id` inside `metadata`. Negative
+        counts or costs are refused. When the model is priced, the cost is
+        computed here; a client cost is kept only for an unpriced model.
+        A request_id this agent already logged completes that row.
         """
         endpoint = get_endpoint_from_request(request)
 
         from django.utils import timezone
         from django.utils.dateparse import parse_datetime
 
-        occurred_at = request.data.get('occurred_at')
+        from zentinelle.services.usage_ingest import (InvalidUsage,
+                                                      billable_input,
+                                                      cost_amount,
+                                                      normalize_tokens,
+                                                      server_cost)
+
+        data = request.data
+        metadata = data.get('metadata') if isinstance(data.get('metadata'), dict) else {}
+
+        def field(*keys, default=None):
+            for source in (data, metadata):
+                for key in keys:
+                    if source.get(key) is not None:
+                        return source[key]
+            return default
+
+        try:
+            given = [field('input_token_count', 'input_tokens'), field('output_token_count', 'output_tokens')]
+            tokens = normalize_tokens({
+                'input_tokens': given[0],
+                'output_tokens': given[1],
+                'cache_read_tokens': field('cache_read_tokens'),
+                'cache_write_tokens': field('cache_write_tokens'),
+            })
+            client_cost = cost_amount(field('estimated_cost_usd', 'cost_usd'), 'estimated_cost_usd')
+        except InvalidUsage as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        model = field('ai_model', 'model', default='')
+        input_count = billable_input(tokens) if given[0] is not None else None
+        output_count = tokens['output_tokens'] if given[1] is not None else None
+        cost = client_cost
+        if input_count is not None or output_count is not None:
+            priced = server_cost(model, tokens, str(field('ai_provider', 'provider', default='') or '').lower())
+            cost = priced if priced is not None else client_cost
+
+        occurred_at = data.get('occurred_at')
         if occurred_at:
             occurred_at = parse_datetime(occurred_at) or timezone.now()
         else:
             occurred_at = timezone.now()
 
         interaction = record_interaction(
+            merge=True,
             tenant_id=endpoint.tenant_id,
             endpoint=endpoint,
             deployment_id_ext=endpoint.deployment_id_ext,
-            user_identifier=request.data.get('user_id', 'anonymous'),
-            interaction_type=request.data.get('interaction_type', InteractionLog.InteractionType.CHAT),
-            session_id=request.data.get('session_id', ''),
-            request_id=request.data.get('request_id', ''),
-            ai_provider=request.data.get('ai_provider', ''),
-            ai_model=request.data.get('ai_model', ''),
-            input_content=request.data.get('input_content', ''),
-            input_token_count=request.data.get('input_token_count'),
-            output_content=request.data.get('output_content', ''),
-            output_token_count=request.data.get('output_token_count'),
-            system_prompt=request.data.get('system_prompt', ''),
-            tool_calls=request.data.get('tool_calls', []),
-            latency_ms=request.data.get('latency_ms'),
-            total_tokens=(request.data.get('input_token_count') or 0) + (request.data.get('output_token_count') or 0),
-            estimated_cost_usd=request.data.get('estimated_cost_usd'),
+            user_identifier=field('user_id', default='anonymous'),
+            interaction_type=data.get('interaction_type', InteractionLog.InteractionType.CHAT),
+            session_id=field('session_id', default=''),
+            request_id=field('request_id', default=''),
+            ai_provider=field('ai_provider', 'provider', default=''),
+            ai_model=model,
+            input_content=field('input_content', 'prompt', default=''),
+            input_token_count=input_count,
+            output_content=field('output_content', 'response', default=''),
+            output_token_count=output_count,
+            system_prompt=data.get('system_prompt', ''),
+            tool_calls=data.get('tool_calls', []),
+            latency_ms=data.get('latency_ms'),
+            total_tokens=None if input_count is None and output_count is None else (input_count or 0) + (output_count or 0),
+            estimated_cost_usd=cost,
             ip_address=self._get_client_ip(request),
             occurred_at=occurred_at,
         )

@@ -4,7 +4,11 @@ import { useTheme } from "next-themes";
 import { SunIcon, MoonIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import {
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar";
 import {
   Select,
   SelectContent,
@@ -48,7 +52,11 @@ export const ThemeToggle = ({ variant = "sidebar" }: ThemeToggleProps) => {
           onClick={() => setTheme(isDark ? "light" : "dark")}
           className="text-muted-foreground"
         >
-          {isDark ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
+          {isDark ? (
+            <SunIcon className="size-4" />
+          ) : (
+            <MoonIcon className="size-4" />
+          )}
           <span>{isDark ? "Light mode" : "Dark mode"}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>

@@ -262,6 +262,7 @@ class PolicyEngine:
         context: Optional[Dict[str, Any]] = None,
         dry_run: bool = False,
         target_capabilities: Optional[Dict[str, bool]] = None,
+        user_verified: bool = False,
     ) -> EvaluationResult:
         """
         Evaluate policies for an action.
@@ -311,6 +312,10 @@ class PolicyEngine:
         # Trusted workload identity always replaces caller-supplied values.
         context['_tenant_id'] = endpoint.tenant_id
         context['_endpoint_id'] = str(endpoint.id)
+        context['_agent_id'] = endpoint.agent_id
+        # Set only when the caller verified user_id (a hub user token), so
+        # evaluators can tell it from a user_id the caller merely claims.
+        context['_user_verified'] = bool(user_verified and user_id)
         # Preserve the complete taxonomy decision context in traces and
         # incident evidence. Unsupported labels remain visible to operators;
         # only canonical/tenant-approved labels participate in selection.
@@ -432,6 +437,9 @@ class PolicyEngine:
                     decision = self._fail_closed(policy)
                 else:
                     decision = self._decide(policy, result, endpoint, action, context, severity, dry_run)
+                    if getattr(result, 'advisory', False) and denies(decision):
+                        decision.capped_from = decision.action
+                        decision.action, decision.block_level = Action.ALERT.value, None
                 if self._released_by_approval(decision, result, policy, action, user_id, context):
                     entry['result'] = 'pass'
                     entry['approved'] = True

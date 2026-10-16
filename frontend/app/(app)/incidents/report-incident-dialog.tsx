@@ -126,7 +126,8 @@ export function ReportIncidentDialog({
         handleClose(false);
         onReported();
       } else {
-        const err = data?.createIncident?.errors?.[0] ?? "Failed to report incident";
+        const err =
+          data?.createIncident?.errors?.[0] ?? "Failed to report incident";
         toast.error(err);
       }
     } catch {
@@ -140,7 +141,8 @@ export function ReportIncidentDialog({
         <DialogHeader>
           <DialogTitle>Report Incident</DialogTitle>
           <DialogDescription>
-            Report a new security incident or policy violation for tracking and resolution.
+            Report a new security incident or policy violation for tracking and
+            resolution.
           </DialogDescription>
         </DialogHeader>
 
@@ -168,7 +170,9 @@ export function ReportIncidentDialog({
               aria-invalid={!!errors.description}
             />
             {errors.description && (
-              <p className="text-destructive text-sm">{errors.description.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.description.message}
+              </p>
             )}
           </div>
 
@@ -194,7 +198,9 @@ export function ReportIncidentDialog({
                 )}
               />
               {errors.incidentType && (
-                <p className="text-destructive text-sm">{errors.incidentType.message}</p>
+                <p className="text-destructive text-sm">
+                  {errors.incidentType.message}
+                </p>
               )}
             </div>
 
@@ -219,7 +225,9 @@ export function ReportIncidentDialog({
                 )}
               />
               {errors.severity && (
-                <p className="text-destructive text-sm">{errors.severity.message}</p>
+                <p className="text-destructive text-sm">
+                  {errors.severity.message}
+                </p>
               )}
             </div>
           </div>
@@ -244,11 +252,17 @@ export function ReportIncidentDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleClose(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleClose(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting && (
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Report Incident
             </Button>
           </DialogFooter>

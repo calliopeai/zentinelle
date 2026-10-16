@@ -23,12 +23,12 @@ class ProxyNetworkPolicyTests(TestCase):
             config={'allowed_domains': ['api.anthropic.com'], 'allow_outbound': True},
         )
         request = RequestFactory().post(
-            '/proxy/openai/v1/chat/completions', data=json.dumps({'model': 'gpt-4o'}),
+            '/proxy/openai/chat/completions', data=json.dumps({'model': 'gpt-4o'}),
             content_type='application/json', HTTP_X_ZENTINELLE_KEY=key,
         )
         auth = SimpleNamespace(valid=True, tenant_id='tenant-network', user_id=f'agent:{endpoint.id}')
         with patch('zentinelle.proxy.views.StandaloneTenantResolver._validate_agent_key', return_value=auth), \
              patch('httpx.Client') as client:
-            response = ProxyView.as_view()(request, provider='openai', path='v1/chat/completions')
+            response = ProxyView.as_view()(request, provider='openai', path='chat/completions')
         self.assertEqual(response.status_code, 403)
         client.assert_not_called()

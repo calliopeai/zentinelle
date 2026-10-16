@@ -41,8 +41,16 @@ def create_platform_api_key(info: strawberry.types.Info, name: str, description:
     if not tenant_id:
         return CreatePlatformAPIKeyPayload(ok=False, error="authentication_required")
 
+    # Least privilege when unspecified; an unknown scope is refused rather
+    # than stored, since nothing would enforce it.
     if scopes is None:
-        scopes = ["read", "write"]
+        scopes = ["read"]
+    scopes = list(dict.fromkeys(scopes))
+    if not scopes:
+        return CreatePlatformAPIKeyPayload(ok=False, error="scopes_required")
+    unknown = [s for s in scopes if s not in APIKey.SCOPES]
+    if unknown:
+        return CreatePlatformAPIKeyPayload(ok=False, error=f"unknown_scopes: {', '.join(unknown)}")
 
     full_key, key_hash, key_prefix = APIKey.generate_api_key()
     obj = APIKey.objects.create(

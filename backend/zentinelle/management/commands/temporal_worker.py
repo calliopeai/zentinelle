@@ -11,6 +11,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from temporalio.worker import Worker
 
+from config.secret_guard import refuse_insecure_secrets
 from zentinelle.temporal.activities import build_activities, load_tasks
 from zentinelle.temporal.client import connect
 from zentinelle.temporal.schedules import sync_schedules
@@ -28,6 +29,7 @@ class Command(BaseCommand):
     help = "Run the Temporal worker and upsert the Temporal Schedules."
 
     def handle(self, *args, **options):
+        refuse_insecure_secrets()
         if not settings.TEMPORAL_ADDRESS:
             raise CommandError("TEMPORAL_ADDRESS is not set")
         asyncio.run(self._run())

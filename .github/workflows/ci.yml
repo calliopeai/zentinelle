@@ -171,6 +171,11 @@ jobs:
           # volume; one contract case reads it from there (#380).
           ZENTINELLE_GATEWAY_CREDENTIAL_FILE: /tmp/zentinelle-contract-gateway/gateway-credential
         run: |
+          # The backend refuses to start on empty or placeholder secrets, and
+          # the seed encrypts provider keys, so each run gets its own.
+          export SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(48))')
+          export ZENTINELLE_BOOTSTRAP_SECRET=$(python -c 'import secrets; print(secrets.token_hex(32))')
+          export ZENTINELLE_SECRET_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')
           mkdir -p -m 700 /tmp/zentinelle-contract-gateway
           python backend/manage.py prepare_schemas
           python backend/manage.py migrate --database default --no-input
@@ -240,7 +245,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Node 20 is end of life; graphql 17 and vitest need 22 or 24.
+          node-version: '24'
 
       - name: Install
         working-directory: frontend
@@ -249,6 +255,24 @@ jobs:
         # lockfile desync (#309), and absorbing it meant the next one would go
         # unnoticed too. Failing loudly is the point of committing a lockfile.
         run: npm ci
+
+      # Existing violations are recorded in eslint-suppressions.json; any new
+      # error fails, and so does a suppression whose violation was fixed
+      # (prune it with `npx eslint --prune-suppressions`).
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Format
+        working-directory: frontend
+        run: npm run format:check
+
+      # Includes graphql/operations.test.ts: every portal operation validated
+      # against graphql/schema.graphql, which the backend job keeps equal to
+      # the served schema (test_frontend_schema_snapshot.py).
+      - name: Tests
+        working-directory: frontend
+        run: npm test
 
       # The build, not just tsc. Local `tsc` has passed while the Next build
       # failed more than once — they do not check the same things.

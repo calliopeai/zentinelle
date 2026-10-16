@@ -102,6 +102,10 @@ git clone https://github.com/calliopeai/zentinelle
 cd zentinelle
 cp .env.example .env
 
+# Zentinelle refuses to start on empty or placeholder secrets. Generate them
+# and paste the three lines into .env:
+docker compose run --rm --no-deps backend python manage.py generate_secrets
+
 # Local authentication is the default; create an administrator after startup.
 docker compose up -d
 ```

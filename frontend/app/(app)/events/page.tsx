@@ -32,7 +32,7 @@ const SCROLL_TOP_THRESHOLD = 120;
 // ── Color coding ──────────────────────────────────────────────────────────
 
 function categoryVariant(
-  category: string
+  category: string,
 ): "default" | "secondary" | "destructive" | "outline" {
   switch (category) {
     case "audit":
@@ -69,7 +69,7 @@ function eventTypeAccent(eventType: string): string {
 }
 
 function statusVariant(
-  status: string
+  status: string,
 ): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case "processed":
@@ -147,7 +147,7 @@ function ExpandablePayload({
   // expanded row.
   const formatted = useMemo(
     () => (expanded && payload ? formatPayload(payload) : null),
-    [expanded, payload]
+    [expanded, payload],
   );
 
   if (!payload || Object.keys(payload).length === 0) {
@@ -455,7 +455,7 @@ export default function EventsPage() {
                     <div className="min-w-[200px] flex-1">
                       <span
                         className={`font-mono text-sm font-medium ${eventTypeAccent(
-                          event.eventType
+                          event.eventType,
                         )}`}
                       >
                         {event.eventType}

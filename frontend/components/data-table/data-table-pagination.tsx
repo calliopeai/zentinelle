@@ -2,7 +2,12 @@
 
 import { type RowData } from "@tanstack/react-table";
 import { type LegacyReactTable as Table } from "@tanstack/react-table/legacy";
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +24,9 @@ type DataTablePaginationProps<TData extends RowData> = {
   table: Table<TData>;
 };
 
-export const DataTablePagination = <TData extends RowData>({ table }: DataTablePaginationProps<TData>) => {
+export const DataTablePagination = <TData extends RowData>({
+  table,
+}: DataTablePaginationProps<TData>) => {
   const t = useTranslations("dataTable.pagination");
   const { pageIndex, pageSize } = table.getState().pagination;
   const total = table.getFilteredRowModel().rows.length;
@@ -28,7 +35,10 @@ export const DataTablePagination = <TData extends RowData>({ table }: DataTableP
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         <p className="text-muted-foreground text-sm">{t("rowsPerPage")}</p>
-        <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
+        <Select
+          value={String(pageSize)}
+          onValueChange={(v) => table.setPageSize(Number(v))}
+        >
           <SelectTrigger className="h-8 w-16">
             <SelectValue />
           </SelectTrigger>
@@ -40,7 +50,9 @@ export const DataTablePagination = <TData extends RowData>({ table }: DataTableP
             ))}
           </SelectContent>
         </Select>
-        <p className="text-muted-foreground text-sm">{t("results", { count: total })}</p>
+        <p className="text-muted-foreground text-sm">
+          {t("results", { count: total })}
+        </p>
       </div>
 
       <div className="flex items-center gap-1">

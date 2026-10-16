@@ -71,8 +71,24 @@ def capture_payload(value, tenant_id=None, _mode=None):
     return value
 
 
-def record_interaction(**kwargs):
-    """Inspect raw content in memory, then persist according to the capture profile."""
+def _empty(value):
+    return value is None or value == '' or value == [] or value == {}
+
+
+def _unfilled(row, field):
+    """Empty, or the action name /evaluate stores until the call's content arrives."""
+    value = getattr(row, field)
+    return _empty(value) or (field == 'input_content' and bool(row.topics) and value == row.topics[0])
+
+
+def record_interaction(merge=False, **kwargs):
+    """Inspect raw content in memory, then persist according to the capture profile.
+
+    With `merge`, a row the same endpoint already logged under the same
+    request_id is completed instead of duplicated: one provider call is one
+    row. Only unfilled fields are written, so a later post can never rewrite
+    content or lower token counts and cost already recorded.
+    """
     from zentinelle.models.compliance import ContentScan, InteractionLog
     from zentinelle.services.content_scanner import ContentScanner
     scanner = ContentScanner(kwargs['tenant_id'])
@@ -88,4 +104,17 @@ def record_interaction(**kwargs):
     for field in ('input_content', 'output_content'):
         if kwargs.get(field) is not None:
             kwargs[field] = capture_text(kwargs[field], tenant_id)
-    return InteractionLog.objects.create(**kwargs)
+    existing = None
+    if merge and kwargs.get('request_id') and kwargs.get('endpoint') is not None:
+        existing = InteractionLog.objects.filter(
+            tenant_id=tenant_id, endpoint=kwargs['endpoint'], request_id=kwargs['request_id'],
+        ).order_by('created_at').first()
+    if existing is None:
+        return InteractionLog.objects.create(**kwargs)
+    filled = [field for field, value in kwargs.items()
+              if not _empty(value) and _unfilled(existing, field)]
+    for field in filled:
+        setattr(existing, field, kwargs[field])
+    if filled:
+        existing.save(update_fields=filled + ['version', 'updated_at'])
+    return existing

@@ -7,10 +7,21 @@ Notable changes to Zentinelle. The format follows
 
 ### Added
 
+- Gateway: control plane passthrough (#445). With `ASTROLIFT_CONTROL_PLANE_URL`
+  set, `POST /api/dispatch/v1/agents/<task id>/callback/` (an agent's state
+  heartbeat and event stream) and `POST /api/clusters/v1/<cluster id>/heartbeat/`
+  and `POST /api/clusters/v1/<cluster id>/model-test-result/` (the keep-alive
+  agent, which derives the second from its `HEARTBEAT_URL`) go straight to the Astrolift control plane, skipping
+  the policy check, provider-key lookup and metering, so a degraded Zentinelle
+  does not make a live agent look like an outage. Only those routes, only
+  `POST` with a bearer key the control plane authenticates, and only
+  `Authorization` and `Content-Type` are sent on.
 - `manage.py seed_integration_policies --tenant <id> --source <workbench|astrolift>`
   (installer#431). Creates one organization-wide agent_delegation,
-  human_oversight and budget_limit policy in audit mode, so matches are logged
-  and never blocked until an operator switches a policy to enforce. A type the
+  human_oversight and budget_limit policy in audit mode with the alert action
+  and a soft budget (`hard_limit` false), so matches alert the tenant's owners
+  and are never blocked, and switching a policy to enforce alerts rather than
+  blocks until an operator changes its action. A type the
   tenant already has an organization-wide policy of is skipped, so a run never
   overwrites or doubles an operator's policy. The installer runs it once when
   Zentinelle is enabled with the Workbench or Astrolift.
@@ -90,6 +101,42 @@ Notable changes to Zentinelle. The format follows
 
 ### Fixed
 
+- Model pricing matches exact model IDs only (audit C11). gpt-4 was priced as
+  gpt-4o-mini, and current models (gpt-5, gpt-4.1, o3, Claude 4.5 and later,
+  Gemini 2.5 and later) priced at $0, so every hard-budget request for them
+  was refused. One resolver (`services/usage_tracking.resolve_model_pricing`)
+  now prices admission, reconciliation, metering, alerts and the token
+  calculator: the model registry first, then a catalog of the Anthropic,
+  OpenAI and Gemini list prices published on 2026-10-16
+  (`services/model_prices.py`, with long-prompt tiers and announced price
+  changes). Migration 0069 fills the registry's missing prices and never
+  replaces one an operator set; a model sync no longer clears or replaces a
+  price. An unpriced model's cost is recorded as unknown, never as $0, and
+  budgets name the unpriced calls they cannot count.
+- Hard-budget reservations are reconciled with the call's metered cost
+  (audit H5). The actual is recorded on the charge and only rises across
+  repeat reports; a call that cost more than its reservation raises the
+  commitment. Reported usage releases the rest of a reservation only on a
+  budget with `reconcile_with_reported_usage: true`, since an agent can report
+  its own usage; authenticated provider usage still releases it on any
+  budget. Showback reads settlement from `reconciled_at`.
+- Budgets follow their action (audit M14, H22). Admission reserves and refuses
+  only for an enforced hard budget whose action, or one of its escalation
+  steps, refuses (block, require_approval, redact), so an alert-action budget
+  alerts instead. A soft
+  budget (`hard_limit` false) now matches at `alert_threshold_percent` and
+  when exceeded, so the seeded budget alerts; under enforce it is capped at
+  alert and never refuses.
+- Budget usage alerts read `budget_limit` policies (they filtered on
+  `BUDGET_LIMIT`, which matches nothing), with `monthly_budget_usd`, the
+  policy's scope and its threshold, the same way the evaluator does
+  (audit M5).
+- human_oversight prices a model call on the server (audit H19). A call that
+  is not a model call has no model cost, so the seeded policy no longer
+  matches every evaluation; a model call whose cost cannot be bounded (an
+  unpriced model, or no explicit output limit) still matches as unknown
+  cost, and a caller's `estimated_cost_usd` can raise the cost, never lower
+  it.
 - The gateway's usage reports were all refused (#406): it posts
   `/api/zentinelle/v1/events` with an empty `agent_id`, which the endpoint
   required, so no gateway traffic was ever metered. The key names its agent,
@@ -99,3 +146,43 @@ Notable changes to Zentinelle. The format follows
   matched made every request with either key fail with a 500 on the evaluate,
   events, config, heartbeat, proxy and provider-key paths. Each candidate is
   now checked against its hash (#400).
+
+### Security
+
+- **Breaking:** the backend, ASGI and Temporal worker processes refuse to
+  start while `SECRET_KEY`, `AUDIT_CHECKPOINT_SIGNING_KEY` (which inherits
+  `SECRET_KEY`) or `ZENTINELLE_BOOTSTRAP_SECRET` is empty, a placeholder this
+  repository has shipped, or shorter than 32 characters, or while
+  `ZENTINELLE_SECRET_KEY` is not a Fernet key (audit T7). Compose and
+  `.env.example` ship no secret values; `python manage.py generate_secrets`
+  prints all three. Provider keys have no derived encryption-key fallback.
+- **Breaking:** a bootstrap token re-registers only agents the `/register`
+  path created (audit C2). Migration 0066 adds `bootstrap_registered` with no
+  backfill, so an existing SDK agent that re-registers on start gets a 409
+  until `python manage.py allow_bootstrap_reregister --tenant <tenant_id>
+  <agent_id> ...` opts it in. Suspended and terminated agents stay stopped,
+  and the agent type cannot change.
+- **Breaking:** platform API keys get the scopes the operator picked (audit
+  C3). Omitted scopes mean read only, an empty or unknown scope is refused,
+  and the scopes are `read`, `write` and `admin`. Migration 0068 narrows the
+  keys minted on settings/api-keys before the fix to what was picked.
+- **Breaking:** the gateway and the Django proxy forward only `POST` to
+  inference routes; anything else is `403 path_not_allowed` (audit T5, T8).
+  The proxy, like the gateway, uses env provider keys only with
+  `ALLOW_ENV_PROVIDER_KEYS=true`, and Vertex needs a region from
+  `VERTEX_REGIONS` and a valid project id.
+- `/admin/` is mounted only with `ENABLE_DJANGO_ADMIN=true` (audit T9). Login
+  throttles key on the client address that `NUM_PROXIES` reverse proxies
+  report (default 0, which ignores `X-Forwarded-For`; both compose files set
+  1), and the account throttle on account and client together.
+- GraphiQL is served only with `DEBUG` on. Backend responses carry a
+  Content-Security-Policy and the portal sends frame-ancestors, object-src,
+  base-uri and form-action. A portal session ends after
+  `SESSION_IDLE_TIMEOUT_SECONDS` (default 1800) without a request (audit T14).
+- An agent's `config.hub_identity.api_url` must resolve to public addresses
+  unless its host is listed in `HUB_IDENTITY_ALLOWED_HOSTS` (audit T13).
+- New keys keep 16 random characters in their stored prefix; migration 0067
+  widens the prefix columns to 32, and keys minted before still authenticate
+  (audit T10).
+- GraphQL answers an anonymous caller with `UNAUTHENTICATED` rather than
+  `FORBIDDEN`, and the portal sends it to the login page (audit M1).

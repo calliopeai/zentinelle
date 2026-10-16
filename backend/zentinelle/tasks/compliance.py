@@ -95,7 +95,7 @@ def run_compliance_check_task(
         assessment = ComplianceAssessment.objects.create(
             tenant_id=tenant_id,
             framework_id=framework_id or '',
-            triggered_by=user,
+            user_id=str(user.pk) if user else '',
             assessment_type=assessment_type,
             overall_score=overall_score,
             capabilities_enabled=enabled_count,
@@ -152,7 +152,7 @@ def run_compliance_check_task(
         ComplianceAssessment.objects.create(
             tenant_id=tenant_id,
             framework_id=framework_id or '',
-            triggered_by=user,
+            user_id=str(user.pk) if user else '',
             assessment_type=assessment_type,
             overall_score=0,
             capabilities_enabled=0,

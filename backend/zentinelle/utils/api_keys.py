@@ -41,6 +41,20 @@ def generate_api_key(
     return full_key, key_hash, key_prefix
 
 
+# Random characters kept in a stored key prefix. The prefix is how a key is
+# found before its bcrypt hash is checked, so with only a few random
+# characters (as before) any caller could pick a prefix many live keys share
+# and make every request cost one bcrypt check per key. With 16 (96 bits) a
+# made-up key matches none.
+PREFIX_RANDOM_CHARS = 16
+
+
+def lookup_prefixes(api_key: str, type_prefix: str, legacy_length: int) -> list[str]:
+    """The stored prefixes `api_key` can have: the current length, and the
+    shorter one keys minted before PREFIX_RANDOM_CHARS still carry."""
+    return [api_key[:len(type_prefix) + PREFIX_RANDOM_CHARS], api_key[:legacy_length]]
+
+
 def generate_api_secret(length: int = 32) -> str:
     """Generate a secure secret for callbacks, tokens, etc."""
     return secrets.token_urlsafe(length)
