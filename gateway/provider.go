@@ -1,7 +1,9 @@
 package main
 
 import (
+	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
@@ -84,6 +86,25 @@ func DetectProvider(path string) (Provider, string, bool) {
 	default:
 		return Provider{}, "", false
 	}
+}
+
+// inferenceRoutes are the upstream paths the gateway forwards, per provider.
+// Everything else on a provider's API (files, batches, fine-tunes, vector
+// stores, account endpoints) would run on the tenant's key with an empty
+// policy context, since policy only reads a request body (T8). The Django
+// proxy forwards the same list.
+var inferenceRoutes = map[string]*regexp.Regexp{
+	"openai":    regexp.MustCompile(`^/v1/(chat/completions|completions|responses|embeddings)$`),
+	"anthropic": regexp.MustCompile(`^/v1/(messages|messages/count_tokens|complete)$`),
+	"google": regexp.MustCompile(`^/v1(beta)?/models/[A-Za-z0-9._-]+:` +
+		`(generateContent|streamGenerateContent|countTokens|embedContent|batchEmbedContents)$`),
+}
+
+// IsInferenceRoute reports whether a request may be forwarded: a POST to one
+// of the provider's inference routes.
+func IsInferenceRoute(provider Provider, method, upstreamPath string) bool {
+	route, ok := inferenceRoutes[provider.Name]
+	return ok && method == http.MethodPost && route.MatchString(upstreamPath)
 }
 
 // hopByHopHeaders are headers that must not be forwarded to upstream providers.

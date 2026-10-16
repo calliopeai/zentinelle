@@ -115,6 +115,17 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusNotFound, "unknown_route", fmt.Sprintf("no provider matches path %s", r.URL.Path))
 		return
 	}
+	if !IsInferenceRoute(provider, r.Method, upstreamPath) {
+		logJSON("warn", "path not allowed", map[string]interface{}{
+			"request_id": requestID,
+			"provider":   provider.Name,
+			"method":     r.Method,
+			"path":       r.URL.Path,
+		})
+		writeJSONError(w, http.StatusForbidden, "path_not_allowed",
+			fmt.Sprintf("only %s inference requests are proxied", provider.Name))
+		return
+	}
 
 	// 3. Read request body
 	maxRequestBytes := g.cfg.MaxResponseBytes

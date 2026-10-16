@@ -173,11 +173,19 @@ credential or an agent key.
 |------|----------|----------|
 | `/v1/chat/completions` | openai | api.openai.com |
 | `/v1/completions` | openai | api.openai.com |
-| `/v1/models` | openai | api.openai.com |
 | `/v1/messages` | anthropic | api.anthropic.com |
 | `/v1beta/models/*` | google | generativelanguage.googleapis.com |
 | `/proxy/{provider}/*` | explicit | per provider |
 | `/health` | - | health check |
+
+Only `POST` to an inference route is forwarded; anything else is `403
+path_not_allowed`, because files, batches, fine-tunes and vector stores would
+run on the tenant's key while policy sees no request body. The routes:
+
+- OpenAI: `/v1/chat/completions`, `/v1/completions`, `/v1/responses`, `/v1/embeddings`
+- Anthropic: `/v1/messages`, `/v1/messages/count_tokens`, `/v1/complete`
+- Google: `/v1(beta)/models/<model>:` with `generateContent`,
+  `streamGenerateContent`, `countTokens`, `embedContent` or `batchEmbedContents`
 
 ## Environment Variables
 
@@ -187,7 +195,7 @@ credential or an agent key.
 |------|---------|
 | `/health` | Liveness, and which providers have env keys the gateway will use (empty unless `ALLOW_ENV_PROVIDER_KEYS=true`) |
 | `/metrics` | Prometheus text format. No authentication — scrape it from inside the cluster, not from the internet |
-| everything else | Proxied to the provider the path selects |
+| an inference route | Proxied to the provider the path selects (see Route Detection) |
 
 | Variable | Default | Description |
 |----------|---------|-------------|
