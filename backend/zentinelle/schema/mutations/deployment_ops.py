@@ -12,9 +12,9 @@ import strawberry
 from asgiref.sync import async_to_sync
 from deployments.models import Deployment
 from deployments.services import DeploymentManager, SyncDirection
-from graphql_relay import from_global_id
 from strawberry.scalars import JSON
 
+from zentinelle.schema.global_id import from_global_id
 from zentinelle.schema.types import DeploymentType
 
 logger = logging.getLogger(__name__)

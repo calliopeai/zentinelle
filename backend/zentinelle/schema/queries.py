@@ -1313,7 +1313,7 @@ class Query:
             uuid.UUID(policy_id)
         except ValueError:
             try:
-                from graphql_relay import from_global_id
+                from zentinelle.schema.global_id import from_global_id
                 _type, raw_id = from_global_id(policy_id)
                 if raw_id:
                     policy_id = raw_id

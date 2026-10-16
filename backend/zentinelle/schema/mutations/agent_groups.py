@@ -6,9 +6,9 @@ GraphQL mutations for managing agent groups.
 from typing import Annotated, Optional
 
 import strawberry
-from graphql_relay import from_global_id
 
 from zentinelle.schema.auth_helpers import require_request_tenant_id
+from zentinelle.schema.global_id import from_global_id
 
 AgentGroupType = Annotated['AgentGroupType', strawberry.lazy('zentinelle.schema.types')]
 
