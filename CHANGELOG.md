@@ -150,6 +150,11 @@ Notable changes to Zentinelle. The format follows
 - Edit in the prompt library edits the prompt (#446). The builder loads the
   prompt named by `?id=` and saves it as an update, where it used to start a
   new prompt.
+- Compliance framework pages (#446). The detail page no longer shows a fixed
+  list of controls marked met, which nothing computed; it says control
+  coverage is not computed yet. The Compliance cards link only to frameworks
+  with a detail page, which SOC 2 Type II and NIST AI RMF now reach, so none
+  opens "Framework not found".
 
 ### Security
 
