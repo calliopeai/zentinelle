@@ -5,6 +5,7 @@ Enforces human-in-the-loop approval requirements based on cost,
 data sensitivity, and external call characteristics.
 """
 import logging
+from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, Optional
 
 from zentinelle.models import Policy
@@ -16,6 +17,17 @@ logger = logging.getLogger(__name__)
 # Token validity: 5 minutes by default; configurable via approval_timeout_seconds.
 # We cap validation at the policy-configured timeout (default 300 s).
 DEFAULT_APPROVAL_TIMEOUT_SECONDS = 300
+
+
+def _declared_cost(value):
+    """A non-negative finite cost as Decimal, or None if absent or invalid."""
+    if value is None or isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return None
+    try:
+        amount = Decimal(str(value))
+    except InvalidOperation:
+        return None
+    return amount if amount.is_finite() and amount >= 0 else None
 
 
 class HumanOversightEvaluator(BasePolicyEvaluator):
@@ -30,7 +42,7 @@ class HumanOversightEvaluator(BasePolicyEvaluator):
     }
 
     Context keys:
-    - "estimated_cost_usd": float   (optional)
+    - "estimated_cost_usd": float   (optional; can only raise the server's cost)
     - "has_sensitive_data": bool    (optional)
     - "is_external_call": bool      (optional)
     - "approval_token": str         (optional) — signed approval
@@ -40,7 +52,14 @@ class HumanOversightEvaluator(BasePolicyEvaluator):
        AND estimated_cost_usd < threshold → allow immediately
     2. If a valid (non-expired) approval_token is present → allow
     3. Check whether any require_approval_for condition is triggered:
-       - "high_cost":      estimated_cost_usd is present and > 1.0 USD
+       - "high_cost":      the call's cost is at or above the threshold
+                           (auto_approve_below_cost_usd, default 1.0 USD), or
+                           a model call's cost is unknown. The cost is the
+                           server's upper bound for a model call
+                           (services/budgets.estimated_call_cost); a caller's
+                           estimated_cost_usd can raise it, never lower it.
+                           Any other action spends no model budget, so only a
+                           cost the caller declares can trigger it.
        - "sensitive_data": has_sensitive_data is True
        - "external_calls": is_external_call is True
     4. If any condition is triggered → deny, asking caller to surface to a human
@@ -58,7 +77,11 @@ class HumanOversightEvaluator(BasePolicyEvaluator):
     ) -> PolicyResult:
         config = policy.config
 
-        estimated_cost = context.get('estimated_cost_usd')
+        from zentinelle.services.budgets import estimated_call_cost
+        estimated_cost = estimated_call_cost(action, context)
+        declared = _declared_cost(context.get('estimated_cost_usd'))
+        if estimated_cost is not None and declared is not None:
+            estimated_cost = max(estimated_cost, declared)
         has_sensitive_data = context.get('has_sensitive_data', False)
         is_external_call = context.get('is_external_call', False)
         approval_token = context.get('approval_token')
@@ -73,10 +96,11 @@ class HumanOversightEvaluator(BasePolicyEvaluator):
         triggered_conditions = []
 
         if 'high_cost' in require_approval_for:
-            if estimated_cost is None or estimated_cost >= (auto_approve_threshold if auto_approve_threshold is not None else 1.0):
-                triggered_conditions.append(
-                    "high_cost or unknown cost"
-                )
+            threshold = _declared_cost(auto_approve_threshold if auto_approve_threshold is not None else 1.0)
+            if estimated_cost is None:
+                triggered_conditions.append("unknown cost (unpriced model or unbounded request)")
+            elif threshold is None or (estimated_cost > 0 and estimated_cost >= threshold):
+                triggered_conditions.append("high_cost")
 
         if 'sensitive_data' in require_approval_for:
             if has_sensitive_data:

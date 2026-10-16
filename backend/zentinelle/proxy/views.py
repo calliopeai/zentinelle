@@ -486,8 +486,9 @@ class ProxyView(View):
 
         cost = None
         if model and total_tokens > 0:
-            in_cost, out_cost = UsageTrackingService.calculate_cost(model, input_tokens, output_tokens)
-            cost = float(in_cost + out_cost)
+            in_cost, out_cost = UsageTrackingService.calculate_cost(model, input_tokens, output_tokens, provider)
+            # An unpriced model's cost stays unknown (None), never $0.
+            cost = None if in_cost is None else float(in_cost + out_cost)
 
         body_bytes = context.get('_body_bytes', b'')
         input_preview = ''

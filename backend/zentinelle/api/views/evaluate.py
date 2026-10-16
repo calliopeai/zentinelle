@@ -299,8 +299,9 @@ class EvaluateView(APIView):
 
         cost = None
         if model and (input_tokens or output_tokens):
-            in_cost, out_cost = UsageTrackingService.calculate_cost(model, input_tokens, output_tokens)
-            cost = float(in_cost + out_cost)
+            in_cost, out_cost = UsageTrackingService.calculate_cost(model, input_tokens, output_tokens, provider)
+            # An unpriced model's cost stays unknown (None), never $0.
+            cost = None if in_cost is None else float(in_cost + out_cost)
 
         import json as _json
 

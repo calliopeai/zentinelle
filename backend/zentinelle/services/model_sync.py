@@ -53,9 +53,17 @@ def sync_provider(slug: str):
 
 
 def _upsert_models(provider, models):
+    """Upsert the provider's model list.
+
+    Prices only fill a registry row that has none: a price already in the
+    registry (seeded from the catalog, or an operator's) is never replaced or
+    cleared by a sync. The shipped catalog's price is preferred over the
+    fetcher's own table.
+    """
+    from zentinelle.services.usage_tracking import MODEL_PRICING
     count = 0
     for m in models:
-        _, created = AIModel.objects.update_or_create(
+        model, created = AIModel.objects.update_or_create(
             provider=provider,
             model_id=m['model_id'],
             defaults={
@@ -64,14 +72,21 @@ def _upsert_models(provider, models):
                 'model_type': m.get('model_type', AIModel.ModelType.LLM),
                 'context_window': m.get('context_window'),
                 'max_output_tokens': m.get('max_output_tokens'),
-                'input_price_per_million': Decimal(str(m['input_price'])) if m.get('input_price') else None,
-                'output_price_per_million': Decimal(str(m['output_price'])) if m.get('output_price') else None,
                 'is_available': m.get('is_available', True),
                 'deprecated': m.get('deprecated', False),
                 'is_global': True,
                 'capabilities': m.get('capabilities', []),
             },
         )
+        if model.input_price_per_million is None and model.output_price_per_million is None:
+            shipped = MODEL_PRICING.get(m['model_id'])
+            shipped = shipped if shipped and shipped['provider'] == provider.slug else None
+            input_price = shipped['input'] if shipped else m.get('input_price')
+            output_price = shipped['output'] if shipped else m.get('output_price')
+            if input_price is not None and output_price is not None:
+                model.input_price_per_million = Decimal(str(input_price))
+                model.output_price_per_million = Decimal(str(output_price))
+                model.save(update_fields=['input_price_per_million', 'output_price_per_million', 'version'])
         count += 1
     return count
 

@@ -1,7 +1,9 @@
 """Authoritative scoped budgets with atomic, conservative admission charges.
 
-Admitted upper bounds remain committed. Untrusted usage reports never refund them.
-A trusted provider reconciliation path can be added without weakening admission.
+Admitted upper bounds remain committed until the call's usage is reconciled
+(services/budget_reconciliation.py). Reported usage that exceeds a reservation
+raises the commitment; only authenticated provider usage, or reported usage on
+a budget that opts in, releases the rest.
 """
 from decimal import ROUND_UP, Decimal, InvalidOperation
 
@@ -27,7 +29,13 @@ def month_start():
     return timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
-def historical_spend(policy):
+# The actions that are one model call, and so spend provider budget.
+MODEL_CALL_ACTIONS = ('llm:invoke', 'llm_call', 'ai_request', 'chain_input')
+# The configured actions that refuse a call (actions.denies under enforce).
+_DENYING_ACTIONS = ('block', 'require_approval', 'redact')
+
+
+def _scoped_interactions(policy):
     from zentinelle.models.compliance import InteractionLog
     qs = InteractionLog.objects.filter(tenant_id=policy.tenant_id, occurred_at__gte=month_start())
     if policy.scope_type == 'endpoint':
@@ -38,12 +46,46 @@ def historical_spend(policy):
         qs = qs.filter(endpoint__sub_organization_id_ext=policy.scope_sub_organization_id_ext)
     elif policy.scope_type == 'user':
         qs = qs.filter(user_identifier=policy.scope_user_id_ext)
+    return qs
+
+
+def historical_spend(policy):
+    qs = _scoped_interactions(policy)
     return max(Decimal('0'), qs.aggregate(total=Sum('estimated_cost_usd'))['total'] or Decimal('0'))
+
+
+def unpriced_calls(policy):
+    """This month's calls in the budget's scope whose cost is unknown.
+
+    Their model has no price, so their spend is not in the budget's total;
+    callers surface the count rather than treat those calls as free.
+    """
+    return _scoped_interactions(policy).filter(estimated_cost_usd__isnull=True, total_tokens__gt=0).count()
 
 
 def current_spend(policy):
     account = BudgetAccount.objects.filter(tenant_id=policy.tenant_id, policy_id_ext=policy.pk, period=month_start().date()).first()
     return account.committed_usd if account else historical_spend(policy)
+
+
+def budget_status(policy):
+    """Where one budget_limit policy stands this month.
+
+    The evaluator, the usage alerts and the dashboards all read a budget
+    through this, so they agree on the limit, the scoped spend and the level.
+    `level` is None, 'threshold' (at or past alert_threshold_percent) or
+    'exceeded'. Raises ValueError on an invalid budget configuration.
+    """
+    limit = monthly_limit(policy)
+    raw = policy.config.get('alert_threshold_percent', 80)
+    threshold = None if isinstance(raw, bool) else Decimal(str(raw))
+    if threshold is None or not threshold.is_finite() or not 0 <= threshold <= 100:
+        raise ValueError('alert_threshold_percent must be a number from 0 to 100')
+    spend = current_spend(policy)
+    percent = (spend / limit * 100) if limit > 0 else (Decimal('100') if spend > 0 else Decimal('0'))
+    level = 'exceeded' if spend >= limit else ('threshold' if percent >= threshold else None)
+    return {'limit': limit, 'spend': spend, 'remaining': limit - spend, 'percent': percent,
+            'threshold_percent': threshold, 'level': level, 'unpriced_calls': unpriced_calls(policy)}
 
 
 def request_upper_bound(context):
@@ -66,16 +108,38 @@ def request_upper_bound(context):
         tools = body.get('tools', [])
         if not isinstance(tools, list) or any(not isinstance(t, dict) or t.get('type', 'function') != 'function' for t in tools):
             raise ValueError('Hard budget does not support multiple candidates or provider-hosted tools')
-    amount = (Decimal(inputs * 2) * Decimal(str(price['input'])) + Decimal(tokens) * Decimal(str(price['output']))) / Decimal(1000000)
-    return amount.quantize(Decimal('0.00000001'), rounding=ROUND_UP)
+    from zentinelle.services.usage_tracking import price_tokens
+    input_cost, output_cost = price_tokens(price, inputs * 2, tokens)
+    return (input_cost + output_cost).quantize(Decimal('0.00000001'), rounding=ROUND_UP)
+
+
+def estimated_call_cost(action, context):
+    """The server's upper bound on what this call can cost, or None if unknown.
+
+    Only a model call spends provider budget, so any other action has no model
+    cost (Decimal 0). A model call's bound is the hard-budget reservation:
+    known only for a priced model with a bounded text request and an explicit
+    maximum output.
+    """
+    if action not in MODEL_CALL_ACTIONS:
+        return Decimal('0')
+    try:
+        return request_upper_bound(context)
+    except (ValueError, TypeError, ArithmeticError):
+        return None
 
 
 def admit(policies, endpoint, action, context):
     from zentinelle.services.approvals import consume_approvals
+
+    # Only a budget that refuses reserves: enforce, hard_limit, and an action
+    # that refuses a call. An enforced hard budget whose action is alert or
+    # warn alerts through its evaluator and never refuses here.
     budgets = sorted([p for p in policies if p.policy_type == 'budget_limit' and
-                      p.enforcement == 'enforce' and p.config.get('hard_limit', True)], key=lambda p: str(p.id))
+                      p.enforcement == 'enforce' and p.config.get('hard_limit', True) and
+                      p.action in _DENYING_ACTIONS], key=lambda p: str(p.id))
     # Responses were charged at invocation. Read-only checks consume no provider budget.
-    if action not in ('llm:invoke', 'llm_call', 'ai_request', 'chain_input'):
+    if action not in MODEL_CALL_ACTIONS:
         budgets = []
     using = router.db_for_write(BudgetAccount)
     try:

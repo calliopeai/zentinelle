@@ -11,30 +11,35 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CalculatorIcon } from "lucide-react";
-
-const MODEL_PRICING: Record<
-  string,
-  { input: number; output: number; context: number }
-> = {
-  "gpt-4o": { input: 2.5, output: 10.0, context: 128000 },
-  "gpt-4o-mini": { input: 0.15, output: 0.6, context: 128000 },
-  "o1": { input: 15.0, output: 60.0, context: 200000 },
-  "o3-mini": { input: 1.1, output: 4.4, context: 200000 },
-  "claude-opus-4": { input: 15.0, output: 75.0, context: 200000 },
-  "claude-sonnet-4": { input: 3.0, output: 15.0, context: 200000 },
-  "claude-3.5-haiku": { input: 0.8, output: 4.0, context: 200000 },
-  "gemini-2.5-pro": { input: 1.25, output: 10.0, context: 1048576 },
-  "gemini-2.5-flash": { input: 0.15, output: 0.6, context: 1048576 },
-};
+import { useAIModels } from "@/graphql/models/hooks";
 
 export default function TokenCalculatorPage() {
   const [text, setText] = useState("");
-  const [model, setModel] = useState("gpt-4o");
+  const [selected, setSelected] = useState("");
   const [outputRatio, setOutputRatio] = useState(1.0);
+
+  // Prices come from the model registry, the source the backend's pricing
+  // resolver reads, so this estimate matches what budgets and metering charge.
+  const { models, loading } = useAIModels({ availableOnly: true });
+  const priced = useMemo(
+    () =>
+      models.filter(
+        (m) => m.inputPricePerMillion != null && m.outputPricePerMillion != null,
+      ),
+    [models],
+  );
+  const current = priced.find((m) => m.id === selected) ?? priced[0];
+  const model = current?.modelId ?? "";
+  const pricing = current
+    ? {
+        input: current.inputPricePerMillion as number,
+        output: current.outputPricePerMillion as number,
+        context: current.contextWindow,
+      }
+    : undefined;
 
   const tokens = useMemo(() => Math.max(1, Math.ceil(text.length / 4)), [text]);
   const outputTokens = Math.ceil(tokens * outputRatio);
-  const pricing = MODEL_PRICING[model];
 
   const inputCost = pricing
     ? (tokens / 1_000_000) * pricing.input
@@ -43,7 +48,7 @@ export default function TokenCalculatorPage() {
     ? (outputTokens / 1_000_000) * pricing.output
     : 0;
   const totalCost = inputCost + outputCost;
-  const contextUsage = pricing
+  const contextUsage = pricing?.context
     ? ((tokens / pricing.context) * 100).toFixed(1)
     : "0";
 
@@ -81,13 +86,19 @@ export default function TokenCalculatorPage() {
             <div className="flex-1 space-y-2">
               <label className="text-sm font-medium">Model</label>
               <select
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
+                value={current?.id ?? ""}
+                onChange={(e) => setSelected(e.target.value)}
+                disabled={priced.length === 0}
                 className="border-input bg-background flex h-10 w-full rounded-md border px-3 py-2 text-sm"
               >
-                {Object.keys(MODEL_PRICING).map((m) => (
-                  <option key={m} value={m}>
-                    {m}
+                {priced.length === 0 && (
+                  <option value="">
+                    {loading ? "Loading models..." : "No priced models in the registry"}
+                  </option>
+                )}
+                {priced.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.providerSlug ? `${m.providerSlug}/${m.modelId}` : m.modelId}
                   </option>
                 ))}
               </select>
@@ -148,7 +159,9 @@ export default function TokenCalculatorPage() {
                 />
               </div>
               <div className="text-muted-foreground mt-1 text-xs">
-                {contextUsage}% of {pricing?.context.toLocaleString()} tokens
+                {pricing?.context
+                  ? `${contextUsage}% of ${pricing.context.toLocaleString()} tokens`
+                  : "Context window unknown"}
               </div>
             </CardContent>
           </Card>

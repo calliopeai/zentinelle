@@ -92,6 +92,41 @@ Notable changes to Zentinelle. The format follows
 
 ### Fixed
 
+- Model pricing matches exact model IDs only (audit C11). gpt-4 was priced as
+  gpt-4o-mini, and current models (gpt-5, gpt-4.1, o3, Claude 4.5 and later,
+  Gemini 2.5 and later) priced at $0, so every hard-budget request for them
+  was refused. One resolver (`services/usage_tracking.resolve_model_pricing`)
+  now prices admission, reconciliation, metering, alerts and the token
+  calculator: the model registry first, then a catalog of the Anthropic,
+  OpenAI and Gemini list prices published on 2026-10-16
+  (`services/model_prices.py`, with long-prompt tiers and announced price
+  changes). Migration 0066 fills the registry's missing prices and never
+  replaces one an operator set; a model sync no longer clears or replaces a
+  price. An unpriced model's cost is recorded as unknown, never as $0, and
+  budgets name the unpriced calls they cannot count.
+- Hard-budget reservations are reconciled with the call's metered cost
+  (audit H5). The actual is recorded on the charge and only rises across
+  repeat reports; a call that cost more than its reservation raises the
+  commitment. Reported usage releases the rest of a reservation only on a
+  budget with `reconcile_with_reported_usage: true`, since an agent can report
+  its own usage; authenticated provider usage still releases it on any
+  budget. Showback reads settlement from `reconciled_at`.
+- Budgets follow their action (audit M14, H22). Admission reserves and refuses
+  only for an enforced hard budget whose action refuses (block,
+  require_approval, redact), so an alert-action budget alerts instead. A soft
+  budget (`hard_limit` false) now matches at `alert_threshold_percent` and
+  when exceeded, so the seeded budget alerts; under enforce it is capped at
+  alert and never refuses.
+- Budget usage alerts read `budget_limit` policies (they filtered on
+  `BUDGET_LIMIT`, which matches nothing), with `monthly_budget_usd`, the
+  policy's scope and its threshold, the same way the evaluator does
+  (audit M5).
+- human_oversight prices a model call on the server (audit H19). A call that
+  is not a model call has no model cost, so the seeded policy no longer
+  matches every evaluation; a model call whose cost cannot be bounded (an
+  unpriced model, or no explicit output limit) still matches as unknown
+  cost, and a caller's `estimated_cost_usd` can raise the cost, never lower
+  it.
 - The gateway's usage reports were all refused (#406): it posts
   `/api/zentinelle/v1/events` with an empty `agent_id`, which the endpoint
   required, so no gateway traffic was ever metered. The key names its agent,
