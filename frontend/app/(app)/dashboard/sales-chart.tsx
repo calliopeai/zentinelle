@@ -28,7 +28,12 @@ export const SalesChart = () => {
     <ChartContainer config={config} className="h-[200px] w-full">
       <BarChart data={data} margin={{ left: 0, right: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray="3 3" />
-        <XAxis dataKey="category" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+        <XAxis
+          dataKey="category"
+          tickLine={false}
+          axisLine={false}
+          tick={{ fontSize: 12 }}
+        />
         <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
         <ChartTooltip content={<ChartTooltipContent />} />
         <Bar dataKey="units" fill="var(--color-units)" radius={[4, 4, 0, 0]} />

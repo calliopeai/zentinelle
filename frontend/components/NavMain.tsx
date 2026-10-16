@@ -3,7 +3,11 @@
 import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -27,7 +31,9 @@ type NavItem = {
 
 function isRouteActive(item: NavItem, pathname: string): boolean {
   if (!item.items) return false;
-  return item.items.some((sub) => pathname === sub.url || pathname.startsWith(sub.url + "/"));
+  return item.items.some(
+    (sub) => pathname === sub.url || pathname.startsWith(sub.url + "/"),
+  );
 }
 
 export function NavMain({ items }: { items: NavItem[] }) {
@@ -35,7 +41,9 @@ export function NavMain({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
 
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(items.map((item) => [item.title, isRouteActive(item, pathname)]))
+    Object.fromEntries(
+      items.map((item) => [item.title, isRouteActive(item, pathname)]),
+    ),
   );
 
   // Derive effective open state: always expand the active route, preserve manual overrides.
@@ -59,7 +67,9 @@ export function NavMain({ items }: { items: NavItem[] }) {
               key={item.title}
               asChild
               open={effectiveOpen[item.title] ?? false}
-              onOpenChange={(val) => setOpen((prev) => ({ ...prev, [item.title]: val }))}
+              onOpenChange={(val) =>
+                setOpen((prev) => ({ ...prev, [item.title]: val }))
+              }
               className="group/collapsible"
             >
               <SidebarMenuItem>
@@ -77,7 +87,8 @@ export function NavMain({ items }: { items: NavItem[] }) {
                         <SidebarMenuSubButton
                           asChild
                           isActive={
-                            pathname === subItem.url || pathname.startsWith(subItem.url + "/")
+                            pathname === subItem.url ||
+                            pathname.startsWith(subItem.url + "/")
                           }
                         >
                           <a href={subItem.url}>
@@ -99,7 +110,7 @@ export function NavMain({ items }: { items: NavItem[] }) {
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          )
+          ),
         )}
       </SidebarMenu>
     </SidebarGroup>

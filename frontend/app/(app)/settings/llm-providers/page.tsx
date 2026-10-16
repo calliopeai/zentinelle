@@ -4,7 +4,6 @@ import { withPermissionAuthenticationRequired } from "@/components/PermissionGua
 
 import { authenticatedFetch } from "@/lib/auth/fetch";
 
-
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -38,44 +37,89 @@ import { toast } from "sonner";
 import { useConfirm } from "@/hooks/use-confirm";
 import { ManageModelsDialog } from "./manage-models-dialog";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
 
 const PROVIDER_CATEGORIES: Record<string, string[]> = {
-  "Direct API": ["anthropic", "openai", "google", "mistral", "cohere", "ai21", "deepseek"],
+  "Direct API": [
+    "anthropic",
+    "openai",
+    "google",
+    "mistral",
+    "cohere",
+    "ai21",
+    "deepseek",
+  ],
   "Cloud / Managed": ["bedrock", "azure", "vertex"],
-  "Inference Platforms": ["fireworks", "together", "groq", "cerebras", "sambanova", "nvidia", "perplexity", "xai"],
-  "Routing": ["openrouter", "litellm"],
+  "Inference Platforms": [
+    "fireworks",
+    "together",
+    "groq",
+    "cerebras",
+    "sambanova",
+    "nvidia",
+    "perplexity",
+    "xai",
+  ],
+  Routing: ["openrouter", "litellm"],
   "Local / Self-hosted": ["ollama", "lmstudio", "anythingllm", "huggingface"],
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
-  anthropic: "Anthropic", openai: "OpenAI", google: "Google", mistral: "Mistral AI",
-  cohere: "Cohere", ai21: "AI21", deepseek: "DeepSeek", bedrock: "AWS Bedrock",
-  azure: "Azure OpenAI", vertex: "Vertex AI", fireworks: "Fireworks",
-  together: "Together", groq: "Groq", cerebras: "Cerebras", sambanova: "SambaNova",
-  nvidia: "NVIDIA", perplexity: "Perplexity", xai: "xAI", openrouter: "OpenRouter",
-  litellm: "LiteLLM", ollama: "Ollama", lmstudio: "LM Studio",
-  anythingllm: "AnythingLLM", huggingface: "HuggingFace",
+  anthropic: "Anthropic",
+  openai: "OpenAI",
+  google: "Google",
+  mistral: "Mistral AI",
+  cohere: "Cohere",
+  ai21: "AI21",
+  deepseek: "DeepSeek",
+  bedrock: "AWS Bedrock",
+  azure: "Azure OpenAI",
+  vertex: "Vertex AI",
+  fireworks: "Fireworks",
+  together: "Together",
+  groq: "Groq",
+  cerebras: "Cerebras",
+  sambanova: "SambaNova",
+  nvidia: "NVIDIA",
+  perplexity: "Perplexity",
+  xai: "xAI",
+  openrouter: "OpenRouter",
+  litellm: "LiteLLM",
+  ollama: "Ollama",
+  lmstudio: "LM Studio",
+  anythingllm: "AnythingLLM",
+  huggingface: "HuggingFace",
 };
 
 const PROVIDER_ENV_VARS: Record<string, string> = {
-  anthropic: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY", google: "GOOGLE_API_KEY",
-  mistral: "MISTRAL_API_KEY", cohere: "COHERE_API_KEY", ai21: "AI21_API_KEY",
-  deepseek: "DEEPSEEK_API_KEY", fireworks: "FIREWORKS_API_KEY",
-  together: "TOGETHER_API_KEY", groq: "GROQ_API_KEY", cerebras: "CEREBRAS_API_KEY",
-  sambanova: "SAMBANOVA_API_KEY", nvidia: "NVIDIA_API_KEY",
-  perplexity: "PERPLEXITY_API_KEY", xai: "XAI_API_KEY",
-  openrouter: "OPENROUTER_API_KEY", litellm: "LITELLM_API_KEY",
-  ollama: "OLLAMA_URL", lmstudio: "LMSTUDIO_URL",
-  anythingllm: "ANYTHINGLLM_URL", huggingface: "HF_API_TOKEN",
+  anthropic: "ANTHROPIC_API_KEY",
+  openai: "OPENAI_API_KEY",
+  google: "GOOGLE_API_KEY",
+  mistral: "MISTRAL_API_KEY",
+  cohere: "COHERE_API_KEY",
+  ai21: "AI21_API_KEY",
+  deepseek: "DEEPSEEK_API_KEY",
+  fireworks: "FIREWORKS_API_KEY",
+  together: "TOGETHER_API_KEY",
+  groq: "GROQ_API_KEY",
+  cerebras: "CEREBRAS_API_KEY",
+  sambanova: "SAMBANOVA_API_KEY",
+  nvidia: "NVIDIA_API_KEY",
+  perplexity: "PERPLEXITY_API_KEY",
+  xai: "XAI_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  litellm: "LITELLM_API_KEY",
+  ollama: "OLLAMA_URL",
+  lmstudio: "LMSTUDIO_URL",
+  anythingllm: "ANYTHINGLLM_URL",
+  huggingface: "HF_API_TOKEN",
 };
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   "Direct API": <CpuIcon className="h-4 w-4" />,
   "Cloud / Managed": <CloudIcon className="h-4 w-4" />,
   "Inference Platforms": <ServerIcon className="h-4 w-4" />,
-  "Routing": <ServerIcon className="h-4 w-4" />,
+  Routing: <ServerIcon className="h-4 w-4" />,
   "Local / Self-hosted": <CpuIcon className="h-4 w-4" />,
 };
 
@@ -101,19 +145,27 @@ function LLMProvidersPage() {
     setLoading(true);
     try {
       const [providersRes, keysRes] = await Promise.all([
-        authenticatedFetch(`${API_URL}/assistant/providers`, { credentials: "include" }),
-        authenticatedFetch(`${API_URL}/settings/llm-providers`, { credentials: "include" }),
+        authenticatedFetch(`${API_URL}/assistant/providers`, {
+          credentials: "include",
+        }),
+        authenticatedFetch(`${API_URL}/settings/llm-providers`, {
+          credentials: "include",
+        }),
       ]);
       if (providersRes.ok) {
         const data = await providersRes.json();
         setAvailable(
-          new Set<string>((data.providers ?? []).map((p: { id: string }) => p.id)),
+          new Set<string>(
+            (data.providers ?? []).map((p: { id: string }) => p.id),
+          ),
         );
       }
       if (keysRes.ok) {
         const data = await keysRes.json();
         const map = new Map<string, StoredKey>();
-        (data.providers ?? []).forEach((k: StoredKey) => map.set(k.provider, k));
+        (data.providers ?? []).forEach((k: StoredKey) =>
+          map.set(k.provider, k),
+        );
         setStored(map);
       }
     } catch {}
@@ -128,12 +180,15 @@ function LLMProvidersPage() {
     if (!editing || !keyValue.trim()) return;
     setSaving(true);
     try {
-      const res = await authenticatedFetch(`${API_URL}/settings/llm-providers`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: editing, apiKey: keyValue.trim() }),
-      });
+      const res = await authenticatedFetch(
+        `${API_URL}/settings/llm-providers`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: editing, apiKey: keyValue.trim() }),
+        },
+      );
       if (!res.ok) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.error ?? "Save failed");
@@ -150,15 +205,18 @@ function LLMProvidersPage() {
 
   const handleToggleAssistant = async (provider: string, current: boolean) => {
     try {
-      const res = await authenticatedFetch(`${API_URL}/settings/llm-providers`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider,
-          enabledForAssistant: !current,
-        }),
-      });
+      const res = await authenticatedFetch(
+        `${API_URL}/settings/llm-providers`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            provider,
+            enabledForAssistant: !current,
+          }),
+        },
+      );
       if (!res.ok) throw new Error("Toggle failed");
       toast.success(
         `${PROVIDER_LABELS[provider] ?? provider} ${!current ? "enabled" : "disabled"} for assistant`,
@@ -262,7 +320,10 @@ function LLMProvidersPage() {
                     {storedKey ? (
                       <>
                         <div className="text-xs text-muted-foreground">
-                          Key: <code className="font-mono">{storedKey.keyPrefix}…</code>
+                          Key:{" "}
+                          <code className="font-mono">
+                            {storedKey.keyPrefix}…
+                          </code>
                         </div>
                         <label className="flex items-center justify-between text-xs cursor-pointer">
                           <span className="text-muted-foreground">
@@ -323,7 +384,9 @@ function LLMProvidersPage() {
                     ) : (
                       <>
                         <p className="text-muted-foreground text-xs font-mono">
-                          {isLocal ? `Set ${PROVIDER_ENV_VARS[provider]} env var` : `Env: ${PROVIDER_ENV_VARS[provider]}`}
+                          {isLocal
+                            ? `Set ${PROVIDER_ENV_VARS[provider]} env var`
+                            : `Env: ${PROVIDER_ENV_VARS[provider]}`}
                         </p>
                         {isLocal && (
                           <label className="flex items-center justify-between text-xs cursor-pointer">
@@ -332,7 +395,9 @@ function LLMProvidersPage() {
                             </span>
                             <button
                               type="button"
-                              onClick={() => handleToggleAssistant(provider, true)}
+                              onClick={() =>
+                                handleToggleAssistant(provider, true)
+                              }
                               className="relative inline-flex h-5 w-9 items-center rounded-full bg-primary"
                             >
                               <span className="inline-block h-3.5 w-3.5 rounded-full bg-white translate-x-5" />
@@ -362,15 +427,19 @@ function LLMProvidersPage() {
         </div>
       ))}
 
-      <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+      <Dialog
+        open={!!editing}
+        onOpenChange={(open) => !open && setEditing(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
               {stored.has(editing ?? "") ? "Rotate" : "Configure"}{" "}
-              {editing ? PROVIDER_LABELS[editing] ?? editing : ""} API Key
+              {editing ? (PROVIDER_LABELS[editing] ?? editing) : ""} API Key
             </DialogTitle>
             <DialogDescription>
-              Pasted keys are encrypted at rest with Fernet (AES-128 + HMAC-SHA256).
+              Pasted keys are encrypted at rest with Fernet (AES-128 +
+              HMAC-SHA256).
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -384,8 +453,8 @@ function LLMProvidersPage() {
               autoFocus
             />
             <p className="text-muted-foreground text-xs">
-              The key is stored encrypted in the database. Only the first 8 characters
-              are shown for identification.
+              The key is stored encrypted in the database. Only the first 8
+              characters are shown for identification.
             </p>
           </div>
           <DialogFooter>

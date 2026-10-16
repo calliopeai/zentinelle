@@ -14,7 +14,6 @@ export default function Error({
 }) {
   useEffect(() => {
     console.error(error);
-    
   }, [error]);
 
   return (
@@ -28,7 +27,9 @@ export default function Error({
           {error.message || "An unexpected error occurred. Please try again."}
         </p>
         {error.digest && (
-          <p className="text-muted-foreground mt-2 font-mono text-xs">Error ID: {error.digest}</p>
+          <p className="text-muted-foreground mt-2 font-mono text-xs">
+            Error ID: {error.digest}
+          </p>
         )}
       </div>
       <Button onClick={reset} variant="outline" size="sm">

@@ -2,7 +2,6 @@
 
 import { authenticatedFetch } from "@/lib/auth/fetch";
 
-
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -35,7 +34,9 @@ function CallbackInner() {
 
 export default function CallbackPage() {
   return (
-    <Suspense fallback={<div className="text-muted-foreground text-sm">Loading…</div>}>
+    <Suspense
+      fallback={<div className="text-muted-foreground text-sm">Loading…</div>}
+    >
       <CallbackInner />
     </Suspense>
   );

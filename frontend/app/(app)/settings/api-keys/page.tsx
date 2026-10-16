@@ -55,7 +55,9 @@ function ApiKeysPage() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [keyName, setKeyName] = useState("");
-  const [selectedScopes, setSelectedScopes] = useState<Set<string>>(new Set(["agents:read"]));
+  const [selectedScopes, setSelectedScopes] = useState<Set<string>>(
+    new Set(["agents:read"]),
+  );
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -160,9 +162,9 @@ function ApiKeysPage() {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
-            API keys grant programmatic access to your tenant. Treat them like passwords.
-            Keys are shown only once at creation — store them securely. Rotate regularly and
-            revoke unused keys.
+            API keys grant programmatic access to your tenant. Treat them like
+            passwords. Keys are shown only once at creation — store them
+            securely. Rotate regularly and revoke unused keys.
           </p>
         </CardContent>
       </Card>
@@ -174,11 +176,15 @@ function ApiKeysPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-muted-foreground text-center py-8 text-sm">Loading...</p>
+            <p className="text-muted-foreground text-center py-8 text-sm">
+              Loading...
+            </p>
           ) : keys.length === 0 ? (
             <div className="text-center py-12">
               <KeyIcon className="text-muted-foreground mx-auto h-12 w-12" />
-              <p className="text-muted-foreground mt-4 text-sm">No API keys yet</p>
+              <p className="text-muted-foreground mt-4 text-sm">
+                No API keys yet
+              </p>
               <Button className="mt-4" onClick={() => setShowCreate(true)}>
                 <PlusIcon className="mr-2 h-4 w-4" />
                 Create your first key
@@ -193,8 +199,12 @@ function ApiKeysPage() {
                     <th className="text-left py-3 px-2 font-medium">Prefix</th>
                     <th className="text-left py-3 px-2 font-medium">Scopes</th>
                     <th className="text-left py-3 px-2 font-medium">Status</th>
-                    <th className="text-left py-3 px-2 font-medium">Last Used</th>
-                    <th className="text-right py-3 px-2 font-medium">Actions</th>
+                    <th className="text-left py-3 px-2 font-medium">
+                      Last Used
+                    </th>
+                    <th className="text-right py-3 px-2 font-medium">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -207,7 +217,11 @@ function ApiKeysPage() {
                       <td className="py-3 px-2">
                         <div className="flex flex-wrap gap-1">
                           {key.scopes?.map((s) => (
-                            <Badge key={s} variant="outline" className="text-xs">
+                            <Badge
+                              key={s}
+                              variant="outline"
+                              className="text-xs"
+                            >
                               {s}
                             </Badge>
                           ))}
@@ -270,7 +284,11 @@ function ApiKeysPage() {
                 <div className="bg-muted rounded-md p-3 font-mono text-xs break-all">
                   {createdKey}
                 </div>
-                <Button onClick={handleCopy} variant="outline" className="w-full">
+                <Button
+                  onClick={handleCopy}
+                  variant="outline"
+                  className="w-full"
+                >
                   {copied ? (
                     <>
                       <CheckIcon className="mr-2 h-4 w-4" /> Copied

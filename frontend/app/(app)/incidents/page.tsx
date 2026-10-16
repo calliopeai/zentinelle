@@ -14,7 +14,11 @@ import {
   CLOSE_INCIDENT,
 } from "@/graphql/risks/mutations";
 import type { IncidentData } from "@/graphql/risks/types";
-import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableColumnHeader,
+  type FilterConfig,
+} from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -125,7 +129,9 @@ export default function IncidentsPage() {
   const handleResolve = async (notes: string) => {
     if (!resolving) return;
     try {
-      await resolveIncident({ variables: { id: resolving, resolution: notes } });
+      await resolveIncident({
+        variables: { id: resolving, resolution: notes },
+      });
       toast.success("Incident resolved");
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to resolve");
@@ -274,7 +280,9 @@ export default function IncidentsPage() {
                 </DropdownMenuItem>
               )}
               {isTerminal && (
-                <DropdownMenuItem disabled>No actions available</DropdownMenuItem>
+                <DropdownMenuItem disabled>
+                  No actions available
+                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

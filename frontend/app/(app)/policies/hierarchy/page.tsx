@@ -91,7 +91,8 @@ type EnforcementColor = "enforce" | "audit" | "disabled";
 function classifyPolicy(p: PolicyData): EnforcementColor {
   if (!p.enabled) return "disabled";
   // "block" / "enforce" treated as enforced; others are audit-only
-  if (p.enforcement === "block" || p.enforcement === "enforce") return "enforce";
+  if (p.enforcement === "block" || p.enforcement === "enforce")
+    return "enforce";
   return "audit";
 }
 
@@ -154,7 +155,10 @@ export default function PolicyHierarchyPage() {
   }, [policies]);
 
   const counts = useMemo(() => {
-    const c: Record<Scope, { total: number; enforce: number; audit: number; disabled: number }> = {
+    const c: Record<
+      Scope,
+      { total: number; enforce: number; audit: number; disabled: number }
+    > = {
       organization: { total: 0, enforce: 0, audit: 0, disabled: 0 },
       team: { total: 0, enforce: 0, audit: 0, disabled: 0 },
       deployment: { total: 0, enforce: 0, audit: 0, disabled: 0 },
@@ -170,9 +174,7 @@ export default function PolicyHierarchyPage() {
     return c;
   }, [grouped]);
 
-  const filtered = activeScope
-    ? grouped[activeScope]
-    : ([] as PolicyData[]);
+  const filtered = activeScope ? grouped[activeScope] : ([] as PolicyData[]);
 
   if (loading) {
     return (
@@ -193,8 +195,8 @@ export default function PolicyHierarchyPage() {
         <div>
           <h1 className="text-xl font-semibold">Policy Hierarchy</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            How governance flows from organization-wide defaults down to per-user
-            overrides. More specific scopes win on conflict.
+            How governance flows from organization-wide defaults down to
+            per-user overrides. More specific scopes win on conflict.
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs">
@@ -246,13 +248,14 @@ export default function PolicyHierarchyPage() {
               const policiesAtScope = grouped[scope.key];
 
               return (
-                <div key={scope.key} className="flex flex-col items-center gap-2">
+                <div
+                  key={scope.key}
+                  className="flex flex-col items-center gap-2"
+                >
                   {/* Lane */}
                   <button
                     type="button"
-                    onClick={() =>
-                      setActiveScope(isActive ? null : scope.key)
-                    }
+                    onClick={() => setActiveScope(isActive ? null : scope.key)}
                     className={cn(
                       "group relative w-full rounded-lg border-2 px-4 py-4 text-left transition-all",
                       "hover:shadow-sm focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
@@ -389,8 +392,8 @@ export default function PolicyHierarchyPage() {
             {filtered.length === 0 ? (
               <div className="text-muted-foreground rounded-md border border-dashed py-8 text-center text-sm">
                 No policies attached at the{" "}
-                <strong className="text-foreground">{activeScope}</strong>{" "}
-                level yet.
+                <strong className="text-foreground">{activeScope}</strong> level
+                yet.
               </div>
             ) : (
               <ul className="divide-border divide-y rounded-md border">

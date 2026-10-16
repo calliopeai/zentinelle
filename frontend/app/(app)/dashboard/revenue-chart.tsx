@@ -34,12 +34,25 @@ export const RevenueChart = () => {
       <AreaChart data={data} margin={{ left: 0, right: 0 }}>
         <defs>
           <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.2} />
-            <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0} />
+            <stop
+              offset="5%"
+              stopColor="var(--color-revenue)"
+              stopOpacity={0.2}
+            />
+            <stop
+              offset="95%"
+              stopColor="var(--color-revenue)"
+              stopOpacity={0}
+            />
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} strokeDasharray="3 3" />
-        <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+        <XAxis
+          dataKey="month"
+          tickLine={false}
+          axisLine={false}
+          tick={{ fontSize: 12 }}
+        />
         <YAxis
           tickLine={false}
           axisLine={false}
@@ -50,9 +63,10 @@ export const RevenueChart = () => {
           content={
             <ChartTooltipContent
               formatter={(value) =>
-                new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-                  Number(value)
-                )
+                new Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency: "USD",
+                }).format(Number(value))
               }
             />
           }

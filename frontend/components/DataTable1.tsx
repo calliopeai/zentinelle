@@ -3,7 +3,11 @@
 import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
-import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableColumnHeader,
+  type FilterConfig,
+} from "@/components/data-table";
 
 // ─── schema ───────────────────────────────────────────────────────────────────
 
@@ -209,51 +213,71 @@ const data: Product[] = schema.array().parse([
 const columns: ColumnDef<Product, unknown>[] = [
   {
     accessorKey: "sku",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="SKU" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="SKU" />
+    ),
     filterFn: (row, _id, value) => {
       if (!value) return true;
-      return (row.getValue("sku") as string).toLowerCase().includes(value.toLowerCase());
+      return (row.getValue("sku") as string)
+        .toLowerCase()
+        .includes(value.toLowerCase());
     },
     enableSorting: true,
   },
   {
     accessorKey: "item",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Item" />,
-    cell: ({ row }) => <div className="font-medium">{row.getValue("item")}</div>,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Item" />
+    ),
+    cell: ({ row }) => (
+      <div className="font-medium">{row.getValue("item")}</div>
+    ),
     enableSorting: true,
   },
   {
     accessorKey: "type",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Type" />
+    ),
     enableSorting: true,
   },
   {
     accessorKey: "stock",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="In Stock" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="In Stock" />
+    ),
     cell: ({ row }) => (row.getValue("stock") ? "Yes" : "No"),
     filterFn: (row, _id, value) => {
       if (!value || value === "all") return true;
-      return value === "true" ? row.getValue("stock") === true : row.getValue("stock") === false;
+      return value === "true"
+        ? row.getValue("stock") === true
+        : row.getValue("stock") === false;
     },
     enableSorting: false,
   },
   {
     accessorKey: "price",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Price" />
+    ),
     cell: ({ row }) => (
       <div className="font-medium">
-        {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-          parseFloat(row.getValue("price"))
-        )}
+        {new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(parseFloat(row.getValue("price")))}
       </div>
     ),
     enableSorting: true,
   },
   {
     accessorKey: "availability",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Available In" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Available In" />
+    ),
     cell: ({ row }) => {
-      const availability: ("In store" | "Online")[] = row.getValue("availability");
+      const availability: ("In store" | "Online")[] =
+        row.getValue("availability");
       return (
         <div className="flex gap-2">
           {availability.map((loc) => (

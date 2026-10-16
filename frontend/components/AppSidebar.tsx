@@ -94,20 +94,64 @@ const sections: NavSection[] = [
       { title: "Agents", url: "/agents", icon: <ShieldIcon /> },
       { title: "Agent Groups", url: "/agents/groups", icon: <UsersIcon /> },
       { title: "Policies", url: "/policies", icon: <FileTextIcon /> },
-      { title: "Policy Hierarchy", url: "/policies/hierarchy", icon: <LayersIcon /> },
-      { title: "Effective Policy", url: "/policies/effective", icon: <SearchIcon /> },
-      { title: "Policy Simulator", url: "/policies/simulator", icon: <PlayIcon /> },
-      { title: "Policy Analyzer", url: "/policies/analyzer", icon: <SearchCheckIcon /> },
-      { title: "Policy Copilot", url: "/policies/copilot", icon: <SparklesIcon /> },
+      {
+        title: "Policy Hierarchy",
+        url: "/policies/hierarchy",
+        icon: <LayersIcon />,
+      },
+      {
+        title: "Effective Policy",
+        url: "/policies/effective",
+        icon: <SearchIcon />,
+      },
+      {
+        title: "Policy Simulator",
+        url: "/policies/simulator",
+        icon: <PlayIcon />,
+      },
+      {
+        title: "Policy Analyzer",
+        url: "/policies/analyzer",
+        icon: <SearchCheckIcon />,
+      },
+      {
+        title: "Policy Copilot",
+        url: "/policies/copilot",
+        icon: <SparklesIcon />,
+      },
       { title: "Policy Import", url: "/policies/import", icon: <UploadIcon /> },
-      { title: "Control Evidence", url: "/governance/evidence", icon: <ShieldCheckIcon /> },
+      {
+        title: "Control Evidence",
+        url: "/governance/evidence",
+        icon: <ShieldCheckIcon />,
+      },
       { title: "Content Rules", url: "/content-rules", icon: <ScanLineIcon /> },
-      { title: "Scanner Dashboard", url: "/content-rules/scanner", icon: <ScanSearchIcon /> },
+      {
+        title: "Scanner Dashboard",
+        url: "/content-rules/scanner",
+        icon: <ScanSearchIcon />,
+      },
       { title: "Models", url: "/models", icon: <CpuIcon /> },
-      { title: "Model Compare", url: "/models/compare", icon: <BarChart3Icon /> },
-      { title: "Route Canary", url: "/models/route-canary", icon: <ShieldCheckIcon /> },
-      { title: "Budget Showback", url: "/budgets/showback", icon: <CoinsIcon /> },
-      { title: "ATLAS Controls", url: "/threats/atlas", icon: <ShieldCheckIcon /> },
+      {
+        title: "Model Compare",
+        url: "/models/compare",
+        icon: <BarChart3Icon />,
+      },
+      {
+        title: "Route Canary",
+        url: "/models/route-canary",
+        icon: <ShieldCheckIcon />,
+      },
+      {
+        title: "Budget Showback",
+        url: "/budgets/showback",
+        icon: <CoinsIcon />,
+      },
+      {
+        title: "ATLAS Controls",
+        url: "/threats/atlas",
+        icon: <ShieldCheckIcon />,
+      },
     ],
   },
   {
@@ -126,9 +170,21 @@ const sections: NavSection[] = [
     label: "Compliance",
     items: [
       { title: "Overview", url: "/compliance", icon: <CheckCircleIcon /> },
-      { title: "Frameworks", url: "/compliance/frameworks", icon: <ShieldIcon /> },
-      { title: "Gap Analysis", url: "/compliance/gaps", icon: <SearchCheckIcon /> },
-      { title: "Reports", url: "/compliance/reports", icon: <FileBarChartIcon /> },
+      {
+        title: "Frameworks",
+        url: "/compliance/frameworks",
+        icon: <ShieldIcon />,
+      },
+      {
+        title: "Gap Analysis",
+        url: "/compliance/gaps",
+        icon: <SearchCheckIcon />,
+      },
+      {
+        title: "Reports",
+        url: "/compliance/reports",
+        icon: <FileBarChartIcon />,
+      },
     ],
   },
   {
@@ -137,17 +193,37 @@ const sections: NavSection[] = [
       { title: "Events", url: "/events", icon: <ActivityIcon /> },
       { title: "Audit Logs", url: "/audit-logs", icon: <ScrollTextIcon /> },
       { title: "Monitoring", url: "/monitoring", icon: <BarChart3Icon /> },
-      { title: "Anomalies", url: "/observability/anomalies", icon: <AlertTriangleIcon /> },
+      {
+        title: "Anomalies",
+        url: "/observability/anomalies",
+        icon: <AlertTriangleIcon />,
+      },
     ],
   },
   {
     label: "Tools",
     items: [
-      { title: "System Prompts", url: "/system-prompts", icon: <BookOpenIcon /> },
-      { title: "Prompt Builder", url: "/system-prompts/builder", icon: <PenToolIcon /> },
-      { title: "Prompt Generator", url: "/system-prompts/generator", icon: <WandIcon /> },
+      {
+        title: "System Prompts",
+        url: "/system-prompts",
+        icon: <BookOpenIcon />,
+      },
+      {
+        title: "Prompt Builder",
+        url: "/system-prompts/builder",
+        icon: <PenToolIcon />,
+      },
+      {
+        title: "Prompt Generator",
+        url: "/system-prompts/generator",
+        icon: <WandIcon />,
+      },
       { title: "AI Assistant", url: "/assistant", icon: <SparklesIcon /> },
-      { title: "Token Calculator", url: "/tools/token-calculator", icon: <CpuIcon /> },
+      {
+        title: "Token Calculator",
+        url: "/tools/token-calculator",
+        icon: <CpuIcon />,
+      },
     ],
   },
   {
@@ -155,11 +231,19 @@ const sections: NavSection[] = [
     items: [
       { title: "General", url: "/settings", icon: <SettingsIcon /> },
       { title: "API Keys", url: "/settings/api-keys", icon: <KeyIcon /> },
-      { title: "LLM Providers", url: "/settings/llm-providers", icon: <SparklesIcon /> },
+      {
+        title: "LLM Providers",
+        url: "/settings/llm-providers",
+        icon: <SparklesIcon />,
+      },
       { title: "Astrolift", url: "/settings/astrolift", icon: <ServerIcon /> },
       { title: "Network Policies", url: "/network", icon: <NetworkIcon /> },
       { title: "Data Retention", url: "/retention", icon: <ArchiveIcon /> },
-      { title: "Legal Holds", url: "/retention/legal-holds", icon: <ShieldAlertIcon /> },
+      {
+        title: "Legal Holds",
+        url: "/retention/legal-holds",
+        icon: <ShieldAlertIcon />,
+      },
     ],
   },
 ];
@@ -179,9 +263,9 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
     pollIntervalMs: 30_000,
   });
 
-  const [openSections, setOpenSections] = React.useState<Record<string, boolean>>(
-    {},
-  );
+  const [openSections, setOpenSections] = React.useState<
+    Record<string, boolean>
+  >({});
 
   // Hydrate from localStorage on mount
   React.useEffect(() => {
@@ -193,20 +277,17 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
     }
   }, []);
 
-  const toggleSection = React.useCallback(
-    (label: string, open: boolean) => {
-      setOpenSections((prev) => {
-        const next = { ...prev, [label]: open };
-        try {
-          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } catch {
-          // ignore
-        }
-        return next;
-      });
-    },
-    [],
-  );
+  const toggleSection = React.useCallback((label: string, open: boolean) => {
+    setOpenSections((prev) => {
+      const next = { ...prev, [label]: open };
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -217,9 +298,17 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
               <SidebarMenuButton size="lg" asChild className="flex-1">
                 <a href="/dashboard">
                   {sidebarState === "collapsed" ? (
-                    <img src="/logo-icon.svg" alt="Zentinelle" className="size-8 shrink-0" />
+                    <img
+                      src="/logo-icon.svg"
+                      alt="Zentinelle"
+                      className="size-8 shrink-0"
+                    />
                   ) : (
-                    <img src="/logo.svg" alt="Zentinelle" className="h-8 w-auto" />
+                    <img
+                      src="/logo.svg"
+                      alt="Zentinelle"
+                      className="h-8 w-auto"
+                    />
                   )}
                 </a>
               </SidebarMenuButton>
@@ -237,8 +326,7 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
             <SidebarMenu>
               {section.items.map((item) => {
                 const isActive =
-                  pathname === item.url ||
-                  pathname.startsWith(item.url + "/");
+                  pathname === item.url || pathname.startsWith(item.url + "/");
                 const showAlertBadge =
                   item.url === "/alerts" && openAlertCount > 0;
                 const showNotificationBadge =
@@ -275,9 +363,7 @@ export function AppSidebar({ ssrUser, ...props }: AppSidebarProps) {
 
           // Unlabeled sections (Dashboard) render flat — no collapse
           if (!section.label) {
-            return (
-              <SidebarGroup key={sectionIdx}>{sectionItems}</SidebarGroup>
-            );
+            return <SidebarGroup key={sectionIdx}>{sectionItems}</SidebarGroup>;
           }
 
           // Auto-open the section containing the active route

@@ -18,7 +18,7 @@ const MODEL_PRICING: Record<
 > = {
   "gpt-4o": { input: 2.5, output: 10.0, context: 128000 },
   "gpt-4o-mini": { input: 0.15, output: 0.6, context: 128000 },
-  "o1": { input: 15.0, output: 60.0, context: 200000 },
+  o1: { input: 15.0, output: 60.0, context: 200000 },
   "o3-mini": { input: 1.1, output: 4.4, context: 200000 },
   "claude-opus-4": { input: 15.0, output: 75.0, context: 200000 },
   "claude-sonnet-4": { input: 3.0, output: 15.0, context: 200000 },
@@ -36,12 +36,8 @@ export default function TokenCalculatorPage() {
   const outputTokens = Math.ceil(tokens * outputRatio);
   const pricing = MODEL_PRICING[model];
 
-  const inputCost = pricing
-    ? (tokens / 1_000_000) * pricing.input
-    : 0;
-  const outputCost = pricing
-    ? (outputTokens / 1_000_000) * pricing.output
-    : 0;
+  const inputCost = pricing ? (tokens / 1_000_000) * pricing.input : 0;
+  const outputCost = pricing ? (outputTokens / 1_000_000) * pricing.output : 0;
   const totalCost = inputCost + outputCost;
   const contextUsage = pricing
     ? ((tokens / pricing.context) * 100).toFixed(1)
@@ -111,7 +107,9 @@ export default function TokenCalculatorPage() {
         <div className="space-y-4">
           <Card>
             <CardContent className="pt-6 text-center">
-              <div className="text-4xl font-bold">{tokens.toLocaleString()}</div>
+              <div className="text-4xl font-bold">
+                {tokens.toLocaleString()}
+              </div>
               <div className="text-muted-foreground text-sm">Input Tokens</div>
             </CardContent>
           </Card>
@@ -130,9 +128,12 @@ export default function TokenCalculatorPage() {
               <div className="text-4xl font-bold text-[#37efed]">
                 ${totalCost.toFixed(4)}
               </div>
-              <div className="text-muted-foreground text-sm">Est. Total Cost</div>
+              <div className="text-muted-foreground text-sm">
+                Est. Total Cost
+              </div>
               <div className="text-muted-foreground mt-1 text-xs">
-                Input: ${inputCost.toFixed(4)} · Output: ${outputCost.toFixed(4)}
+                Input: ${inputCost.toFixed(4)} · Output: $
+                {outputCost.toFixed(4)}
               </div>
             </CardContent>
           </Card>

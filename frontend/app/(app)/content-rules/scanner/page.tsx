@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useContentScans, useContentViolations } from "@/graphql/content-scanner/hooks";
+import {
+  useContentScans,
+  useContentViolations,
+} from "@/graphql/content-scanner/hooks";
 import type { ContentViolationData } from "@/graphql/content-scanner/types";
 import {
   Card,
@@ -160,7 +163,8 @@ export default function ScannerDashboardPage() {
   const byType = useMemo(() => {
     const counts: Record<string, number> = {};
     violations.forEach((v) => {
-      const label = RULE_TYPE_LABELS[v.ruleType] ?? v.ruleTypeDisplay ?? v.ruleType;
+      const label =
+        RULE_TYPE_LABELS[v.ruleType] ?? v.ruleTypeDisplay ?? v.ruleType;
       counts[label] = (counts[label] ?? 0) + 1;
     });
     return Object.entries(counts)
@@ -271,7 +275,10 @@ export default function ScannerDashboardPage() {
   ];
 
   const recentViolations = [...violations]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
     .slice(0, 10);
 
   return (
@@ -367,7 +374,10 @@ export default function ScannerDashboardPage() {
                   No violations in this period
                 </p>
               ) : (
-                <ChartContainer config={timelineConfig} className="h-[280px] w-full">
+                <ChartContainer
+                  config={timelineConfig}
+                  className="h-[280px] w-full"
+                >
                   <AreaChart
                     data={timelineData}
                     margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
@@ -447,7 +457,10 @@ export default function ScannerDashboardPage() {
                     No violations recorded
                   </p>
                 ) : (
-                  <ChartContainer config={byTypeConfig} className="h-[240px] w-full">
+                  <ChartContainer
+                    config={byTypeConfig}
+                    className="h-[240px] w-full"
+                  >
                     <BarChart
                       data={byType}
                       layout="vertical"
@@ -493,9 +506,14 @@ export default function ScannerDashboardPage() {
                     No violations recorded
                   </p>
                 ) : (
-                  <ChartContainer config={donutConfig} className="h-[240px] w-full">
+                  <ChartContainer
+                    config={donutConfig}
+                    className="h-[240px] w-full"
+                  >
                     <PieChart>
-                      <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                      <ChartTooltip
+                        content={<ChartTooltipContent nameKey="name" />}
+                      />
                       <Pie
                         data={bySeverity}
                         dataKey="value"
@@ -511,7 +529,9 @@ export default function ScannerDashboardPage() {
                           />
                         ))}
                       </Pie>
-                      <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+                      <ChartLegend
+                        content={<ChartLegendContent nameKey="name" />}
+                      />
                     </PieChart>
                   </ChartContainer>
                 )}
@@ -552,7 +572,9 @@ export default function ScannerDashboardPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {RULE_TYPE_LABELS[v.ruleType] ?? v.ruleTypeDisplay ?? v.ruleType}
+                            {RULE_TYPE_LABELS[v.ruleType] ??
+                              v.ruleTypeDisplay ??
+                              v.ruleType}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -618,7 +640,13 @@ function buildTimelineFromViolations(violations: ContentViolationData[]) {
 
   const buckets = new Map<
     string,
-    { time: string; critical: number; high: number; medium: number; low: number }
+    {
+      time: string;
+      critical: number;
+      high: number;
+      medium: number;
+      low: number;
+    }
   >();
 
   violations.forEach((v) => {

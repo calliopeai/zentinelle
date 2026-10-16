@@ -42,18 +42,21 @@ const policySchema = z.object({
   policyType: z.string().min(1, "Policy type is required"),
   scopeType: z.string().optional(),
   enforcement: z.string().optional(),
-  config: z.string().optional().refine(
-    (val) => {
-      if (!val || val.trim() === "") return true;
-      try {
-        JSON.parse(val);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    { message: "Config must be valid JSON" }
-  ),
+  config: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val.trim() === "") return true;
+        try {
+          JSON.parse(val);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "Config must be valid JSON" },
+    ),
   enabled: z.boolean(),
   priority: z.number().int().min(0).max(1000),
 });
@@ -153,7 +156,12 @@ function CreatePolicyPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl space-y-6">
         <div className="space-y-2">
           <Label htmlFor="name">Name *</Label>
-          <Input id="name" placeholder="e.g. Rate Limit - Production" {...register("name")} aria-invalid={!!errors.name} />
+          <Input
+            id="name"
+            placeholder="e.g. Rate Limit - Production"
+            {...register("name")}
+            aria-invalid={!!errors.name}
+          />
           {errors.name && (
             <p className="text-destructive text-sm">{errors.name.message}</p>
           )}
@@ -191,7 +199,9 @@ function CreatePolicyPage() {
               )}
             />
             {errors.policyType && (
-              <p className="text-destructive text-sm">{errors.policyType.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.policyType.message}
+              </p>
             )}
           </div>
 
@@ -252,7 +262,9 @@ function CreatePolicyPage() {
               aria-invalid={!!errors.priority}
             />
             {errors.priority && (
-              <p className="text-destructive text-sm">{errors.priority.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.priority.message}
+              </p>
             )}
           </div>
         </div>
@@ -291,7 +303,9 @@ function CreatePolicyPage() {
 
         <div className="flex gap-3 pt-2">
           <Button type="submit" disabled={submitting}>
-            {submitting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+            {submitting && (
+              <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+            )}
             Create Policy
           </Button>
           <Button type="button" variant="outline" asChild>

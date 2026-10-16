@@ -2,8 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { useUsageMetrics } from "@/graphql/usage/hooks";
-import type { UsageTimeSeriesPoint, UsageByEndpoint } from "@/graphql/usage/types";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import type {
+  UsageTimeSeriesPoint,
+  UsageByEndpoint,
+} from "@/graphql/usage/types";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Area,
@@ -24,12 +33,7 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import {
-  CoinsIcon,
-  ZapIcon,
-  TimerIcon,
-  ActivityIcon,
-} from "lucide-react";
+import { CoinsIcon, ZapIcon, TimerIcon, ActivityIcon } from "lucide-react";
 
 /* ── Time range options ──────────────────────────────────────────── */
 
@@ -84,9 +88,7 @@ function StatCard({
 
 function NoDataPlaceholder({ message }: { message: string }) {
   return (
-    <p className="text-muted-foreground py-12 text-center text-sm">
-      {message}
-    </p>
+    <p className="text-muted-foreground py-12 text-center text-sm">{message}</p>
   );
 }
 
@@ -336,15 +338,16 @@ export default function MonitoringPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Token Consumption</CardTitle>
-            <CardDescription>
-              Total tokens processed per day
-            </CardDescription>
+            <CardDescription>Total tokens processed per day</CardDescription>
           </CardHeader>
           <CardContent>
             {tokenData.length === 0 ? (
               <NoDataPlaceholder message="No token data available for this period" />
             ) : (
-              <ChartContainer config={tokenChartConfig} className="h-[280px] w-full">
+              <ChartContainer
+                config={tokenChartConfig}
+                className="h-[280px] w-full"
+              >
                 <AreaChart data={tokenData} margin={{ left: 0, right: 0 }}>
                   <defs>
                     <linearGradient id="fillTokens" x1="0" y1="0" x2="0" y2="1">
@@ -353,7 +356,12 @@ export default function MonitoringPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis dataKey="bucket" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <XAxis
+                    dataKey="bucket"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 12 }}
+                  />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
@@ -366,7 +374,9 @@ export default function MonitoringPage() {
                           : String(v)
                     }
                   />
-                  <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
+                  <ChartTooltip
+                    content={<ChartTooltipContent indicator="dot" />}
+                  />
                   <ChartLegend content={<ChartLegendContent />} />
                   <Area
                     type="monotone"
@@ -392,10 +402,18 @@ export default function MonitoringPage() {
             {callsData.length === 0 ? (
               <NoDataPlaceholder message="No API call data available" />
             ) : (
-              <ChartContainer config={callsChartConfig} className="h-[240px] w-full">
+              <ChartContainer
+                config={callsChartConfig}
+                className="h-[240px] w-full"
+              >
                 <LineChart data={callsData} margin={{ left: 0, right: 0 }}>
                   <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis dataKey="bucket" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <XAxis
+                    dataKey="bucket"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 12 }}
+                  />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
@@ -425,10 +443,18 @@ export default function MonitoringPage() {
             {costData.length === 0 || costData.every((d) => d.cost === 0) ? (
               <NoDataPlaceholder message="No cost data available" />
             ) : (
-              <ChartContainer config={costChartConfig} className="h-[240px] w-full">
+              <ChartContainer
+                config={costChartConfig}
+                className="h-[240px] w-full"
+              >
                 <BarChart data={costData} margin={{ left: 0, right: 0 }}>
                   <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis dataKey="bucket" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <XAxis
+                    dataKey="bucket"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 12 }}
+                  />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
@@ -520,7 +546,10 @@ export default function MonitoringPage() {
             {topAgentsByCost.length === 0 ? (
               <NoDataPlaceholder message="No agent cost data available" />
             ) : (
-              <ChartContainer config={agentCostConfig} className="h-[240px] w-full">
+              <ChartContainer
+                config={agentCostConfig}
+                className="h-[240px] w-full"
+              >
                 <BarChart
                   data={topAgentsByCost}
                   layout="vertical"

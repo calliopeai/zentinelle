@@ -8,8 +8,7 @@ import {
 } from "@apollo/client-integration-nextjs";
 import { getClientCache } from "./cache";
 
-const GQL_URL =
-  process.env.NEXT_PUBLIC_GQL_URL || "/gql/zentinelle/";
+const GQL_URL = process.env.NEXT_PUBLIC_GQL_URL || "/gql/zentinelle/";
 
 function makeClient(): ApolloClient {
   const httpLink = new HttpLink({

@@ -62,21 +62,34 @@ export function AgentShell({ children }: { children: React.ReactNode }) {
           {agent ? (
             <div className="flex gap-2">
               <Badge variant="outline">{agent.status}</Badge>
-              <Badge variant={healthVariant(agent.health)}>{agent.health}</Badge>
+              <Badge variant={healthVariant(agent.health)}>
+                {agent.health}
+              </Badge>
             </div>
           ) : null}
         </div>
         {agent && (
           <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
-            <span>Owner: {String(agent.metadata?.owner_id ?? "Unassigned")}</span>
+            <span>
+              Owner: {String(agent.metadata?.owner_id ?? "Unassigned")}
+            </span>
             <span>Deployment: {agent.deploymentName ?? "Unassigned"}</span>
             <span>Team: {agent.agentGroup?.name ?? "Unassigned"}</span>
-            <span>Heartbeat: {agent.lastHeartbeat ? new Date(agent.lastHeartbeat).toLocaleString() : "Never"}</span>
+            <span>
+              Heartbeat:{" "}
+              {agent.lastHeartbeat
+                ? new Date(agent.lastHeartbeat).toLocaleString()
+                : "Never"}
+            </span>
           </div>
         )}
         {agent && agent.capabilities.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {agent.capabilities.map((capability) => <Badge key={capability} variant="secondary">{capability}</Badge>)}
+            {agent.capabilities.map((capability) => (
+              <Badge key={capability} variant="secondary">
+                {capability}
+              </Badge>
+            ))}
           </div>
         )}
       </div>

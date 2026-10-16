@@ -8,7 +8,11 @@ export default async function SsrUser() {
     const client = await getClient();
     const { data } = await client.query<MeQueryData>({ query: GET_ME });
 
-    return <Badge variant="secondary">SSR: {data?.me?.profile?.username ?? data?.me?.id}</Badge>;
+    return (
+      <Badge variant="secondary">
+        SSR: {data?.me?.profile?.username ?? data?.me?.id}
+      </Badge>
+    );
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return <Badge variant="secondary">SSR: {message}</Badge>;

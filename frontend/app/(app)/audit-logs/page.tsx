@@ -2,7 +2,6 @@
 
 import { authenticatedFetch } from "@/lib/auth/fetch";
 
-
 import { useState } from "react";
 import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import {
@@ -16,7 +15,11 @@ import {
 import { toast } from "sonner";
 import { useAuditLogs } from "@/graphql/events/hooks";
 import type { AuditLogData, AuditChange } from "@/graphql/events/types";
-import { DataTable, DataTableColumnHeader, type FilterConfig } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableColumnHeader,
+  type FilterConfig,
+} from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -51,8 +54,7 @@ interface VerifyState {
 }
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ||
-  "/api/zentinelle/v1";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "/api/zentinelle/v1";
 
 async function verifyAuditChain(): Promise<VerifyResult> {
   const res = await authenticatedFetch(`${API_BASE_URL}/audit/verify`, {
@@ -132,8 +134,8 @@ function VerifyChainDialog({
                   </div>
                   <div className="text-muted-foreground text-xs">
                     {result.records_checked.toLocaleString()}{" "}
-                    {result.records_checked === 1 ? "entry" : "entries"} checked,
-                    all hashes valid.
+                    {result.records_checked === 1 ? "entry" : "entries"}{" "}
+                    checked, all hashes valid.
                   </div>
                 </div>
               </div>
@@ -310,9 +312,7 @@ export default function AuditLogsPage() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Action" />
       ),
-      cell: ({ row }) => (
-        <Badge variant="outline">{row.original.action}</Badge>
-      ),
+      cell: ({ row }) => <Badge variant="outline">{row.original.action}</Badge>,
       filterFn: (row, _, filterValue) => {
         if (!filterValue) return true;
         return row.original.action === filterValue;
@@ -370,7 +370,9 @@ export default function AuditLogsPage() {
     {
       id: "changes",
       header: () => (
-        <span className="flex h-8 items-center text-sm font-medium">Changes</span>
+        <span className="flex h-8 items-center text-sm font-medium">
+          Changes
+        </span>
       ),
       cell: ({ row }) => <ExpandableChanges changes={row.original.changes} />,
       enableSorting: false,

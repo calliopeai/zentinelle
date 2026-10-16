@@ -2,7 +2,6 @@
 
 import { authenticatedFetch } from "@/lib/auth/fetch";
 
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Card,
@@ -45,11 +44,10 @@ import { toast } from "sonner";
  * incident-report categories. Internally these map to the existing backend
  * ReportType enum (control_coverage / violation_summary / audit_trail).
  */
-type UiReportTypeId = "risk-assessment" | "executive-summary" | "incident-report";
+type UiReportTypeId =
+  "risk-assessment" | "executive-summary" | "incident-report";
 type BackendReportType =
-  | "control_coverage"
-  | "violation_summary"
-  | "audit_trail";
+  "control_coverage" | "violation_summary" | "audit_trail";
 type ReportFormat = "csv" | "pdf" | "ndjson";
 
 interface ReportTypeConfig {
@@ -101,7 +99,11 @@ const FORMATS: Array<{
   icon: React.ReactNode;
 }> = [
   { id: "pdf", label: "PDF", icon: <FileTextIcon className="h-4 w-4" /> },
-  { id: "csv", label: "CSV", icon: <FileSpreadsheetIcon className="h-4 w-4" /> },
+  {
+    id: "csv",
+    label: "CSV",
+    icon: <FileSpreadsheetIcon className="h-4 w-4" />,
+  },
   {
     id: "ndjson",
     label: "NDJSON",
@@ -112,8 +114,7 @@ const FORMATS: Array<{
 /* ── API helpers ─────────────────────────────────────────────── */
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ||
-  "/api/zentinelle/v1";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "/api/zentinelle/v1";
 
 interface ReportRecord {
   id: number;
@@ -272,9 +273,8 @@ function saveHistoryIds(
 /* ── Main page ───────────────────────────────────────────────── */
 
 export default function RiskReportsPage() {
-  const [selectedType, setSelectedType] = useState<UiReportTypeId>(
-    "risk-assessment",
-  );
+  const [selectedType, setSelectedType] =
+    useState<UiReportTypeId>("risk-assessment");
   const [selectedFormat, setSelectedFormat] = useState<ReportFormat>("pdf");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -335,8 +335,7 @@ export default function RiskReportsPage() {
 
     const params: Record<string, unknown> = {};
     if (selectedTypeConfig.backendType === "control_coverage") {
-      params.pack_name =
-        selectedTypeConfig.defaultPackName ?? "soc2";
+      params.pack_name = selectedTypeConfig.defaultPackName ?? "soc2";
     }
     if (startDate) params.date_from = startDate;
     if (endDate) params.date_to = endDate;
@@ -495,8 +494,8 @@ export default function RiskReportsPage() {
         <CardContent>
           {history.length === 0 ? (
             <p className="text-muted-foreground py-8 text-center text-sm">
-              No reports generated yet. Use the form above to create your
-              first report.
+              No reports generated yet. Use the form above to create your first
+              report.
             </p>
           ) : (
             <Table>
@@ -542,9 +541,7 @@ export default function RiskReportsPage() {
                           </a>
                         </Button>
                       ) : record.status === "failed" ? (
-                        <span className="text-destructive text-xs">
-                          Failed
-                        </span>
+                        <span className="text-destructive text-xs">Failed</span>
                       ) : (
                         <span className="text-muted-foreground text-xs">
                           Processing...

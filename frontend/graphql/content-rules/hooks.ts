@@ -31,7 +31,7 @@ export function useContentRule(id: string) {
     {
       variables: { id },
       skip: !id,
-    }
+    },
   );
 
   return {

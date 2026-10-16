@@ -81,7 +81,10 @@ function ImprovementCard({
           </span>
         </div>
         {improvement.severity && (
-          <Badge variant={severityVariant(improvement.severity)} className="text-[10px]">
+          <Badge
+            variant={severityVariant(improvement.severity)}
+            className="text-[10px]"
+          >
             {improvement.severity}
           </Badge>
         )}
@@ -133,10 +136,12 @@ export function PromptAnalysisSheet({
     skip: !open || !promptId,
   });
 
-  const [analyze, { data: analysisData, loading: analyzing, error: analysisError, reset }] =
-    useMutation<AnalyzeSystemPromptData, AnalyzeSystemPromptVariables>(
-      ANALYZE_SYSTEM_PROMPT,
-    );
+  const [
+    analyze,
+    { data: analysisData, loading: analyzing, error: analysisError, reset },
+  ] = useMutation<AnalyzeSystemPromptData, AnalyzeSystemPromptVariables>(
+    ANALYZE_SYSTEM_PROMPT,
+  );
 
   const triggeredFor = useRef<string | null>(null);
 
@@ -153,14 +158,16 @@ export function PromptAnalysisSheet({
     analyze({
       variables: {
         promptText,
-        promptType: promptType ?? promptData?.systemPrompt?.promptType ?? "system",
+        promptType:
+          promptType ?? promptData?.systemPrompt?.promptType ?? "system",
       },
     }).catch(() => {});
   }, [open, promptId, promptData, promptType, analyze, reset]);
 
   const result = analysisData?.analyzeSystemPrompt;
   const isLoading = loadingPrompt || analyzing;
-  const errorMessage = result?.error || (analysisError ? analysisError.message : null);
+  const errorMessage =
+    result?.error || (analysisError ? analysisError.message : null);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -210,7 +217,9 @@ export function PromptAnalysisSheet({
                       variables: {
                         promptText,
                         promptType:
-                          promptType ?? promptData?.systemPrompt?.promptType ?? "system",
+                          promptType ??
+                          promptData?.systemPrompt?.promptType ??
+                          "system",
                       },
                     }).catch(() => {});
                   }}
@@ -226,15 +235,21 @@ export function PromptAnalysisSheet({
               <div className="rounded-lg border p-4">
                 <div className="flex items-center gap-3">
                   <div className="bg-muted flex h-12 w-12 items-center justify-center rounded-full">
-                    <GaugeIcon className={`h-6 w-6 ${scoreColor(result.overallScore)}`} />
+                    <GaugeIcon
+                      className={`h-6 w-6 ${scoreColor(result.overallScore)}`}
+                    />
                   </div>
                   <div className="flex-1">
                     <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
                       Overall Score
                     </p>
-                    <p className={`text-2xl font-semibold ${scoreColor(result.overallScore)}`}>
+                    <p
+                      className={`text-2xl font-semibold ${scoreColor(result.overallScore)}`}
+                    >
                       {result.overallScore}
-                      <span className="text-muted-foreground ml-1 text-sm font-normal">/ 100</span>
+                      <span className="text-muted-foreground ml-1 text-sm font-normal">
+                        / 100
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -285,11 +300,13 @@ export function PromptAnalysisSheet({
                 </div>
               )}
 
-              {result.strengths.length === 0 && result.improvements.length === 0 && (
-                <p className="text-muted-foreground text-sm">
-                  No specific feedback returned. The prompt may already be in good shape.
-                </p>
-              )}
+              {result.strengths.length === 0 &&
+                result.improvements.length === 0 && (
+                  <p className="text-muted-foreground text-sm">
+                    No specific feedback returned. The prompt may already be in
+                    good shape.
+                  </p>
+                )}
             </>
           )}
         </div>

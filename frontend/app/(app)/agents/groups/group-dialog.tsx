@@ -159,7 +159,7 @@ export function GroupDialog({
           onSaved();
         } else {
           toast.error(
-            data?.updateAgentGroup?.errors?.[0] ?? "Failed to update group"
+            data?.updateAgentGroup?.errors?.[0] ?? "Failed to update group",
           );
         }
       } else {
@@ -170,7 +170,7 @@ export function GroupDialog({
           onSaved();
         } else {
           toast.error(
-            data?.createAgentGroup?.errors?.[0] ?? "Failed to create group"
+            data?.createAgentGroup?.errors?.[0] ?? "Failed to create group",
           );
         }
       }

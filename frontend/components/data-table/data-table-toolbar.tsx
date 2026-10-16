@@ -8,7 +8,11 @@ import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -28,7 +32,8 @@ const emptyValue = (f: FilterConfig) => (f.type === "select" ? "all" : "");
 const isActive = (f: FilterConfig, v: string) =>
   f.type === "select" ? v !== "all" && v !== "" : v !== "";
 
-const toFilterValue = (f: FilterConfig, v: string) => (isActive(f, v) ? v : undefined);
+const toFilterValue = (f: FilterConfig, v: string) =>
+  isActive(f, v) ? v : undefined;
 
 // ─── filter chips ─────────────────────────────────────────────────────────────
 
@@ -49,15 +54,22 @@ const FilterChips = <TData extends RowData>({
         const rawValue = filter.value as string;
         const label =
           config?.type === "select"
-            ? (config.options?.find((o) => o.value === rawValue)?.label ?? rawValue)
+            ? (config.options?.find((o) => o.value === rawValue)?.label ??
+              rawValue)
             : rawValue;
 
         return (
-          <Badge key={filter.id} variant="secondary" className="gap-1 pr-1 font-normal">
+          <Badge
+            key={filter.id}
+            variant="secondary"
+            className="gap-1 pr-1 font-normal"
+          >
             <span className="capitalize">{config?.label ?? filter.id}:</span>
             <span className="font-medium">{label}</span>
             <button
-              onClick={() => table.getColumn(filter.id)?.setFilterValue(undefined)}
+              onClick={() =>
+                table.getColumn(filter.id)?.setFilterValue(undefined)
+              }
               className="ml-0.5 rounded-sm opacity-60 hover:opacity-100"
             >
               <XIcon className="h-3 w-3" />
@@ -86,7 +98,8 @@ const FilterPanel = <TData extends RowData>({
     if (next) {
       const current: Record<string, string> = {};
       filters.forEach((f) => {
-        current[f.id] = (table.getColumn(f.id)?.getFilterValue() as string) ?? emptyValue(f);
+        current[f.id] =
+          (table.getColumn(f.id)?.getFilterValue() as string) ?? emptyValue(f);
       });
       setDraft(current);
     }
@@ -95,7 +108,9 @@ const FilterPanel = <TData extends RowData>({
 
   const handleApply = () => {
     filters.forEach((f) => {
-      table.getColumn(f.id)?.setFilterValue(toFilterValue(f, draft[f.id] ?? ""));
+      table
+        .getColumn(f.id)
+        ?.setFilterValue(toFilterValue(f, draft[f.id] ?? ""));
     });
     setOpen(false);
   };
@@ -108,7 +123,8 @@ const FilterPanel = <TData extends RowData>({
     setDraft(cleared);
   };
 
-  const setField = (id: string, value: string) => setDraft((d) => ({ ...d, [id]: value }));
+  const setField = (id: string, value: string) =>
+    setDraft((d) => ({ ...d, [id]: value }));
 
   const activeCount = table.getState().columnFilters.length;
 
@@ -118,7 +134,11 @@ const FilterPanel = <TData extends RowData>({
         <Button variant="outline" size="sm" className="h-8 gap-2">
           <ListFilterIcon className="h-3.5 w-3.5" />
           {t("filters")}
-          {activeCount > 0 && <Badge className="h-4 min-w-4 px-1 text-[10px]">{activeCount}</Badge>}
+          {activeCount > 0 && (
+            <Badge className="h-4 min-w-4 px-1 text-[10px]">
+              {activeCount}
+            </Badge>
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-0">
@@ -145,7 +165,8 @@ const FilterPanel = <TData extends RowData>({
                   <Input
                     className="h-8 pr-7"
                     placeholder={
-                      filter.placeholder ?? t("panel.placeholder", { label: filter.label })
+                      filter.placeholder ??
+                      t("panel.placeholder", { label: filter.label })
                     }
                     value={draft[filter.id] ?? ""}
                     onChange={(e) => setField(filter.id, e.target.value)}
@@ -209,7 +230,9 @@ export const DataTableToolbar = <TData extends RowData>({
   searchPlaceholder,
 }: DataTableToolbarProps<TData>) => {
   const t = useTranslations("dataTable");
-  const isFiltered = !!table.getState().globalFilter || table.getState().columnFilters.length > 0;
+  const isFiltered =
+    !!table.getState().globalFilter ||
+    table.getState().columnFilters.length > 0;
 
   return (
     <div className="flex flex-col gap-2">

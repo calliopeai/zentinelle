@@ -2,7 +2,6 @@
 
 import { authenticatedFetch } from "@/lib/auth/fetch";
 
-
 import { useState, useCallback, useRef, useEffect } from "react";
 
 export interface ToolCall {
@@ -47,8 +46,16 @@ export interface ChatModel {
 }
 
 export const MODELS: ChatModel[] = [
-  { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4", provider: "Anthropic" },
-  { value: "claude-opus-4-20250514", label: "Claude Opus 4", provider: "Anthropic" },
+  {
+    value: "claude-sonnet-4-20250514",
+    label: "Claude Sonnet 4",
+    provider: "Anthropic",
+  },
+  {
+    value: "claude-opus-4-20250514",
+    label: "Claude Opus 4",
+    provider: "Anthropic",
+  },
   { value: "gpt-4o", label: "GPT-4o", provider: "OpenAI" },
   { value: "gpt-4o-mini", label: "GPT-4o Mini", provider: "OpenAI" },
   { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro", provider: "Google" },
@@ -58,8 +65,7 @@ export const MODELS: ChatModel[] = [
   { value: "llama-3.3-70b", label: "Llama 3.3 70B", provider: "Together/Groq" },
 ];
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/zentinelle/v1";
 
 let messageCounter = 0;
 
@@ -128,7 +134,12 @@ export function useAvailableModels(opts: UseModelsOptions = {}) {
   }, [requireTools, sortBy]);
 
   // Fall back to hardcoded MODELS only if backend returned nothing AND finished loading
-  const result = hasResult && models.length === 0 ? MODELS : (models.length > 0 ? models : MODELS);
+  const result =
+    hasResult && models.length === 0
+      ? MODELS
+      : models.length > 0
+        ? models
+        : MODELS;
 
   return { models: result, loading };
 }
@@ -243,8 +254,8 @@ export function useChat() {
                   prev.map((m) =>
                     m.id === assistantId
                       ? { ...m, content: m.content + parsed.content }
-                      : m
-                  )
+                      : m,
+                  ),
                 );
               }
 
@@ -263,8 +274,8 @@ export function useChat() {
                             },
                           ],
                         }
-                      : m
-                  )
+                      : m,
+                  ),
                 );
               }
 
@@ -285,8 +296,8 @@ export function useChat() {
                             },
                           ],
                         }
-                      : m
-                  )
+                      : m,
+                  ),
                 );
               }
 
@@ -297,13 +308,16 @@ export function useChat() {
                     const calls = [...(m.toolCalls ?? [])];
                     // Attach the result to the last call without one
                     for (let i = calls.length - 1; i >= 0; i--) {
-                      if (calls[i].name === parsed.tool_result && calls[i].result === undefined) {
+                      if (
+                        calls[i].name === parsed.tool_result &&
+                        calls[i].result === undefined
+                      ) {
                         calls[i] = { ...calls[i], result: parsed.result };
                         break;
                       }
                     }
                     return { ...m, toolCalls: calls };
-                  })
+                  }),
                 );
               }
 
@@ -317,12 +331,14 @@ export function useChat() {
                             ...(m.navigation ?? []),
                             {
                               path: parsed.navigation.path,
-                              label: parsed.navigation.label || parsed.navigation.path,
+                              label:
+                                parsed.navigation.label ||
+                                parsed.navigation.path,
                             },
                           ],
                         }
-                      : m
-                  )
+                      : m,
+                  ),
                 );
               }
             } catch {
@@ -342,129 +358,133 @@ export function useChat() {
         abortRef.current = null;
       }
     },
-    [isStreaming, messages, model]
+    [isStreaming, messages, model],
   );
 
-  const approveAction = useCallback(
-    async (hash: string, _preview: string) => {
-      // Find the pending action across all messages
-      let target: PendingAction | undefined;
-      let targetMessageId: string | undefined;
-      setMessages((prev) => {
-        for (const m of prev) {
-          const found = m.pendingActions?.find((p) => p.hash === hash);
-          if (found) {
-            target = found;
-            targetMessageId = m.id;
-            break;
-          }
+  const approveAction = useCallback(async (hash: string, _preview: string) => {
+    // Find the pending action across all messages
+    let target: PendingAction | undefined;
+    let targetMessageId: string | undefined;
+    setMessages((prev) => {
+      for (const m of prev) {
+        const found = m.pendingActions?.find((p) => p.hash === hash);
+        if (found) {
+          target = found;
+          targetMessageId = m.id;
+          break;
         }
-        return prev;
-      });
+      }
+      return prev;
+    });
 
-      if (!target || !targetMessageId) return;
+    if (!target || !targetMessageId) return;
 
-      // Mark as approved in UI
-      setMessages((prev) =>
-        prev.map((m) => {
-          if (!m.pendingActions) return m;
-          const updated = m.pendingActions.map((p) =>
-            p.hash === hash ? { ...p, status: "approved" as const } : p
-          );
-          return { ...m, pendingActions: updated };
-        })
-      );
+    // Mark as approved in UI
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (!m.pendingActions) return m;
+        const updated = m.pendingActions.map((p) =>
+          p.hash === hash ? { ...p, status: "approved" as const } : p,
+        );
+        return { ...m, pendingActions: updated };
+      }),
+    );
 
-      // Deterministically execute via dedicated endpoint
-      try {
-        const res = await authenticatedFetch(`${API_URL}/assistant/execute-tool`, {
+    // Deterministically execute via dedicated endpoint
+    try {
+      const res = await authenticatedFetch(
+        `${API_URL}/assistant/execute-tool`,
+        {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: target.name, args: target.args, approval_token: target.hash }),
-        });
+          body: JSON.stringify({
+            name: target.name,
+            args: target.args,
+            approval_token: target.hash,
+          }),
+        },
+      );
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => null);
-          setError(errData?.error || `Action failed (${res.status})`);
-          setMessages((prev) =>
-            prev.map((m) => {
-              if (!m.pendingActions) return m;
-              return {
-                ...m,
-                pendingActions: m.pendingActions.map((p) =>
-                  p.hash === hash ? { ...p, status: "failed" as const } : p
-                ),
-              };
-            })
-          );
-          return;
-        }
-
-        const data = await res.json();
-        const succeeded = !data.result?.error;
-
-        // Inject the tool_call + result into the message and finalize pending status
-        setMessages((prev) =>
-          prev.map((m) => {
-            if (m.id !== targetMessageId) return m;
-            return {
-              ...m,
-              pendingActions: m.pendingActions?.map((p) =>
-                p.hash === hash
-                  ? {
-                      ...p,
-                      status: (succeeded ? "completed" : "failed") as
-                        | "completed"
-                        | "failed",
-                    }
-                  : p
-              ),
-              toolCalls: [
-                ...(m.toolCalls ?? []),
-                { name: data.name, args: data.args, hash, result: data.result },
-              ],
-              navigation:
-                data.result?.navigation && data.result.navigation.path
-                  ? [
-                      ...(m.navigation ?? []),
-                      {
-                        path: data.result.navigation.path,
-                        label:
-                          data.result.navigation.label || data.result.navigation.path,
-                      },
-                    ]
-                  : m.navigation,
-            };
-          })
-        );
-      } catch {
-        setError("Failed to execute approved action");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        setError(errData?.error || `Action failed (${res.status})`);
         setMessages((prev) =>
           prev.map((m) => {
             if (!m.pendingActions) return m;
             return {
               ...m,
               pendingActions: m.pendingActions.map((p) =>
-                p.hash === hash ? { ...p, status: "failed" as const } : p
+                p.hash === hash ? { ...p, status: "failed" as const } : p,
               ),
             };
-          })
+          }),
         );
+        return;
       }
-    },
-    []
-  );
+
+      const data = await res.json();
+      const succeeded = !data.result?.error;
+
+      // Inject the tool_call + result into the message and finalize pending status
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== targetMessageId) return m;
+          return {
+            ...m,
+            pendingActions: m.pendingActions?.map((p) =>
+              p.hash === hash
+                ? {
+                    ...p,
+                    status: (succeeded ? "completed" : "failed") as
+                      "completed" | "failed",
+                  }
+                : p,
+            ),
+            toolCalls: [
+              ...(m.toolCalls ?? []),
+              { name: data.name, args: data.args, hash, result: data.result },
+            ],
+            navigation:
+              data.result?.navigation && data.result.navigation.path
+                ? [
+                    ...(m.navigation ?? []),
+                    {
+                      path: data.result.navigation.path,
+                      label:
+                        data.result.navigation.label ||
+                        data.result.navigation.path,
+                    },
+                  ]
+                : m.navigation,
+          };
+        }),
+      );
+    } catch {
+      setError("Failed to execute approved action");
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (!m.pendingActions) return m;
+          return {
+            ...m,
+            pendingActions: m.pendingActions.map((p) =>
+              p.hash === hash ? { ...p, status: "failed" as const } : p,
+            ),
+          };
+        }),
+      );
+    }
+  }, []);
 
   const rejectAction = useCallback((hash: string) => {
     setMessages((prev) =>
       prev.map((m) => {
         if (!m.pendingActions) return m;
         const updated = m.pendingActions.map((p) =>
-          p.hash === hash ? { ...p, status: "rejected" as const } : p
+          p.hash === hash ? { ...p, status: "rejected" as const } : p,
         );
         return { ...m, pendingActions: updated };
-      })
+      }),
     );
   }, []);
 

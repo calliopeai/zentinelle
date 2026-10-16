@@ -1,8 +1,16 @@
 import { gql } from "@apollo/client";
 
 export const GET_USAGE_METRICS = gql`
-  query GetUsageMetrics($startDate: DateTime, $endDate: DateTime, $endpointId: ID) {
-    usageMetrics(startDate: $startDate, endDate: $endDate, endpointId: $endpointId) {
+  query GetUsageMetrics(
+    $startDate: DateTime
+    $endDate: DateTime
+    $endpointId: ID
+  ) {
+    usageMetrics(
+      startDate: $startDate
+      endDate: $endDate
+      endpointId: $endpointId
+    ) {
       summary {
         totalApiCalls
         totalTokens
