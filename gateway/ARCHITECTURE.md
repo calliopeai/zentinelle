@@ -134,13 +134,15 @@ SSE streaming is the default for LLM responses:
 
 A gateway that Astrolift registered for a cluster reports on it (#391):
 `POST /api/zentinelle/v1/astrolift/clusters/{ZENTINELLE_CLUSTER_ID}/heartbeat`
-with `X-Zentinelle-Gateway-Credential` and `{"status", "version", "counters":
-{"requests", "blocked", "agents_seen"}}`. It runs when the cluster id and a
+with `X-Zentinelle-Gateway-Credential` and `{"status", "version", "instance",
+"counters": {"requests", "blocked", "agents_seen"}}`. It runs when the cluster id and a
 credential source are set, sends once at start, then waits the answer's
 `next_heartbeat_seconds` (clamped to 10s..1h) moved by up to a tenth either way.
 
 - Counters are running totals since the process started. Zentinelle stores
-  each beat's counters as they are, so a beat never resets them.
+  each beat's counters as they are, so a beat never resets them. `instance`
+  is the host name (the pod name); Zentinelle sums the latest totals of the
+  replicas heard from in the last five minutes (#398).
 - Status covers the window since the last delivered beat: request-time policy
   checks with no usable answer (transport error, timeout, 5xx, unreadable) and
   failed provider-key lookups. All of either failed: `unhealthy`; some:

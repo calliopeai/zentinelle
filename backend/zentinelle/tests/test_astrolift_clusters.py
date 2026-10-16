@@ -503,6 +503,46 @@ class HeartbeatTests(TestCase):
     def test_an_unknown_status_is_refused(self):
         self.assertEqual(heartbeat(self.gateway, 'c1', status='unknown').status_code, 400)
 
+    # #398: every gateway replica beats for the cluster with its own totals.
+
+    def test_replicas_counters_add_up_per_cluster(self):
+        heartbeat(self.gateway, 'c1', instance='gw-a', counters={'requests': 10, 'blocked': 1, 'agents_seen': 2})
+        heartbeat(self.gateway, 'c1', instance='gw-b', counters={'requests': 5, 'blocked': 2, 'agents_seen': 1})
+        self.assertEqual(AstroliftCluster.objects.get(external_id='c1').counters,
+                         {'requests': 15, 'blocked': 3, 'agents_seen': 3})
+
+        # A replica's next beat replaces its own running totals, not the other's.
+        heartbeat(self.gateway, 'c1', instance='gw-a', counters={'requests': 12, 'blocked': 1, 'agents_seen': 2})
+        cluster = AstroliftCluster.objects.get(external_id='c1')
+        self.assertEqual(cluster.counters, {'requests': 17, 'blocked': 3, 'agents_seen': 3})
+        self.assertEqual(sorted(cluster.instances), ['gw-a', 'gw-b'])
+
+    def test_the_cluster_reads_as_its_worst_replica(self):
+        heartbeat(self.gateway, 'c1', instance='gw-a', status='degraded')
+        heartbeat(self.gateway, 'c1', instance='gw-b', status='healthy')
+
+        self.assertEqual(AstroliftCluster.objects.get(external_id='c1').health, 'degraded')
+
+    def test_a_replica_that_stops_reporting_stops_counting(self):
+        heartbeat(self.gateway, 'c1', instance='gw-old', status='unhealthy', counters={'requests': 100})
+        cluster = AstroliftCluster.objects.get(external_id='c1')
+        cluster.instances['gw-old']['seen_at'] = (timezone.now() - timedelta(minutes=6)).isoformat()
+        cluster.save(update_fields=['instances'])
+
+        heartbeat(self.gateway, 'c1', instance='gw-new', counters={'requests': 4})
+
+        cluster = AstroliftCluster.objects.get(external_id='c1')
+        self.assertEqual((cluster.counters, cluster.health), ({'requests': 4}, 'healthy'))
+        self.assertEqual(list(cluster.instances), ['gw-new'])
+
+    def test_the_replicas_kept_are_bounded(self):
+        with patch('zentinelle.services.astrolift_clusters.MAX_HEARTBEAT_INSTANCES', 2):
+            for name in ('gw-1', 'gw-2', 'gw-3'):
+                heartbeat(self.gateway, 'c1', instance=name, counters={'requests': 1})
+
+        cluster = AstroliftCluster.objects.get(external_id='c1')
+        self.assertEqual((sorted(cluster.instances), cluster.counters), (['gw-2', 'gw-3'], {'requests': 2}))
+
 
 class AdoptionTests(TestCase):
     """The #387 note: a cluster record is linked to the operator's registration by cluster_id."""

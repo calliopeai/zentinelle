@@ -764,9 +764,11 @@ itself, and nobody copies a gateway credential by hand:
    is not, so Astrolift can tell a revoked connection from a live one.
 6. The gateway reports `POST .../astrolift/clusters/<cluster_id>/heartbeat`
    with `X-Zentinelle-Gateway-Credential`: `{"status": healthy|degraded|
-   unhealthy, "version", "counters": {"requests", "blocked", "agents_seen"}}`.
-   Counters are running totals since the gateway started; unknown counters
-   are dropped. The answer asks for the next heartbeat in 60 seconds. A cluster
+   unhealthy, "version", "instance", "counters": {"requests", "blocked",
+   "agents_seen"}}`. Counters are running totals since the gateway started;
+   unknown counters are dropped. `instance` is the replica (its pod name):
+   the cluster's counters are the sum of the replicas heard from in the last
+   five minutes and its health the worst of theirs (#398). The answer asks for the next heartbeat in 60 seconds. A cluster
    that hasn't reported yet is `pending`, and one silent for five minutes is
    `stale`. The gateway sends it whenever `ZENTINELLE_CLUSTER_ID` and its
    credential are set (`HEARTBEAT_INTERVAL_SECONDS=0` turns it off), judges

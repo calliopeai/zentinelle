@@ -166,7 +166,15 @@ class AstroliftCluster(models.Model):
     health = models.CharField(max_length=20, choices=Health.choices, default=Health.UNKNOWN)
     last_seen_at = models.DateTimeField(null=True, blank=True)
     gateway_version = models.CharField(max_length=64, blank=True, default='')
-    counters = models.JSONField(default=dict, blank=True, help_text='The counters of the latest heartbeat.')
+    counters = models.JSONField(
+        default=dict, blank=True,
+        help_text="The sum of the reporting gateway replicas' counters (#398).")
+    # A database default, so a pod of the previous release that registers a
+    # cluster during a rolling deploy can still insert the row.
+    instances = models.JSONField(
+        default=dict, blank=True, db_default={},
+        help_text='Per gateway replica: its latest health, counters and when it beat. '
+                  'A replica silent for STALE_AFTER is dropped.')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     revoked_at = models.DateTimeField(null=True, blank=True)

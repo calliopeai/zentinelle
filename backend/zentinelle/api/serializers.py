@@ -164,6 +164,8 @@ class AstroliftHeartbeatSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=['healthy', 'degraded', 'unhealthy'])
     version = serializers.CharField(max_length=64, required=False, allow_blank=True, default='')
     counters = AstroliftHeartbeatCountersSerializer(required=False)
+    # The gateway replica (its pod name), so replicas' counters add up (#398).
+    instance = serializers.CharField(max_length=253, required=False, allow_blank=True, default='')
 
 
 class EnrollmentCodeRequestSerializer(serializers.Serializer):
