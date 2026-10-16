@@ -91,6 +91,20 @@ Notable changes to Zentinelle. The format follows
 
 ### Changed
 
+- Backend dependencies: graphene-django is removed. Nothing used it beyond
+  `INSTALLED_APPS`; its graphql-relay pinned graphql-core below 3.3, which
+  held strawberry-graphql at 0.327.7. The relay global-ID helpers the schema
+  used now live in `zentinelle/schema/global_id.py` with the same encoding, so
+  IDs the portal holds still decode. strawberry-graphql is 0.335.0,
+  strawberry-graphql-django 0.93.0 and graphql-core 3.3.0.
+- Cluster heartbeats count every gateway replica (#398). The gateway sends
+  its host name (the pod name) as `instance`; Zentinelle keeps each replica's
+  latest totals, shows the cluster their sum and the worst replica's health,
+  and drops a replica silent for five minutes. Before, the latest beat won, so
+  with two or more replicas the counters were one replica's.
+- CI fails a change where `backend/requirements.txt`, which the image
+  installs, pins differently from `Pipfile.lock`, which CI installs (#414).
+
 - The gateway never forwards a client-supplied provider key: `Authorization`,
   `x-api-key`, `x-goog-api-key` and Google's `key` query parameter are dropped
   on every request.
@@ -108,6 +122,15 @@ Notable changes to Zentinelle. The format follows
 
 ### Fixed
 
+- An approval issued with `POST /approvals` now matches the agent's
+  `/evaluate` retry (#383). `/evaluate` adds `resource_type` and
+  `resource_id` to the context before it is digested and the issuing view did
+  not, so the retry was denied. Both now fill them in through one function,
+  and the issued approval uses the canonical action name.
+- Captured evidence keeps the UUIDs it names (#404). The passport and
+  drivers_license patterns matched a UUID's first segment about 2% of the
+  time, so a stored policy, endpoint or approval id could stop resolving. PII
+  patterns now skip standalone UUIDs; secret patterns still scan everything.
 - A prompt created or forked in the portal is saved in the caller's tenant
   (#454). Both saved it with no tenant, so it was missing from the list, null
   by id, and "Prompt not found" to the builder's save. The tenant is the

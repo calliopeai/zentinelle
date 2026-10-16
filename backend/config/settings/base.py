@@ -69,7 +69,6 @@ INSTALLED_APPS = [
     # Third-party
     "corsheaders",
     "rest_framework",
-    "graphene_django",
     "django_filters",
     # Zentinelle
     "zentinelle",
@@ -244,14 +243,6 @@ CORS_ALLOWED_ORIGINS = [
     if h.strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
-
-# =============================================================================
-# GraphQL (Graphene)
-# =============================================================================
-
-GRAPHENE = {
-    "SCHEMA": "zentinelle.schema.schema",
-}
 
 # =============================================================================
 # Temporal

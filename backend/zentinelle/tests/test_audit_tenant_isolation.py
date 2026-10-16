@@ -22,11 +22,11 @@ from django.core.management import CommandError, call_command
 from django.test import Client, override_settings
 from django.urls import reverse
 from django.utils import timezone
-from graphql_relay import to_global_id
 
 from zentinelle.models import (AgentEndpoint, AstroliftInstall, EnrollmentCode,
                                Event, Incident, LLMProviderKey, Policy, Risk)
 from zentinelle.schema import schema
+from zentinelle.schema.global_id import to_global_id
 from zentinelle.services.behavioral_baseline import set_baseline
 from zentinelle.services.event_store import EventStore
 from zentinelle.services.policy_simulator import simulate_policy

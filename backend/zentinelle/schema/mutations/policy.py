@@ -8,12 +8,12 @@ import uuid
 from typing import Optional
 
 import strawberry
-from graphql_relay import from_global_id
 from strawberry.scalars import JSON
 
 from zentinelle.models import AgentEndpoint, Policy
 from zentinelle.schema.auth_helpers import (get_request_tenant_id,
                                             user_has_org_access)
+from zentinelle.schema.global_id import from_global_id
 from zentinelle.schema.types import PolicyType
 from zentinelle.services.actions import validate_rule_action
 

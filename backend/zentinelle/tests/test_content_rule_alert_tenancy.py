@@ -14,10 +14,10 @@ right tenant still can.
 """
 from django.test import RequestFactory, TestCase
 from graphql import GraphQLError
-from graphql_relay import to_global_id
 
 from zentinelle.api.auth import ZentinelleAgentUser
 from zentinelle.models import AgentEndpoint, ContentRule
+from zentinelle.schema.global_id import to_global_id
 from zentinelle.schema.mutations import content_rules as content_rule_mutations
 
 TENANT_A = '00000000-0000-0000-0000-0000000000a1'

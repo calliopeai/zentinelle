@@ -217,18 +217,12 @@ class DependableControlsTests(TestCase):
             'trace-control')
 
     def test_evaluation_contract_uses_canonical_boundary_resource_types(self):
-        from zentinelle.api.views.evaluate import EvaluateView
-        self.assertEqual(
-            EvaluateView._resource_type_for_action('mcp.tool_call'),
-            'tool')
-        self.assertEqual(
-            EvaluateView._resource_type_for_action('rag.retrieve'),
-            'retrieval')
-        self.assertEqual(EvaluateView._resource_type_for_action(
-            'workflow.transition'), 'workflow')
-        self.assertEqual(
-            EvaluateView._resource_type_for_action('network.egress'),
-            'egress')
+        from zentinelle.services.boundary_contract import \
+            resource_type_for_action
+        self.assertEqual(resource_type_for_action('mcp.tool_call'), 'tool')
+        self.assertEqual(resource_type_for_action('rag.retrieve'), 'retrieval')
+        self.assertEqual(resource_type_for_action('workflow.transition'), 'workflow')
+        self.assertEqual(resource_type_for_action('network.egress'), 'egress')
 
     def test_login_requires_csrf_and_is_throttled(self):
         client = APIClient(enforce_csrf_checks=True)

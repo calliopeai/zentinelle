@@ -145,21 +145,25 @@ way so replicas started together do not report together:
 with `X-Zentinelle-Gateway-Credential` and
 
 ```json
-{"status": "healthy", "version": "1.4.2", "counters": {"requests": 1200, "blocked": 7, "agents_seen": 12}}
+{"status": "healthy", "version": "1.4.2", "instance": "zentinelle-gateway-7d9f-abcde", "counters": {"requests": 1200, "blocked": 7, "agents_seen": 12}}
 ```
 
 | Field | Meaning |
 |-------|---------|
 | `status` | Judged from the gateway's own calls to Zentinelle since the last delivered heartbeat: `unhealthy` when every policy check got no answer (unreachable, timed out, 5xx) or every provider-key lookup failed, `degraded` when some did, `healthy` otherwise. An agent key Zentinelle refuses is that agent's problem and does not count |
 | `version` | The image's version, `dev` for a local build |
+| `instance` | This replica: the host name, which in Kubernetes is the pod name |
 | `requests` | Requests the gateway received, not counting `/health` and `/metrics` |
 | `blocked` | Requests refused on the policy check, fail-closed refusals included, or withheld by the output filter |
 | `agents_seen` | Distinct agent keys Zentinelle made a decision on, held as SHA-256 digests and never as keys. It stops growing at 100,000 |
 
 The counters are running totals since the gateway started. Zentinelle stores
 each heartbeat's counters as they are, so a heartbeat never resets them and a
-failed one loses nothing. Each replica reports for itself and Zentinelle keeps
-the latest, so with several replicas the counters are one replica's.
+failed one loses nothing. Each replica reports for itself under its instance;
+Zentinelle keeps each replica's latest totals and shows the cluster their sum
+and the worst replica's status. A replica silent for five minutes stops
+counting. `agents_seen` is summed too, so an agent two replicas both served is
+counted twice.
 
 A failed heartbeat is retried after 10 seconds, doubling to at most five
 minutes. A 401 or 403 makes the gateway read its credential file again, as the
