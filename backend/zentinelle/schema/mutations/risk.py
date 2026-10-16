@@ -31,6 +31,17 @@ except ImportError:
         return decorator
 
 
+def _decode_id(global_or_raw_id):
+    """A relay global id's raw id, or the id as given (the portal sends raw UUIDs)."""
+    try:
+        _type, raw_id = from_global_id(global_or_raw_id)
+        if raw_id:
+            return raw_id
+    except Exception:
+        pass
+    return global_or_raw_id
+
+
 @strawberry.input
 class CreateRiskInput:
     name: str
@@ -49,7 +60,9 @@ class CreateRiskInput:
 
 @strawberry.input
 class UpdateRiskInput:
-    id: strawberry.ID
+    # The mutation's own `id` argument names the risk; this one is optional
+    # because the portal does not repeat it here.
+    id: Optional[strawberry.ID] = None
     name: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
@@ -88,6 +101,7 @@ class DeleteRiskPayload:
 class ReviewRiskPayload:
     success: Optional[bool] = None
     risk_id: Optional[strawberry.ID] = None
+    errors: list[str] = strawberry.field(default_factory=list)
 
 
 @strawberry.input
@@ -107,7 +121,8 @@ class CreateIncidentInput:
 
 @strawberry.input
 class UpdateIncidentInput:
-    id: strawberry.ID
+    # As UpdateRiskInput.id: the mutation's `id` argument names the incident.
+    id: Optional[strawberry.ID] = None
     title: Optional[str] = None
     description: Optional[str] = None
     incident_type: Optional[str] = None
@@ -138,24 +153,28 @@ class UpdateIncidentPayload:
 class AcknowledgeIncidentPayload:
     success: Optional[bool] = None
     incident_id: Optional[strawberry.ID] = None
+    errors: list[str] = strawberry.field(default_factory=list)
 
 
 @strawberry.type
 class ResolveIncidentPayload:
     success: Optional[bool] = None
     incident_id: Optional[strawberry.ID] = None
+    errors: list[str] = strawberry.field(default_factory=list)
 
 
 @strawberry.type
 class CloseIncidentPayload:
     success: Optional[bool] = None
     incident_id: Optional[strawberry.ID] = None
+    errors: list[str] = strawberry.field(default_factory=list)
 
 
 @strawberry.type
 class AssignIncidentPayload:
     success: Optional[bool] = None
     incident_id: Optional[strawberry.ID] = None
+    errors: list[str] = strawberry.field(default_factory=list)
 
 
 @require_feature_for_mutation(Features.ZENTINELLE_RISK_MANAGEMENT)
@@ -187,13 +206,15 @@ def create_risk(info: strawberry.types.Info, input: CreateRiskInput) -> CreateRi
 
 
 @require_feature_for_mutation(Features.ZENTINELLE_RISK_MANAGEMENT)
-def update_risk(info: strawberry.types.Info, input: UpdateRiskInput) -> UpdateRiskPayload:
+def update_risk(info: strawberry.types.Info, id: strawberry.ID, input: UpdateRiskInput) -> UpdateRiskPayload:
     user = info.context.request.user
     if not user.is_authenticated:
         raise GraphQLError("Authentication required")
 
+    pk = _decode_id(id)
+    if input.id is not None and _decode_id(input.id) != pk:
+        return UpdateRiskPayload(success=False, errors=["input.id does not match id"])
     try:
-        _, pk = from_global_id(input.id)
         risk = Risk.objects.get(pk=pk)
     except (ValueError, Risk.DoesNotExist):
         return UpdateRiskPayload(success=False, errors=["Risk not found"])
@@ -251,7 +272,7 @@ def delete_risk(info: strawberry.types.Info, id: strawberry.ID) -> DeleteRiskPay
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(id)
+        pk = _decode_id(id)
         risk = Risk.objects.get(pk=pk)
     except (ValueError, Risk.DoesNotExist):
         return DeleteRiskPayload(success=False, errors=["Risk not found"])
@@ -270,7 +291,7 @@ def review_risk(info: strawberry.types.Info, id: strawberry.ID, notes: Optional[
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(id)
+        pk = _decode_id(id)
         risk = Risk.objects.get(pk=pk)
     except (ValueError, Risk.DoesNotExist):
         raise GraphQLError("Risk not found")
@@ -331,13 +352,15 @@ def create_incident(info: strawberry.types.Info, input: CreateIncidentInput) -> 
 
 
 @require_feature_for_mutation(Features.ZENTINELLE_INCIDENTS)
-def update_incident(info: strawberry.types.Info, input: UpdateIncidentInput) -> UpdateIncidentPayload:
+def update_incident(info: strawberry.types.Info, id: strawberry.ID, input: UpdateIncidentInput) -> UpdateIncidentPayload:
     user = info.context.request.user
     if not user.is_authenticated:
         raise GraphQLError("Authentication required")
 
+    pk = _decode_id(id)
+    if input.id is not None and _decode_id(input.id) != pk:
+        return UpdateIncidentPayload(success=False, errors=["input.id does not match id"])
     try:
-        _, pk = from_global_id(input.id)
         incident = Incident.objects.get(pk=pk)
     except (ValueError, Incident.DoesNotExist):
         return UpdateIncidentPayload(success=False, errors=["Incident not found"])
@@ -389,7 +412,7 @@ def acknowledge_incident(info: strawberry.types.Info, id: strawberry.ID) -> Ackn
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(id)
+        pk = _decode_id(id)
         incident = Incident.objects.get(pk=pk)
     except (ValueError, Incident.DoesNotExist):
         raise GraphQLError("Incident not found")
@@ -414,7 +437,7 @@ def resolve_incident(info: strawberry.types.Info, id: strawberry.ID, resolution:
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(id)
+        pk = _decode_id(id)
         incident = Incident.objects.get(pk=pk)
     except (ValueError, Incident.DoesNotExist):
         raise GraphQLError("Incident not found")
@@ -445,7 +468,7 @@ def close_incident(info: strawberry.types.Info, id: strawberry.ID, lessons_learn
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(id)
+        pk = _decode_id(id)
         incident = Incident.objects.get(pk=pk)
     except (ValueError, Incident.DoesNotExist):
         raise GraphQLError("Incident not found")
@@ -478,7 +501,7 @@ def assign_incident(info: strawberry.types.Info, id: strawberry.ID, assignee_id:
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(id)
+        pk = _decode_id(id)
         incident = Incident.objects.get(pk=pk)
     except (ValueError, Incident.DoesNotExist):
         raise GraphQLError("Incident not found")
@@ -487,7 +510,7 @@ def assign_incident(info: strawberry.types.Info, id: strawberry.ID, assignee_id:
         raise GraphQLError("Access denied")
 
     try:
-        _, assignee_pk = from_global_id(assignee_id)
+        assignee_pk = _decode_id(assignee_id)
         assignee = User.objects.get(pk=assignee_pk)
     except (ValueError, User.DoesNotExist):
         raise GraphQLError("Assignee not found")

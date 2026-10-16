@@ -143,7 +143,7 @@ function ActionsCell({
     if (!ok) return;
     try {
       const { data } = await regenerateKey({
-        variables: { endpointId: agent.id },
+        variables: { id: agent.id },
       });
       if (data?.regenerateEndpointApiKey?.success && data.regenerateEndpointApiKey.apiKey) {
         const newKey = data.regenerateEndpointApiKey.apiKey;

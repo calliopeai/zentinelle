@@ -2,10 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "@apollo/client/react";
-import { gql } from "@apollo/client";
 import { toast } from "sonner";
 import { useComplianceOverview } from "@/graphql/compliance/hooks";
-import { RUN_COMPLIANCE_CHECK, ACTIVATE_COMPLIANCE_PACK } from "@/graphql/compliance/mutations";
+import { RUN_COMPLIANCE_CHECK, ACTIVATE_COMPLIANCE_PACK, TOGGLE_FRAMEWORK } from "@/graphql/compliance/mutations";
 import { LIST_COMPLIANCE_PACKS } from "@/graphql/compliance/queries";
 import { SectionErrorBoundary } from "@/components/section-error-boundary";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -22,16 +21,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/hooks/use-confirm";
 import { CheckCircleIcon, XCircleIcon, ShieldCheckIcon, ToggleLeftIcon, ToggleRightIcon, RefreshCwIcon, PackageIcon, ChevronDownIcon } from "lucide-react";
-
-const TOGGLE_FRAMEWORK = gql`
-  mutation ToggleFramework($frameworkId: String!) {
-    toggleFramework(frameworkId: $frameworkId) {
-      success
-      enabled
-      frameworkId
-    }
-  }
-`;
 
 type CompliancePackMeta = {
   name: string | null;
@@ -182,9 +171,7 @@ export default function CompliancePage() {
     try {
       const result: any = await runCheck();
       if (result?.data?.runComplianceCheck?.success) {
-        toast.success(
-          `Created ${result.data.runComplianceCheck.assessmentsCreated} assessments`,
-        );
+        toast.success("Compliance check complete");
       } else {
         toast.error(
           result?.data?.runComplianceCheck?.errors?.[0] ?? "Check failed",
@@ -238,7 +225,7 @@ export default function CompliancePage() {
     }
     setEnabledFrameworks(newEnabled);
     try {
-      await toggleFramework({ variables: { frameworkId } });
+      await toggleFramework({ variables: { frameworkId, enabled: newEnabled.has(frameworkId) } });
       toast.success(`Framework ${newEnabled.has(frameworkId) ? "enabled" : "disabled"}`);
     } catch {
       toast.error("Failed to update framework");

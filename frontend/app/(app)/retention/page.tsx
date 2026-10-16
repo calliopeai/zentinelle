@@ -126,8 +126,8 @@ const GET_RETENTION_DATA = gql`
 `;
 
 const TOGGLE_RETENTION_POLICY_ENABLED = gql`
-  mutation ToggleRetentionPolicyEnabled($id: ID!) {
-    toggleRetentionPolicyEnabled(id: $id) {
+  mutation ToggleRetentionPolicyEnabled($id: ID!, $enabled: Boolean!) {
+    toggleRetentionPolicyEnabled(id: $id, enabled: $enabled) {
       success
       policyId
     }
@@ -236,10 +236,10 @@ export default function RetentionPage() {
       p.entityType === "interactions",
   );
 
-  const handleToggle = async (policyId: string) => {
+  const handleToggle = async (policyId: string, enabled: boolean) => {
     try {
       const { data: result } = await toggleEnabled({
-        variables: { id: policyId },
+        variables: { id: policyId, enabled },
       });
       if (result?.toggleRetentionPolicyEnabled?.success) {
         toast.success("Retention policy updated");
@@ -438,7 +438,7 @@ export default function RetentionPage() {
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Switch
                         checked={p.enabled}
-                        onCheckedChange={() => handleToggle(p.id)}
+                        onCheckedChange={() => handleToggle(p.id, !p.enabled)}
                         aria-label={`Toggle ${p.name}`}
                       />
                     </TableCell>
@@ -459,7 +459,7 @@ export default function RetentionPage() {
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => handleToggle(p.id)}
+                            onClick={() => handleToggle(p.id, !p.enabled)}
                           >
                             {p.enabled ? "Disable" : "Enable"}
                           </DropdownMenuItem>

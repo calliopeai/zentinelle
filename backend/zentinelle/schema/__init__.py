@@ -3,6 +3,7 @@ GraphQL schema for Zentinelle standalone.
 
 Composes the full Strawberry schema from queries, mutations, and the prompt library.
 """
+from datetime import date
 from typing import Optional
 
 import strawberry
@@ -60,11 +61,11 @@ class Mutation:
 
     @strawberry.mutation
     def regenerate_endpoint_api_key(self, info: strawberry.types.Info, id: strawberry.ID) -> m.RegenerateEndpointApiKeyPayload:
-        return m.regenerate_endpoint_api_key(info, id)
+        return m.regenerate_endpoint_api_key(info, endpoint_id=id)
 
     @strawberry.mutation
     def update_endpoint_status(self, info: strawberry.types.Info, id: strawberry.ID, status: str) -> m.UpdateEndpointStatusPayload:
-        return m.update_endpoint_status(info, id, status)
+        return m.update_endpoint_status(info, endpoint_id=id, status=status)
 
     # Agent Groups
     @strawberry.mutation
@@ -72,7 +73,7 @@ class Mutation:
         return m.create_agent_group(info, name, description, tier, color)
 
     @strawberry.mutation
-    def update_agent_group(self, info: strawberry.types.Info, id: strawberry.ID, name: str = None, description: str = None, tier: str = None, color: str = None) -> m.UpdateAgentGroupPayload:
+    def update_agent_group(self, info: strawberry.types.Info, id: strawberry.ID, name: Optional[str] = None, description: Optional[str] = None, tier: Optional[str] = None, color: Optional[str] = None) -> m.UpdateAgentGroupPayload:
         return m.update_agent_group(info, id, name, description, tier, color)
 
     @strawberry.mutation
@@ -81,7 +82,7 @@ class Mutation:
 
     @strawberry.mutation
     def assign_agent_to_group(self, info: strawberry.types.Info, agent_id: strawberry.ID, group_id: strawberry.ID) -> m.AssignAgentToGroupPayload:
-        return m.assign_agent_to_group(info, agent_id, group_id)
+        return m.assign_agent_to_group(info, agent_endpoint_id=agent_id, group_id=group_id)
 
     # Policies
     @strawberry.mutation
@@ -110,25 +111,25 @@ class Mutation:
         return m.run_compliance_check(info)
 
     @strawberry.mutation
-    def toggle_framework(self, info: strawberry.types.Info, framework_id: str) -> m.ToggleFrameworkPayload:
-        return m.toggle_framework(info, framework_id)
+    def toggle_framework(self, info: strawberry.types.Info, framework_id: str, enabled: bool) -> m.ToggleFrameworkPayload:
+        return m.toggle_framework(info, framework_id=framework_id, enabled=enabled)
 
     @strawberry.mutation
-    def generate_compliance_report(self, info: strawberry.types.Info, framework_id: str = None) -> m.GenerateComplianceReportPayload:
-        return m.generate_compliance_report(info, framework_id)
+    def generate_compliance_report(self, info: strawberry.types.Info, framework_id: Optional[str] = None, start_date: Optional[date] = None, end_date: Optional[date] = None) -> m.GenerateComplianceReportPayload:
+        return m.generate_compliance_report(info, framework=framework_id, start_date=start_date, end_date=end_date)
 
     # Compliance Alerts
     @strawberry.mutation
     def acknowledge_compliance_alert(self, info: strawberry.types.Info, id: strawberry.ID) -> m.AcknowledgeComplianceAlertPayload:
-        return m.acknowledge_compliance_alert(info, id)
+        return m.acknowledge_compliance_alert(info, alert_id=id)
 
     @strawberry.mutation
-    def resolve_compliance_alert(self, info: strawberry.types.Info, id: strawberry.ID, notes: str = None) -> m.ResolveComplianceAlertPayload:
-        return m.resolve_compliance_alert(info, id, notes)
+    def resolve_compliance_alert(self, info: strawberry.types.Info, id: strawberry.ID, notes: Optional[str] = None) -> m.ResolveComplianceAlertPayload:
+        return m.resolve_compliance_alert(info, alert_id=id, resolution_notes=notes)
 
     @strawberry.mutation
     def dismiss_compliance_alert(self, info: strawberry.types.Info, id: strawberry.ID) -> m.DismissComplianceAlertPayload:
-        return m.dismiss_compliance_alert(info, id)
+        return m.dismiss_compliance_alert(info, alert_id=id)
 
     # Risks
     @strawberry.mutation
@@ -137,7 +138,7 @@ class Mutation:
 
     @strawberry.mutation
     def update_risk(self, info: strawberry.types.Info, id: strawberry.ID, input: m.UpdateRiskInput) -> m.UpdateRiskPayload:
-        return m.update_risk(info, id, input)
+        return m.update_risk(info, id=id, input=input)
 
     @strawberry.mutation
     def delete_risk(self, info: strawberry.types.Info, id: strawberry.ID) -> m.DeleteRiskPayload:
@@ -154,22 +155,22 @@ class Mutation:
 
     @strawberry.mutation
     def update_incident(self, info: strawberry.types.Info, id: strawberry.ID, input: m.UpdateIncidentInput) -> m.UpdateIncidentPayload:
-        return m.update_incident(info, id, input)
+        return m.update_incident(info, id=id, input=input)
 
     @strawberry.mutation
     def acknowledge_incident(self, info: strawberry.types.Info, id: strawberry.ID) -> m.AcknowledgeIncidentPayload:
         return m.acknowledge_incident(info, id)
 
     @strawberry.mutation
-    def resolve_incident(self, info: strawberry.types.Info, id: strawberry.ID, resolution: str = None) -> m.ResolveIncidentPayload:
-        return m.resolve_incident(info, id, resolution)
+    def resolve_incident(self, info: strawberry.types.Info, id: strawberry.ID, resolution: str, root_cause: Optional[str] = None) -> m.ResolveIncidentPayload:
+        return m.resolve_incident(info, id, resolution, root_cause)
 
     @strawberry.mutation
-    def close_incident(self, info: strawberry.types.Info, id: strawberry.ID, lessons_learned: str = None) -> m.CloseIncidentPayload:
+    def close_incident(self, info: strawberry.types.Info, id: strawberry.ID, lessons_learned: Optional[str] = None) -> m.CloseIncidentPayload:
         return m.close_incident(info, id, lessons_learned)
 
     @strawberry.mutation
-    def assign_incident(self, info: strawberry.types.Info, id: strawberry.ID, assignee_id: str = None) -> m.AssignIncidentPayload:
+    def assign_incident(self, info: strawberry.types.Info, id: strawberry.ID, assignee_id: Optional[str] = None) -> m.AssignIncidentPayload:
         return m.assign_incident(info, id, assignee_id)
 
     # Retention
@@ -186,8 +187,8 @@ class Mutation:
         return m.delete_retention_policy(info, id)
 
     @strawberry.mutation
-    def toggle_retention_policy_enabled(self, info: strawberry.types.Info, id: strawberry.ID) -> m.ToggleRetentionPolicyEnabledPayload:
-        return m.toggle_retention_policy_enabled(info, id)
+    def toggle_retention_policy_enabled(self, info: strawberry.types.Info, id: strawberry.ID, enabled: bool) -> m.ToggleRetentionPolicyEnabledPayload:
+        return m.toggle_retention_policy_enabled(info, id, enabled)
 
     # Legal Holds
     @strawberry.mutation
@@ -229,12 +230,12 @@ class Mutation:
 
     @strawberry.mutation
     def test_content_rule(self, info: strawberry.types.Info, id: strawberry.ID, content: str) -> m.TestContentRulePayload:
-        return m.test_content_rule(info, id, content)
+        return m.test_content_rule(info, id, test_content=content)
 
     # Platform API Keys
     @strawberry.mutation
-    def create_platform_api_key(self, info: strawberry.types.Info, name: str, scopes: list[str] = None) -> m.CreatePlatformAPIKeyPayload:
-        return m.create_platform_api_key(info, name, scopes)
+    def create_platform_api_key(self, info: strawberry.types.Info, name: str, scopes: Optional[list[str]] = None) -> m.CreatePlatformAPIKeyPayload:
+        return m.create_platform_api_key(info, name, scopes=scopes)
 
     @strawberry.mutation
     def revoke_api_key(self, info: strawberry.types.Info, id: strawberry.ID) -> m.RevokeAPIKeyPayload:
@@ -247,7 +248,7 @@ class Mutation:
     # Compliance Packs
     @strawberry.mutation
     def activate_compliance_pack(self, info: strawberry.types.Info, pack_id: str) -> m.ActivateCompliancePackPayload:
-        return m.activate_compliance_pack(info, pack_id)
+        return m.activate_compliance_pack(info, pack=pack_id)
 
     @strawberry.mutation
     def list_compliance_packs(self, info: strawberry.types.Info) -> m.ListCompliancePacksPayload:
@@ -275,7 +276,7 @@ class Mutation:
         return sp_toggle_fav(info, prompt_id)
 
     @strawberry.mutation
-    def rate_system_prompt(self, info: strawberry.types.Info, prompt_id: strawberry.ID, rating: int, review: str = None) -> RateSystemPromptPayload:
+    def rate_system_prompt(self, info: strawberry.types.Info, prompt_id: strawberry.ID, rating: int, review: Optional[str] = None) -> RateSystemPromptPayload:
         return sp_rate(info, prompt_id, rating, review)
 
     @strawberry.mutation

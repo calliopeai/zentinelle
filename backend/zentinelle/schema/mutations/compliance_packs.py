@@ -9,7 +9,8 @@ from typing import Optional
 
 import strawberry
 
-from zentinelle.schema.auth_helpers import user_has_org_access
+from zentinelle.schema.auth_helpers import (get_request_tenant_id,
+                                            user_has_org_access)
 from zentinelle.services.compliance_packs import activate_pack, list_packs
 
 logger = logging.getLogger(__name__)
@@ -54,12 +55,10 @@ def activate_compliance_pack(info: strawberry.types.Info, pack: str, tenant_id: 
         return ActivateCompliancePackPayload(success=False, error='Not permitted for that tenant')
 
     if not tenant_id:
-        if hasattr(user, 'tenant_id'):
-            tenant_id = user.tenant_id
-        elif hasattr(user, 'memberships'):
-            membership = user.memberships.filter(is_active=True).first()
-            if membership:
-                tenant_id = str(membership.organization_id)
+        # The caller's own tenant, resolved the way every other resolver does.
+        # A portal session has neither `tenant_id` nor `memberships`, which is
+        # all this used to look for, so it never found one.
+        tenant_id = get_request_tenant_id(user)
         if not tenant_id:
             return ActivateCompliancePackPayload(success=False, error='Could not determine tenant_id')
 

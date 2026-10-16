@@ -4,18 +4,20 @@ export const RUN_COMPLIANCE_CHECK = gql`
   mutation RunComplianceCheck {
     runComplianceCheck {
       success
-      assessmentsCreated
+      assessmentId
       errors
     }
   }
 `;
 
 export const TOGGLE_FRAMEWORK = gql`
-  mutation ToggleFramework($frameworkId: String!) {
-    toggleFramework(frameworkId: $frameworkId) {
-      success
-      enabled
-      frameworkId
+  mutation ToggleFramework($frameworkId: String!, $enabled: Boolean!) {
+    toggleFramework(frameworkId: $frameworkId, enabled: $enabled) {
+      framework {
+        id
+        enabled
+      }
+      errors
     }
   }
 `;

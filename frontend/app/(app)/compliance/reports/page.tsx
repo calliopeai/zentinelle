@@ -151,7 +151,7 @@ export default function ComplianceReportsPage() {
 
   const handleGenerate = async () => {
     const vars: Record<string, string | null> = {
-      framework: reportType === "framework" ? framework : null,
+      frameworkId: reportType === "framework" ? framework : null,
       startDate: startDate || null,
       endDate: endDate || null,
     };
