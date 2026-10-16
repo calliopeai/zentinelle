@@ -18,3 +18,6 @@ out
 *.log
 .DS_Store
 coverage
+
+# The built catalog
+storybook-static
