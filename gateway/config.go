@@ -62,6 +62,12 @@ type Config struct {
 	// HEARTBEAT_INTERVAL_SECONDS, 60 by default. Zero turns heartbeats off.
 	HeartbeatInterval time.Duration
 
+	// ControlPlaneURL is the Astrolift control plane an agent's heartbeat and
+	// events are passed straight through to (#445), so they do not depend on
+	// Zentinelle answering: ASTROLIFT_CONTROL_PLANE_URL, scheme and host only.
+	// Empty turns the passthrough off.
+	ControlPlaneURL string
+
 	FailOpen         bool
 	PolicyTimeout    time.Duration
 	MaxResponseBytes int64
@@ -111,6 +117,15 @@ func LoadConfig() (*Config, error) {
 				v, least, most)
 		}
 		heartbeatInterval = time.Duration(seconds) * time.Second
+	}
+
+	controlPlaneURL := ""
+	if v := os.Getenv("ASTROLIFT_CONTROL_PLANE_URL"); v != "" {
+		parsed, err := parseControlPlaneURL(v)
+		if err != nil {
+			return nil, err
+		}
+		controlPlaneURL = parsed
 	}
 
 	allowEnvKeys := false
@@ -168,6 +183,7 @@ func LoadConfig() (*Config, error) {
 		TenantID:              os.Getenv("ZENTINELLE_TENANT_ID"),
 		ClusterID:             os.Getenv("ZENTINELLE_CLUSTER_ID"),
 		HeartbeatInterval:     heartbeatInterval,
+		ControlPlaneURL:       controlPlaneURL,
 		FailOpen:              failOpen,
 		PolicyTimeout:         time.Duration(policyTimeoutMs) * time.Millisecond,
 		MaxResponseBytes:      maxBytes,

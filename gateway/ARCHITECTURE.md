@@ -128,6 +128,7 @@ SSE streaming is the default for LLM responses:
 | `POLICY_TIMEOUT_MS` | `2000` | Policy check timeout |
 | `MAX_RESPONSE_BYTES` | `52428800` | 50MB response cap |
 | `HEARTBEAT_INTERVAL_SECONDS` | `60` | Cluster heartbeat interval until the answer names one; `0` turns it off, otherwise 10 to 3600 |
+| `ASTROLIFT_CONTROL_PLANE_URL` | - | Control plane that agent heartbeat and event routes pass straight through to (#445); unset turns it off |
 
 ## Cluster Heartbeat
 

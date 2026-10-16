@@ -55,6 +55,10 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		handleMetrics(w, r)
 		return
 	}
+	if g.isControlPlaneRoute(r) {
+		g.handlePassthrough(w, r)
+		return
+	}
 
 	// Counted around the proxy only: /health and /metrics are the scraper's
 	// own traffic, and a gauge that included them would never read zero.

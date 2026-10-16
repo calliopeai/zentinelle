@@ -167,6 +167,27 @@ more until its credential file changes, which is what Astrolift registering or
 adopting the gateway does. No redirect is followed, and no log line holds a
 credential or an agent key.
 
+## Control Plane Passthrough
+
+An agent whose egress is the gateway alone still has to reach the Astrolift
+control plane for its keepalive. With `ASTROLIFT_CONTROL_PLANE_URL` set, the
+gateway passes exactly two routes straight through to it, with no policy check,
+provider-key lookup or metering, so a degraded Zentinelle does not make a live
+agent look like an outage:
+
+| Route | Caller |
+|-------|--------|
+| `POST /api/dispatch/v1/agents/<task id>/callback/` | The agent runner's state heartbeat and its event stream |
+| `POST /api/clusters/v1/<cluster id>/heartbeat/` | The keep-alive agent's cluster heartbeat |
+
+It is not an open proxy. Only `POST` with `Authorization: Bearer ...` is
+passed, and the control plane authenticates that key. Each id is one plain
+path segment (letters, digits, `-`, `_`); the query is dropped. Only
+`Authorization` and `Content-Type` are sent on, never `X-Zentinelle-Key`, and
+only the status, `Content-Type` and body come back. No redirect is followed.
+These calls are not counted in `requests` or the metrics. Unset, the routes
+are refused like any other unknown path.
+
 ## Route Detection
 
 | Path | Provider | Upstream |
@@ -187,6 +208,7 @@ credential or an agent key.
 |------|---------|
 | `/health` | Liveness, and which providers have env keys the gateway will use (empty unless `ALLOW_ENV_PROVIDER_KEYS=true`) |
 | `/metrics` | Prometheus text format. No authentication — scrape it from inside the cluster, not from the internet |
+| `/api/dispatch/v1/agents/<id>/callback/`, `/api/clusters/v1/<id>/heartbeat/` | Passed to the control plane when `ASTROLIFT_CONTROL_PLANE_URL` is set. See [Control Plane Passthrough](#control-plane-passthrough) |
 | everything else | Proxied to the provider the path selects |
 
 | Variable | Default | Description |
@@ -203,6 +225,7 @@ credential or an agent key.
 | `ZENTINELLE_TENANT_ID` | - | Tenant this gateway speaks for; sent as `X-Zentinelle-Tenant`. Omit for a single-tenant deployment |
 | `ZENTINELLE_CLUSTER_ID` | - | Cluster this gateway speaks for; sent as `X-Zentinelle-Cluster`, and the Astrolift cluster its heartbeat reports on. Omit for a single-cluster deployment |
 | `HEARTBEAT_INTERVAL_SECONDS` | `60` | Seconds between cluster heartbeats until Zentinelle's answer names its own interval, which then wins. `0` turns heartbeats off; otherwise 10 to 3600. See [Cluster Heartbeat](#cluster-heartbeat) |
+| `ASTROLIFT_CONTROL_PLANE_URL` | - | Astrolift control plane (`https://host[:port]`, no path) that agent heartbeats and events are passed through to. Unset turns the passthrough off. See [Control Plane Passthrough](#control-plane-passthrough) |
 | `LOG_INTERACTIONS` | `false` | Send the prompt and completion to Zentinelle after each request, so they appear as reasoning traces. Set `false` where prompt text must not leave the cluster. An unparseable value is treated as `false` |
 | `FAIL_OPEN` | `false` | Policy/authentication failures deny access; `true` is rejected |
 | `POLICY_TIMEOUT_MS` | `2000` | Max time (ms) to wait for the policy check, and for the provider-key lookup |
