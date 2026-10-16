@@ -14,6 +14,17 @@ from zentinelle.models import ComplianceAlert
 from zentinelle.schema.auth_helpers import user_has_org_access
 
 
+def _decode_id(global_or_raw_id):
+    """A relay global id's raw id, or the id as given (the portal sends raw UUIDs)."""
+    try:
+        _type, raw_id = from_global_id(global_or_raw_id)
+        if raw_id:
+            return raw_id
+    except Exception:
+        pass
+    return global_or_raw_id
+
+
 @strawberry.type
 class AcknowledgeComplianceAlertPayload:
     success: Optional[bool] = None
@@ -38,7 +49,7 @@ def acknowledge_compliance_alert(info: strawberry.types.Info, alert_id: strawber
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(alert_id)
+        pk = _decode_id(alert_id)
         alert = ComplianceAlert.objects.get(pk=pk)
     except (ValueError, ComplianceAlert.DoesNotExist):
         raise GraphQLError("Alert not found")
@@ -47,7 +58,8 @@ def acknowledge_compliance_alert(info: strawberry.types.Info, alert_id: strawber
         raise GraphQLError("Access denied")
 
     alert.status = ComplianceAlert.Status.ACKNOWLEDGED
-    alert.acknowledged_by = user
+    # Who acted is stored as a user id string, as the REST alert views do.
+    alert.acknowledged_by = str(user.pk)
     alert.acknowledged_at = timezone.now()
     alert.save(update_fields=['status', 'acknowledged_by', 'acknowledged_at', 'updated_at'])
 
@@ -60,7 +72,7 @@ def resolve_compliance_alert(info: strawberry.types.Info, alert_id: strawberry.I
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(alert_id)
+        pk = _decode_id(alert_id)
         alert = ComplianceAlert.objects.get(pk=pk)
     except (ValueError, ComplianceAlert.DoesNotExist):
         raise GraphQLError("Alert not found")
@@ -69,12 +81,12 @@ def resolve_compliance_alert(info: strawberry.types.Info, alert_id: strawberry.I
         raise GraphQLError("Access denied")
 
     alert.status = ComplianceAlert.Status.RESOLVED
-    alert.resolved_by = user
+    alert.user_id = str(user.pk)
     alert.resolved_at = timezone.now()
     if resolution_notes:
         alert.resolution_notes = resolution_notes
     alert.save(update_fields=[
-        'status', 'resolved_by', 'resolved_at', 'resolution_notes', 'updated_at'
+        'status', 'user_id', 'resolved_at', 'resolution_notes', 'updated_at'
     ])
 
     return ResolveComplianceAlertPayload(success=True, alert_id=alert_id)
@@ -86,7 +98,7 @@ def dismiss_compliance_alert(info: strawberry.types.Info, alert_id: strawberry.I
         raise GraphQLError("Authentication required")
 
     try:
-        _, pk = from_global_id(alert_id)
+        pk = _decode_id(alert_id)
         alert = ComplianceAlert.objects.get(pk=pk)
     except (ValueError, ComplianceAlert.DoesNotExist):
         raise GraphQLError("Alert not found")
@@ -95,14 +107,14 @@ def dismiss_compliance_alert(info: strawberry.types.Info, alert_id: strawberry.I
         raise GraphQLError("Access denied")
 
     alert.status = ComplianceAlert.Status.FALSE_POSITIVE
-    alert.resolved_by = user
+    alert.user_id = str(user.pk)
     alert.resolved_at = timezone.now()
     if reason:
         alert.resolution_notes = f"Dismissed as false positive: {reason}"
     else:
         alert.resolution_notes = "Dismissed as false positive"
     alert.save(update_fields=[
-        'status', 'resolved_by', 'resolved_at', 'resolution_notes', 'updated_at'
+        'status', 'user_id', 'resolved_at', 'resolution_notes', 'updated_at'
     ])
 
     return DismissComplianceAlertPayload(success=True, alert_id=alert_id)

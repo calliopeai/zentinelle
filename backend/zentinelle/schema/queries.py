@@ -1450,13 +1450,16 @@ class Query:
 
         tenant_id = get_request_tenant_id(info.context.request.user)
 
+        # `self` is the root value here, which is None, not a Query: the
+        # helpers are reached through the class.
         from zentinelle.services import clickhouse_service
         if clickhouse_service.is_enabled():
-            return self._audit_analytics_clickhouse(clickhouse_service, tenant_id, days)
+            return Query._audit_analytics_clickhouse(clickhouse_service, tenant_id, days)
 
-        return self._audit_analytics_postgres(tenant_id, days)
+        return Query._audit_analytics_postgres(tenant_id, days)
 
-    def _audit_analytics_clickhouse(self, ch, tenant_id, days):
+    @staticmethod
+    def _audit_analytics_clickhouse(ch, tenant_id, days):
         timeline_rows = ch.event_timeline(days=days, granularity='day', organization_id=tenant_id)
         by_type_rows = ch.event_counts_by_type(days=days, organization_id=tenant_id)
         top_agents_rows = ch.top_agents_by_event_count(days=days, organization_id=tenant_id)

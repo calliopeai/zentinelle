@@ -687,6 +687,13 @@ class ContentScanner:
         flags = 0 if case_sensitive else re.IGNORECASE
 
         for pattern in patterns:
+            # A pattern is a regex string, or an object holding one under
+            # `regex` (the shape the demo seed and output filters write) or `pattern`.
+            if isinstance(pattern, dict):
+                pattern = pattern.get('regex') or pattern.get('pattern') or ''
+            if not isinstance(pattern, str) or not pattern:
+                logger.warning(f"Unusable custom pattern {pattern!r} in rule {rule.id}")
+                continue
             try:
                 for match in re.finditer(pattern, content, flags):
                     results.append(DetectionResult(
