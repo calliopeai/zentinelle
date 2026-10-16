@@ -141,10 +141,8 @@ class StandaloneTenantResolver(TenantResolver):
 
             from zentinelle.models.api_key import APIKey
 
-            # Extract the stored prefix (first 15 chars — matches KeyPrefixes.PLATFORM + 8 chars)
-            key_prefix = raw[:15]
             candidates = APIKey.objects.filter(
-                key_prefix=key_prefix,
+                key_prefix__in=APIKey.key_prefixes(raw),
                 status=APIKey.Status.ACTIVE,
             )
 
@@ -170,9 +168,8 @@ class StandaloneTenantResolver(TenantResolver):
         try:
             from zentinelle.models.endpoint import AgentEndpoint
 
-            key_prefix = raw[:12]  # AGENT prefix_length=12
             candidates = AgentEndpoint.objects.filter(
-                api_key_prefix=key_prefix,
+                api_key_prefix__in=AgentEndpoint.key_prefixes(raw),
                 status=AgentEndpoint.Status.ACTIVE,
             )
 

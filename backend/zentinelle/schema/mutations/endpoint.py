@@ -120,6 +120,14 @@ class UpdateEndpointStatusPayload:
     error: Optional[str] = None
 
 
+def _hub_identity_config_error(config):
+    """Refuse a hub_identity the backend must not call (T13), on write."""
+    if isinstance(config, dict) and 'hub_identity' in config:
+        from zentinelle.services.hub_identity import hub_identity_error
+        return hub_identity_error(config['hub_identity'])
+    return None
+
+
 def create_agent_endpoint(info: strawberry.types.Info, organization_id: uuid.UUID, input: CreateAgentEndpointInput) -> CreateAgentEndpointPayload:
     if not info.context.request.user.is_authenticated:
         return CreateAgentEndpointPayload(success=False, error="Authentication required")
@@ -135,6 +143,9 @@ def create_agent_endpoint(info: strawberry.types.Info, organization_id: uuid.UUI
     metadata, metadata_error = _normalize_endpoint_metadata(tenant_id, input.metadata)
     if metadata_error:
         return CreateAgentEndpointPayload(success=False, error=metadata_error)
+    config_error = _hub_identity_config_error(input.config)
+    if config_error:
+        return CreateAgentEndpointPayload(success=False, error=config_error)
 
     try:
         api_key, key_hash, key_prefix = AgentEndpoint.generate_api_key()
@@ -217,6 +228,9 @@ def update_agent_endpoint(info: strawberry.types.Info, input: UpdateAgentEndpoin
     if input.sub_organization_id is not None:
         endpoint.sub_organization_id_ext = input.sub_organization_id
     if input.config:
+        config_error = _hub_identity_config_error(input.config)
+        if config_error:
+            return UpdateAgentEndpointPayload(success=False, error=config_error)
         endpoint.config = input.config
 
     try:

@@ -3,6 +3,7 @@ import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -10,6 +11,8 @@ from zentinelle.models import Event
 from zentinelle.tests.test_agent_host import AgentHostTestCase, host_tool_call
 
 
+# The stub hub listens on loopback, which only an allowlisted host may be (T13).
+@override_settings(HUB_IDENTITY_ALLOWED_HOSTS=frozenset({'127.0.0.1'}))
 class HubIdentityTests(AgentHostTestCase):
     def setUp(self):
         super().setUp()
@@ -71,6 +74,11 @@ class HubIdentityTests(AgentHostTestCase):
         self.code = 302
         self.assertEqual(self.call().status_code, 401)
         self.assertFalse(Event.objects.filter(tenant_id=self.host.tenant_id, endpoint=self.host).exists())
+
+    def test_a_hub_on_a_private_address_must_be_allowlisted(self):
+        with override_settings(HUB_IDENTITY_ALLOWED_HOSTS=frozenset()):
+            self.assertEqual(self.call().status_code, 401)
+        self.assertEqual(self.tokens, [], 'the backend called a loopback URL an operator chose')
 
     def test_unconfigured_endpoint_cannot_accept_a_hub_identity_header(self):
         self.host.config = {}

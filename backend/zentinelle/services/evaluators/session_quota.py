@@ -37,7 +37,7 @@ class SessionQuotaEvaluator(BasePolicyEvaluator):
         is_pii_access (bool)
         tool_call_count (int)
         tokens_used (int)
-        tenant_id (str)
+        _tenant_id (str, set by the engine)
 
     Config schema:
         max_bytes_read, max_bytes_written, max_outbound_calls,
@@ -59,7 +59,10 @@ class SessionQuotaEvaluator(BasePolicyEvaluator):
             return PolicyResult(passed=True, message='No session_id in context; quota not enforced')
 
         config = {**DEFAULT_CONFIG, **policy.config}
-        tenant_id = context.get('tenant_id', '')
+        # The engine's trusted tenant, never a caller-supplied one: the
+        # counters of one tenant's session must not be readable, or resettable,
+        # by another tenant choosing the same session_id.
+        tenant_id = context.get('_tenant_id', '')
         warn_at = config.get('warn_at_percent', 80) / 100.0
         ttl = config.get('session_ttl_seconds', DEFAULT_CONFIG['session_ttl_seconds'])
 
@@ -75,12 +78,13 @@ class SessionQuotaEvaluator(BasePolicyEvaluator):
         # ----------------------------------------------------------------
         deltas: Dict[str, int] = {}
 
-        bytes_read = int(context.get('bytes_read', 0))
-        bytes_written = int(context.get('bytes_written', 0))
+        # Caller-supplied counts: a negative one would wind the counters back.
+        bytes_read = max(0, int(context.get('bytes_read', 0)))
+        bytes_written = max(0, int(context.get('bytes_written', 0)))
         is_outbound = bool(context.get('is_outbound_call', False))
         is_pii = bool(context.get('is_pii_access', False))
-        tool_calls = int(context.get('tool_call_count', 0))
-        tokens = int(context.get('tokens_used', 0))
+        tool_calls = max(0, int(context.get('tool_call_count', 0)))
+        tokens = max(0, int(context.get('tokens_used', 0)))
 
         if bytes_read:
             deltas['bytes_read'] = bytes_read

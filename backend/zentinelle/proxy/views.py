@@ -14,6 +14,7 @@ Note: httpx is required (already used by ClientCoveTenantResolver).
 """
 import json
 import logging
+import re
 import uuid
 from urllib.parse import urlparse
 
@@ -85,6 +86,29 @@ VERTEX_REGIONS = {
     'europe-west4', 'asia-northeast1', 'asia-southeast1',
 }
 
+# A Google Cloud project id. It is placed into the upstream path, which
+# carries the provider key.
+_VERTEX_PROJECT = re.compile(r'[a-z][a-z0-9-]{4,29}')
+
+# The inference routes, relative to each provider's base URL. Only these are
+# forwarded: everything else on a provider's API (files, batches, fine-tunes,
+# vector stores, account endpoints) would run on the injected key, and policy
+# only ever sees a request body.
+_INFERENCE_PATHS = {
+    'openai': re.compile(r'chat/completions|completions|responses|embeddings'),
+    'anthropic': re.compile(r'v1/messages|v1/messages/count_tokens|v1/complete'),
+    'google': re.compile(
+        r'v1(beta)?/models/[A-Za-z0-9._-]+:(generateContent|streamGenerateContent|countTokens|embedContent|batchEmbedContents)'),
+    'vertex': re.compile(
+        r'publishers/[a-z0-9-]+/models/[A-Za-z0-9._@-]+:'
+        r'(generateContent|streamGenerateContent|countTokens|rawPredict|streamRawPredict)'),
+}
+
+
+class _ProviderKeyUnreadable(Exception):
+    """A tenant's stored provider key exists but cannot be decrypted."""
+
+
 # Headers that must not be forwarded to the upstream provider.
 _HOP_BY_HOP = frozenset([
     'connection',
@@ -155,6 +179,13 @@ class ProxyView(View):
                 status=404,
             )
 
+        if request.method != 'POST' or not _INFERENCE_PATHS[provider].fullmatch(path):
+            return JsonResponse(
+                {'error': 'path_not_allowed',
+                 'detail': f"Only {provider} inference requests are proxied"},
+                status=403,
+            )
+
         # 3. Look up AgentEndpoint for policy evaluation
         agent_user_id = auth.user_id or ''
         endpoint = None
@@ -181,7 +212,21 @@ class ProxyView(View):
         # Give network_policy evaluators the actual upstream destination before
         # the request is sent. Without this, an allowlist could only enforce
         # allow_outbound and every provider domain would bypass domain rules.
-        upstream_base = PROVIDERS.get(provider, 'https://aiplatform.googleapis.com')
+        if provider == 'vertex':
+            try:
+                upstream_url = self._build_vertex_url(request, path)
+            except ValueError as exc:
+                return JsonResponse({'error': 'vertex_config_invalid', 'detail': str(exc)}, status=400)
+            if not upstream_url:
+                return JsonResponse(
+                    {'error': 'vertex_config_missing',
+                     'detail': 'Set X-Vertex-Region and X-Vertex-Project headers'},
+                    status=400,
+                )
+            upstream_base = f'https://{urlparse(upstream_url).hostname}'
+        else:
+            upstream_base = PROVIDERS[provider]
+            upstream_url = f"{upstream_base}/{path}"
         context['url'] = upstream_base
         context['domain'] = urlparse(upstream_base).hostname or ''
 
@@ -229,18 +274,9 @@ class ProxyView(View):
                 status=403,
             )
 
-        # 6. Forward to upstream provider via httpx
-        if provider == 'vertex':
-            upstream_url = self._build_vertex_url(request, path)
-            if not upstream_url:
-                return JsonResponse(
-                    {'error': 'vertex_config_missing',
-                     'detail': 'Set X-Vertex-Region and X-Vertex-Project headers'},
-                    status=400,
-                )
-        else:
-            base_url = PROVIDERS[provider]
-            upstream_url = f"{base_url}/{path}"
+        # 6. Forward to upstream provider via httpx. The query string can carry
+        # a provider key (Google's ?key=), so logs use the URL without it.
+        log_url = upstream_url
         if request.META.get('QUERY_STRING'):
             upstream_url += '?' + request.META['QUERY_STRING']
 
@@ -253,14 +289,26 @@ class ProxyView(View):
             forward_headers.pop(h, None)
             forward_headers.pop(h.title(), None)
         # Managed gateway mode: if tenant has a stored provider key, inject it
-        managed_key = self._get_managed_provider_key(tenant_id, provider)
+        try:
+            managed_key = self._get_managed_provider_key(tenant_id, provider)
+        except _ProviderKeyUnreadable:
+            logger.error('Stored %s key for tenant %s cannot be decrypted', provider, tenant_id)
+            return JsonResponse(
+                {'error': 'provider_key_unreadable',
+                 'detail': f'The stored {provider} key cannot be decrypted'},
+                status=503,
+            )
         if managed_key:
+            # Drop the client's own credentials whatever their case: Django
+            # gives 'X-Api-Key', and httpx would send it beside the injected
+            # 'x-api-key', leaving the upstream to pick whose account pays.
+            for header in [h for h in forward_headers
+                           if h.lower() in ('authorization', 'x-api-key', 'x-goog-api-key')]:
+                del forward_headers[header]
             if provider == 'anthropic':
                 forward_headers['x-api-key'] = managed_key
-                forward_headers.pop('Authorization', None)
             elif provider == 'google':
                 forward_headers['x-goog-api-key'] = managed_key
-                forward_headers.pop('Authorization', None)
             else:
                 forward_headers['Authorization'] = f'Bearer {managed_key}'
 
@@ -270,9 +318,9 @@ class ProxyView(View):
         else:
             forward_headers['Host'] = urlparse(upstream_url).hostname
 
-        # Debug: log forwarded headers (redact auth values)
-        debug_headers = {k: (v[:20] + '...' if k.lower() == 'authorization' else v) for k, v in forward_headers.items()}
-        logger.info('Proxy %s %s → %s headers=%s', request.method, path, upstream_url, debug_headers)
+        # Header names only: values include provider keys, the injected
+        # managed key among them, and production logs at INFO.
+        logger.info('Proxy %s %s → %s headers=%s', request.method, path, log_url, sorted(forward_headers))
 
         try:
             import httpx
@@ -404,19 +452,19 @@ class ProxyView(View):
                 return django_response
 
         except httpx.ConnectError as exc:
-            logger.error('Proxy connect error to %s: %s', upstream_url, exc)
+            logger.error('Proxy connect error to %s: %s', log_url, exc)
             return JsonResponse(
                 {'error': 'upstream_unreachable', 'detail': str(exc)},
                 status=502,
             )
         except httpx.TimeoutException as exc:
-            logger.error('Proxy timeout to %s: %s', upstream_url, exc)
+            logger.error('Proxy timeout to %s: %s', log_url, exc)
             return JsonResponse(
                 {'error': 'upstream_timeout', 'detail': str(exc)},
                 status=504,
             )
         except Exception as exc:  # noqa: BLE001
-            logger.error('Proxy error forwarding to %s: %s', upstream_url, exc)
+            logger.error('Proxy error forwarding to %s: %s', log_url, exc)
             return JsonResponse(
                 {'error': 'proxy_error', 'detail': 'An internal proxy error occurred'},
                 status=502,
@@ -424,15 +472,37 @@ class ProxyView(View):
 
     @staticmethod
     def _get_managed_provider_key(tenant_id, provider):
-        """Look up a stored provider API key for this tenant.
-        Falls back to env vars for single-tenant deployments.
+        """The provider key to inject for this tenant, or None to forward the client's own.
+
+        The tenant's stored LLMProviderKey first. The install's env keys are
+        one account's keys, so, as on the gateway, they serve a tenant with no
+        stored key only when ALLOW_ENV_PROVIDER_KEYS marks the install single
+        tenant. A stored key that cannot be decrypted raises
+        _ProviderKeyUnreadable rather than falling back: serving the tenant on
+        another account's key is no recovery.
         """
         import os
+
+        from django.conf import settings
+
+        from zentinelle.models import LLMProviderKey
+
+        record = LLMProviderKey.objects.filter(tenant_id=tenant_id, provider=provider, is_active=True).first()
+        # A row without ciphertext is a keyless provider toggle, not a key.
+        if record is not None and record.encrypted_key:
+            key = record.get_key()
+            if not key:
+                raise _ProviderKeyUnreadable(provider)
+            return key
+        if not settings.ALLOW_ENV_PROVIDER_KEYS:
+            return None
+        # No vertex entry: GOOGLE_API_KEY is a Gemini API key, and Vertex
+        # takes an OAuth token, so injecting it would only replace the
+        # caller's working credential with one Vertex refuses.
         env_map = {
             'openai': 'OPENAI_API_KEY',
             'anthropic': 'ANTHROPIC_API_KEY',
             'google': 'GOOGLE_API_KEY',
-            'vertex': 'GOOGLE_API_KEY',
         }
         env_var = env_map.get(provider)
         if not env_var:
@@ -442,7 +512,12 @@ class ProxyView(View):
 
     @staticmethod
     def _build_vertex_url(request, path):
-        """Build Vertex AI upstream URL from request headers."""
+        """Build Vertex AI upstream URL from request headers.
+
+        Returns None when the region or project is missing. Raises ValueError
+        for a region or project that is not a real one: both go into the
+        upstream URL, which receives the provider key.
+        """
         region = (request.headers.get('X-Vertex-Region', '') or
                   request.META.get('HTTP_X_VERTEX_REGION', '')).strip()
         project = (request.headers.get('X-Vertex-Project', '') or
@@ -457,7 +532,9 @@ class ProxyView(View):
             return None
 
         if region not in VERTEX_REGIONS:
-            logger.warning('Unknown Vertex AI region: %s', region)
+            raise ValueError('Unsupported Vertex AI region')
+        if not _VERTEX_PROJECT.fullmatch(project):
+            raise ValueError('Invalid Vertex AI project id')
 
         return f'https://{region}-aiplatform.googleapis.com/v1/projects/{project}/locations/{region}/{path}'
 

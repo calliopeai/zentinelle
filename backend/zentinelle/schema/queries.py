@@ -1816,12 +1816,15 @@ class Query:
         """Get event stream for an aggregate."""
         if not info.context.request.user.is_authenticated:
             return None
+        tenant_id = get_request_tenant_id(info.context.request.user)
+        if not tenant_id:
+            return None
 
         from zentinelle.services.event_store import event_store
 
         events = []
         last_seq = 0
-        for envelope in event_store.get_stream(aggregate_type, aggregate_id, from_sequence):
+        for envelope in event_store.get_stream(tenant_id, aggregate_type, aggregate_id, from_sequence):
             events.append(EventEnvelopeType(
                 event_id=envelope.event_id,
                 event_type=envelope.event_type,
@@ -1855,10 +1858,13 @@ class Query:
         """Get all events in a correlation chain."""
         if not info.context.request.user.is_authenticated:
             return []
+        tenant_id = get_request_tenant_id(info.context.request.user)
+        if not tenant_id:
+            return []
 
         from zentinelle.services.event_store import event_store
 
-        envelopes = event_store.get_events_by_correlation(correlation_id)
+        envelopes = event_store.get_events_by_correlation(tenant_id, correlation_id)
         return [
             EventEnvelopeType(
                 event_id=e.event_id,

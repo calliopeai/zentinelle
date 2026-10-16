@@ -1,7 +1,7 @@
 """Idempotent reconciliation of conservative budget reservations."""
 from decimal import ROUND_UP, Decimal
 
-from django.db import transaction
+from django.db import router, transaction
 from django.utils import timezone
 
 from zentinelle.models import BudgetAccount, BudgetCharge
@@ -68,7 +68,7 @@ def reconcile_charge(charge_id, *, tenant_id, provider_usage, source='provider-a
         actual = ((Decimal(input_tokens) * Decimal(str(pricing['input'])) +
                    Decimal(output_tokens) * Decimal(str(pricing['output']))) / Decimal(1000000)).quantize(
                        Decimal('0.00000001'), rounding=ROUND_UP)
-    with transaction.atomic():
+    with transaction.atomic(using=router.db_for_write(BudgetCharge)):
         charge = BudgetCharge.objects.select_for_update().get(id=charge_id, tenant_id=tenant_id)
         if charge.reconciled_at:
             return charge
@@ -107,7 +107,7 @@ def cancel_charge(charge_id, *, tenant_id, provider_request_id, provider='', att
     """
     if source != 'provider-api' or not provider_request_id or not isinstance(provider, str) or not provider.strip():
         raise ValueError('Budget cancellation requires authenticated provider confirmation')
-    with transaction.atomic():
+    with transaction.atomic(using=router.db_for_write(BudgetCharge)):
         charge = BudgetCharge.objects.select_for_update().get(id=charge_id, tenant_id=tenant_id)
         if charge.reconciled_at:
             return charge

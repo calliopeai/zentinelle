@@ -7,7 +7,10 @@ ZentinelleRouter sends zentinelle models to a 'zentinelle' DB alias
 with its own schema, which prevents the test runner from creating
 tables in the right place.
 """
+import os
+
 import django.conf
+from cryptography.fernet import Fernet
 
 
 def pytest_configure(config):
@@ -24,6 +27,10 @@ def pytest_configure(config):
             # Mirror non-default aliases to default so Django uses one test DB
             if alias != 'default':
                 db.setdefault('TEST', {})['MIRROR'] = 'default'
+
+    # Provider keys need a real Fernet key; production refuses to start
+    # without one (config/secret_guard.py), so tests bring their own.
+    os.environ.setdefault('ZENTINELLE_SECRET_KEY', Fernet.generate_key().decode())
 
     # Disable the DB router so all models go to 'default'
     settings.DATABASE_ROUTERS = []

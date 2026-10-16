@@ -291,6 +291,10 @@ def create_incident(info: strawberry.types.Info, input: CreateIncidentInput) -> 
     if not user.is_authenticated:
         raise GraphQLError("Authentication required")
 
+    tenant_id = get_request_tenant_id(user)
+    if not tenant_id:
+        raise GraphQLError("Access denied")
+
     try:
         from zentinelle.models import AgentEndpoint
 
@@ -298,9 +302,14 @@ def create_incident(info: strawberry.types.Info, input: CreateIncidentInput) -> 
         deployment_id_ext = ''
         related_risk = None
 
+        # Linked rows come from the caller's tenant only: an id from another
+        # tenant would otherwise attach, and then show, that tenant's agent or
+        # risk in this tenant's incident.
         if input.endpoint_id:
             _, ep_pk = from_global_id(input.endpoint_id)
-            endpoint = AgentEndpoint.objects.get(pk=ep_pk)
+            endpoint = AgentEndpoint.objects.filter(pk=ep_pk, tenant_id=tenant_id).first()
+            if endpoint is None:
+                return CreateIncidentPayload(success=False, errors=["Endpoint not found"])
 
         if input.deployment_id:
             _, dep_pk = from_global_id(input.deployment_id)
@@ -308,10 +317,12 @@ def create_incident(info: strawberry.types.Info, input: CreateIncidentInput) -> 
 
         if input.related_risk_id:
             _, risk_pk = from_global_id(input.related_risk_id)
-            related_risk = Risk.objects.get(pk=risk_pk)
+            related_risk = Risk.objects.filter(pk=risk_pk, tenant_id=tenant_id).first()
+            if related_risk is None:
+                return CreateIncidentPayload(success=False, errors=["Risk not found"])
 
         incident = Incident.objects.create(
-            tenant_id=get_request_tenant_id(user) or '',
+            tenant_id=tenant_id,
             title=input.title,
             description=input.description,
             incident_type=input.incident_type or Incident.IncidentType.POLICY_VIOLATION,

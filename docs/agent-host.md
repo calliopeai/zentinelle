@@ -316,7 +316,10 @@ client events or user authorization grants.
 
 A multiuser hub keeps its agent-host key in the hub tap. Configure the trusted
 AgentEndpoint `config.hub_identity` with `hub_id` and `api_url` (the hub's
-`/hub/api` URL). The tap forwards the caller's hub token as
+`/hub/api` URL). The backend calls that URL itself, so it must resolve to
+public addresses only, or its host must be listed in
+`HUB_IDENTITY_ALLOWED_HOSTS` (comma-separated; for an in-cluster hub). Other
+URLs are refused when the endpoint is saved and when it is used. The tap forwards the caller's hub token as
 `X-JupyterHub-User-Token`. Zentinelle verifies it against that configured hub
 on every evaluation, refuses service tokens and tokens without access to the
 user's own server, and replaces claimed user/context fields with the verified

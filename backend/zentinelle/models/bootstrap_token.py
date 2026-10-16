@@ -3,6 +3,7 @@ import secrets
 import uuid
 
 from django.db import models
+from django.db.models import Case, F, Q, Value, When
 from django.utils import timezone
 
 
@@ -47,16 +48,6 @@ class BootstrapToken(models.Model):
             return False
         return True
 
-    def record_use(self):
-        self.last_used_at = timezone.now()
-        self.use_count += 1
-        if self.single_use:
-            self.revoked = True
-            self.save(update_fields=['last_used_at', 'use_count', 'revoked'])
-            return
-        self.use_count = models.F('use_count') + 1
-        self.save(update_fields=['last_used_at', 'use_count'])
-
     @classmethod
     def generate(cls, tenant_id, label='', expires_at=None):
         """Generate a new bootstrap token for a tenant. Returns (token_string, db_record)."""
@@ -76,17 +67,29 @@ class BootstrapToken(models.Model):
 
     @classmethod
     def validate(cls, token_string):
-        """Validate a bootstrap token against the database.
+        """Validate a bootstrap token against the database and count the use.
         Returns (tenant_id, token_record) or (None, None).
+
+        The check and the count are one conditional UPDATE. Read then save
+        let concurrent registrations all pass the check before any counted,
+        so a single-use or max_uses token could be used more than allowed.
         """
         token_hash = hashlib.sha256(token_string.encode()).hexdigest()
-        try:
-            record = cls.objects.get(token_hash=token_hash)
-        except cls.DoesNotExist:
+        now = timezone.now()
+        claimed = cls.objects.filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=now),
+            Q(max_uses=0) | Q(use_count__lt=F('max_uses')),
+            token_hash=token_hash, revoked=False,
+        ).update(
+            use_count=F('use_count') + 1, last_used_at=now,
+            revoked=Case(When(single_use=True, then=Value(True)), default=F('revoked')),
+        )
+        if not claimed:
             return None, None
-
-        if not record.is_valid:
-            return None, None
-
-        record.record_use()
+        record = cls.objects.get(token_hash=token_hash)
         return record.tenant_id, record
+
+    @classmethod
+    def is_issued(cls, token_string):
+        """Whether this token was issued from the database, valid or not."""
+        return cls.objects.filter(token_hash=hashlib.sha256(token_string.encode()).hexdigest()).exists()

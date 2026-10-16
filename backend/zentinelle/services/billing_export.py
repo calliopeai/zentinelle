@@ -36,7 +36,7 @@ import logging
 
 import httpx
 from django.conf import settings
-from django.db import transaction
+from django.db import router, transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -223,7 +223,7 @@ def export_pending(limit: int = DEFAULT_BATCH_SIZE,
     from zentinelle.models.usage import UsageMetric
 
     now = timezone.now()
-    with transaction.atomic():
+    with transaction.atomic(using=router.db_for_write(UsageMetric)):
         UsageMetric.objects.filter(id__in=metric_ids).update(
             billing_exported_at=now
         )

@@ -54,7 +54,7 @@ class AstroliftAgentApprovalView(APIView):
         if held is None:
             return Response({'error': 'Approval request not found'}, status=404)
         try:
-            with transaction.atomic(using=router.db_for_write(AuditLog)):
+            with transaction.atomic(using=router.db_for_write(ApprovalRequest)):
                 held = ApprovalRequest.objects.select_for_update().get(tenant_id=endpoint.tenant_id, pk=held.pk)
                 actor_identity = f'astrolift:{request.user.install.pk}:{actor}'
                 expected = ApprovalRequest.Status.APPROVED if decision == 'approve' else ApprovalRequest.Status.DENIED

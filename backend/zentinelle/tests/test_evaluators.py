@@ -78,7 +78,7 @@ class RateLimitEvaluatorTest(TestCase):
             policy,
             action='spawn',
             user_id='user123',
-            context={'endpoint_id': 'endpoint1'},
+            context={'_tenant_id': STANDALONE_TENANT, '_endpoint_id': 'endpoint1'},
         )
 
         self.assertTrue(result.passed)
@@ -87,7 +87,7 @@ class RateLimitEvaluatorTest(TestCase):
     def test_rate_limit_fail_over_limit(self):
         """Test rate limit fails when limit is exceeded."""
         policy = self._create_policy({'requests_per_minute': 5})
-        context = {'endpoint_id': 'endpoint1'}
+        context = {'_tenant_id': STANDALONE_TENANT, '_endpoint_id': 'endpoint1'}
 
         # Make requests up to the limit
         for i in range(5):
@@ -104,7 +104,7 @@ class RateLimitEvaluatorTest(TestCase):
     def test_rate_limit_warning_at_threshold(self):
         """Test warning is returned when approaching rate limit."""
         policy = self._create_policy({'requests_per_minute': 10})
-        context = {'endpoint_id': 'endpoint1'}
+        context = {'_tenant_id': STANDALONE_TENANT, '_endpoint_id': 'endpoint1'}
 
         # Make 8 requests (80% of limit)
         for i in range(8):
@@ -117,7 +117,7 @@ class RateLimitEvaluatorTest(TestCase):
     def test_rate_limit_per_hour(self):
         """Test per-hour rate limit."""
         policy = self._create_policy({'requests_per_hour': 2})
-        context = {'endpoint_id': 'endpoint1'}
+        context = {'_tenant_id': STANDALONE_TENANT, '_endpoint_id': 'endpoint1'}
 
         # First 2 requests pass
         self.evaluator.evaluate(policy, 'spawn', 'user123', context)
@@ -132,7 +132,7 @@ class RateLimitEvaluatorTest(TestCase):
     def test_token_limit_pass(self):
         """Test token limit passes when under the limit."""
         policy = self._create_policy({'tokens_per_day': 10000})
-        context = {'endpoint_id': 'endpoint1', 'tokens': 100}
+        context = {'_tenant_id': STANDALONE_TENANT, '_endpoint_id': 'endpoint1', 'tokens': 100}
 
         result = self.evaluator.evaluate(policy, 'ai_request', 'user123', context)
 
@@ -141,7 +141,7 @@ class RateLimitEvaluatorTest(TestCase):
     def test_token_limit_fail_over_limit(self):
         """Test token limit fails when exceeded."""
         policy = self._create_policy({'tokens_per_day': 1000})
-        context = {'endpoint_id': 'endpoint1', 'tokens': 500}
+        context = {'_tenant_id': STANDALONE_TENANT, '_endpoint_id': 'endpoint1', 'tokens': 500}
 
         # First request passes
         result = self.evaluator.evaluate(policy, 'ai_request', 'user123', context)
@@ -160,7 +160,7 @@ class RateLimitEvaluatorTest(TestCase):
     def test_token_limit_warning_at_threshold(self):
         """Test token limit warning when approaching limit."""
         policy = self._create_policy({'tokens_per_day': 1000})
-        context = {'endpoint_id': 'endpoint1', 'tokens': 850}
+        context = {'_tenant_id': STANDALONE_TENANT, '_endpoint_id': 'endpoint1', 'tokens': 850}
 
         result = self.evaluator.evaluate(policy, 'ai_request', 'user123', context)
 
@@ -171,7 +171,7 @@ class RateLimitEvaluatorTest(TestCase):
     def test_token_limit_only_for_ai_requests(self):
         """Test token limit only applies to ai_request actions."""
         policy = self._create_policy({'tokens_per_day': 100})
-        context = {'endpoint_id': 'endpoint1', 'tokens': 200}
+        context = {'_tenant_id': STANDALONE_TENANT, '_endpoint_id': 'endpoint1', 'tokens': 200}
 
         # Non-ai_request action should pass even with tokens specified
         result = self.evaluator.evaluate(policy, 'spawn', 'user123', context)
@@ -179,9 +179,9 @@ class RateLimitEvaluatorTest(TestCase):
         self.assertTrue(result.passed)
 
     def test_rate_limit_separate_by_user(self):
-        """Test rate limits are tracked separately per user."""
+        """Test rate limits are tracked separately per verified user."""
         policy = self._create_policy({'requests_per_minute': 2})
-        context = {'endpoint_id': 'endpoint1'}
+        context = {'_tenant_id': STANDALONE_TENANT, '_endpoint_id': 'endpoint1', '_user_verified': True}
 
         # User 1 uses their limit
         self.evaluator.evaluate(policy, 'spawn', 'user1', context)

@@ -25,10 +25,10 @@ class EventSequenceTests(SimpleTestCase):
         cache.incr.return_value = 7
         from zentinelle.services.event_store import EventStore
 
-        sequence = EventStore()._next_sequence('policy', 'policy-1')
+        sequence = EventStore()._next_sequence('tenant-a', 'policy', 'policy-1')
 
         cache.add.assert_called_once_with(
-            'eventstore:seq:policy:policy-1', 0, timeout=86400 * 30,
+            'eventstore:seq:tenant-a:policy:policy-1', 0, timeout=86400 * 30,
         )
-        cache.incr.assert_called_once_with('eventstore:seq:policy:policy-1')
+        cache.incr.assert_called_once_with('eventstore:seq:tenant-a:policy:policy-1')
         self.assertEqual(sequence, 7)
