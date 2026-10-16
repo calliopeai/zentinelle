@@ -1,0 +1,2121 @@
+type AIBudgetStatusType {
+  """Monthly budget in USD (null = unlimited)"""
+  budgetUsd: Float
+
+  """Amount spent this period"""
+  spentUsd: Float!
+
+  """Remaining budget"""
+  remainingUsd: Float!
+
+  """Percentage of budget used"""
+  percentageUsed: Float!
+
+  """Whether budget is configured"""
+  hasBudget: Boolean!
+
+  """Whether budget is exceeded"""
+  isExceeded: Boolean!
+
+  """Whether requests should be blocked"""
+  shouldBlock: Boolean!
+
+  """What happens when budget exceeded"""
+  overagePolicy: String
+  overagePolicyDisplay: String
+
+  """Whether payment method on file"""
+  hasPaymentMethod: Boolean!
+
+  """Alert threshold percentage"""
+  alertThreshold: Int!
+
+  """Whether alert sent this period"""
+  alertSent: Boolean!
+
+  """Start of current billing period"""
+  periodStart: DateTime
+
+  """Per-provider budget limits"""
+  providerLimits: JSON
+}
+
+type AIModelType {
+  id: UUID!
+  modelId: String!
+  name: String!
+  description: String!
+  modelType: String!
+  riskLevel: String!
+  contextWindow: Int
+  maxOutputTokens: Int
+  isAvailable: Boolean!
+  deprecated: Boolean!
+  deprecationDate: Date
+  isGlobal: Boolean!
+  releaseDate: Date
+  documentationUrl: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  capabilities: [String!]
+  inputPricePerMillion: Float
+  outputPricePerMillion: Float
+  providerSlug: String
+  providerName: String
+  modelTypeDisplay: String
+  riskLevelDisplay: String
+  fullModelId: String
+  replacementModelId: UUID
+  replacementModelName: String
+}
+
+type AIProviderType {
+  id: UUID!
+  slug: String!
+  name: String!
+  logoUrl: String!
+  supportsManagedKeys: Boolean!
+  supportsKeyCreation: Boolean!
+  supportsKeyDeletion: Boolean!
+  supportsKeyRotation: Boolean!
+  supportsPerKeyLimits: Boolean!
+  supportsUsageApi: Boolean!
+  supportsPerKeyStats: Boolean!
+  supportsRealtimeUsage: Boolean!
+  usageDelayMinutes: Int!
+  adminApiBaseUrl: String!
+  usageApiBaseUrl: String!
+  apiDocsUrl: String!
+  keyPrefix: String!
+  keyEnvVar: String!
+  isActive: Boolean!
+  notes: String!
+}
+
+type AIUsageByModelType {
+  provider: String
+  model: String
+  totalRequests: Int!
+  totalTokens: Int!
+  totalCostUsd: Float!
+}
+
+type AIUsageByProviderType {
+  provider: String
+  providerDisplay: String
+  totalRequests: Int!
+  totalTokens: Int!
+  totalCostUsd: Float!
+}
+
+type AIUsageByUserType {
+  userIdentifier: String
+  totalRequests: Int!
+  totalTokens: Int!
+  totalCostUsd: Float!
+}
+
+type AIUsageRecordType {
+  id: ID
+  userIdentifier: String
+  provider: String
+  providerDisplay: String
+  model: String
+  requestType: String
+  inputTokens: Int!
+  outputTokens: Int!
+  totalTokens: Int!
+  inputCostUsd: Float!
+  outputCostUsd: Float!
+  totalCostUsd: Float!
+  latencyMs: Int!
+  timestamp: DateTime
+}
+
+type AIUsageSummaryType {
+  periodStart: DateTime
+  periodEnd: DateTime
+  totalRequests: Int!
+  totalTokens: Int!
+  totalInputTokens: Int!
+  totalOutputTokens: Int!
+  totalCostUsd: Float!
+  byProvider: [AIUsageByProviderType!]!
+  byUser: [AIUsageByUserType!]!
+  byModel: [AIUsageByModelType!]!
+  topUsers: [AIUsageByUserType!]!
+  recentRecords: [AIUsageRecordType!]!
+}
+
+type APIKeyType {
+  id: UUID!
+  name: String!
+  description: String!
+  status: String!
+  scopes: JSON!
+  rateLimit: Int
+  expiresAt: DateTime
+  lastUsedAt: DateTime
+  usageCount: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  keyPrefix: String
+  createdByUsername: String
+  statusDisplay: String
+}
+
+type AcknowledgeComplianceAlertPayload {
+  success: Boolean
+  alertId: ID
+}
+
+type AcknowledgeIncidentPayload {
+  success: Boolean
+  incidentId: ID
+}
+
+type ActivateAgentEndpointPayload {
+  endpoint: AgentEndpointType
+  success: Boolean
+  error: String
+}
+
+type ActivateCompliancePackPayload {
+  policiesCreated: Int
+  policiesUpdated: Int
+  packVersion: String
+  packName: String
+  success: Boolean
+  error: String
+}
+
+type AgentEndpointType {
+  subOrganizationIdExt: String!
+  id: UUID!
+  agentId: String!
+  agentType: String!
+  name: String!
+  description: String!
+  status: String!
+  health: String!
+  capabilities: JSON!
+  metadata: JSON!
+  lastHeartbeat: DateTime
+  apiKeyPrefix: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deploymentName: String
+  agentGroup: AgentGroupType
+}
+
+type AgentGroupType {
+  id: UUID!
+  tenantId: String!
+  name: String!
+  slug: String!
+  description: String!
+  tier: String!
+  color: String!
+  createdAt: DateTime!
+  agentCount: Int
+}
+
+type AgentStatsType {
+  total: Int!
+  active: Int!
+  inactive: Int!
+  healthy: Int!
+  unhealthy: Int!
+}
+
+type AlertType {
+  id: String
+  severity: String
+  title: String
+  description: String
+  createdAt: DateTime
+}
+
+type AnalyzeSystemPromptPayload {
+  success: Boolean!
+  overallScore: Int!
+  strengths: [String!]!
+  improvements: [ImprovementSuggestionType!]!
+  tokenEfficiency: String!
+  error: String
+}
+
+type ApiUsageType {
+  today: Int!
+  thisWeek: Int!
+  thisMonth: Int!
+  trend: Float!
+  last7Days: [Int!]!
+}
+
+type AssignAgentToGroupPayload {
+  success: Boolean
+  errors: [String!]!
+}
+
+type AssignIncidentPayload {
+  success: Boolean
+  incidentId: ID
+}
+
+type AuditActorType {
+  id: String
+  email: String
+  name: String
+  type: String
+}
+
+type AuditAnalyticsType {
+  timeline: [AuditTimelinePointType!]
+  byType: [AuditEventCountType!]
+  topAgents: [AuditTopAgentType!]
+}
+
+type AuditChangeType {
+  field: String
+  oldValue: String
+  newValue: String
+}
+
+type AuditEventCountType {
+  eventType: String
+  count: Int
+}
+
+type AuditLogType {
+  id: UUID!
+  action: String!
+  resourceType: String!
+  resourceId: String!
+  resourceName: String!
+  metadata: JSON!
+  apiKeyPrefix: String!
+  ipAddress: String
+  userAgent: String!
+  timestamp: DateTime!
+  actor: AuditActorType
+  resource: String
+  status: String
+  details: JSON
+  changes: [AuditChangeType!]
+}
+
+type AuditTimelinePointType {
+  bucket: DateTime
+  eventType: String
+  count: Int
+}
+
+type AuditTopAgentType {
+  agentId: String
+  eventCount: Int
+}
+
+type ChecklistItemStatsType {
+  key: String
+  isComplete: Boolean!
+  completedAt: DateTime
+}
+
+type ChecklistStatsType {
+  items: [ChecklistItemStatsType!]!
+  completedCount: Int!
+  totalCount: Int!
+  progressPercent: Float!
+  isAllComplete: Boolean!
+  dismissed: Boolean!
+}
+
+type ClientCoveIntegrationType {
+  id: ID
+  clientCoveUrl: String
+  isActive: Boolean
+  status: String
+  statusMessage: String
+  connectedOrgName: String
+  lastTestedAt: DateTime
+  apiKeyPreview: String
+}
+
+type CloseIncidentPayload {
+  success: Boolean
+  incidentId: ID
+}
+
+type ComplianceAlertType {
+  id: UUID!
+  alertType: String!
+  severity: String!
+  title: String!
+  description: String!
+  userIdentifier: String!
+  violationCount: Int!
+  firstViolationAt: DateTime
+  lastViolationAt: DateTime
+  status: String!
+  acknowledgedAt: DateTime
+  resolvedAt: DateTime
+  resolutionNotes: String!
+  metadata: JSON!
+  createdAt: DateTime!
+  alertTypeDisplay: String
+  severityDisplay: String
+  statusDisplay: String
+  endpointName: String
+  acknowledgedByUsername: String
+  resolvedByUsername: String
+}
+
+type ComplianceCapabilityType {
+  id: String
+  name: String
+  description: String
+  capabilityType: String
+  enabled: Boolean!
+  supportingPolicies: [String!]!
+  supportingRules: [String!]!
+  enforcementOptions: [String!]!
+  supportsFrameworks: [String!]!
+}
+
+type ComplianceControlType {
+  id: String
+  name: String
+  status: String
+  severity: String
+  description: String
+}
+
+type ComplianceFindingType {
+  id: String
+  title: String
+  severity: String
+  framework: String
+  control: String
+  status: String
+  foundAt: DateTime
+  resolvedAt: DateTime
+}
+
+type ComplianceFrameworkOutput {
+  id: String
+  enabled: Boolean
+}
+
+type ComplianceFrameworkType {
+  id: String
+  name: String
+  description: String
+  enabled: Boolean!
+  score: Int!
+  status: String
+  lastChecked: DateTime
+  controls: [ComplianceControlType!]!
+}
+
+type ComplianceOverviewType {
+  observeCapabilities: [ComplianceCapabilityType!]!
+  controlCapabilities: [ComplianceCapabilityType!]!
+  capabilitiesEnabled: Int!
+  capabilitiesTotal: Int!
+  frameworkCoverage: [FrameworkCoverageType!]!
+}
+
+type CompliancePackMetaType {
+  name: String
+  displayName: String
+  version: String
+  description: String
+  policyCount: Int
+}
+
+type ComplianceReportType {
+  id: ID
+  name: String
+  framework: String
+  generatedAt: DateTime
+  period: String
+  status: String
+  downloadUrl: String
+}
+
+type ComplianceStatusType {
+  overallScore: Int!
+  lastAssessment: DateTime
+  nextAssessment: DateTime
+  frameworks: [ComplianceFrameworkType!]!
+  recentFindings: [ComplianceFindingType!]!
+}
+
+type ContentRuleOptionsType {
+  ruleTypes: [LabelValueOptionType!]!
+  severities: [LabelValueOptionType!]!
+  enforcements: [LabelValueOptionType!]!
+  scanModes: [LabelValueOptionType!]!
+  scopeTypes: [LabelValueOptionType!]!
+}
+
+type ContentRuleType {
+  id: UUID!
+  name: String!
+  description: String!
+  ruleType: String!
+  config: JSON!
+  severity: String!
+  action: String!
+  blockLevel: String!
+  steerMessage: String!
+  escalation: JSON!
+  scanMode: String!
+  scanInput: Boolean!
+  scanOutput: Boolean!
+  scanContext: Boolean!
+  scopeType: String!
+  priority: Int!
+  enabled: Boolean!
+  notifyUser: Boolean!
+  notifyAdmins: Boolean!
+  webhookUrl: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  ruleTypeDisplay: String
+  severityDisplay: String
+  enforcement: String
+  enforcementDisplay: String
+  actionDisplay: String
+  scopeName: String
+  violationCount: Int
+}
+
+type ContentScanType {
+  id: UUID!
+  contentType: String!
+  contentHash: String!
+  contentLength: Int!
+  contentPreview: String!
+  contentStored: Boolean!
+  status: String!
+  scanMode: String!
+  scannedAt: DateTime
+  scanDurationMs: Int
+  hasViolations: Boolean!
+  violationCount: Int!
+  maxSeverity: String
+  actionTaken: String
+  wasBlocked: Boolean!
+  wasRedacted: Boolean!
+  tokenCount: Int
+  estimatedCostUsd: Decimal
+  userIdentifier: String!
+  sessionId: String!
+  requestId: String!
+  ipAddress: String
+  userAgent: String!
+  createdAt: DateTime!
+  contentTypeDisplay: String
+  statusDisplay: String
+  endpointName: String
+  deploymentName: String
+  violations: [ContentViolationType!]
+}
+
+type ContentViolationType {
+  id: UUID!
+  ruleType: String!
+  severity: String!
+  enforcement: String!
+  matchedPattern: String!
+  matchedText: String!
+  matchStart: Int
+  matchEnd: Int
+  confidence: Float
+  category: String!
+  metadata: JSON!
+  wasBlocked: Boolean!
+  wasRedacted: Boolean!
+  userNotified: Boolean!
+  adminNotified: Boolean!
+  createdAt: DateTime!
+  ruleTypeDisplay: String
+  severityDisplay: String
+  ruleName: String
+}
+
+input CreateAgentEndpointInput {
+  name: String!
+  agentId: String = null
+  agentType: String!
+  tenantId: String = null
+  capabilities: [String!] = null
+  metadata: JSON = null
+  config: JSON = null
+  subOrganizationId: String = null
+}
+
+type CreateAgentEndpointPayload {
+  endpoint: AgentEndpointType
+  apiKey: String
+  success: Boolean
+  error: String
+}
+
+type CreateAgentGroupPayload {
+  group: AgentGroupType
+  errors: [String!]!
+}
+
+input CreateContentRuleInput {
+  name: String!
+  description: String = null
+  ruleType: String!
+  severity: String = null
+  enforcement: String = null
+  action: String = null
+  blockLevel: String = null
+  steerMessage: String = null
+  escalation: JSON = null
+  scanMode: String = null
+  scanInput: Boolean = null
+  scanOutput: Boolean = null
+  scanContext: Boolean = null
+  scopeType: String = null
+  scopeDeploymentId: ID = null
+  scopeEndpointId: ID = null
+  priority: Int = null
+  enabled: Boolean = null
+  notifyUser: Boolean = null
+  notifyAdmins: Boolean = null
+  webhookUrl: String = null
+  config: JSON = null
+}
+
+type CreateContentRulePayload {
+  success: Boolean
+  ruleId: ID
+  errors: [String!]!
+}
+
+input CreateIncidentInput {
+  title: String!
+  description: String!
+  incidentType: String = null
+  severity: String = null
+  endpointId: ID = null
+  deploymentId: ID = null
+  relatedRiskId: ID = null
+  affectedUser: String = null
+  affectedUserCount: Int = null
+  occurredAt: DateTime = null
+  tags: [String!] = null
+}
+
+type CreateIncidentPayload {
+  success: Boolean
+  incidentId: ID
+  errors: [String!]!
+}
+
+input CreateLegalHoldInput {
+  name: String!
+  description: String = null
+  referenceNumber: String = null
+  holdType: String = null
+  appliesToAll: Boolean = null
+  entityTypes: [String!] = null
+  userIdentifiers: [String!] = null
+  dataFrom: DateTime = null
+  dataTo: DateTime = null
+  effectiveDate: DateTime = null
+  expirationDate: DateTime = null
+  custodianEmail: String = null
+  notifyOnAccess: Boolean = null
+  notificationEmails: [String!] = null
+  metadata: JSON = null
+}
+
+type CreateLegalHoldPayload {
+  success: Boolean
+  holdId: ID
+  errors: [String!]!
+}
+
+type CreatePlatformAPIKeyPayload {
+  ok: Boolean
+  apiKey: String
+  keyPrefix: String
+  keyId: ID
+  error: String
+}
+
+input CreatePolicyInput {
+  name: String!
+  description: String = null
+  policyType: String!
+  scopeType: String = null
+  scopeEndpointId: ID = null
+  scopeUserId: String = null
+  scopeSubOrganizationId: String = null
+  scopeDeploymentId: String = null
+  config: JSON = null
+  overrideGroup: String = null
+  nonOverridable: Boolean = null
+  priority: Int = null
+  enforcement: String = null
+  action: String = null
+  blockLevel: String = null
+  steerMessage: String = null
+  escalation: JSON = null
+  enabled: Boolean = null
+}
+
+type CreatePolicyPayload {
+  policy: PolicyType
+  success: Boolean
+  error: String
+}
+
+input CreateRetentionPolicyInput {
+  name: String!
+  description: String = null
+  entityType: String = null
+  deploymentId: ID = null
+  retentionDays: Int = null
+  minimumRetentionDays: Int = null
+  expirationAction: String = null
+  archiveLocation: String = null
+  complianceRequirement: String = null
+  complianceNotes: String = null
+  enabled: Boolean = null
+  priority: Int = null
+}
+
+type CreateRetentionPolicyPayload {
+  success: Boolean
+  policyId: ID
+  errors: [String!]!
+}
+
+input CreateRiskInput {
+  name: String!
+  description: String!
+  category: String = null
+  status: String = null
+  likelihood: Int = null
+  impact: Int = null
+  mitigationPlan: String = null
+  mitigationStatus: String = null
+  residualLikelihood: Int = null
+  residualImpact: Int = null
+  nextReviewDate: Date = null
+  tags: [String!] = null
+}
+
+type CreateRiskPayload {
+  success: Boolean
+  riskId: ID
+  errors: [String!]!
+}
+
+input CreateSystemPromptInput {
+  name: String!
+  promptText: String!
+  description: String = null
+  promptType: String = null
+  categoryId: UUID = null
+  tagIds: [UUID!] = null
+  compatibleProviders: [String!] = null
+  compatibleModels: [String!] = null
+  recommendedTemperature: Float = null
+  recommendedMaxTokens: Int = null
+  variableDefaults: JSON = null
+  variableDescriptions: JSON = null
+  exampleInput: String = null
+  exampleOutput: String = null
+  useCases: [String!] = null
+  bestPractices: String = null
+  limitations: String = null
+  visibility: String = null
+}
+
+type CreateSystemPromptPayload {
+  success: Boolean!
+  errors: [String!]!
+  prompt: SystemPromptDjangoType
+}
+
+type DashboardStatsType {
+  agents: AgentStatsType
+  policies: PolicyStatsType
+  apiUsage: ApiUsageType
+  recentActivity: [RecentActivityType!]!
+  alerts: [AlertType!]!
+  checklist: ChecklistStatsType
+}
+
+"""Date (isoformat)"""
+scalar Date
+
+"""Date with time (isoformat)"""
+scalar DateTime
+
+type DeadLetterEventType {
+  id: String
+  eventType: String
+  category: String
+  errorMessage: String
+  retryCount: Int!
+  receivedAt: DateTime
+  lastFailedAt: DateTime
+  payload: JSON
+}
+
+type DeadLetterQueueStatsType {
+  totalCount: Int!
+  byCategory: [[String!]!]!
+  oldestEvent: DateTime
+}
+
+"""Decimal (fixed-point)"""
+scalar Decimal
+
+type DeleteAPIKeyPayload {
+  ok: Boolean
+  error: String
+}
+
+type DeleteAgentEndpointPayload {
+  success: Boolean
+  error: String
+}
+
+type DeleteAgentGroupPayload {
+  success: Boolean
+  errors: [String!]!
+}
+
+type DeleteContentRulePayload {
+  success: Boolean
+  errors: [String!]!
+}
+
+type DeleteLegalHoldPayload {
+  success: Boolean
+  errors: [String!]!
+}
+
+type DeletePolicyPayload {
+  success: Boolean
+  error: String
+}
+
+type DeleteRetentionPolicyPayload {
+  success: Boolean
+  errors: [String!]!
+}
+
+type DeleteRiskPayload {
+  success: Boolean
+  errors: [String!]!
+}
+
+type DeleteSystemPromptPayload {
+  success: Boolean!
+  errors: [String!]!
+}
+
+type DismissComplianceAlertPayload {
+  success: Boolean
+  alertId: ID
+}
+
+type DjangoModelType {
+  pk: ID!
+}
+
+type DuplicateContentRulePayload {
+  success: Boolean
+  ruleId: ID
+  errors: [String!]!
+}
+
+type DuplicatePolicyPayload {
+  policy: PolicyType
+  success: Boolean
+  error: String
+}
+
+type EffectivePolicyType {
+  id: ID
+  name: String
+  description: String
+  policyType: String
+  scopeType: String
+  scopeName: String
+  config: JSON
+  priority: Int
+  enforcement: String
+  enabled: Boolean
+  inheritedFrom: String
+  overrides: JSON
+}
+
+type EnforcementOptionType {
+  value: String
+  label: String
+  description: String
+}
+
+type EventEnvelopeType {
+  eventId: String
+  eventType: String
+  category: String
+  version: Int!
+  aggregateId: String
+  aggregateType: String
+  sequenceNumber: Int!
+  correlationId: String
+  causationId: String
+  timestamp: DateTime
+  payload: JSON
+  metadata: JSON
+}
+
+type EventStreamType {
+  aggregateType: String
+  aggregateId: String
+  events: [EventEnvelopeType!]!
+  lastSequence: Int!
+  eventCount: Int!
+}
+
+type EventType {
+  id: UUID!
+  eventType: String!
+  eventCategory: String!
+  status: String!
+  payload: JSON!
+  userIdentifier: String!
+  occurredAt: DateTime!
+  processedAt: DateTime
+  correlationId: String!
+  endpointName: String
+}
+
+type ExportAuditLogsPayload {
+  downloadUrl: String
+  errors: [String!]!
+}
+
+type ForkSystemPromptPayload {
+  success: Boolean!
+  errors: [String!]!
+  prompt: SystemPromptDjangoType
+}
+
+type FrameworkCoverageType {
+  id: String
+  name: String
+  description: String
+  requiredCovered: Int!
+  requiredTotal: Int!
+  requiredPercentage: Float!
+  missingRequired: [String!]!
+  totalCovered: Int!
+  totalCount: Int!
+  totalPercentage: Float!
+  missingRecommended: [String!]!
+}
+
+type GenerateComplianceReportPayload {
+  success: Boolean
+  reportUrl: String
+  assessmentId: UUID
+  errors: [String!]!
+}
+
+type ImprovementSuggestionType {
+  category: String
+  originalText: String
+  suggestedText: String
+  explanation: String
+  severity: String
+}
+
+type IncidentBySeverityType {
+  severity: String
+  count: Int!
+}
+
+type IncidentByStatusType {
+  status: String
+  count: Int!
+}
+
+type IncidentOptionsType {
+  incidentTypes: [LabelValueOptionType!]!
+  severities: [LabelValueOptionType!]!
+  statuses: [LabelValueOptionType!]!
+}
+
+type IncidentType {
+  id: UUID!
+  title: String!
+  description: String!
+  incidentType: String!
+  severity: String!
+  status: String!
+  affectedUser: String!
+  affectedUserCount: Int!
+  rootCause: String!
+  impactAssessment: String!
+  resolution: String!
+  remediationActions: JSON!
+  lessonsLearned: String!
+  occurredAt: DateTime!
+  detectedAt: DateTime!
+  acknowledgedAt: DateTime
+  resolvedAt: DateTime
+  closedAt: DateTime
+  tags: JSON!
+  evidence: JSON!
+  timelineEvents: JSON!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  incidentTypeDisplay: String
+  severityDisplay: String
+  statusDisplay: String
+  slaStatus: String
+  timeToAcknowledgeSeconds: Int
+  timeToResolveSeconds: Int
+  assignedToName: String
+  reportedByName: String
+  endpointName: String
+  deploymentName: String
+  relatedRiskName: String
+  triggeringPolicyName: String
+}
+
+type InteractionLogType {
+  id: UUID!
+  interactionType: String!
+  sessionId: String!
+  requestId: String!
+  aiProvider: String!
+  aiModel: String!
+  inputContent: String!
+  inputTokenCount: Int
+  outputContent: String!
+  outputTokenCount: Int
+  systemPrompt: String!
+  toolCalls: JSON!
+  latencyMs: Int
+  totalTokens: Int
+  estimatedCostUsd: Decimal
+  classification: JSON!
+  isWorkRelated: Boolean
+  topics: JSON!
+  userIdentifier: String!
+  ipAddress: String
+  userAgent: String!
+  occurredAt: DateTime!
+  createdAt: DateTime!
+  interactionTypeDisplay: String
+  endpointName: String
+  deploymentName: String
+  hasViolations: Boolean
+  violationCount: Int
+  wasBlocked: Boolean
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf).
+"""
+scalar JSON @specifiedBy(url: "https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf")
+
+type LabelValueOptionType {
+  value: String
+  label: String
+}
+
+type LegalHoldOptionsType {
+  holdTypes: [LabelValueOptionType!]!
+  statuses: [LabelValueOptionType!]!
+}
+
+type LegalHoldType {
+  id: UUID!
+  name: String!
+  description: String!
+  referenceNumber: String!
+  holdType: String!
+  status: String!
+  appliesToAll: Boolean!
+  entityTypes: JSON!
+  userIdentifiers: JSON!
+  dataFrom: DateTime
+  dataTo: DateTime
+  effectiveDate: DateTime!
+  expirationDate: DateTime
+  releasedAt: DateTime
+  custodianEmail: String!
+  notifyOnAccess: Boolean!
+  notificationEmails: JSON!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  holdTypeDisplay: String
+  statusDisplay: String
+  isActive: Boolean
+  custodianName: String
+  createdByName: String
+}
+
+type LicenseComplianceReportType {
+  id: UUID!
+  reportType: String!
+  status: String!
+  periodStart: DateTime!
+  periodEnd: DateTime!
+  generatedAt: DateTime
+  reportData: JSON!
+  totalUsers: Int!
+  totalViolations: Int!
+  complianceScore: Float
+  pdfUrl: String!
+  pdfGeneratedAt: DateTime
+  errorMessage: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  reportTypeDisplay: String
+  statusDisplay: String
+}
+
+type LicenseComplianceSummaryType {
+  status: String
+  complianceScore: Float!
+  hasViolations: Boolean!
+  openViolations: Int!
+  licenseType: String
+  licenseValidUntil: DateTime
+  isExpired: Boolean!
+  usage: LicenseUsageSummaryType
+}
+
+type LicenseComplianceViolationGraphType {
+  id: UUID!
+  violationType: String!
+  severity: String!
+  status: String!
+  details: JSON!
+  description: String!
+  limitValue: Int
+  actualValue: Int
+  detectedAt: DateTime!
+  resolvedAt: DateTime
+  resolutionNotes: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  violationTypeDisplay: String
+  severityDisplay: String
+  statusDisplay: String
+  licenseKey: String
+  isOpen: Boolean
+  isResolved: Boolean
+}
+
+type LicenseUsageSummaryType {
+  currentUsers: Int!
+  maxUsers: Int!
+  usersPercent: Float!
+  currentDeployments: Int!
+  maxDeployments: Int!
+  deploymentsPercent: Float!
+  currentAgents: Int!
+  maxAgents: Int!
+  agentsPercent: Float!
+  isOverLimit: Boolean!
+  overLimitDetails: [String!]!
+}
+
+type LicenseViolationSummaryType {
+  totalCount: Int!
+  openCount: Int!
+  resolvedCount: Int!
+  byType: JSON
+  bySeverity: JSON
+}
+
+type ListCompliancePacksPayload {
+  packs: [CompliancePackMetaType!]
+  success: Boolean
+}
+
+type MarkAllNotificationsReadPayload {
+  success: Boolean
+  count: Int
+}
+
+type MonitoringStatsType {
+  totalInteractions: Int!
+  interactionsToday: Int!
+  interactionsThisHour: Int!
+  totalScans: Int!
+  scansWithViolations: Int!
+  scansBlocked: Int!
+  violationsByType: [ViolationByTypeType!]!
+  violationsBySeverity: [ViolationBySeverityType!]!
+  totalTokensToday: Int!
+  totalCostToday: Float!
+  avgLatencyMs: Float!
+  avgScanDurationMs: Float!
+}
+
+type Mutation {
+  createAgentEndpoint(input: CreateAgentEndpointInput!): CreateAgentEndpointPayload!
+  updateAgentEndpoint(input: UpdateAgentEndpointInput!): UpdateAgentEndpointPayload!
+  deleteAgentEndpoint(id: ID!): DeleteAgentEndpointPayload!
+  suspendAgentEndpoint(id: ID!): SuspendAgentEndpointPayload!
+  activateAgentEndpoint(id: ID!): ActivateAgentEndpointPayload!
+  regenerateEndpointApiKey(id: ID!): RegenerateEndpointApiKeyPayload!
+  updateEndpointStatus(id: ID!, status: String!): UpdateEndpointStatusPayload!
+  createAgentGroup(name: String!, description: String! = "", tier: String! = "standard", color: String! = "#6366f1"): CreateAgentGroupPayload!
+  updateAgentGroup(id: ID!, name: String!, description: String!, tier: String!, color: String!): UpdateAgentGroupPayload!
+  deleteAgentGroup(id: ID!): DeleteAgentGroupPayload!
+  assignAgentToGroup(agentId: ID!, groupId: ID!): AssignAgentToGroupPayload!
+  createPolicy(input: CreatePolicyInput!): CreatePolicyPayload!
+  updatePolicy(input: UpdatePolicyInput!): UpdatePolicyPayload!
+  deletePolicy(id: ID!): DeletePolicyPayload!
+  duplicatePolicy(id: ID!): DuplicatePolicyPayload!
+  togglePolicyEnabled(id: ID!): TogglePolicyEnabledPayload!
+  runComplianceCheck: RunComplianceCheckPayload!
+  toggleFramework(frameworkId: String!): ToggleFrameworkPayload!
+  generateComplianceReport(frameworkId: String!): GenerateComplianceReportPayload!
+  acknowledgeComplianceAlert(id: ID!): AcknowledgeComplianceAlertPayload!
+  resolveComplianceAlert(id: ID!, notes: String!): ResolveComplianceAlertPayload!
+  dismissComplianceAlert(id: ID!): DismissComplianceAlertPayload!
+  createRisk(input: CreateRiskInput!): CreateRiskPayload!
+  updateRisk(id: ID!, input: UpdateRiskInput!): UpdateRiskPayload!
+  deleteRisk(id: ID!): DeleteRiskPayload!
+  reviewRisk(id: ID!): ReviewRiskPayload!
+  createIncident(input: CreateIncidentInput!): CreateIncidentPayload!
+  updateIncident(id: ID!, input: UpdateIncidentInput!): UpdateIncidentPayload!
+  acknowledgeIncident(id: ID!): AcknowledgeIncidentPayload!
+  resolveIncident(id: ID!, resolution: String!): ResolveIncidentPayload!
+  closeIncident(id: ID!, lessonsLearned: String!): CloseIncidentPayload!
+  assignIncident(id: ID!, assigneeId: String!): AssignIncidentPayload!
+  createRetentionPolicy(input: CreateRetentionPolicyInput!): CreateRetentionPolicyPayload!
+  updateRetentionPolicy(input: UpdateRetentionPolicyInput!): UpdateRetentionPolicyPayload!
+  deleteRetentionPolicy(id: ID!): DeleteRetentionPolicyPayload!
+  toggleRetentionPolicyEnabled(id: ID!): ToggleRetentionPolicyEnabledPayload!
+  createLegalHold(input: CreateLegalHoldInput!): CreateLegalHoldPayload!
+  updateLegalHold(input: UpdateLegalHoldInput!): UpdateLegalHoldPayload!
+  releaseLegalHold(id: ID!): ReleaseLegalHoldPayload!
+  deleteLegalHold(id: ID!): DeleteLegalHoldPayload!
+  createContentRule(input: CreateContentRuleInput!): CreateContentRulePayload!
+  updateContentRule(input: UpdateContentRuleInput!): UpdateContentRulePayload!
+  deleteContentRule(id: ID!): DeleteContentRulePayload!
+  toggleContentRuleEnabled(id: ID!, enabled: Boolean!): ToggleContentRuleEnabledPayload!
+  duplicateContentRule(id: ID!, newName: String = null): DuplicateContentRulePayload!
+  testContentRule(id: ID!, content: String!): TestContentRulePayload!
+  createPlatformApiKey(name: String!, scopes: [String!]!): CreatePlatformAPIKeyPayload!
+  revokeApiKey(id: ID!): RevokeAPIKeyPayload!
+  deleteApiKey(id: ID!): DeleteAPIKeyPayload!
+  activateCompliancePack(packId: String!): ActivateCompliancePackPayload!
+  listCompliancePacks: ListCompliancePacksPayload!
+  createSystemPrompt(input: CreateSystemPromptInput!): CreateSystemPromptPayload!
+  updateSystemPrompt(id: ID!, input: UpdateSystemPromptInput!): UpdateSystemPromptPayload!
+  deleteSystemPrompt(id: ID!): DeleteSystemPromptPayload!
+  forkSystemPrompt(id: ID!): ForkSystemPromptPayload!
+  togglePromptFavorite(promptId: ID!): TogglePromptFavoritePayload!
+  rateSystemPrompt(promptId: ID!, rating: Int!, review: String!): RateSystemPromptPayload!
+  testSystemPrompt(systemPrompt: String!, userMessage: String!): TestSystemPromptPayload!
+  analyzeSystemPrompt(promptText: String!, promptType: String! = "system", targetProviders: [String!] = null): AnalyzeSystemPromptPayload!
+  updateOrganizationSettings(settings: OrganizationSettingsInput!): UpdateOrganizationSettingsPayload!
+  updateNotification(id: ID!, status: String!): UpdateNotificationPayload!
+  markAllNotificationsRead: MarkAllNotificationsReadPayload!
+  exportAuditLogs(format: String!, startDate: String!, endDate: String!): ExportAuditLogsPayload!
+}
+
+type NotificationType {
+  id: ID
+  type: String
+  subject: String
+  message: String
+  status: String
+  statusDate: DateTime
+  metadata: JSON
+  createdAt: DateTime
+}
+
+type OrganizationModelApprovalType {
+  id: UUID!
+  status: String!
+  maxDailyRequests: Int
+  maxMonthlyCost: Decimal
+  requiresJustification: Boolean!
+  requiresApproval: Boolean!
+  reviewNotes: String!
+  reviewedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  modelId: UUID
+  modelName: String
+  modelProvider: String
+  modelRiskLevel: String
+  statusDisplay: String
+  isUsable: Boolean
+  reviewedByUsername: String
+  requestedByUsername: String
+}
+
+input OrganizationSettingsInput {
+  name: String = null
+  contactEmail: String = null
+  timezone: String = null
+  emailNotifications: Boolean = null
+  slackNotifications: Boolean = null
+  webhookUrl: String = null
+  defaultPolicyMode: String = null
+  auditLogging: Boolean = null
+}
+
+type OrganizationType {
+  id: ID
+  name: String
+  slug: String
+  tier: String
+  website: String
+  deploymentModel: String
+  zentinelleTier: String
+  aiBudgetUsd: Float
+  aiBudgetSpentUsd: Float
+  overagePolicy: String
+  aiBudgetAlertThreshold: Float
+  settings: JSON
+  createdAt: DateTime
+}
+
+type PolicyByTypeType {
+  type: String
+  count: Int!
+}
+
+type PolicyDocumentType {
+  id: UUID
+  name: String
+  description: String
+  documentType: String
+  fileSize: Int
+  status: String
+  errorMessage: String
+  pageCount: Int
+  wordCount: Int
+  analysisResults: JSON
+  processingModel: String
+  processedAt: String
+  createdAt: String
+  updatedAt: String
+  generatedPromptCount: Int
+  extractedTextPreview: String
+}
+
+type PolicyGraphEdgeType {
+  source: String
+  target: String
+  relationship: String
+  label: String
+}
+
+type PolicyGraphNodeType {
+  id: String
+  nodeType: String
+  label: String
+  subLabel: String
+  status: String
+  color: String
+  meta: JSON
+}
+
+type PolicyGraphType {
+  nodes: [PolicyGraphNodeType!]
+  edges: [PolicyGraphEdgeType!]
+  nodeCount: Int
+  edgeCount: Int
+}
+
+type PolicyOptionsType {
+  policyTypes: [PolicyTypeOptionType!]!
+  scopeTypes: [ScopeTypeOptionType!]!
+  enforcementLevels: [EnforcementOptionType!]!
+}
+
+type PolicyRevisionType {
+  id: UUID!
+  policy: DjangoModelType!
+  version: Int!
+  name: String!
+  policyType: String!
+  enforcement: String!
+  config: JSON!
+  scopeType: String!
+  enabled: Boolean!
+  priority: Int!
+  changedBy: String!
+  changeSummary: String!
+  createdAt: DateTime!
+}
+
+type PolicyStatsType {
+  total: Int!
+  enabled: Int!
+  disabled: Int!
+  byType: [PolicyByTypeType!]!
+}
+
+type PolicyType {
+  overrideGroup: String!
+  nonOverridable: Boolean!
+  id: UUID!
+  name: String!
+  description: String!
+  policyType: String!
+  scopeType: String!
+  config: JSON!
+  priority: Int!
+  enforcement: String!
+  action: String!
+  blockLevel: String!
+  steerMessage: String!
+  escalation: JSON!
+  enabled: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  scopeName: String
+  createdByUsername: String
+}
+
+type PolicyTypeOptionType {
+  value: String
+  label: String
+  description: String
+  category: String
+  configSchema: JSON
+}
+
+type PromptCategoryDjangoType {
+  id: UUID!
+  name: String!
+  slug: String!
+  description: String!
+  icon: String!
+  color: String!
+  sortOrder: Int!
+  isActive: Boolean!
+  createdAt: DateTime!
+  promptCount: Int!
+}
+
+type PromptCategoryType {
+  name: String
+  slug: String
+  description: String
+  icon: String
+  color: String
+  sortOrder: Int
+  id: ID
+  promptCount: Int
+}
+
+type PromptRatingDjangoType {
+  id: UUID!
+  extUserId: String!
+  prompt: SystemPromptDjangoType!
+  rating: Int!
+  review: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type PromptTagDjangoType {
+  id: UUID!
+  name: String!
+  slug: String!
+  tagType: String!
+  description: String!
+  color: String!
+  isActive: Boolean!
+  createdAt: DateTime!
+  tagTypeDisplay: String!
+}
+
+type PromptTagType {
+  name: String
+  slug: String
+  tagType: String
+  color: String
+  id: ID
+}
+
+type Query {
+  policyOptions: PolicyOptionsType
+  riskOptions: RiskOptionsType
+  incidentOptions: IncidentOptionsType
+  contentRuleOptions: ContentRuleOptionsType
+  retentionOptions: RetentionOptionsType
+  legalHoldOptions: LegalHoldOptionsType
+  complianceOverview: ComplianceOverviewType
+  complianceStatus: ComplianceStatusType
+  agentGroups(search: String = null, tier: String = null): [AgentGroupType!]!
+  agentGroup(id: UUID = null): AgentGroupType
+  endpoint(id: ID = null): AgentEndpointType
+  endpoints(search: String = null, status: String = null, agentType: String = null, deploymentId: ID = null): [AgentEndpointType!]!
+  policy(id: ID = null): PolicyType
+  policies(search: String = null, policyType: String = null, scopeType: String = null): [PolicyType!]!
+
+  """
+  Return all revisions for a given policy, ordered by version descending.
+  """
+  policyRevisions(policyId: String!): [PolicyRevisionType!]!
+
+  """Dry-run a proposed policy config against historical events"""
+  simulatePolicy(policyType: String!, config: JSON!, enforcement: String = "enforce", lookbackDays: Int = 7): SimulatePolicyResultType
+  events(eventType: String = null, category: String = null, endpointId: ID = null, userId: String = null): [EventType!]!
+  auditLogs(search: String = null, actor: String = null, action: String = null, resource: String = null, resourceType: String = null, resourceId: String = null, startDate: DateTime = null, endDate: DateTime = null): [AuditLogType!]!
+
+  """ClickHouse-backed analytics for the audit logs page."""
+  auditAnalytics(days: Int! = 7): AuditAnalyticsType
+  dashboardStats: DashboardStatsType
+  aiProvider(id: ID = null, slug: String = null): AIProviderType
+  aiProviders(activeOnly: Boolean = null, supportsManagedKeys: Boolean = null): [AIProviderType!]!
+  apiKey(id: ID = null): APIKeyType
+  apiKeys(search: String = null, status: String = null): [APIKeyType!]!
+
+  """Get AI usage summary for organization or deployment"""
+  aiUsageSummary(organizationId: ID!, deploymentId: UUID = null, days: Int! = 30): AIUsageSummaryType
+
+  """Get AI budget status for organization"""
+  aiBudgetStatus(organizationId: ID!): AIBudgetStatusType
+  aiModel(id: ID = null): AIModelType
+  aiModels(search: String = null, providerSlug: String = null, modelType: String = null, riskLevel: String = null, availableOnly: Boolean = null): [AIModelType!]!
+  modelApproval(id: ID = null): OrganizationModelApprovalType
+  modelApprovals(status: String = null, providerSlug: String = null): [OrganizationModelApprovalType!]!
+  eventStream(aggregateType: String!, aggregateId: String!, fromSequence: Int = 0): EventStreamType
+  eventsByCorrelation(correlationId: String!): [EventEnvelopeType!]!
+  deadLetterQueue(limit: Int = 50): [DeadLetterEventType!]!
+  deadLetterQueueStats: DeadLetterQueueStatsType
+  contentRule(id: ID = null): ContentRuleType
+  contentRules(search: String = null, ruleType: String = null, severity: String = null, enforcement: String = null, enabled: Boolean = null, action: String = null): [ContentRuleType!]!
+  contentScan(id: ID = null): ContentScanType
+  contentScans(userIdentifier: String = null, endpointId: ID = null, hasViolations: Boolean = null, contentType: String = null, startDate: DateTime = null, endDate: DateTime = null): [ContentScanType!]!
+  contentViolations(ruleType: String = null, severity: String = null, endpointId: ID = null, startDate: DateTime = null, endDate: DateTime = null): [ContentViolationType!]!
+  complianceAlerts(status: String = null, severity: String = null, alertType: String = null): [ComplianceAlertType!]!
+  interactionLog(id: ID = null): InteractionLogType
+  interactionLogs(userIdentifier: String = null, endpointId: ID = null, aiProvider: String = null, aiModel: String = null, interactionType: String = null, hasViolations: Boolean = null, startDate: DateTime = null, endDate: DateTime = null): [InteractionLogType!]!
+  monitoringStats: MonitoringStatsType
+  risk(id: ID = null): RiskType
+  risks(search: String = null, category: String = null, status: String = null, riskLevel: String = null): [RiskType!]!
+  incident(id: ID = null): IncidentType
+  incidents(search: String = null, incidentType: String = null, severity: String = null, status: String = null, startDate: DateTime = null, endDate: DateTime = null): [IncidentType!]!
+  riskStats: RiskStatsType
+  retentionPolicy(id: ID = null): RetentionPolicyType
+  retentionPolicies(search: String = null, entityType: String = null, enabled: Boolean = null): [RetentionPolicyType!]!
+  legalHold(id: ID = null): LegalHoldType
+  legalHolds(holdType: String = null, status: String = null): [LegalHoldType!]!
+  policyDocument(id: ID = null): PolicyDocumentType
+  policyDocuments(search: String = null, status: String = null): [PolicyDocumentType!]!
+
+  """Get license compliance summary for an organization"""
+  licenseComplianceSummary(organizationId: UUID = null): LicenseComplianceSummaryType
+  licenseComplianceReport(id: ID = null): LicenseComplianceReportType
+  licenseComplianceReports(reportType: String = null, status: String = null, startDate: DateTime = null, endDate: DateTime = null): [LicenseComplianceReportType!]!
+  licenseComplianceViolation(id: ID = null): LicenseComplianceViolationGraphType
+  licenseComplianceViolations(violationType: String = null, severity: String = null, status: String = null): [LicenseComplianceViolationGraphType!]!
+
+  """Get violation summary for an organization"""
+  licenseViolationSummary(organizationId: UUID = null, days: Int! = 30): LicenseViolationSummaryType
+  myOrganization: OrganizationType
+  clientCoveIntegration: ClientCoveIntegrationType
+  notifications(first: Int = null, after: String = null, status: String = null): [NotificationType!]!
+  usageMetrics(startDate: DateTime = null, endDate: DateTime = null, granularity: String = null, endpointId: ID = null): UsageMetricsType
+  promptCategories(activeOnly: Boolean = null): [PromptCategoryType!]!
+  systemPrompts(first: Int = null, after: String = null, search: String = null, categorySlug: String = null, systemPromptType: String = null, provider: String = null, tagSlugs: [String!] = null, featuredOnly: Boolean = null, verifiedOnly: Boolean = null, favoritesOnly: Boolean = null): [SystemPromptType!]!
+  systemPrompt(id: UUID = null, slug: String = null): SystemPromptType
+  usageAlerts(alertType: String = null, severity: String = null, acknowledged: Boolean = null, resolved: Boolean = null, first: Int = null, after: String = null): [UsageAlertType!]!
+  complianceReports(first: Int = null, after: String = null): [ComplianceReportType!]!
+  effectivePolicies(deploymentId: ID = null, endpointId: ID = null, userId: String = null, first: Int = null, after: String = null): [EffectivePolicyType!]!
+  policyGraph(policyType: String = null, endpointStatus: String = null, riskSeverity: String = null, includeIncidents: Boolean = false): PolicyGraphType
+  promptCategory(id: UUID = null, slug: String = null): PromptCategoryDjangoType
+  promptTags(tagType: String = null, activeOnly: Boolean! = true): [PromptTagDjangoType!]!
+  featuredPrompts(limit: Int! = 6): [SystemPromptDjangoType!]!
+  popularPrompts(limit: Int! = 6): [SystemPromptDjangoType!]!
+  myPrompts: [SystemPromptDjangoType!]!
+  myFavorites: [SystemPromptDjangoType!]!
+}
+
+type RateSystemPromptPayload {
+  success: Boolean!
+  errors: [String!]!
+  ratingObj: PromptRatingDjangoType
+}
+
+type RecentActivityType {
+  id: String
+  type: String
+  description: String
+  timestamp: DateTime
+  actor: String
+}
+
+type RegenerateEndpointApiKeyPayload {
+  success: Boolean
+  apiKey: String
+  error: String
+}
+
+type ReleaseLegalHoldPayload {
+  success: Boolean
+  holdId: ID
+}
+
+type ResolveComplianceAlertPayload {
+  success: Boolean
+  alertId: ID
+}
+
+type ResolveIncidentPayload {
+  success: Boolean
+  incidentId: ID
+}
+
+type RetentionOptionsType {
+  entityTypes: [LabelValueOptionType!]!
+  expirationActions: [LabelValueOptionType!]!
+  complianceRequirements: [LabelValueOptionType!]!
+}
+
+type RetentionPolicyType {
+  id: UUID!
+  name: String!
+  description: String!
+  entityType: String!
+  deploymentIdExt: String!
+  retentionDays: Int!
+  minimumRetentionDays: Int
+  expirationAction: String!
+  archiveLocation: String!
+  complianceRequirement: String!
+  complianceNotes: String!
+  enabled: Boolean!
+  priority: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  entityTypeDisplay: String
+  expirationActionDisplay: String
+  complianceRequirementDisplay: String
+  deploymentName: String
+  createdByName: String
+}
+
+type ReviewRiskPayload {
+  success: Boolean
+  riskId: ID
+}
+
+type RevokeAPIKeyPayload {
+  ok: Boolean
+  error: String
+}
+
+type RiskByCategoryType {
+  category: String
+  count: Int!
+}
+
+type RiskByLevelType {
+  level: String
+  count: Int!
+}
+
+type RiskOptionsType {
+  categories: [LabelValueOptionType!]!
+  statuses: [LabelValueOptionType!]!
+  likelihoods: [LabelValueOptionType!]!
+  impacts: [LabelValueOptionType!]!
+}
+
+type RiskStatsType {
+  totalRisks: Int!
+  openRisks: Int!
+  criticalRisks: Int!
+  highRisks: Int!
+  risksByLevel: [RiskByLevelType!]!
+  risksByCategory: [RiskByCategoryType!]!
+  totalIncidents: Int!
+  openIncidents: Int!
+  incidentsToday: Int!
+  incidentsBySeverity: [IncidentBySeverityType!]!
+  incidentsByStatus: [IncidentByStatusType!]!
+  slaMetCount: Int!
+  slaBreachedCount: Int!
+}
+
+type RiskType {
+  id: UUID!
+  name: String!
+  description: String!
+  category: String!
+  status: String!
+  likelihood: Int!
+  impact: Int!
+  mitigationPlan: String!
+  mitigationStatus: String!
+  residualLikelihood: Int
+  residualImpact: Int
+  lastReviewedAt: DateTime
+  nextReviewDate: Date
+  tags: JSON!
+  externalReferences: JSON!
+  identifiedAt: DateTime!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  categoryDisplay: String
+  statusDisplay: String
+  likelihoodDisplay: String
+  impactDisplay: String
+  riskScore: Int
+  riskLevel: String
+  residualRiskScore: Int
+  ownerName: String
+  lastReviewedByName: String
+  incidentCount: Int
+}
+
+type RunComplianceCheckPayload {
+  success: Boolean
+  checkId: String
+  assessmentId: String
+  errors: [String!]!
+}
+
+type ScopeTypeOptionType {
+  value: String
+  label: String
+}
+
+type SimulatePolicyResultType {
+  totalEvents: Int!
+  wouldBlock: Int!
+  wouldWarn: Int!
+  wouldPass: Int!
+  inconclusive: Int!
+  impactPercent: Float!
+  blockedSamples: [String!]!
+  simulatedPolicyType: String
+  lookbackDays: Int!
+}
+
+type SuspendAgentEndpointPayload {
+  endpoint: AgentEndpointType
+  success: Boolean
+  error: String
+}
+
+type SystemPromptDjangoType {
+  id: UUID!
+  name: String!
+  slug: String!
+  description: String!
+  promptText: String!
+  promptType: String!
+  category: PromptCategoryDjangoType
+  compatibleProviders: [String!]!
+  compatibleModels: [String!]!
+  recommendedTemperature: Float
+  recommendedMaxTokens: Int
+  templateVariables: [String!]!
+  variableDefaults: JSON!
+  variableDescriptions: JSON!
+  exampleInput: String!
+  exampleOutput: String!
+  exampleConversation: JSON!
+  useCases: [String!]!
+  bestPractices: String!
+  limitations: String!
+  version: Int!
+  parentPrompt: SystemPromptDjangoType
+  changeLog: String!
+  status: String!
+  visibility: String!
+  isFeatured: Boolean!
+  isVerified: Boolean!
+  usageCount: Int!
+  favoriteCount: Int!
+  forkCount: Int!
+  avgRating: Float
+  userId: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  tags: [PromptTagDjangoType!]!
+  promptTypeDisplay: String!
+  statusDisplay: String!
+  visibilityDisplay: String!
+  isFavorited: Boolean!
+  userRating: Int
+  renderedPreview(variables: JSON = null): String
+  createdByUsername: String
+}
+
+type SystemPromptType {
+  name: String
+  slug: String
+  description: String
+  promptText: String
+  promptType: String
+  category: PromptCategoryType
+  compatibleProviders: [String!]
+  compatibleModels: [String!]
+  recommendedTemperature: Float
+  recommendedMaxTokens: Int
+  templateVariables: [String!]
+  exampleInput: String
+  exampleOutput: String
+  useCases: [String!]
+  version: Int
+  status: String
+  visibility: String
+  isFeatured: Boolean
+  isVerified: Boolean
+  usageCount: Int
+  favoriteCount: Int
+  forkCount: Int
+  avgRating: Float
+  createdAt: DateTime
+  updatedAt: DateTime
+  id: ID
+  promptTypeDisplay: String
+  statusDisplay: String
+  visibilityDisplay: String
+  tags: [PromptTagType!]
+  isFavorited: Boolean
+  userRating: Float
+  createdByUsername: String
+  variableDefaults: JSON
+}
+
+type TestContentRulePayload {
+  success: Boolean
+  matched: Boolean
+  matches: [JSON!]
+  errors: [String!]!
+}
+
+type TestSystemPromptPayload {
+  success: Boolean!
+  response: String!
+  modelUsed: String!
+  inputTokens: Int!
+  outputTokens: Int!
+  error: String
+}
+
+type ToggleContentRuleEnabledPayload {
+  success: Boolean
+  ruleId: ID
+}
+
+type ToggleFrameworkPayload {
+  framework: ComplianceFrameworkOutput
+  errors: [String!]!
+}
+
+type TogglePolicyEnabledPayload {
+  policy: PolicyType
+  success: Boolean
+  error: String
+}
+
+type TogglePromptFavoritePayload {
+  success: Boolean!
+  isFavorited: Boolean!
+}
+
+type ToggleRetentionPolicyEnabledPayload {
+  success: Boolean
+  policyId: ID
+}
+
+scalar UUID
+
+input UpdateAgentEndpointInput {
+  id: ID!
+  name: String = null
+  agentType: String = null
+  capabilities: [String!] = null
+  metadata: JSON = null
+  config: JSON = null
+  subOrganizationId: String = null
+}
+
+type UpdateAgentEndpointPayload {
+  endpoint: AgentEndpointType
+  success: Boolean
+  error: String
+}
+
+type UpdateAgentGroupPayload {
+  group: AgentGroupType
+  errors: [String!]!
+}
+
+input UpdateContentRuleInput {
+  id: ID!
+  name: String = null
+  description: String = null
+  ruleType: String = null
+  severity: String = null
+  enforcement: String = null
+  action: String = null
+  blockLevel: String = null
+  steerMessage: String = null
+  escalation: JSON = null
+  scanMode: String = null
+  scanInput: Boolean = null
+  scanOutput: Boolean = null
+  scanContext: Boolean = null
+  scopeType: String = null
+  priority: Int = null
+  enabled: Boolean = null
+  notifyUser: Boolean = null
+  notifyAdmins: Boolean = null
+  webhookUrl: String = null
+  config: JSON = null
+}
+
+type UpdateContentRulePayload {
+  success: Boolean
+  ruleId: ID
+  errors: [String!]!
+}
+
+type UpdateEndpointStatusPayload {
+  endpoint: AgentEndpointType
+  success: Boolean
+  error: String
+}
+
+input UpdateIncidentInput {
+  id: ID!
+  title: String = null
+  description: String = null
+  incidentType: String = null
+  severity: String = null
+  status: String = null
+  rootCause: String = null
+  impactAssessment: String = null
+  resolution: String = null
+  lessonsLearned: String = null
+  tags: [String!] = null
+}
+
+type UpdateIncidentPayload {
+  success: Boolean
+  incidentId: ID
+  errors: [String!]!
+}
+
+input UpdateLegalHoldInput {
+  id: ID!
+  name: String = null
+  description: String = null
+  referenceNumber: String = null
+  holdType: String = null
+  appliesToAll: Boolean = null
+  entityTypes: [String!] = null
+  userIdentifiers: [String!] = null
+  dataFrom: DateTime = null
+  dataTo: DateTime = null
+  expirationDate: DateTime = null
+  custodianEmail: String = null
+  notifyOnAccess: Boolean = null
+  notificationEmails: [String!] = null
+  metadata: JSON = null
+}
+
+type UpdateLegalHoldPayload {
+  success: Boolean
+  holdId: ID
+  errors: [String!]!
+}
+
+type UpdateNotificationPayload {
+  notification: NotificationType
+  errors: [String!]!
+}
+
+type UpdateOrganizationSettingsPayload {
+  success: Boolean
+  organization: OrganizationType
+}
+
+input UpdatePolicyInput {
+  id: ID!
+  name: String = null
+  description: String = null
+  config: JSON = null
+  overrideGroup: String = null
+  nonOverridable: Boolean = null
+  priority: Int = null
+  enforcement: String = null
+  action: String = null
+  blockLevel: String = null
+  steerMessage: String = null
+  escalation: JSON = null
+  enabled: Boolean = null
+}
+
+type UpdatePolicyPayload {
+  policy: PolicyType
+  success: Boolean
+  error: String
+}
+
+input UpdateRetentionPolicyInput {
+  id: ID!
+  name: String = null
+  description: String = null
+  entityType: String = null
+  deploymentId: ID = null
+  retentionDays: Int = null
+  minimumRetentionDays: Int = null
+  expirationAction: String = null
+  archiveLocation: String = null
+  complianceRequirement: String = null
+  complianceNotes: String = null
+  enabled: Boolean = null
+  priority: Int = null
+}
+
+type UpdateRetentionPolicyPayload {
+  success: Boolean
+  policyId: ID
+  errors: [String!]!
+}
+
+input UpdateRiskInput {
+  id: ID!
+  name: String = null
+  description: String = null
+  category: String = null
+  status: String = null
+  likelihood: Int = null
+  impact: Int = null
+  mitigationPlan: String = null
+  mitigationStatus: String = null
+  residualLikelihood: Int = null
+  residualImpact: Int = null
+  nextReviewDate: Date = null
+  tags: [String!] = null
+}
+
+type UpdateRiskPayload {
+  success: Boolean
+  riskId: ID
+  errors: [String!]!
+}
+
+input UpdateSystemPromptInput {
+  name: String = null
+  description: String = null
+  promptText: String = null
+  promptType: String = null
+  categoryId: UUID = null
+  tagIds: [UUID!] = null
+  compatibleProviders: [String!] = null
+  compatibleModels: [String!] = null
+  recommendedTemperature: Float = null
+  recommendedMaxTokens: Int = null
+  variableDefaults: JSON = null
+  variableDescriptions: JSON = null
+  exampleInput: String = null
+  exampleOutput: String = null
+  useCases: [String!] = null
+  bestPractices: String = null
+  limitations: String = null
+  visibility: String = null
+  status: String = null
+}
+
+type UpdateSystemPromptPayload {
+  success: Boolean!
+  errors: [String!]!
+  prompt: SystemPromptDjangoType
+}
+
+type UsageAlertType {
+  id: ID
+  alertType: String
+  alertTypeDisplay: String
+  severity: String
+  severityDisplay: String
+  title: String
+  message: String
+  details: JSON
+  thresholdValue: Float
+  currentValue: Float
+  acknowledged: Boolean
+  acknowledgedAt: DateTime
+  acknowledgedByEmail: String
+  resolved: Boolean
+  resolvedAt: DateTime
+  createdAt: DateTime
+}
+
+type UsageByAgentType {
+  agentId: String
+  agentName: String
+  apiCalls: Int
+  tokens: Int
+  cost: Float
+}
+
+type UsageByEndpointType {
+  endpoint: String
+  apiCalls: Int
+  avgLatencyMs: Float
+}
+
+type UsageMetricsSummaryType {
+  totalApiCalls: Int
+  totalTokens: Int
+  totalCost: Float
+  activeAgents: Int
+  storageUsedMb: Float
+}
+
+type UsageMetricsType {
+  summary: UsageMetricsSummaryType
+  timeSeries: [UsageTimeSeriesPointType!]
+  byAgent: [UsageByAgentType!]
+  byEndpoint: [UsageByEndpointType!]
+}
+
+type UsageTimeSeriesPointType {
+  date: String
+  apiCalls: Int
+  tokens: Int
+  cost: Float
+}
+
+type ViolationBySeverityType {
+  severity: String
+  count: Int!
+}
+
+type ViolationByTypeType {
+  ruleType: String
+  count: Int!
+}

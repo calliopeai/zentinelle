@@ -1,0 +1,21 @@
+{
+  "app/(app)/compliance/page.tsx#ToggleFramework": "D1, H16 (PR 10): payload has no success, enabled or frameworkId",
+  "graphql/agent-groups/mutations.ts#UpdateAgentGroup": "PR 10: schema/__init__.py types name, description, tier and color as str = None, so the schema says String! with a null default; type them Optional",
+  "graphql/agents/mutations.ts#RegenerateEndpointApiKey": "D1: argument endpointId should be id",
+  "graphql/alerts/mutations.ts#ResolveComplianceAlert": "PR 10: schema/__init__.py types notes as str = None (String! with a null default); type it Optional",
+  "graphql/api-keys/mutations.ts#CreatePlatformAPIKey": "C3 (PR 3): schema/__init__.py types scopes as list[str] = None ([String!]! with a null default)",
+  "graphql/api-keys/queries.ts#ApiKeys": "D1, C3 (PR 3): createdBy does not exist on APIKeyType",
+  "graphql/compliance-reports/mutations.ts#GenerateComplianceReport": "D1: arguments framework, startDate and endDate do not exist",
+  "graphql/compliance/mutations.ts#RunComplianceCheck": "D1, H16 (PR 10): assessmentsCreated does not exist",
+  "graphql/compliance/mutations.ts#ToggleFramework": "D1, H16 (PR 10): payload has no success, enabled or frameworkId",
+  "graphql/prompts/mutations.ts#RateSystemPrompt": "D1, L3: dead operation, delete it",
+  "graphql/prompts/mutations.ts#TestSystemPrompt": "D1, L3: dead operation, delete it",
+  "graphql/prompts/mutations.ts#TogglePromptFavorite": "D1, L3: dead operation, delete it",
+  "graphql/prompts/mutations.ts#UpdateSystemPrompt": "D1, L3: dead operation, delete it",
+  "graphql/risks/mutations.ts#AcknowledgeIncident": "D1, H15 (PR 10): payload has no errors",
+  "graphql/risks/mutations.ts#AssignIncident": "D1, L3: dead operation, delete it",
+  "graphql/risks/mutations.ts#CloseIncident": "D1, H15 (PR 10): payload has no errors; lessonsLearned is String! with a null default",
+  "graphql/risks/mutations.ts#ResolveIncident": "D1, H15 (PR 10): rootCause is not an argument; payload has no errors",
+  "graphql/risks/mutations.ts#ReviewRisk": "D1, H15 (PR 10): payload has no errors",
+  "graphql/user/user.queries.ts#Me": "D1, L3: Query.me does not exist; only unrendered components use it"
+}

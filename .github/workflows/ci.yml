@@ -262,6 +262,13 @@ jobs:
         working-directory: frontend
         run: npm run format:check
 
+      # Includes graphql/operations.test.ts: every portal operation validated
+      # against graphql/schema.graphql, which the backend job keeps equal to
+      # the served schema (test_frontend_schema_snapshot.py).
+      - name: Tests
+        working-directory: frontend
+        run: npm test
+
       # The build, not just tsc. Local `tsc` has passed while the Next build
       # failed more than once — they do not check the same things.
       - name: Build
