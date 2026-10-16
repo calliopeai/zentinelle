@@ -16,7 +16,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, Generator, List, Optional
 
 from django.core.cache import cache
-from django.db import transaction
+from django.db import router, transaction
 from django.utils import timezone
 
 from zentinelle.temporal.client import start_task
@@ -135,12 +135,12 @@ class EventStore:
             metadata=event_metadata,
         )
 
-        # Persist to Event model
-        with transaction.atomic():
+        # Persist to Event model, in a transaction on Event's own database
+        with transaction.atomic(using=router.db_for_write(Event)):
             event = Event.objects.create(
-                organization=organization,
+                tenant_id=str(getattr(organization, 'id', organization)),
                 endpoint=endpoint,
-                deployment=endpoint.deployment if endpoint else None,
+                deployment_id_ext=endpoint.deployment_id_ext if endpoint else '',
                 event_type=event_type,
                 event_category=category,
                 payload={
@@ -228,7 +228,8 @@ class EventStore:
         """
         from zentinelle.models import Event
 
-        query = Event.objects.filter(organization=organization)
+        tenant_id = str(getattr(organization, 'id', organization))
+        query = Event.objects.filter(tenant_id=tenant_id)
 
         if from_timestamp:
             query = query.filter(occurred_at__gte=from_timestamp)
@@ -249,7 +250,7 @@ class EventStore:
                 handler(envelope)
             count += 1
 
-        logger.info(f"Replayed {count} events for org {organization.id}")
+        logger.info(f"Replayed {count} events for tenant {tenant_id}")
         return count
 
     def save_snapshot(
@@ -401,7 +402,7 @@ class DeadLetterQueue:
         from zentinelle.models import Event
 
         return Event.objects.filter(
-            organization=organization,
+            tenant_id=str(getattr(organization, 'id', organization)),
             status=Event.Status.FAILED,
             retry_count__gte=self.MAX_RETRIES,
         ).order_by('-received_at')[:limit]
@@ -465,20 +466,19 @@ class AuditLogProjection:
         metadata['event_id'] = envelope.event_id
         metadata['correlation_id'] = envelope.correlation_id
 
-        # Get organization from event
+        # Get the tenant from the event
         from zentinelle.models import Event
         event = Event.objects.filter(correlation_id=envelope.correlation_id).first()
-        if not event or not event.organization:
+        if not event or not event.tenant_id:
             return
 
         # Create audit log entry
         AuditLog.log(
-            organization=event.organization,
+            tenant_id=event.tenant_id,
             action=action,
             resource_type=envelope.aggregate_type,
             resource_id=envelope.aggregate_id,
             resource_name=payload.get('resource_name', ''),
-            user=None,  # Could look up from user_identifier
             api_key_prefix=payload.get('api_key_prefix', ''),
             ip_address=payload.get('ip_address'),
             user_agent=payload.get('user_agent', ''),

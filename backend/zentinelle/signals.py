@@ -139,7 +139,13 @@ def on_audit_log_created(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='zentinelle.Event')
 def on_event_created(sender, instance, created, **kwargs):
-    """Stream new Event records to ClickHouse and dispatch webhooks for policy violations."""
+    """Stream new Event records to ClickHouse.
+
+    Bulk-created events send no post_save; the REST ingest streams those
+    itself (EventsView._stream_to_clickhouse). Alert webhooks, policy
+    violations included, go out from the event drain (tasks.events._send_alert)
+    so every ingest path notifies exactly once.
+    """
     if not created:
         return
 
@@ -155,18 +161,6 @@ def on_event_created(sender, instance, created, **kwargs):
             )
     except Exception as e:
         logger.debug(f"Failed to queue Event ClickHouse sync: {e}")
-
-    if instance.event_type == 'policy_violation' and instance.tenant_id:
-        try:
-            from zentinelle.services.webhook_dispatcher import dispatch_webhook
-            dispatch_webhook(
-                tenant_id=instance.tenant_id,
-                event_type='policy_violation',
-                severity='high',
-                payload=instance.payload or {},
-            )
-        except Exception as e:
-            logger.debug(f"Webhook dispatch failed for policy violation: {e}")
 
 
 # =============================================================================

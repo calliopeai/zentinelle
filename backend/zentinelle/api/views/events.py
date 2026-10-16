@@ -4,6 +4,7 @@ POST /api/zentinelle/v1/events
 """
 import logging
 import uuid
+from datetime import timedelta
 
 from django.db import transaction
 from django.utils import timezone
@@ -17,6 +18,7 @@ from zentinelle.api.auth import (ZentinelleAPIKeyAuthentication,
                                  get_endpoint_from_request)
 from zentinelle.api.serializers import EventsRequestSerializer
 from zentinelle.models import Event
+from zentinelle.services import clickhouse_service
 from zentinelle.services.content_capture import capture_payload
 from zentinelle.temporal.client import start_task
 
@@ -95,6 +97,9 @@ class EventsView(APIView):
         # get_or_create can safely resolve concurrent retries through the
         # database uniqueness constraint.
         created_events = Event.objects.bulk_create(event_objects)
+        # bulk_create sends no post_save, so these rows miss the signal's
+        # ClickHouse stream; the get_or_create rows below do get it.
+        self._stream_to_clickhouse(created_events, batch_id)
         duplicates = 0
         conflicts = []
         for event, _event_data in idempotent_events:
@@ -154,6 +159,23 @@ class EventsView(APIView):
             existing.occurred_at != incoming.occurred_at,
             existing.payload != incoming.payload,
         ))
+
+    @staticmethod
+    def _stream_to_clickhouse(events: list[Event], batch_id: str):
+        """Stream bulk-created events to ClickHouse in one background batch."""
+        if not events or not clickhouse_service.is_configured():
+            return
+        from zentinelle.tasks.clickhouse_sync import stream_batch_to_clickhouse
+        try:
+            start_task(
+                stream_batch_to_clickhouse, event_ids=[str(e.id) for e in events],
+                workflow_id=batch_id,
+                start_delay=timedelta(seconds=1),  # Small delay to ensure DB commit
+                wait=False,
+            )
+        except Exception as e:
+            # Never block the ingest on the analytics stream
+            logger.warning(f"Failed to queue ClickHouse sync for {batch_id}: {e}")
 
     def _queue_events(self, events: list[Event]):
         """Queue events for async processing on Temporal."""
