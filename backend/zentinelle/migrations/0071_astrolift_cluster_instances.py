@@ -12,7 +12,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("zentinelle", "0069_seed_model_prices"),
+        ("zentinelle", "0070_assign_tenantless_prompts"),
     ]
 
     operations = [

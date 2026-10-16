@@ -327,6 +327,43 @@ class PortalPageOperationTests(TestCase):
         theirs.refresh_from_db()
         self.assertEqual(theirs.prompt_text, 'Someone else wrote this prompt.')
 
+    # system-prompts/create/page.tsx, and the prompt list's Fork
+
+    def test_a_prompt_created_or_forked_in_the_portal_is_in_its_tenant(self):
+        created = self.ok('CreateSystemPrompt', input={
+            'name': 'Release notes', 'description': None, 'promptText': 'Write release notes for this change.',
+            'promptType': 'system', 'visibility': 'organization', 'compatibleProviders': None,
+            'recommendedTemperature': None,
+        })['createSystemPrompt']
+        self.assertEqual(created['errors'], [])
+        library = SystemPrompt.objects.create(
+            name='Code reviewer', slug='code-reviewer', prompt_text='Review the change for tests.',
+            status='active', visibility='public',
+        )
+        forked = self.ok('ForkSystemPrompt', id=str(library.id))['forkSystemPrompt']
+        self.assertTrue(forked['success'], forked)
+        prompts = SystemPrompt.objects.filter(id__in=[created['prompt']['id'], forked['prompt']['id']])
+        self.assertEqual(sorted(prompts.values_list('name', 'tenant_id')),
+                         [('Code reviewer (Fork)', TENANT), ('Release notes', TENANT)])
+
+        # Each was missing from the list, null by id, and not found by the
+        # builder's save.
+        listed = {p['id'] for p in self.ok('GetSystemPrompts')['systemPrompts']}
+        for prompt in prompts:
+            self.assertIn(str(prompt.id), listed)
+            self.assertEqual(self.ok('GetSystemPrompt', id=str(prompt.id))['systemPrompt']['id'], str(prompt.id))
+            saved = self.ok('UpdateSystemPrompt', id=str(prompt.id), input={
+                'name': prompt.name, 'promptText': 'Edited in the builder after saving.',
+            })['updateSystemPrompt']
+            self.assertTrue(saved['success'], saved)
+
+        theirs = SystemPrompt.objects.create(
+            tenant_id=OTHER, name='Theirs', slug='theirs', prompt_text='Another tenant wrote this prompt.',
+            status='active', visibility='organization',
+        )
+        self.refused('ForkSystemPrompt', id=str(theirs.id))
+        self.assertFalse(theirs.derived_prompts.exists())
+
     # content-rules/create-content-rule-dialog.tsx
 
     def test_testing_a_rule_runs_the_scanner_on_seeded_object_patterns(self):
