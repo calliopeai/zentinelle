@@ -7,6 +7,13 @@ Notable changes to Zentinelle. The format follows
 
 ### Added
 
+- Portal approvals inbox (#382). Governance > Approvals (`/approvals`) lists
+  the tenant's held agent actions, newest first, with their agent, user,
+  harness, session, policy reason and time left, and refreshes every 15
+  seconds. Viewers read it; operators and administrators approve or deny with
+  an optional reason, through their session and CSRF token. Arguments a
+  metadata-only capture dropped are named as missing, never reconstructed,
+  and the workload's approval token is never requested or shown.
 - Gateway: control plane passthrough (#445). With `ASTROLIFT_CONTROL_PLANE_URL`
   set, `POST /api/dispatch/v1/agents/<task id>/callback/` (an agent's state
   heartbeat and event stream) and `POST /api/clusters/v1/<cluster id>/heartbeat/`
@@ -101,6 +108,12 @@ Notable changes to Zentinelle. The format follows
 
 ### Fixed
 
+- A portal approval decision is saved only with its audit record. The
+  decision and the audit log are written through different database
+  connections, and the decision committed first, so a failed audit write left
+  an approval or denial standing unrecorded. The decision's transaction now
+  encloses the audit write and rolls back with it, as the Astrolift decision
+  path already did.
 - Model pricing matches exact model IDs only (audit C11). gpt-4 was priced as
   gpt-4o-mini, and current models (gpt-5, gpt-4.1, o3, Claude 4.5 and later,
   Gemini 2.5 and later) priced at $0, so every hard-budget request for them
