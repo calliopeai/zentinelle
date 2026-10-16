@@ -335,6 +335,94 @@ class AdministratorStopTests(TestCase):
         self.assertIsNone(self.agent().astrolift_revoked_at)
 
 
+@override_settings(ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS=30 * 24 * 3600)
+class AgentKeyRenewalAuditTests(TestCase):
+    """#412: an install cannot keep a key alive past what its tenant's audit chain shows.
+
+    A box renews about twice an hour, so a renewal is audited once it moves
+    the expiry more than a day past the one the chain last recorded.
+    """
+
+    def setUp(self):
+        self.credential, self.install = connect_install([TENANT_A])
+        self.key = mint(self.credential, ttl_seconds=3600).json()['api_key']
+
+    def renewals(self):
+        return list(AuditLog.objects.filter(action='astrolift.agent_key.renewed'))
+
+    def agent(self):
+        return AgentEndpoint.objects.get(agent_id=AGENT)
+
+    def test_the_renewals_of_a_box_in_use_are_counted_not_each_audited(self):
+        for _ in range(3):
+            self.assertEqual(renew(self.credential, ttl_seconds=3600).status_code, 200)
+
+        self.assertEqual(self.renewals(), [])
+        agent = self.agent()
+        self.assertEqual(agent.api_key_renewals_unaudited, 3)
+        self.assertLess(agent.api_key_expires_at, agent.api_key_audited_expires_at + timedelta(days=1))
+
+    def test_a_renewal_a_day_past_the_recorded_expiry_is_audited_with_the_renewals_before_it(self):
+        renew(self.credential, ttl_seconds=3600)
+        # A day of renewals later: the chain still shows the expiry at the mint.
+        AgentEndpoint.objects.filter(agent_id=AGENT).update(
+            api_key_audited_expires_at=timezone.now() - timedelta(minutes=1))
+        recorded = self.agent().api_key_audited_expires_at
+
+        response = renew(self.credential, ttl_seconds=24 * 3600)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        [record] = self.renewals()
+        agent = self.agent()
+        self.assertEqual(record.tenant_id, TENANT_A)
+        self.assertEqual(record.resource_id, str(agent.id))
+        self.assertEqual(record.metadata['install_id'], str(self.install.id))
+        self.assertEqual(record.metadata['key_prefix'], self.key[:25])
+        self.assertEqual(record.metadata['expires_at'], agent.api_key_expires_at.isoformat())
+        self.assertEqual(record.metadata['previously_recorded_expires_at'], recorded.isoformat())
+        self.assertEqual(record.metadata['renewals'], 2)
+        self.assertEqual((agent.api_key_audited_expires_at, agent.api_key_renewals_unaudited),
+                         (agent.api_key_expires_at, 0))
+        self.assertNotIn(self.key, audit_text())
+        self.assertNotIn(self.key[25:], audit_text())
+
+        # The next one is counted against the expiry just recorded.
+        renew(self.credential, ttl_seconds=24 * 3600)
+        self.assertEqual(len(self.renewals()), 1)
+
+    def test_one_long_renewal_is_audited_at_once(self):
+        response = renew(self.credential, ttl_seconds=3 * 24 * 3600)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual([r.metadata['renewals'] for r in self.renewals()], [1])
+
+    def test_a_key_minted_before_renewals_were_audited_is_audited_on_its_first_renewal(self):
+        AgentEndpoint.objects.filter(agent_id=AGENT).update(api_key_audited_expires_at=None)
+
+        renew(self.credential, ttl_seconds=60)
+
+        [record] = self.renewals()
+        self.assertIsNone(record.metadata['previously_recorded_expires_at'])
+
+    def test_minting_again_records_the_new_expiry_and_clears_the_count(self):
+        renew(self.credential, ttl_seconds=3600)
+
+        mint(self.credential, ttl_seconds=900)
+
+        agent = self.agent()
+        self.assertEqual((agent.api_key_audited_expires_at, agent.api_key_renewals_unaudited),
+                         (agent.api_key_expires_at, 0))
+
+    def test_a_refused_renewal_is_neither_audited_nor_counted(self):
+        AgentEndpoint.objects.filter(agent_id=AGENT).update(
+            api_key_expires_at=timezone.now() - timedelta(seconds=1), api_key_audited_expires_at=None)
+
+        self.assertEqual(renew(self.credential).status_code, 409)
+
+        self.assertEqual(self.renewals(), [])
+        self.assertEqual(self.agent().api_key_renewals_unaudited, 0)
+
+
 class AgentKeyExpiryAndLifetimeTests(TestCase):
     def setUp(self):
         self.credential, self.install = connect_install([TENANT_A])

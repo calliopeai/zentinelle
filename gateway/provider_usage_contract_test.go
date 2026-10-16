@@ -496,7 +496,7 @@ func TestMain(m *testing.M) {
 func TestUsageReportIsRetriedWithTheSameEvent(t *testing.T) {
 	plane, control := newMeteringPlane(t, false, "")
 	plane.eventStatus = []int{http.StatusServiceUnavailable, http.StatusTooManyRequests}
-	ReportUsage(&Config{ZentinelleURL: control.URL}, "key", "openai", "gpt-4o",
+	ReportUsage(&Config{ZentinelleURL: control.URL}, "key", "", "openai", "gpt-4o",
 		UsageData{PromptTokens: 10, CompletionTokens: 5, Reported: true}, 12, "req-retry", http.StatusOK, outcomeCompleted)
 	events := plane.waitEvents(t, 3)
 	if len(events) != 1 || !strings.HasPrefix(events[0].EventID, "gateway-usage-") {
@@ -515,7 +515,7 @@ func TestUsageReportIsRetriedWithTheSameEvent(t *testing.T) {
 func TestUsageReportIsNotRetriedOnAClientError(t *testing.T) {
 	plane, control := newMeteringPlane(t, false, "")
 	plane.eventStatus = []int{http.StatusBadRequest}
-	ReportUsage(&Config{ZentinelleURL: control.URL}, "key", "openai", "gpt-4o",
+	ReportUsage(&Config{ZentinelleURL: control.URL}, "key", "", "openai", "gpt-4o",
 		UsageData{}, 12, "req-400", http.StatusOK, outcomeCompleted)
 	plane.waitEvents(t, 1)
 	// Retries here are 1ms apart, so one would have arrived by now.
@@ -538,7 +538,7 @@ func TestShutdownDrainsPendingUsageReports(t *testing.T) {
 		delivered.Done()
 	}))
 	defer control.Close()
-	ReportUsage(&Config{ZentinelleURL: control.URL}, "key", "openai", "gpt-4o",
+	ReportUsage(&Config{ZentinelleURL: control.URL}, "key", "", "openai", "gpt-4o",
 		UsageData{}, 12, "req-drain", http.StatusOK, outcomeCompleted)
 
 	if drainUsageReports(contextWithTimeout(t, 50*time.Millisecond)) {

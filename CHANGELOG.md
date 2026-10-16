@@ -237,6 +237,24 @@ Notable changes to Zentinelle. The format follows
 
 ### Security
 
+- Astrolift agent key renewals are audited (#412). A renewal that moves a
+  key's expiry more than a day past the expiry its tenant's audit chain last
+  recorded (at the mint or the last audited renewal) writes
+  `astrolift.agent_key.renewed`, with the new and previously recorded expiry
+  and the number of renewals since, so a key is never live more than a day
+  past what the chain shows. A box renewing twice an hour writes about one
+  record a day. Migration 0071 adds the recorded expiry and the count; a key
+  minted before it is audited on its first renewal.
+- Usage reports name their source on the server (#412). An `llm:usage`,
+  `ai_request`, `model_usage` or `model_request` event's `source` is
+  `gateway` only when the report carries a gateway credential registered for
+  the agent's tenant, and `agent` otherwise, whatever the payload said, so a
+  pod holding its own agent key can no longer pass its usage off as the
+  gateway's. The gateway now sends its credential
+  (`X-Zentinelle-Gateway-Credential`) with each usage report. A credential
+  that is unknown, revoked or out of scope is logged and the usage is still
+  metered, as the agent's. Event IDs, request IDs and the raise-only repeat
+  rule are unchanged.
 - **Breaking:** the backend, ASGI and Temporal worker processes refuse to
   start while `SECRET_KEY`, `AUDIT_CHECKPOINT_SIGNING_KEY` (which inherits
   `SECRET_KEY`) or `ZENTINELLE_BOOTSTRAP_SECRET` is empty, a placeholder this

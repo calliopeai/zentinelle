@@ -166,6 +166,10 @@ class AgentEndpoint(Tracking):
     # When the key was minted: an install-minted key never works longer than
     # ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS after this, however renewed.
     api_key_issued_at = models.DateTimeField(null=True, blank=True)
+    # The expiry the audit chain last recorded for an install-minted key, at
+    # its mint or its last audited renewal, and the renewals since (#412).
+    api_key_audited_expires_at = models.DateTimeField(null=True, blank=True)
+    api_key_renewals_unaudited = models.PositiveIntegerField(default=0)
     # Set only when the minting install revoked the agent, the one stop that
     # install may undo by minting again. Every other stop (an administrator,
     # the operator API, the agent itself) clears it, so it stays stopped.

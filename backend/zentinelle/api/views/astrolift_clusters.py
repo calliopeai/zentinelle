@@ -323,7 +323,7 @@ class AstroliftAgentRenewView(_InstallView):
         data = serializer.validated_data
         try:
             agent = renew_agent_key(self.install, agent_id, timedelta(seconds=data['ttl_seconds']),
-                                    tenant_id=data['tenant_id'])
+                                    tenant_id=data['tenant_id'], request=request)
         except AstroliftError as error:
             return _refusal(error)
         return Response({'agent': _agent_json(agent)})

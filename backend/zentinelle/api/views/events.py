@@ -17,9 +17,10 @@ from rest_framework.views import APIView
 from zentinelle.api.auth import (ZentinelleAPIKeyAuthentication,
                                  get_endpoint_from_request)
 from zentinelle.api.serializers import EventsRequestSerializer
-from zentinelle.models import Event
+from zentinelle.models import Event, GatewayCredential
 from zentinelle.services import clickhouse_service
 from zentinelle.services.content_capture import capture_payload
+from zentinelle.services.usage_ingest import USAGE_EVENT_TYPES
 from zentinelle.temporal.client import start_task
 
 logger = logging.getLogger(__name__)
@@ -60,10 +61,34 @@ class EventsView(APIView):
             )
 
         return self.ingest(auth_endpoint, data['events'],
-                           identity=getattr(request, 'verified_hub_identity', None))
+                           identity=getattr(request, 'verified_hub_identity', None),
+                           usage_source=self._usage_source(request, auth_endpoint))
 
-    def ingest(self, auth_endpoint, events, *, identity=None):
-        """The common authenticated ingest path for REST events and OTLP."""
+    @staticmethod
+    def _usage_source(request, auth_endpoint):
+        """Who reported a usage event: 'gateway' only with the gateway's own credential (#412).
+
+        The agent key can post events too, so a `source` in the payload says
+        nothing. A gateway proves itself with its credential, which has to be
+        registered for the agent's tenant. Without one, or with one that does
+        not check out, the report is still metered, as the agent's.
+        """
+        presented = request.META.get('HTTP_X_ZENTINELLE_GATEWAY_CREDENTIAL', '')
+        if not presented:
+            return 'agent'
+        credential = GatewayCredential.authenticate(presented)
+        if credential is None or not credential.registration.serves(auth_endpoint.tenant_id):
+            logger.warning('Usage reported for agent %s with a gateway credential that is unknown, revoked or '
+                           'not registered for tenant %s; recorded as the agent\'s',
+                           auth_endpoint.agent_id, auth_endpoint.tenant_id)
+            return 'agent'
+        return 'gateway'
+
+    def ingest(self, auth_endpoint, events, *, identity=None, usage_source='agent'):
+        """The common authenticated ingest path for REST events and OTLP.
+
+        A usage event's `source` is `usage_source`, whatever the producer sent.
+        """
         batch_id = f"batch_{uuid.uuid4().hex[:16]}"
 
         # Create event records. Producer IDs opt a delivery into durable
@@ -75,13 +100,16 @@ class EventsView(APIView):
             if isinstance(occurred_at, str):
                 occurred_at = parse_datetime(occurred_at) or timezone.now()
 
+            payload = capture_payload(event_data.get('payload', {}), auth_endpoint.tenant_id)
+            if event_data['type'] in USAGE_EVENT_TYPES and isinstance(payload, dict):
+                payload['source'] = usage_source
             event = Event(
                 tenant_id=auth_endpoint.tenant_id,
                 endpoint=auth_endpoint,
                 deployment_id_ext=auth_endpoint.deployment_id_ext,
                 event_type=event_data['type'],
                 event_category=event_data.get('category', Event.Category.TELEMETRY),
-                payload=capture_payload(event_data.get('payload', {}), auth_endpoint.tenant_id),
+                payload=payload,
                 user_identifier=identity['user_id'] if identity else event_data.get('user_id', ''),
                 occurred_at=occurred_at,
                 status=Event.Status.PENDING,

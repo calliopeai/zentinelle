@@ -70,6 +70,10 @@ MAX_HEARTBEAT_INSTANCES = 100
 # a renewal: the operator API's bound (#379).
 MAX_AGENT_KEY_TTL = timedelta(days=30)
 
+# How far past the expiry the audit chain last recorded a renewal may move an
+# install-minted key before the renewal is audited (#412).
+RENEWAL_AUDIT_GRACE = timedelta(days=1)
+
 
 class AstroliftError(Exception):
     """A refusal the API answers with `status` and the error `code`."""
@@ -420,19 +424,21 @@ def mint_agent_key(install, agent_id, ttl, tenant_id='', name='', deployment_id=
                         tenant_id=tenant, agent_id=agent_id, name=name or agent_id,
                         agent_type=AgentEndpoint.AgentType.CUSTOM, api_key_hash=key_hash,
                         api_key_prefix=key_prefix, api_key_issued_at=now, api_key_expires_at=expires_at,
-                        deployment_id_ext=deployment_id, astrolift_install=install,
+                        api_key_audited_expires_at=expires_at, deployment_id_ext=deployment_id, astrolift_install=install,
                         status=AgentEndpoint.Status.ACTIVE, health=AgentEndpoint.Health.UNKNOWN)
             except IntegrityError:
                 raise _agent_id_taken(agent_id) from None
         else:
             agent.api_key_hash, agent.api_key_prefix = key_hash, key_prefix
             agent.api_key_issued_at, agent.api_key_expires_at = now, expires_at
+            agent.api_key_audited_expires_at, agent.api_key_renewals_unaudited = expires_at, 0
             agent.status = AgentEndpoint.Status.ACTIVE
             agent.astrolift_revoked_at = None
             agent.name = name or agent.name
             agent.deployment_id_ext = deployment_id
             agent.save(update_fields=['api_key_hash', 'api_key_prefix', 'api_key_issued_at', 'api_key_expires_at',
-                                      'status', 'astrolift_revoked_at', 'name', 'deployment_id_ext', 'updated_at'])
+                                      'api_key_audited_expires_at', 'api_key_renewals_unaudited', 'status',
+                                      'astrolift_revoked_at', 'name', 'deployment_id_ext', 'updated_at'])
         _audit(request, [tenant], 'astrolift.agent_key.minted', 'agent_endpoint', agent.id, agent.agent_id,
                {'install_id': str(install.id), 'install': install.name, 'key_prefix': key_prefix,
                 'expires_at': expires_at.isoformat(), 'new': created, 'deployment_id': deployment_id})
@@ -446,13 +452,15 @@ def _agent_id_taken(agent_id):
         'agent_id_taken', f'Agent {agent_id} exists in this tenant and was not minted by this install.', status=409)
 
 
-def renew_agent_key(install, agent_id, ttl, tenant_id=''):
+def renew_agent_key(install, agent_id, ttl, tenant_id='', request=None):
     """Let the live key of an agent this install minted work for `ttl` more. Returns the agent.
 
     Never past the key's lifetime, and never for a key that already expired
-    or was stopped: those need a fresh mint. Not audited, like a heartbeat:
-    a box in use renews about twice an hour, and the mint and the revocation
-    already bracket the key's life.
+    or was stopped: those need a fresh mint. A box in use renews about twice
+    an hour, so not every renewal is audited: one is when it moves the expiry
+    more than RENEWAL_AUDIT_GRACE past the expiry the chain last recorded (at
+    the mint or the last audited renewal), naming the renewals since. A key
+    is then never live more than a day past what its tenant's chain shows.
     """
     if not timedelta(seconds=1) <= ttl <= MAX_AGENT_KEY_TTL:
         raise AstroliftError('invalid_ttl', 'ttl_seconds must be between 1 and 2592000.')
@@ -461,16 +469,33 @@ def renew_agent_key(install, agent_id, ttl, tenant_id=''):
         raise _agent_suspended(agent)
     if agent.status != AgentEndpoint.Status.ACTIVE:
         raise AstroliftError('agent_not_found', f'Agent {agent_id} was revoked; mint a new key.', status=404)
-    now = timezone.now()
-    expires_at = min(now + ttl, lifetime_ends_at(agent))
-    # Conditional, so a key that expired, or was stopped meanwhile, is never
-    # brought back: that takes a fresh mint.
-    renewed = AgentEndpoint.objects.filter(
-        pk=agent.pk, status=AgentEndpoint.Status.ACTIVE, api_key_expires_at__gt=now,
-    ).update(api_key_expires_at=expires_at, updated_at=now)
-    if not renewed:
-        raise AstroliftError('agent_key_expired', f'The key of agent {agent_id} expired; mint a new one.', status=409)
-    agent.refresh_from_db()
+    with transaction.atomic(using=_using()):
+        now = timezone.now()
+        # Locked and conditional, so a key that expired, or was stopped
+        # meanwhile, is never brought back (that takes a fresh mint), and two
+        # renewals at once are counted one after the other.
+        agent = AgentEndpoint.objects.select_for_update().filter(
+            pk=agent.pk, status=AgentEndpoint.Status.ACTIVE, api_key_expires_at__gt=now).first()
+        if agent is None:
+            raise AstroliftError('agent_key_expired', f'The key of agent {agent_id} expired; mint a new one.',
+                                 status=409)
+        expires_at = min(now + ttl, lifetime_ends_at(agent))
+        recorded = agent.api_key_audited_expires_at
+        renewals = agent.api_key_renewals_unaudited + 1
+        audited = recorded is None or expires_at > recorded + RENEWAL_AUDIT_GRACE
+        agent.api_key_expires_at = expires_at
+        if audited:
+            agent.api_key_audited_expires_at, agent.api_key_renewals_unaudited = expires_at, 0
+        else:
+            agent.api_key_renewals_unaudited = renewals
+        agent.save(update_fields=['api_key_expires_at', 'api_key_audited_expires_at',
+                                  'api_key_renewals_unaudited', 'updated_at'])
+        if audited:
+            _audit(request, [agent.tenant_id], 'astrolift.agent_key.renewed', 'agent_endpoint', agent.id,
+                   agent.agent_id, {'install_id': str(install.id), 'install': install.name,
+                                    'key_prefix': agent.api_key_prefix, 'expires_at': expires_at.isoformat(),
+                                    'previously_recorded_expires_at': recorded.isoformat() if recorded else None,
+                                    'renewals': renewals})
     logger.info('Renewed the key of agent %s for Astrolift install %s until %s',
                 agent.agent_id, install.name, agent.api_key_expires_at.isoformat())
     return agent
