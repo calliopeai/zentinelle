@@ -63,6 +63,10 @@ class Command(BaseCommand):
                 'spec': {
                     'type': policy.policy_type,
                     'config': policy.config or {},
+                    'action': policy.action,
+                    'block_level': policy.block_level,
+                    'steer_message': policy.steer_message,
+                    'escalation': policy.escalation or {},
                 },
             }
 

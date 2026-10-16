@@ -7,6 +7,29 @@ Notable changes to Zentinelle. The format follows
 
 ### Added
 
+- Rules on tool arguments (#384). A tool_permission policy's `tool_configs`,
+  keyed by the tool's name as the harness sends it (Claude's `Bash`, `Read`,
+  `Write`, `Edit`; Codex's `shell`, `apply_patch`; Calliope AI's `shell`,
+  `read_file`, `write_file`), takes `blocked_commands` and `allowed_commands`
+  (glob patterns over each simple command, including the scripts of
+  `sh -c` and `eval`) and `allowed_paths` and `blocked_paths` (path prefixes
+  after `.` and `..` are resolved, relative paths against the call's working
+  directory). They read `context.tool_input` and `context.tool_args`; a call
+  carrying both must pass with each. A call its arguments refuse is denied
+  before any approval hold. A command that cannot be parsed, a call with no
+  command or path to check, and a relative path with no working directory
+  are refused. Blocked patterns match text, so use allowed patterns as the
+  boundary.
+- Policy actions everywhere (#409). `policy_export` writes `spec.action`,
+  `spec.block_level`, `spec.steer_message` and `spec.escalation`, and
+  `policy_apply`, `policy_validate` and `policy_diff` read and check them; a
+  file that names none leaves an existing policy's action as it is. Copilot
+  drafts, diffs and staged drafts, the assistant's `create_policy`,
+  `update_policy`, `get_policy_details` and `list_policies` tools, and
+  `activate_pack` (with `activate_compliance_pack --action` and
+  `--block-level`) carry the four fields, validated together with the stored
+  ones, and `/register` and `/config` hand them to agents with each policy.
+
 - Portal approvals inbox (#382). Governance > Approvals (`/approvals`) lists
   the tenant's held agent actions, newest first, with their agent, user,
   harness, session, policy reason and time left, and refreshes every 15

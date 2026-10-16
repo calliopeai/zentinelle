@@ -208,6 +208,10 @@ class RegisterView(APIView):
                     'name': p.name,
                     'type': p.policy_type,
                     'enforcement': p.enforcement,
+                    'action': p.action,
+                    'block_level': p.block_level,
+                    'steer_message': p.steer_message,
+                    'escalation': p.escalation,
                     'config': p.config,
                 }
                 for p in policies

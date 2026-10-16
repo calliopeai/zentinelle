@@ -13,6 +13,7 @@ import yaml
 from django.core.management.base import BaseCommand, CommandError
 
 from zentinelle.models.policy import Policy
+from zentinelle.services.actions import action_fields
 
 VALID_POLICY_TYPES = {choice[0] for choice in Policy.PolicyType.choices}
 
@@ -38,7 +39,10 @@ def _validate_doc(doc, path: str):
     """
     Validate a parsed YAML document.
 
-    Returns (name, spec_type, spec_config, scope, enforcement, priority) or raises ValueError.
+    Returns (name, spec_type, spec_config, scope, enforcement, priority, actions)
+    or raises ValueError. `actions` holds the action fields the spec sets
+    (spec.action, spec.block_level, spec.steer_message, spec.escalation),
+    checked together with the defaults for the ones it omits (#409).
     """
     if not isinstance(doc, dict):
         raise ValueError(f"{path}: document is not a mapping")
@@ -71,8 +75,12 @@ def _validate_doc(doc, path: str):
     scope = metadata.get('scope', 'organization')
     enforcement = metadata.get('enforcement', 'enforce')
     priority = int(metadata.get('priority', 0))
+    try:
+        actions = action_fields(spec)
+    except ValueError as exc:
+        raise ValueError(f"{path}: {exc}") from exc
 
-    return name, spec_type, spec_config, scope, enforcement, priority
+    return name, spec_type, spec_config, scope, enforcement, priority, actions
 
 
 class Command(BaseCommand):
@@ -124,7 +132,7 @@ class Command(BaseCommand):
                 continue
 
             try:
-                name, spec_type, spec_config, scope, enforcement, priority = _validate_doc(
+                name, spec_type, spec_config, scope, enforcement, priority, actions = _validate_doc(
                     doc_or_exc, path
                 )
             except ValueError as exc:
@@ -146,6 +154,9 @@ class Command(BaseCommand):
                 'scope_type': scope,
                 'priority': priority,
                 'enabled': True,
+                # Only the action fields the file sets: a file written before
+                # they existed leaves a policy's action as it is.
+                **actions,
             }
 
             if dry_run:

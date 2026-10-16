@@ -2,6 +2,7 @@
 import hashlib
 import re
 
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from rest_framework.views import APIView
 
@@ -9,6 +10,8 @@ from zentinelle.api.permissions import PORTAL_AUTH, PortalAccess
 from zentinelle.models import (AuditLog, ControlEvidence, LLMProviderKey,
                                Policy, PolicyChangeSet, TenantConfig)
 from zentinelle.schema.auth_helpers import get_request_tenant_id
+from zentinelle.services.actions import (ACTION_DEFAULTS, ACTION_FIELDS,
+                                         action_fields)
 
 _SENSITIVE_CONFIG_KEY = re.compile(
     r'(?:secret|token|password|credential|api[_-]?key)', re.I)
@@ -131,6 +134,10 @@ class PolicyCopilotDraftView(APIView):
             errors['policy_type'] = 'Unsupported policy type'
         if not isinstance(draft_config, dict):
             errors['config'] = 'Policy config must be an object'
+        try:
+            actions = action_fields(payload)
+        except ValueError as exc:
+            errors['action'] = str(exc)
         if errors:
             return JsonResponse(
                 {'error': 'Invalid policy draft', 'fields': errors}, status=400)
@@ -158,6 +165,7 @@ class PolicyCopilotDraftView(APIView):
                 'enforcement',
                 Policy.Enforcement.ENFORCE),
             'client_id': payload.get('client_id'),
+            **actions,
         }
         return JsonResponse({
             'draft': draft,
@@ -285,7 +293,8 @@ class PolicyCopilotDiffView(APIView):
             'policy_type': current.policy_type,
             'scope_type': current.scope_type,
             'enforcement': current.enforcement,
-            'config': current.config} if current else {}
+            'config': current.config,
+            **{name: getattr(current, name) for name in ACTION_FIELDS}} if current else {}
         after = {
             'policy_type': draft.get('policy_type') or (
                 current.policy_type if current else None),
@@ -296,6 +305,14 @@ class PolicyCopilotDiffView(APIView):
             'config': draft.get(
                 'config',
                 {})}
+        try:
+            draft_actions = action_fields(draft, current)
+        except ValueError as exc:
+            return JsonResponse({'error': 'Invalid policy draft', 'fields': {'action': str(exc)}}, status=400)
+        # The rule as it would stand: the draft's action fields over the
+        # current policy's, or the defaults for a new one.
+        after.update({name: draft_actions.get(name, before.get(name, ACTION_DEFAULTS[name]))
+                      for name in ACTION_FIELDS})
         valid_types = {choice[0] for choice in Policy.PolicyType.choices}
         valid_scopes = {choice[0] for choice in Policy.ScopeType.choices}
         valid_enforcement = {choice[0]
@@ -402,6 +419,17 @@ class PolicyCopilotStageView(APIView):
                 dict)):
             return JsonResponse(
                 {'error': 'A valid structured draft is required'}, status=400)
+        current = None
+        if draft.get('policy_id') and not str(draft['policy_id']).startswith('new:'):
+            try:
+                current = Policy.objects.filter(tenant_id=tenant_id, id=draft['policy_id']).first()
+            except (ValueError, ValidationError):
+                current = None  # promotion refuses an unknown policy id
+        try:
+            draft = {**draft, **action_fields(draft, current)}
+        except ValueError as exc:
+            return JsonResponse({'error': 'A valid structured draft is required', 'fields': {'action': str(exc)}},
+                                status=400)
         actor = str(
             getattr(
                 request.user,
