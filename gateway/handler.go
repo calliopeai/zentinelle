@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -140,8 +141,16 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. Extract model name from request body for policy context
-	model := extractModel(body, provider.Name)
+	// The policy check reads the body as text. A compressed body would reach
+	// the provider with its content unread by every input filter.
+	if enc := strings.TrimSpace(r.Header.Get("Content-Encoding")); enc != "" && !strings.EqualFold(enc, "identity") {
+		writeJSONError(w, http.StatusUnsupportedMediaType, "unsupported_content_encoding",
+			"compressed request bodies cannot be inspected; send the body uncompressed")
+		return
+	}
+
+	// 4. Extract model name for policy context
+	model := extractModel(body, provider.Name, upstreamPath)
 
 	// 5. Policy check
 	policyStart := time.Now()
@@ -220,6 +229,12 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Ask for an uncompressed response, whatever the client accepts. The
+	// gateway reads every response to meter it and, where a filter applies,
+	// to inspect it; a gzip body read as text meters nothing and hides its
+	// content from the filter. SDKs send Accept-Encoding: gzip by default.
+	upstreamReq.Header.Set("Accept-Encoding", "identity")
+
 	// Inject provider auth
 	upstreamReq.Header.Set(provider.AuthHeader, provider.AuthPrefix+apiKey)
 
@@ -268,36 +283,59 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 	// actually exists — which is why the request-time check reports it.
 	var respBody []byte
 	isStream := streaming || isStreamingResponse(upstreamResp.Header.Get("Content-Type"))
+	contentEncoding := upstreamResp.Header.Get("Content-Encoding")
+
+	// meter reports what the provider billed for this call. It runs on every
+	// path that got a response, including the ones that never deliver it: a
+	// withheld, uninspectable, abandoned or oversize response was still paid
+	// for. The body may be partial; whatever usage it carries is counted.
+	meter := func(decoded []byte, outcome string) UsageData {
+		usage := ExtractUsage(decoded, provider.Name)
+		ReportUsage(g.cfg, agentKey, provider.Name, model, usage,
+			time.Since(start).Milliseconds(), requestID, upstreamResp.StatusCode, outcome)
+		return usage
+	}
 
 	if policyResult.OutputFilterRequired {
 		respBody, err = bufferResponse(upstreamResp, g.cfg.MaxResponseBytes)
+		var inspected []byte
+		if err == nil {
+			inspected, err = decodeBody(contentEncoding, respBody, g.cfg.MaxResponseBytes)
+		}
 		if err != nil {
+			logJSON("warn", "response could not be inspected", map[string]interface{}{
+				"request_id": requestID,
+				"provider":   provider.Name,
+				"error":      err.Error(),
+			})
+			partial, _ := decodeBody(contentEncoding, respBody, g.cfg.MaxResponseBytes)
+			meter(partial, outcomeInspectionFailed)
 			writeJSONError(w, http.StatusBadGateway, "inspection_failed", "response could not be inspected")
 			return
 		}
-		if err == nil {
-			output := string(respBody)
-			if isStream {
-				output = sseText(respBody)
-			}
 
-			outcome := CheckOutputPolicy(r.Context(), g.cfg, agentKey, provider.Name, model, output)
-			if !outcome.Allowed {
-				logJSON("warn", "response withheld by output filter", map[string]interface{}{
-					"request_id": requestID,
-					"provider":   provider.Name,
-					"model":      model,
-					"reason":     outcome.Reason,
-				})
-				// Nothing has been written yet, so this is a clean refusal
-				// rather than a truncated answer.
-				g.stats.blocked.Add(1)
-				writeJSONError(w, http.StatusForbidden, "output_filtered", outcome.Reason)
-				return
-			}
-
-			err = deliverBuffered(w, upstreamResp, respBody)
+		output := string(inspected)
+		if isStream {
+			output = sseText(inspected)
 		}
+
+		outcome := CheckOutputPolicy(r.Context(), g.cfg, agentKey, provider.Name, model, output)
+		if !outcome.Allowed {
+			logJSON("warn", "response withheld by output filter", map[string]interface{}{
+				"request_id": requestID,
+				"provider":   provider.Name,
+				"model":      model,
+				"reason":     outcome.Reason,
+			})
+			// Nothing has been written yet, so this is a clean refusal
+			// rather than a truncated answer.
+			g.stats.blocked.Add(1)
+			meter(inspected, outcomeOutputFiltered)
+			writeJSONError(w, http.StatusForbidden, "output_filtered", outcome.Reason)
+			return
+		}
+
+		err = deliverBuffered(w, upstreamResp, respBody)
 	} else if isStream {
 		respBody, err = streamResponse(w, upstreamResp, g.cfg.MaxResponseBytes)
 	} else {
@@ -306,8 +344,12 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 
 	latencyMs := time.Since(start).Milliseconds()
 
+	outcome := outcomeCompleted
 	if err != nil {
-		if _, ok := err.(*responseTooLargeError); ok {
+		var clientErr *clientWriteError
+		switch {
+		case errors.As(err, new(*responseTooLargeError)):
+			outcome = outcomeResponseTooLarge
 			logJSON("error", "response too large", map[string]interface{}{
 				"request_id": requestID,
 				"provider":   provider.Name,
@@ -315,7 +357,15 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 			})
 			// Response already partially written — can't change status code.
 			// Log and move on.
-		} else {
+		case errors.As(err, &clientErr) || r.Context().Err() != nil:
+			outcome = outcomeClientDisconnected
+			logJSON("warn", "client went away before the response completed", map[string]interface{}{
+				"request_id": requestID,
+				"provider":   provider.Name,
+				"error":      err.Error(),
+			})
+		default:
+			outcome = outcomeUpstreamReadFailed
 			logJSON("error", "response forwarding failed", map[string]interface{}{
 				"request_id": requestID,
 				"provider":   provider.Name,
@@ -337,24 +387,39 @@ func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {
 		"model":           model,
 		"upstream_status": upstreamResp.StatusCode,
 		"latency_ms":      latencyMs,
+		"outcome":         outcome,
 	})
 
 	// 11. Async usage reporting, and the interaction itself
+	decoded, _ := decodeBody(contentEncoding, respBody, g.cfg.MaxResponseBytes)
+	usage := meter(decoded, outcome)
 	if len(respBody) > 0 {
-		usage := ExtractUsage(respBody, provider.Name)
-		if usage.PromptTokens > 0 || usage.CompletionTokens > 0 {
-			ReportUsage(g.cfg, agentKey, provider.Name, model, usage, latencyMs, requestID)
-		}
 		// Reuses the bodies already in hand — the request was read to extract
 		// the model, the response to extract usage — so a trace costs no extra
 		// buffering.
 		LogInteraction(g.cfg, agentKey, provider.Name, model,
-			body, respBody, isStream, usage, latencyMs, requestID)
+			body, decoded, isStream, usage, latencyMs, requestID)
 	}
 }
 
-// extractModel pulls the model name from the request body.
-func extractModel(body []byte, providerName string) string {
+// extractModel pulls the model name from the request.
+//
+// Gemini names the model in the path (/v1beta/models/gemini-2.5-pro:
+// generateContent) and never in the body, so for Google the path is the
+// authority. Reading only the body left every Gemini call with no model, and
+// so with no pricing, no model policy and no hard budget that could pass.
+func extractModel(body []byte, providerName string, upstreamPath string) string {
+	if providerName == "google" {
+		if _, rest, ok := strings.Cut(upstreamPath, "/models/"); ok {
+			if end := strings.IndexAny(rest, ":/"); end >= 0 {
+				rest = rest[:end]
+			}
+			if rest != "" {
+				return rest
+			}
+		}
+	}
+
 	if len(body) == 0 {
 		return ""
 	}

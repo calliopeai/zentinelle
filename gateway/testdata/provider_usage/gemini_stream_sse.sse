@@ -1,0 +1,4 @@
+data: {"candidates": [{"content": {"parts": [{"text": "The capital"}],"role": "model"},"index": 0}],"usageMetadata": {"promptTokenCount": 30,"totalTokenCount": 930,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 30}],"thoughtsTokenCount": 900},"modelVersion": "gemini-2.5-pro","responseId": "kvLnaNGkLsiz7IPq4bq0Ac"}
+
+data: {"candidates": [{"content": {"parts": [{"text": " of France is Paris."}],"role": "model"},"finishReason": "STOP","index": 0}],"usageMetadata": {"promptTokenCount": 30,"candidatesTokenCount": 10,"totalTokenCount": 940,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 30}],"thoughtsTokenCount": 900},"modelVersion": "gemini-2.5-pro","responseId": "kvLnaNGkLsiz7IPq4bq0Ac"}
+

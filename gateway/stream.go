@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -58,6 +61,7 @@ func streamResponse(w http.ResponseWriter, upstreamResp *http.Response, maxBytes
 	w.WriteHeader(upstreamResp.StatusCode)
 
 	var buf []byte
+	var writeErr error
 	total := int64(0)
 	chunk := make([]byte, 4096)
 
@@ -66,31 +70,49 @@ func streamResponse(w http.ResponseWriter, upstreamResp *http.Response, maxBytes
 		if n > 0 {
 			total += int64(n)
 			if total > maxBytes {
+				// What fits is kept for metering, not sent.
+				buf = append(buf, chunk[:n-int(total-maxBytes)]...)
 				return buf, &responseTooLargeError{limit: maxBytes}
-			}
-
-			// Write to client
-			if _, writeErr := w.Write(chunk[:n]); writeErr != nil {
-				return buf, writeErr
 			}
 
 			// Buffer for usage extraction
 			buf = append(buf, chunk[:n]...)
 
-			// Flush immediately for SSE
-			if canFlush {
-				flusher.Flush()
+			// Write to client, while it is still there. Once a write fails
+			// the rest is read and not sent: usage arrives in the last
+			// events of a stream, and the provider bills the call whether
+			// or not the caller stayed for it.
+			if writeErr == nil {
+				if _, writeErr = w.Write(chunk[:n]); writeErr == nil && canFlush {
+					// Flush immediately for SSE
+					flusher.Flush()
+				}
 			}
 		}
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
+			if writeErr != nil {
+				return buf, &clientWriteError{err: writeErr}
+			}
 			return buf, err
 		}
 	}
 
+	if writeErr != nil {
+		return buf, &clientWriteError{err: writeErr}
+	}
 	return buf, nil
+}
+
+// clientWriteError is a stream the caller stopped receiving.
+type clientWriteError struct {
+	err error
+}
+
+func (e *clientWriteError) Error() string {
+	return "client write failed: " + e.err.Error()
 }
 
 // copyResponse copies a non-streaming upstream response to the client.
@@ -109,7 +131,8 @@ func copyResponse(w http.ResponseWriter, upstreamResp *http.Response, maxBytes i
 	}
 
 	if int64(len(body)) > maxBytes {
-		return nil, &responseTooLargeError{limit: maxBytes}
+		// The partial body goes back for metering only.
+		return body, &responseTooLargeError{limit: maxBytes}
 	}
 
 	w.WriteHeader(upstreamResp.StatusCode)
@@ -133,14 +156,43 @@ func (e *responseTooLargeError) Error() string {
 // only redacted what came after it had already leaked the part that came
 // before, and on a streamed response that is most of it.
 func bufferResponse(upstreamResp *http.Response, maxBytes int64) ([]byte, error) {
+	// On failure the partial body still comes back, for metering only.
 	body, err := io.ReadAll(io.LimitReader(upstreamResp.Body, maxBytes+1))
 	if err != nil {
-		return nil, err
+		return body, err
 	}
 	if int64(len(body)) > maxBytes {
-		return nil, &responseTooLargeError{limit: maxBytes}
+		return body, &responseTooLargeError{limit: maxBytes}
 	}
 	return body, nil
+}
+
+// decodeBody returns a response body as plain bytes, for the gateway's own
+// reading: usage extraction and the output filter. What the client receives
+// is untouched.
+//
+// The gateway asks providers for identity encoding, so this is the fallback
+// for one that compresses anyway. Reading gzip as text meters nothing and
+// lets a filter pass compressed PII it cannot see, so an encoding this cannot
+// decode is an error, and the output filter treats it as uninspectable.
+// A truncated gzip stream returns what decoded before the error.
+func decodeBody(contentEncoding string, body []byte, maxBytes int64) ([]byte, error) {
+	switch strings.ToLower(strings.TrimSpace(contentEncoding)) {
+	case "", "identity":
+		return body, nil
+	case "gzip", "x-gzip":
+		zr, err := gzip.NewReader(bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		decoded, err := io.ReadAll(io.LimitReader(zr, maxBytes+1))
+		if err == nil && int64(len(decoded)) > maxBytes {
+			err = &responseTooLargeError{limit: maxBytes}
+		}
+		return decoded, err
+	default:
+		return nil, fmt.Errorf("unsupported content encoding %q", contentEncoding)
+	}
 }
 
 // deliverBuffered writes a response that was held back for inspection.

@@ -1,0 +1,46 @@
+[{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "The capital"
+          }
+        ],
+        "role": "model"
+      },
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 30,
+    "totalTokenCount": 930,
+    "thoughtsTokenCount": 900
+  },
+  "modelVersion": "gemini-2.5-pro"
+}
+,
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": " of France is Paris."
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 30,
+    "candidatesTokenCount": 10,
+    "totalTokenCount": 940,
+    "thoughtsTokenCount": 900
+  },
+  "modelVersion": "gemini-2.5-pro"
+}
+]
