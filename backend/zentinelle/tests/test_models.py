@@ -18,8 +18,9 @@ class AgentEndpointModelTest(TestCase):
 
         # Check format
         self.assertTrue(full_key.startswith('sk_agent_'))
-        self.assertEqual(len(key_prefix), 12)
-        self.assertEqual(key_prefix, full_key[:12])
+        # sk_agent_ and 16 random characters (T10)
+        self.assertEqual(len(key_prefix), 25)
+        self.assertEqual(key_prefix, full_key[:25])
 
         # Check hash is bcrypt format
         self.assertTrue(key_hash.startswith('$2b$'))

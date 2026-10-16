@@ -20,7 +20,7 @@ class OperatorAuthTests(SimpleTestCase):
         record.is_active = True
         record.scopes = ['read', 'write']
         record.id = 'key-id'
-        with patch.object(APIKey.objects, 'get', return_value=record), \
+        with patch.object(APIKey.objects, 'filter', return_value=[record]), \
                 patch.object(APIKey, 'verify_api_key', return_value=True):
             user, token = ZentinellePlatformKeyAuthentication().authenticate(request)
         self.assertIsInstance(user, ZentinelleServiceUser)
