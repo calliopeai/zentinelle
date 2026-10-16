@@ -171,7 +171,7 @@ credential or an agent key.
 
 An agent whose egress is the gateway alone still has to reach the Astrolift
 control plane for its keepalive. With `ASTROLIFT_CONTROL_PLANE_URL` set, the
-gateway passes exactly two routes straight through to it, with no policy check,
+gateway passes exactly these routes straight through to it, with no policy check,
 provider-key lookup or metering, so a degraded Zentinelle does not make a live
 agent look like an outage:
 
@@ -179,6 +179,7 @@ agent look like an outage:
 |-------|--------|
 | `POST /api/dispatch/v1/agents/<task id>/callback/` | The agent runner's state heartbeat and its event stream |
 | `POST /api/clusters/v1/<cluster id>/heartbeat/` | The keep-alive agent's cluster heartbeat |
+| `POST /api/clusters/v1/<cluster id>/model-test-result/` | The keep-alive agent's model test result, derived from its `HEARTBEAT_URL` |
 
 It is not an open proxy. Only `POST` with `Authorization: Bearer ...` is
 passed, and the control plane authenticates that key. Each id is one plain
@@ -208,7 +209,7 @@ are refused like any other unknown path.
 |------|---------|
 | `/health` | Liveness, and which providers have env keys the gateway will use (empty unless `ALLOW_ENV_PROVIDER_KEYS=true`) |
 | `/metrics` | Prometheus text format. No authentication — scrape it from inside the cluster, not from the internet |
-| `/api/dispatch/v1/agents/<id>/callback/`, `/api/clusters/v1/<id>/heartbeat/` | Passed to the control plane when `ASTROLIFT_CONTROL_PLANE_URL` is set. See [Control Plane Passthrough](#control-plane-passthrough) |
+| `/api/dispatch/v1/agents/<id>/callback/`, `/api/clusters/v1/<id>/heartbeat/`, `/api/clusters/v1/<id>/model-test-result/` | Passed to the control plane when `ASTROLIFT_CONTROL_PLANE_URL` is set. See [Control Plane Passthrough](#control-plane-passthrough) |
 | everything else | Proxied to the provider the path selects |
 
 | Variable | Default | Description |

@@ -56,6 +56,7 @@ func TestAgentHeartbeatAndEventsPassThroughWhileZentinelleIsDown(t *testing.T) {
 	for _, path := range []string{
 		"/api/dispatch/v1/agents/3f1c2a4e-9b7d-4c1e-8a2f-0d6e5b4c3a21/callback/",
 		"/api/clusters/v1/0b7e9c2d-1a3f-4e5d-9c8b-7a6f5e4d3c2b/heartbeat/",
+		"/api/clusters/v1/0b7e9c2d-1a3f-4e5d-9c8b-7a6f5e4d3c2b/model-test-result/",
 	} {
 		t.Run(path, func(t *testing.T) {
 			gw, zentinelleCalls, calls := passthroughRig(t)
@@ -99,7 +100,8 @@ func TestPassthroughIsOnlyThoseRoutes(t *testing.T) {
 		"/api/dispatch/v1/agents/a/b/callback/",
 		"/api/dispatch/v1/agents/../callback/",
 		"/api/dispatch/v1/agents/a%2Fb/callback/",
-		"/api/clusters/v1/abc/model-test-result/",
+		"/api/clusters/v1/abc/model-test-result",
+		"/api/clusters/v1/abc/heartbeat/model-test-result/",
 		"/api/dispatch/v1/tasks/abc/status/",
 		"/x/api/clusters/v1/abc/heartbeat/",
 		"/api/clusters/v1/abc/heartbeat/?next=http://elsewhere",

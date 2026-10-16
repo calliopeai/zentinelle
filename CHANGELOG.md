@@ -10,7 +10,8 @@ Notable changes to Zentinelle. The format follows
 - Gateway: control plane passthrough (#445). With `ASTROLIFT_CONTROL_PLANE_URL`
   set, `POST /api/dispatch/v1/agents/<task id>/callback/` (an agent's state
   heartbeat and event stream) and `POST /api/clusters/v1/<cluster id>/heartbeat/`
-  (the keep-alive agent) go straight to the Astrolift control plane, skipping
+  and `POST /api/clusters/v1/<cluster id>/model-test-result/` (the keep-alive
+  agent, which derives the second from its `HEARTBEAT_URL`) go straight to the Astrolift control plane, skipping
   the policy check, provider-key lookup and metering, so a degraded Zentinelle
   does not make a live agent look like an outage. Only those routes, only
   `POST` with a bearer key the control plane authenticates, and only

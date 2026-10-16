@@ -14,11 +14,13 @@ import (
 
 // controlPlaneRoutes are the only paths the gateway passes straight through to
 // the Astrolift control plane (#445): an agent task's state and event callback
-// (its heartbeat and its event stream share it) and the keep-alive agent's
-// cluster heartbeat. Each id segment is one plain path segment, so no
-// encoded slash, dot segment or query reaches the control plane under them.
+// (its heartbeat and its event stream share it), the keep-alive agent's
+// cluster heartbeat, and its model-test-result, which the keep-alive derives
+// from its HEARTBEAT_URL and so follows the heartbeat here. Each id segment is
+// one plain path segment, so no encoded slash, dot segment or query reaches the
+// control plane under them.
 var controlPlaneRoutes = regexp.MustCompile(
-	`^/api/(dispatch/v1/agents/[A-Za-z0-9_-]+/callback|clusters/v1/[A-Za-z0-9_-]+/heartbeat)/$`)
+	`^/api/(dispatch/v1/agents/[A-Za-z0-9_-]+/callback|clusters/v1/[A-Za-z0-9_-]+/(heartbeat|model-test-result))/$`)
 
 // controlPlaneTimeout bounds one passed-through call. The agents give up on
 // theirs after 15 seconds.
