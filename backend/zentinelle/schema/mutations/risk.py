@@ -325,19 +325,19 @@ def create_incident(info: strawberry.types.Info, input: CreateIncidentInput) -> 
 
         # Linked rows come from the caller's tenant only: an id from another
         # tenant would otherwise attach, and then show, that tenant's agent or
-        # risk in this tenant's incident.
+        # risk in this tenant's incident. Each id is a relay or a raw id, as
+        # in the other incident and risk mutations.
         if input.endpoint_id:
-            _, ep_pk = from_global_id(input.endpoint_id)
+            ep_pk = _decode_id(input.endpoint_id)
             endpoint = AgentEndpoint.objects.filter(pk=ep_pk, tenant_id=tenant_id).first()
             if endpoint is None:
                 return CreateIncidentPayload(success=False, errors=["Endpoint not found"])
 
         if input.deployment_id:
-            _, dep_pk = from_global_id(input.deployment_id)
-            deployment_id_ext = dep_pk
+            deployment_id_ext = _decode_id(input.deployment_id)
 
         if input.related_risk_id:
-            _, risk_pk = from_global_id(input.related_risk_id)
+            risk_pk = _decode_id(input.related_risk_id)
             related_risk = Risk.objects.filter(pk=risk_pk, tenant_id=tenant_id).first()
             if related_risk is None:
                 return CreateIncidentPayload(success=False, errors=["Risk not found"])

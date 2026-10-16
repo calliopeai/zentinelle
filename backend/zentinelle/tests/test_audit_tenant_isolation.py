@@ -496,6 +496,27 @@ class CreateIncidentTenancyTests(TwoTenantTestCase):
         incident = Incident.objects.get(endpoint=self.agent_a)
         self.assertEqual((incident.tenant_id, incident.related_risk_id), (TENANT_A, mine.pk))
 
+    def test_raw_ids_link_like_relay_ids(self):
+        # The portal sends raw UUIDs (H14); they decoded to nothing here.
+        mine = Risk.objects.create(tenant_id=TENANT_A, name='My risk', description='x')
+
+        result = self.create(endpointId=str(self.agent_a.pk), relatedRiskId=str(mine.pk),
+                             deploymentId='dep-ext-1')
+
+        self.assertTrue(result.data['createIncident']['success'], result.data)
+        incident = Incident.objects.get(endpoint=self.agent_a)
+        self.assertEqual((incident.related_risk_id, incident.deployment_id_ext), (mine.pk, 'dep-ext-1'))
+
+    def test_another_tenants_raw_ids_cannot_be_linked(self):
+        theirs = Risk.objects.create(tenant_id=TENANT_B, name='Their risk', description='x')
+
+        for links in ({'endpointId': str(self.agent_b.pk)}, {'relatedRiskId': str(theirs.pk)}):
+            with self.subTest(**links):
+                result = self.create(**links)
+                self.assertIsNone(result.errors)
+                self.assertFalse(result.data['createIncident']['success'])
+        self.assertFalse(Incident.objects.exists())
+
 
 # ---------------------------------------------------------------------------
 # T3, T4, T5: the Django proxy
