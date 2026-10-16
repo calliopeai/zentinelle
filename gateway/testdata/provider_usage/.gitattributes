@@ -1,0 +1,2 @@
+# Wire captures: Gemini frames its stream with CRLF, and the fixtures keep it.
+* -text
