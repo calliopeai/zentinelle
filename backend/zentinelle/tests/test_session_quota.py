@@ -177,7 +177,7 @@ class TestSessionQuotaEvaluator(unittest.TestCase):
         })
         context = {
             'session_id': 'sess-1',
-            'tenant_id': 'tenant-1',
+            '_tenant_id': 'tenant-1',
             'bytes_read': 1024,
             'tool_call_count': 1,
         }
@@ -194,7 +194,7 @@ class TestSessionQuotaEvaluator(unittest.TestCase):
         policy = make_policy(config={'max_bytes_read': 52428800})
         context = {
             'session_id': 'sess-1',
-            'tenant_id': 'tenant-1',
+            '_tenant_id': 'tenant-1',
             'bytes_read': 5000000,  # pushes total over
         }
         result, _ = self._evaluate(evaluator, policy, 'tool:file_read', context, store=store)
@@ -213,7 +213,7 @@ class TestSessionQuotaEvaluator(unittest.TestCase):
         })
         context = {
             'session_id': 'sess-1',
-            'tenant_id': 'tenant-1',
+            '_tenant_id': 'tenant-1',
             'bytes_read': int(limit * 0.05),  # nudge above warn threshold, still under hard limit
         }
         result, _ = self._evaluate(evaluator, policy, 'tool:file_read', context, store=store)
@@ -230,7 +230,7 @@ class TestSessionQuotaEvaluator(unittest.TestCase):
         policy = make_policy(config={'max_bytes_read': 52428800})
         context = {
             'session_id': 'sess-1',
-            'tenant_id': 'tenant-1',
+            '_tenant_id': 'tenant-1',
             'bytes_read': 1024,
         }
         result, _ = self._evaluate(

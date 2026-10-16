@@ -35,9 +35,12 @@ class RateLimitEvaluator(BasePolicyEvaluator):
         config = policy.config
         warnings = []
 
-        # Build cache key prefix
-        endpoint_id = context.get('endpoint_id', 'unknown')
-        key_prefix = f"zentinelle:ratelimit:{endpoint_id}"
+        # Build cache key prefix from the engine's trusted identity. A
+        # caller-supplied endpoint_id shared one bucket across every tenant
+        # and let any caller reset its own count by changing it.
+        tenant_id = context.get('_tenant_id', 'unknown')
+        endpoint_id = context.get('_endpoint_id', 'unknown')
+        key_prefix = f"zentinelle:ratelimit:{tenant_id}:{endpoint_id}"
         if user_id:
             key_prefix += f":{user_id}"
 

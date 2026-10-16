@@ -18,7 +18,7 @@ class TestProxyView(unittest.TestCase):
         self.factory = RequestFactory()
         self.view = ProxyView.as_view()
 
-    def _make_request(self, provider='openai', path='v1/chat/completions',
+    def _make_request(self, provider='openai', path='chat/completions',
                       zentinelle_key=None, body=None, method='POST'):
         body_bytes = json.dumps(body or {}).encode() if body else b''
         request = self.factory.generic(
@@ -34,7 +34,7 @@ class TestProxyView(unittest.TestCase):
     def test_missing_zentinelle_key_returns_401(self):
         """Request without X-Zentinelle-Key returns 401."""
         request = self._make_request()
-        response = self.view(request, provider='openai', path='v1/chat/completions')
+        response = self.view(request, provider='openai', path='chat/completions')
         self.assertEqual(response.status_code, 401)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'missing_key')
@@ -50,7 +50,7 @@ class TestProxyView(unittest.TestCase):
         mock_resolver_cls.return_value = mock_resolver
 
         request = self._make_request(zentinelle_key='sk_agent_invalid')
-        response = self.view(request, provider='openai', path='v1/chat/completions')
+        response = self.view(request, provider='openai', path='chat/completions')
         self.assertEqual(response.status_code, 401)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'invalid_key')
@@ -87,18 +87,19 @@ class TestProxyView(unittest.TestCase):
             zentinelle_key='sk_agent_validkey',
             body={'model': 'gpt-4', 'messages': []},
         )
-        response = self.view(request, provider='openai', path='v1/chat/completions')
+        response = self.view(request, provider='openai', path='chat/completions')
         self.assertEqual(response.status_code, 403)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'policy_denied')
         self.assertIn('allowlist', data['detail'])
 
+    @patch('zentinelle.proxy.views.ProxyView._get_managed_provider_key', return_value=None)
     @patch('httpx.Client')
     @patch('zentinelle.proxy.views.PolicyEngine')
     @patch('zentinelle.proxy.views.AgentEndpoint')
     @patch('zentinelle.proxy.views.StandaloneTenantResolver')
     def test_valid_request_forwarded_to_provider(
-        self, mock_resolver_cls, mock_endpoint_cls, mock_engine_cls, mock_httpx_client_cls
+        self, mock_resolver_cls, mock_endpoint_cls, mock_engine_cls, mock_httpx_client_cls, _managed_key
     ):
         """Valid request is forwarded to the upstream provider and response returned."""
         endpoint_id = str(uuid.uuid4())
@@ -142,7 +143,7 @@ class TestProxyView(unittest.TestCase):
                 zentinelle_key='sk_agent_validkey',
                 body={'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'Hello'}]},
             )
-            response = self.view(request, provider='openai', path='v1/chat/completions')
+            response = self.view(request, provider='openai', path='chat/completions')
 
         self.assertEqual(response.status_code, 200)
         # X-Zentinelle-Key must not have been forwarded
@@ -164,7 +165,7 @@ class TestProxyView(unittest.TestCase):
             mock_resolver_cls.return_value = mock_resolver
 
             request = self._make_request(zentinelle_key='sk_agent_valid')
-            response = self.view(request, provider='unknownprovider', path='v1/chat/completions')
+            response = self.view(request, provider='unknownprovider', path='chat/completions')
 
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)

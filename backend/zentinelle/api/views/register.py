@@ -142,6 +142,10 @@ class RegisterView(APIView):
         existing = AgentEndpoint.objects.filter(
             tenant_id=tenant_id, agent_id=agent_id
         ).first()
+        if existing is not None:
+            refusal = self._refuse_reregister(existing, data['agent_type'])
+            if refusal is not None:
+                return refusal
 
         # Generate API key. Registration is the only time the plaintext exists,
         # so a re-register has to mint a fresh one for the caller to use.
@@ -153,12 +157,10 @@ class RegisterView(APIView):
             # existing identity rather than fail. Config is left alone: it may
             # have been tuned since the first registration.
             existing.name = data.get('name', existing.name)
-            existing.agent_type = data['agent_type']
             existing.api_key_hash = key_hash
             existing.api_key_prefix = key_prefix
             existing.capabilities = data.get('capabilities', existing.capabilities)
             existing.metadata = metadata
-            existing.status = AgentEndpoint.Status.ACTIVE
             existing.health = AgentEndpoint.Health.UNKNOWN
             existing.save()
 
@@ -207,6 +209,39 @@ class RegisterView(APIView):
             response_data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+    @staticmethod
+    def _refuse_reregister(existing, agent_type):
+        """Why a bootstrap token may not re-register `existing`, or None.
+
+        A bootstrap token is a tenant-wide registration credential, so a
+        re-register may only restart an agent this same path made and that is
+        still running as the same kind of agent. Anything else would let the
+        token's holder take the agent over: revive one that was stopped, lift
+        an agent into a more trusted type, or replace the key of an agent whose
+        key Astrolift or an operator issues with a lifetime.
+        """
+        if existing.astrolift_install_id is not None or existing.api_key_expires_at is not None:
+            return Response(
+                {'error': 'agent_id_taken',
+                 'detail': f'Agent {existing.agent_id} has a managed key and cannot be re-registered '
+                           'with a bootstrap token.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if existing.status != AgentEndpoint.Status.ACTIVE:
+            return Response(
+                {'error': 'agent_stopped',
+                 'detail': f'Agent {existing.agent_id} was stopped ({existing.status}) and stays stopped.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if existing.agent_type != agent_type:
+            return Response(
+                {'error': 'agent_type_mismatch',
+                 'detail': f'Agent {existing.agent_id} is registered as {existing.agent_type}; '
+                           'a re-register cannot change its type.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return None
 
     def _get_default_config(self) -> dict:
         """Default configuration for new agents."""

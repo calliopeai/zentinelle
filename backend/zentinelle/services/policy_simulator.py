@@ -43,7 +43,7 @@ def simulate_policy(
         Event.objects.filter(
             tenant_id=tenant_id,
             occurred_at__gte=since,
-        ).order_by('-occurred_at')[:max_events]
+        ).select_related('endpoint').order_by('-occurred_at')[:max_events]
     )
 
     total_events = len(events)
@@ -76,6 +76,14 @@ def simulate_policy(
             from zentinelle.services.evaluation_context import \
                 normalize_context
             context = normalize_context(context)
+            # The event's own tenant and agent, as the engine would set them.
+            # The payload is what an agent posted, so a key it chose must not
+            # point an evaluator at another tenant's counters or baselines.
+            context = {k: v for k, v in context.items() if not k.startswith('_')}
+            context['_tenant_id'] = tenant_id
+            if event.endpoint is not None:
+                context['_endpoint_id'] = str(event.endpoint.id)
+                context['_agent_id'] = event.endpoint.agent_id
             required_context = {'prompt_injection': 'input_text', 'output_filter': 'output_text'}
             required = required_context.get(policy_type)
             if required and required not in context:

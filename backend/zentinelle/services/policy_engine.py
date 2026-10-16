@@ -311,6 +311,7 @@ class PolicyEngine:
         # Trusted workload identity always replaces caller-supplied values.
         context['_tenant_id'] = endpoint.tenant_id
         context['_endpoint_id'] = str(endpoint.id)
+        context['_agent_id'] = endpoint.agent_id
         # Preserve the complete taxonomy decision context in traces and
         # incident evidence. Unsupported labels remain visible to operators;
         # only canonical/tenant-approved labels participate in selection.

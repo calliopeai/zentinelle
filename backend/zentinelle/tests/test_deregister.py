@@ -145,7 +145,7 @@ class TestDeregisterView(unittest.TestCase):
         )
 
         # Cache keys for this agent should be deleted
-        expected_config_key = 'zentinelle:config:my-agent'
+        expected_config_key = 'zentinelle:config:acme:my-agent'
         expected_baseline_key = 'baseline:acme:my-agent'
         mock_cache.delete.assert_any_call(expected_config_key)
         mock_cache.delete.assert_any_call(expected_baseline_key)

@@ -432,6 +432,15 @@ BILLING_MODE = os.environ.get("BILLING_MODE", "governance_only")
 ZENTINELLE_GATEWAY_CREDENTIAL_FILE = os.environ.get(
     "ZENTINELLE_GATEWAY_CREDENTIAL_FILE", "/var/run/zentinelle/gateway-credential")
 
+# The Django proxy injects the install's env provider keys (MANAGED_*, then
+# OPENAI/ANTHROPIC/GOOGLE_API_KEY) for a tenant with no stored LLMProviderKey
+# only when this is set. Single-tenant only: an env key is one account's key,
+# and every tenant without a stored key would run on it. The gateway reads the
+# same variable for its own env keys.
+ALLOW_ENV_PROVIDER_KEYS = os.environ.get(
+    "ALLOW_ENV_PROVIDER_KEYS", "false"
+).lower() in ("1", "t", "true")
+
 # Metadata-only by default; full prompt capture requires an explicit operator choice.
 CONTENT_CAPTURE_MODE = os.environ.get("CONTENT_CAPTURE_MODE", "metadata").lower()
 AUDIT_CHECKPOINT_SIGNING_KEY = os.environ.get("AUDIT_CHECKPOINT_SIGNING_KEY", SECRET_KEY)
