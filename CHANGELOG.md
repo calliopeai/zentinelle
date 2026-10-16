@@ -147,6 +147,9 @@ Notable changes to Zentinelle. The format follows
   events, config, heartbeat, proxy and provider-key paths. Each candidate is
   now checked against its hash (#400).
 - The agents list links each row to its agent's page (#446).
+- Edit in the prompt library edits the prompt (#446). The builder loads the
+  prompt named by `?id=` and saves it as an update, where it used to start a
+  new prompt.
 
 ### Security
 
