@@ -139,18 +139,19 @@ def cost_amount(value, key):
     return amount
 
 
-def server_cost(model, tokens):
+def server_cost(model, tokens, provider=''):
     """Price a call from the model registry, or None when the model is unpriced.
 
     Cache tokens are priced at the full input rate until per-model cache rates
     exist, so a cached workload is never shown as cheaper than it can be.
     """
-    from zentinelle.services.usage_tracking import (UsageTrackingService,
-                                                    resolve_model_pricing)
-    if not model or not resolve_model_pricing(model):
+    from zentinelle.services.usage_tracking import UsageTrackingService
+    if not model:
         return None
     input_cost, output_cost = UsageTrackingService.calculate_cost(
-        model, billable_input(tokens), tokens['output_tokens'])
+        model, billable_input(tokens), tokens['output_tokens'], provider)
+    if input_cost is None:
+        return None
     return input_cost + output_cost
 
 
@@ -200,7 +201,8 @@ def record_usage_event(event):
             logger.info('Usage for %s already recorded; event %s is a repeat', key, event.id)
             records = _raise_recorded(recorded, event, key, provider, model, user_identifier, tokens)
             if request_id and event.endpoint_id:
-                _fill_interaction(event, request_id, model, tokens)
+                _fill_interaction(event, request_id, model, tokens, provider)
+                _reconcile(event, request_id, model, tokens, provider)
             return records
         records = UsageTrackingService.record_usage(
             tenant_id=event.tenant_id,
@@ -223,8 +225,17 @@ def record_usage_event(event):
         )
 
     if request_id and event.endpoint_id:
-        _fill_interaction(event, request_id, model, tokens)
+        _fill_interaction(event, request_id, model, tokens, provider)
+        _reconcile(event, request_id, model, tokens, provider)
     return records
+
+
+def _reconcile(event, request_id, model, tokens, provider):
+    """Settle the call's hard-budget reservation, if it made one, from this report."""
+    from zentinelle.services.budget_reconciliation import \
+        reconcile_reported_usage
+    reconcile_reported_usage(tenant_id=event.tenant_id, endpoint_id=event.endpoint_id,
+                             request_id=request_id, cost=server_cost(model, tokens, provider))
 
 
 def _raise_recorded(recorded, event, key, provider, model, user_identifier, tokens):
@@ -267,7 +278,7 @@ def _raise_recorded(recorded, event, key, provider, model, user_identifier, toke
     return records
 
 
-def _fill_interaction(event, request_id, model, tokens):
+def _fill_interaction(event, request_id, model, tokens, provider=''):
     """Give the call's InteractionLog row its tokens and cost.
 
     The gateway logs the call when it evaluates it and reports usage after the
@@ -289,7 +300,7 @@ def _fill_interaction(event, request_id, model, tokens):
         'output_token_count': at_least('output_token_count', tokens['output_tokens']),
         'total_tokens': at_least('total_tokens', input_count + tokens['output_tokens']),
     }
-    cost = server_cost(model, tokens)
+    cost = server_cost(model, tokens, provider)
     if cost is not None:
         values['estimated_cost_usd'] = Greatest(Coalesce(F('estimated_cost_usd'), Decimal(0)), cost)
     InteractionLog.objects.filter(

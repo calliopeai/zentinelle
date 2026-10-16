@@ -402,9 +402,11 @@ class BudgetLimitEvaluatorTest(TestCase):
 
         result = self.evaluator.evaluate(policy, 'spawn', 'user123', context)
 
-        self.assertTrue(result.passed)
-        self.assertTrue(len(result.warnings) > 0)
-        self.assertIn('soft limit', result.warnings[0])
+        # A soft budget's overspend is a match the policy's action handles,
+        # marked advisory so it can alert but never refuse (audit H22).
+        self.assertFalse(result.passed)
+        self.assertTrue(result.advisory)
+        self.assertIn('soft limit', result.message)
 
     def test_approaching_budget_warning(self):
         """Test warning when approaching budget threshold."""

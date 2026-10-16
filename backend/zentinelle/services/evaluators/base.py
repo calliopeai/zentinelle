@@ -17,6 +17,9 @@ class PolicyResult:
     # The only failure is a missing human approval, so a valid approval_token
     # would pass it. Lets /evaluate answer `ask` rather than `deny` (#377).
     approval_required: bool = False
+    # The match notifies but never refuses: the policy's action applies, capped
+    # at alert, so a soft budget alerts under enforce instead of blocking.
+    advisory: bool = False
 
 
 class BasePolicyEvaluator(ABC):

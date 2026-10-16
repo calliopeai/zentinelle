@@ -633,7 +633,7 @@ class LogInteractionView(APIView):
         output_count = tokens['output_tokens'] if given[1] is not None else None
         cost = client_cost
         if input_count is not None or output_count is not None:
-            priced = server_cost(model, tokens)
+            priced = server_cost(model, tokens, str(field('ai_provider', 'provider', default='') or '').lower())
             cost = priced if priced is not None else client_cost
 
         occurred_at = data.get('occurred_at')

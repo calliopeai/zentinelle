@@ -28,43 +28,23 @@ class BudgetLimitEvaluator(BasePolicyEvaluator):
         context: Dict[str, Any],
         dry_run: bool = False,
     ) -> PolicyResult:
-        config = policy.config
-        warnings = []
+        hard_limit = policy.config.get('hard_limit', True)
 
-        from zentinelle.services.budgets import current_spend, monthly_limit
+        from zentinelle.services.budgets import budget_status
         try:
-            monthly_budget = float(monthly_limit(policy))
+            status = budget_status(policy)
         except (ValueError, ArithmeticError):
             return PolicyResult(passed=False, message='Invalid monthly budget configuration')
-        alert_threshold = config.get('alert_threshold_percent', 80)
-        hard_limit = config.get('hard_limit', True)
+        monthly_budget = float(status['limit'])
+        current_spend = float(status['spend'])
+        remaining = float(status['remaining'])
+        percent_used = float(status['percent'])
 
-        if monthly_budget is None:
-            return PolicyResult(passed=True)
-
-        # Get current spend from context
-        current_spend = float(current_spend(policy))
-        remaining = monthly_budget - current_spend
-
-        # Calculate percentage used
-        percent_used = (current_spend / monthly_budget) * 100 if monthly_budget > 0 else 0
-
-        # Check if over budget
-        if current_spend >= monthly_budget:
-            if hard_limit:
-                return PolicyResult(
-                    passed=False,
-                    message=f"Monthly budget exceeded. Budget: ${monthly_budget:.2f}, Spent: ${current_spend:.2f}"
-                )
-            else:
-                warnings.append(
-                    f"Monthly budget exceeded (soft limit). Budget: ${monthly_budget:.2f}, Spent: ${current_spend:.2f}"
-                )
-
-        # Check if approaching limit
-        elif percent_used >= alert_threshold:
+        warnings = []
+        if status['unpriced_calls']:
             warnings.append(
-                f"Approaching budget limit ({percent_used:.1f}% used). Remaining: ${remaining:.2f}"
+                f"{status['unpriced_calls']} call(s) this month used a model with no price; "
+                "their cost is unknown and not in the spend shown"
             )
 
         # Add budget info to context for response
@@ -74,5 +54,19 @@ class BudgetLimitEvaluator(BasePolicyEvaluator):
             'remaining_usd': remaining,
             'percent_used': percent_used,
         }
+
+        if status['level'] == 'exceeded':
+            message = f"Monthly budget exceeded. Budget: ${monthly_budget:.2f}, Spent: ${current_spend:.2f}"
+            if hard_limit:
+                return PolicyResult(passed=False, message=message, warnings=warnings)
+            # A soft budget's match takes the policy's action (an alert for the
+            # seeded budget) but never refuses the call.
+            return PolicyResult(passed=False, message=f"{message} (soft limit)", warnings=warnings, advisory=True)
+
+        if status['level'] == 'threshold':
+            message = f"Approaching budget limit ({percent_used:.1f}% used). Remaining: ${remaining:.2f}"
+            if not hard_limit:
+                return PolicyResult(passed=False, message=message, warnings=warnings, advisory=True)
+            warnings.append(message)
 
         return PolicyResult(passed=True, warnings=warnings)

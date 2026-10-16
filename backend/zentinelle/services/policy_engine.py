@@ -437,6 +437,9 @@ class PolicyEngine:
                     decision = self._fail_closed(policy)
                 else:
                     decision = self._decide(policy, result, endpoint, action, context, severity, dry_run)
+                    if getattr(result, 'advisory', False) and denies(decision):
+                        decision.capped_from = decision.action
+                        decision.action, decision.block_level = Action.ALERT.value, None
                 if self._released_by_approval(decision, result, policy, action, user_id, context):
                     entry['result'] = 'pass'
                     entry['approved'] = True
