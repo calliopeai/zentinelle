@@ -36,6 +36,10 @@ def normalize_context(value):
         context['max_output_tokens'] = body.get(
             'max_output_tokens', body.get('max_completion_tokens', body.get('max_tokens'))
         )
+        # Only for Gemini: elsewhere a generationConfig is a field the
+        # provider does not read, and a cap it does not honour is no bound.
+        if context['max_output_tokens'] is None and context.get('provider') in ('google', 'vertex'):
+            context['max_output_tokens'] = _gemini_max_output_tokens(body)
         from zentinelle.services.multimodal_scanner import analyze_request_body
         media = analyze_request_body(body, context.get('provider', ''))
         if media.has_media:
@@ -58,6 +62,23 @@ def normalize_context(value):
             elif not isinstance(items, list) or any(not isinstance(item, str) for item in items):
                 raise ValueError(f'{key} must be text or a list of texts')
     return context
+
+
+def _gemini_max_output_tokens(body):
+    """Gemini's output cap is generationConfig.maxOutputTokens, per candidate.
+
+    The bound covers every candidate, so candidateCount multiplies it. Anything
+    that is not a positive integer yields None, which a hard budget refuses.
+    """
+    config = body.get('generationConfig', body.get('generation_config'))
+    if not isinstance(config, dict):
+        return None
+    tokens = config.get('maxOutputTokens', config.get('max_output_tokens'))
+    candidates = config.get('candidateCount', config.get('candidate_count', 1))
+    for value in (tokens, candidates):
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            return None
+    return tokens * candidates
 
 
 def normalize_output_text(text):

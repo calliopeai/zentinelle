@@ -64,6 +64,11 @@ func main() {
 		})
 		os.Exit(1)
 	}
+	// Every handler has returned, so every usage report has been started.
+	// Exiting now would drop the ones still sending or waiting to retry.
+	if !drainUsageReports(ctx) {
+		logJSON("error", "usage reports still pending at shutdown", nil)
+	}
 	select {
 	case <-heartbeatStopped:
 	case <-ctx.Done():

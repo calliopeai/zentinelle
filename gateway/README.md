@@ -51,7 +51,11 @@ docker run -p 8742:8742 \
 4. If allowed, gateway resolves the provider key (see below), drops any
    credential the client sent, injects the key and forwards the request
 5. Response is streamed back to agent (SSE-aware, chunk-by-chunk)
-6. After response completes, usage data is reported async to Zentinelle `/api/zentinelle/v1/events`
+6. After the response, usage is reported async to Zentinelle `/api/zentinelle/v1/events`, one
+   `llm:usage` event per call that reached the provider, including calls the output filter
+   withheld or the client abandoned. The event carries an `event_id`, so a retried report is
+   deduplicated. The gateway asks providers for `Accept-Encoding: identity` so it can read
+   what it meters and filters.
 
 ## Provider Keys
 
@@ -285,7 +289,7 @@ go test -v ./...
 
 - **Zero external dependencies** -- net/http, encoding/json, io, sync, log only
 - **Streaming first** -- http.Flusher for SSE, chunk-by-chunk forwarding
-- **Non-blocking usage** -- goroutine, fire-and-forget
+- **Non-blocking usage** -- goroutine, retried on 5xx/429/no answer, drained on shutdown
 - **Graceful shutdown** -- SIGTERM/SIGINT, drain connections
 - **Structured logging** -- JSON to stderr
 - **Request tracing** -- UUID per request, forwarded as X-Request-ID
