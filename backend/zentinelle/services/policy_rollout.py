@@ -1,4 +1,6 @@
 """Transactional promotion checks for staged policy change sets."""
+from types import SimpleNamespace
+
 from django.db import router, transaction
 
 from zentinelle.models import (Policy, PolicyChangeAcknowledgement,
@@ -36,6 +38,44 @@ def _snapshot(policy):
         'escalation': policy.escalation,
         'version': policy.version,
     }
+
+
+def _refuses(fields):
+    from zentinelle.services.actions import ACTION_DEFAULTS, can_refuse
+    rule = SimpleNamespace(action=fields.get('action', ACTION_DEFAULTS['action']),
+                           escalation=fields.get('escalation') or {})
+    return (fields.get('enabled', True) and fields.get('enforcement', Policy.Enforcement.ENFORCE)
+            == Policy.Enforcement.ENFORCE and can_refuse(rule))
+
+
+def weakening_changes(change):
+    """The changes after which a policy can no longer refuse a call (#413).
+
+    A new policy in enforce mode whose action only logs, alerts, warns or
+    steers reads as enforced and lets every call through, so it is flagged
+    too. Reviewers see these before they approve.
+    """
+    if not isinstance(change.changes, list):
+        return []
+    items = [item for item in change.changes if isinstance(item, dict)]
+    ids = [str(item['policy_id']) for item in items
+           if item.get('policy_id') and not str(item['policy_id']).startswith('new:')]
+    current = {str(p.id): p for p in Policy.objects.filter(tenant_id=change.tenant_id, id__in=ids)} if ids else {}
+    flagged = []
+    for item in items:
+        policy = current.get(str(item.get('policy_id')))
+        before = _snapshot(policy) if policy else None
+        after = {**(before or {}), **{key: item[key] for key in _MUTABLE_FIELDS if key in item}}
+        if before is None:
+            weakens = not _refuses(after) and _refuses({**after, 'action': 'block', 'escalation': {}})
+        else:
+            weakens = _refuses(before) and not _refuses(after)
+        if not weakens:
+            continue
+        flagged.append({'policy_id': str(item.get('policy_id') or ''), 'name': after.get('name', ''),
+                        'enforcement': after.get('enforcement', Policy.Enforcement.ENFORCE),
+                        'action': after.get('action', 'block')})
+    return flagged
 
 
 def promote_change_set(change_id, tenant_id, actor=''):

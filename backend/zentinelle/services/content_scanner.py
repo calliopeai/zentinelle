@@ -226,13 +226,17 @@ class ContentScanner:
         token_count: int = None,
         estimated_cost: float = None,
         target_capabilities: Optional[Dict[str, bool]] = None,
+        record: bool = True,
     ) -> Tuple[ScanResult, ContentScan]:
         """
         Scan content against all applicable rules.
 
         Each matched rule's action is decided as a policy's is (escalation by
         repeats per endpoint and by the match's severity, no mode ceiling),
-        see services/actions.py. Only a realtime scan counts toward repeats.
+        see services/actions.py. Only a realtime scan counts toward repeats,
+        per endpoint, or per session behind an agent host key. Without
+        `record` the scan only previews: it counts nothing and raises no
+        alerts, for content another scan decides on (#413).
 
         Returns:
             Tuple of (ScanResult, ContentScan record)
@@ -273,7 +277,8 @@ class ContentScanner:
                 matched.append((rule, detections))
                 violations.extend(detections)
 
-        decisions = {rule.id: self._decide(rule, detections, endpoint, content_type, scan_mode)
+        counts = record and scan_mode == ContentRule.ScanMode.REALTIME
+        decisions = {rule.id: self._decide(rule, detections, endpoint, content_type, session_id, counts)
                      for rule, detections in matched}
         for rule, detections in matched:
             for detection in detections:
@@ -340,10 +345,11 @@ class ContentScanner:
         scan.enforcement = enforcement
         scan.save()
 
-        # Create alerts for critical violations
-        if max_severity in ['high', 'critical']:
-            self._create_alert(scan, violations)
-        self._notify_alerts(scan, matched, decisions, endpoint)
+        if record:
+            # Create alerts for critical violations
+            if max_severity in ['high', 'critical']:
+                self._create_alert(scan, violations)
+            self._notify_alerts(scan, matched, decisions, endpoint)
 
         if enforcement['action'] == Action.REDACT:
             # Redact outranks warn in the action set, though not in the legacy
@@ -362,16 +368,17 @@ class ContentScanner:
         return result, scan
 
     def _decide(self, rule: ContentRule, detections: List[DetectionResult],
-                endpoint: Optional[AgentEndpoint], content_type: str, scan_mode: str):
-        """The action a matched rule takes for this scan."""
+                endpoint: Optional[AgentEndpoint], content_type: str, session_id: str, record: bool):
+        """The action a matched rule takes for this scan; `record` adds the match to its repeat count."""
         from zentinelle.services.actions import (count_match, decide,
+                                                 escalation_scope,
                                                  render_steer)
         escalation = rule.escalation or {}
         count = None
         if escalation.get('repeat') and endpoint is not None:
             count = count_match(tenant_id=self.tenant_id, kind='content_rule', rule_id=str(rule.id),
-                                scope_id=str(endpoint.id), window_seconds=escalation['window_seconds'],
-                                record=scan_mode == ContentRule.ScanMode.REALTIME)
+                                scope_id=escalation_scope(endpoint, session_id),
+                                window_seconds=escalation['window_seconds'], record=record)
         severity = max((d.severity for d in detections if d.severity in SEVERITY_ORDER),
                        key=SEVERITY_ORDER.index, default=None)
         decision = decide(action=rule.action, block_level=rule.block_level, escalation=escalation,

@@ -252,7 +252,7 @@ def register_cluster(install, cluster_id, provider='', region='', tenant_ids=Non
     return cluster, registration, plaintext, created
 
 
-def rotate_cluster(install, cluster_id, overlap=DEFAULT_OVERLAP, request=None):
+def rotate_cluster(install, cluster_id, overlap=DEFAULT_OVERLAP, request=None, actor_id='', via='astrolift'):
     """Mint the next gateway credential. Returns (cluster, registration, plaintext).
 
     The earlier credentials keep working for `overlap`, or stop now when it is
@@ -268,7 +268,8 @@ def rotate_cluster(install, cluster_id, overlap=DEFAULT_OVERLAP, request=None):
                cluster.external_id,
                {'install_id': str(install.id), 'install': install.name, 'gateway': registration.name,
                 'credential_prefix': credential.key_prefix, 'previous_credentials': retired,
-                'overlap_seconds': int(overlap.total_seconds())})
+                'overlap_seconds': int(overlap.total_seconds()), 'via': via},
+               actor_id=actor_id)
     return cluster, registration, plaintext
 
 
@@ -387,7 +388,7 @@ def _agent_suspended(agent):
         'and it stays stopped.', status=409)
 
 
-def mint_agent_key(install, agent_id, ttl, tenant_id='', name='', deployment_id='', request=None):
+def mint_agent_key(install, agent_id, ttl, tenant_id='', name='', deployment_id='', cluster_id='', request=None):
     """Mint the key of agent `agent_id` for one of the install's tasks or boxes.
 
     Returns (agent, plaintext key, created). The key expires after `ttl`, or
@@ -397,6 +398,10 @@ def mint_agent_key(install, agent_id, ttl, tenant_id='', name='', deployment_id=
     key, and a restarted box keeps its agent. It brings back an agent only
     this install's own revoke stopped. An agent the install did not mint is
     never taken over, and one someone else stopped stays stopped.
+
+    `cluster_id` names the install's live cluster the key is for (#389). Its
+    gateway has to serve the agent's tenant; the agent is then filterable by
+    that cluster. A mint that names none leaves the agent unassigned.
     """
     if not timedelta(seconds=1) <= ttl <= MAX_AGENT_KEY_TTL:
         raise AstroliftError('invalid_ttl', 'ttl_seconds must be between 1 and 2592000.')
@@ -407,6 +412,11 @@ def mint_agent_key(install, agent_id, ttl, tenant_id='', name='', deployment_id=
         # cannot miss one minted beside it.
         install = _locked_install(install)
         tenant = _agent_tenant(install, tenant_id)
+        cluster = _live_cluster(install, cluster_id) if cluster_id else None
+        gateway = cluster.active_registration() if cluster is not None else None
+        if cluster is not None and (gateway is None or not gateway.serves(tenant)):
+            raise AstroliftError('tenant_not_in_cluster_scope',
+                                 f'Cluster {cluster_id} does not serve the agent\'s tenant.', status=403)
         agent = _existing_agent(tenant, agent_id)
         if agent is not None and agent.astrolift_install_id != install.pk:
             raise _agent_id_taken(agent_id)
@@ -425,7 +435,8 @@ def mint_agent_key(install, agent_id, ttl, tenant_id='', name='', deployment_id=
                         agent_type=AgentEndpoint.AgentType.CUSTOM, api_key_hash=key_hash,
                         api_key_prefix=key_prefix, api_key_issued_at=now, api_key_expires_at=expires_at,
                         api_key_audited_expires_at=expires_at, deployment_id_ext=deployment_id, astrolift_install=install,
-                        status=AgentEndpoint.Status.ACTIVE, health=AgentEndpoint.Health.UNKNOWN)
+                        astrolift_cluster=cluster, status=AgentEndpoint.Status.ACTIVE,
+                        health=AgentEndpoint.Health.UNKNOWN)
             except IntegrityError:
                 raise _agent_id_taken(agent_id) from None
         else:
@@ -436,12 +447,15 @@ def mint_agent_key(install, agent_id, ttl, tenant_id='', name='', deployment_id=
             agent.astrolift_revoked_at = None
             agent.name = name or agent.name
             agent.deployment_id_ext = deployment_id
+            agent.astrolift_cluster = cluster
             agent.save(update_fields=['api_key_hash', 'api_key_prefix', 'api_key_issued_at', 'api_key_expires_at',
                                       'api_key_audited_expires_at', 'api_key_renewals_unaudited', 'status',
-                                      'astrolift_revoked_at', 'name', 'deployment_id_ext', 'updated_at'])
+                                      'astrolift_revoked_at', 'name', 'deployment_id_ext', 'astrolift_cluster',
+                                      'updated_at'])
         _audit(request, [tenant], 'astrolift.agent_key.minted', 'agent_endpoint', agent.id, agent.agent_id,
                {'install_id': str(install.id), 'install': install.name, 'key_prefix': key_prefix,
-                'expires_at': expires_at.isoformat(), 'new': created, 'deployment_id': deployment_id})
+                'expires_at': expires_at.isoformat(), 'new': created, 'deployment_id': deployment_id,
+                'cluster_id': cluster_id})
     logger.info('Minted the key of agent %s in tenant %s for Astrolift install %s, expiring %s',
                 agent.agent_id, tenant, install.name, expires_at.isoformat())
     return agent, plaintext, created

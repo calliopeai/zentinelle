@@ -1,6 +1,8 @@
 """Shared functional-boundary contract for gateway and adapter integrations."""
 import uuid
 
+from zentinelle.services.actions import refusal
+
 CONTRACT_VERSION = '1'
 ACTION_ALIASES = {
     'tool.invoke': 'tool_call', 'mcp.tool_call': 'tool_call',
@@ -78,12 +80,13 @@ def evaluate_boundary(*, endpoint, action, user_id='', context=None, dry_run=Fal
     malformed context or evaluator outages return a deny decision rather than
     allowing an adapter to continue without evidence.
     """
+    # Every deny carries the decision a caller acts on (#413).
     trace_id = str(uuid.uuid4())
     supplied = dict(context or {}) if isinstance(context or {}, dict) else None
     if supplied is None:
         return {'contract_version': CONTRACT_VERSION, 'action': str(action or ''),
                 'decision': 'deny', 'allowed': False, 'reason': 'Boundary context must be an object',
-                'trace_id': trace_id, 'coverage': {'status': 'unknown'}}
+                'trace_id': trace_id, 'coverage': {'status': 'unknown'}, 'enforcement': refusal()}
     supplied['trace_id'] = trace_id
     try:
         normalized = canonical_action(action)
@@ -99,7 +102,8 @@ def evaluate_boundary(*, endpoint, action, user_id='', context=None, dry_run=Fal
                 if not decision.allowed:
                     return {**contract, 'trace_id': trace_id, 'decision': 'deny', 'allowed': False,
                             'reason': decision.reason, 'coverage': {'status': 'enforced'},
-                            'warnings': ['untrusted context rejected before policy evaluation']}
+                            'warnings': ['untrusted context rejected before policy evaluation'],
+                            'enforcement': refusal()}
         from zentinelle.services.policy_engine import PolicyEngine
         result = PolicyEngine().evaluate(endpoint=endpoint, action=normalized, user_id=user_id,
                                          context=supplied, dry_run=dry_run)
@@ -107,9 +111,9 @@ def evaluate_boundary(*, endpoint, action, user_id='', context=None, dry_run=Fal
                 'decision': 'allow' if result.allowed else 'deny', 'allowed': result.allowed,
                 'reason': result.reason, 'policies_evaluated': result.policies_evaluated,
                 'coverage': result.coverage, 'warnings': result.warnings,
-                'enforcement': result.enforcement}
+                'enforcement': result.enforcement, 'dry_run': result.dry_run}
     except Exception as exc:
         return {'contract_version': CONTRACT_VERSION, 'action': str(action or ''),
                 'decision': 'deny', 'allowed': False,
                 'reason': 'Boundary evaluation unavailable', 'trace_id': trace_id,
-                'coverage': {'status': 'unknown'}, 'warnings': [str(exc)[:255]]}
+                'coverage': {'status': 'unknown'}, 'warnings': [str(exc)[:255]], 'enforcement': refusal()}

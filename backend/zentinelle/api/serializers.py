@@ -144,6 +144,8 @@ class AstroliftAgentKeySerializer(serializers.Serializer):
     tenant_id = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
     name = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
     deployment_id = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+    # The install's cluster the key is for (#389): its registered cluster_id.
+    cluster_id = serializers.RegexField(CLUSTER_ID_PATTERN, required=False, allow_blank=True, default='')
 
 
 class AstroliftAgentRenewSerializer(serializers.Serializer):

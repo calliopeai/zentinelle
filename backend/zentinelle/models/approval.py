@@ -52,6 +52,9 @@ class ApprovalRequest(models.Model):
     decided_by = models.CharField(max_length=255, blank=True)
     decided_at = models.DateTimeField(null=True, blank=True)
     decision_reason = models.TextField(blank=True)
+    # The repeat counts the held call adds to if it is denied (#413). A
+    # database default, so a pod of the previous release can still insert.
+    escalation_counts = models.JSONField(default=list, blank=True, db_default=[])
     approval = models.OneToOneField(ExecutionApproval, null=True, blank=True,
                                     on_delete=models.SET_NULL, related_name='request')
     created_at = models.DateTimeField(auto_now_add=True)

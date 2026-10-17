@@ -110,10 +110,10 @@ from zentinelle.api.views.astrolift_agent_policy import (
 from zentinelle.api.views.astrolift_clusters import (
     AstroliftAgentEnrollmentCodeView, AstroliftAgentRenewView,
     AstroliftAgentsView, AstroliftAgentView, AstroliftClusterAdminView,
-    AstroliftClusterHeartbeatView, AstroliftClusterRotateView,
-    AstroliftClustersView, AstroliftClusterView, AstroliftConnectView,
-    AstroliftEnrollmentCodeView, AstroliftInstallAdminView,
-    AstroliftInstallView, AstroliftSettingsView)
+    AstroliftClusterHeartbeatView, AstroliftClusterRotateAdminView,
+    AstroliftClusterRotateView, AstroliftClustersView, AstroliftClusterView,
+    AstroliftConnectView, AstroliftEnrollmentCodeView,
+    AstroliftInstallAdminView, AstroliftInstallView, AstroliftSettingsView)
 from zentinelle.api.views.astrolift_enforcement import (
     AstroliftEnforcementOutcomeView, AstroliftEnforcementView)
 from zentinelle.api.views.astrolift_reads import (AstroliftAuditView,
@@ -174,6 +174,8 @@ urlpatterns = [
          name='astrolift-install-admin'),
     path('settings/astrolift/clusters/<uuid:cluster_id>', AstroliftClusterAdminView.as_view(),
          name='astrolift-cluster-admin'),
+    path('settings/astrolift/clusters/<uuid:cluster_id>/rotate', AstroliftClusterRotateAdminView.as_view(),
+         name='astrolift-cluster-rotate-admin'),
     path('settings/runtime', RuntimeSettingsView.as_view(), name='runtime-settings'),
     path('settings/runtime/rollback', RuntimeSettingsRollbackView.as_view(), name='runtime-settings-rollback'),
     path('settings/runtime/changes', RuntimeSettingsChangesView.as_view(), name='runtime-settings-changes'),

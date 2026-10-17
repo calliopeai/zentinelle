@@ -31,8 +31,6 @@ def month_start():
 
 # The actions that are one model call, and so spend provider budget.
 MODEL_CALL_ACTIONS = ('llm:invoke', 'llm_call', 'ai_request', 'chain_input')
-# The configured actions that refuse a call (actions.denies under enforce).
-_DENYING_ACTIONS = ('block', 'require_approval', 'redact')
 
 
 def _scoped_interactions(policy):
@@ -129,13 +127,8 @@ def estimated_call_cost(action, context):
         return None
 
 
-def _can_refuse(policy):
-    escalation = policy.escalation or {}
-    steps = [step['action'] for key in ('repeat', 'severity') for step in escalation.get(key, [])]
-    return any(action in _DENYING_ACTIONS for action in [policy.action, *steps])
-
-
 def admit(policies, endpoint, action, context):
+    from zentinelle.services.actions import can_refuse
     from zentinelle.services.approvals import consume_approvals
 
     # Only a budget that can refuse reserves: enforce, hard_limit, and an
@@ -144,7 +137,7 @@ def admit(policies, endpoint, action, context):
     # evaluator and never refuses here.
     budgets = sorted([p for p in policies if p.policy_type == 'budget_limit' and
                       p.enforcement == 'enforce' and p.config.get('hard_limit', True) and
-                      _can_refuse(p)], key=lambda p: str(p.id))
+                      can_refuse(p)], key=lambda p: str(p.id))
     # Responses were charged at invocation. Read-only checks consume no provider budget.
     if action not in MODEL_CALL_ACTIONS:
         budgets = []

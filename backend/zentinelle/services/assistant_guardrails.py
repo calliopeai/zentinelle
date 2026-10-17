@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from django.conf import settings
 
 from zentinelle.models import Policy
+from zentinelle.services.actions import decide, denies
 from zentinelle.services.evaluators.ai_guardrail import AIGuardrailEvaluator
 from zentinelle.services.evaluators.prompt_injection import \
     PromptInjectionEvaluator
@@ -83,7 +84,12 @@ def check_support_message(tenant_id: str, message: str) -> GuardrailDecision:
         evaluator = (AIGuardrailEvaluator() if policy.policy_type == Policy.PolicyType.AI_GUARDRAIL
                      else PromptInjectionEvaluator())
         result = evaluator.evaluate(policy, 'assistant:support', None, context, dry_run=True)
-        if not result.passed and policy.enforcement == Policy.Enforcement.ENFORCE:
+        # The policy's action decides, as in the engine (#413): one that only
+        # logs, alerts, warns or steers does not refuse the question. No
+        # repeats are counted here.
+        if not result.passed and denies(decide(action=policy.action, block_level=policy.block_level,
+                                               escalation=policy.escalation or {}, mode=policy.enforcement,
+                                               approval_kind=getattr(result, 'approval_required', False))):
             return GuardrailDecision(False, result.message or 'Support guardrail denied this message', tuple(policy_ids))
 
     terms = _terms(message)

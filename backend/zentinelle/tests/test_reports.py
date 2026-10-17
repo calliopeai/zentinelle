@@ -44,12 +44,16 @@ def _make_policy(
     policy_type='audit_policy',
     enforcement='enforce',
     enabled=True,
+    action='block',
+    escalation=None,
 ):
     p = MagicMock()
     p.name = name
     p.policy_type = policy_type
     p.enforcement = enforcement
     p.enabled = enabled
+    p.action = action
+    p.escalation = escalation or {}
     return p
 
 

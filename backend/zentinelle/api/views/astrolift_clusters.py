@@ -140,6 +140,7 @@ def _agent_json(agent):
         'tenant_id': agent.tenant_id,
         'status': agent.status,
         'deployment_id': agent.deployment_id_ext,
+        'cluster_id': agent.astrolift_cluster.external_id if agent.astrolift_cluster_id else None,
         'expires_at': _iso(agent.api_key_expires_at),
         'lifetime_ends_at': _iso(lifetime_ends_at(agent)),
     }
@@ -307,7 +308,7 @@ class AstroliftAgentsView(_InstallView):
             agent, plaintext, created = mint_agent_key(
                 self.install, data['agent_id'], timedelta(seconds=data['ttl_seconds']),
                 tenant_id=data['tenant_id'], name=data['name'], deployment_id=data['deployment_id'],
-                request=request)
+                cluster_id=data['cluster_id'], request=request)
         except AstroliftError as error:
             return _refusal(error)
         return _no_store(Response({'agent': _agent_json(agent), 'api_key': plaintext},
@@ -470,3 +471,40 @@ class AstroliftClusterAdminView(APIView):
                             status=status.HTTP_403_FORBIDDEN)
         cluster = revoke_cluster(cluster, request=request, actor_id=_actor(request), via='portal')
         return Response({'cluster': _cluster_json(cluster, _visible_tenants(request, cluster.install.tenant_ids))})
+
+
+class AstroliftClusterRotateAdminView(APIView):
+    """Rotate a cluster's gateway credential from the portal (#389).
+
+    The new credential is shown once, here: the admin puts it into the
+    cluster's Secret before the overlap ends. Astrolift is not told; it gets a
+    credential of its own by registering the cluster again. An overlap of 0
+    stops the earlier credentials now, for one that leaked.
+    """
+
+    authentication_classes = PORTAL_AUTH
+    permission_classes = [PortalAdminAccess]
+
+    def post(self, request, cluster_id):
+        serializer = AstroliftRotateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        tenant_id = _portal_tenant(request)
+        cluster = AstroliftCluster.objects.select_related('install').filter(
+            pk=cluster_id, install__tenant_ids__contains=[tenant_id], revoked_at__isnull=True).first()
+        if not tenant_id or cluster is None:
+            return Response({'error': 'not_found'}, status=status.HTTP_404_NOT_FOUND)
+        if not _may_act_on(request, cluster.install):
+            return Response({'error': 'tenant_not_permitted',
+                             'detail': 'This cluster\'s install also serves tenants you do not manage.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        try:
+            cluster, registration, plaintext = rotate_cluster(
+                cluster.install, cluster.external_id,
+                overlap=timedelta(seconds=serializer.validated_data['overlap_seconds']),
+                request=request, actor_id=_actor(request), via='portal')
+        except AstroliftError as error:
+            return _refusal(error)
+        return _no_store(Response({
+            'cluster': _cluster_json(cluster, _visible_tenants(request, cluster.install.tenant_ids)),
+            'gateway': _gateway_json(registration, plaintext),
+        }))

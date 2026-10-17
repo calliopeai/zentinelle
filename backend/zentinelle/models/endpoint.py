@@ -163,6 +163,14 @@ class AgentEndpoint(Tracking):
         on_delete=models.PROTECT,
         related_name='agents',
     )
+    # The cluster the install minted this agent's key for, when it named one
+    # (#389), so agents and their usage can be filtered by cluster.
+    astrolift_cluster = models.ForeignKey(
+        'zentinelle.AstroliftCluster',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='agents',
+    )
     # When the key was minted: an install-minted key never works longer than
     # ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS after this, however renewed.
     api_key_issued_at = models.DateTimeField(null=True, blank=True)
