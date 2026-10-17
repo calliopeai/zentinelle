@@ -76,6 +76,27 @@ type Config struct {
 	FailOpen         bool
 	PolicyTimeout    time.Duration
 	MaxResponseBytes int64
+
+	// ShutdownDelay is how long a replica keeps serving after SIGTERM with
+	// /ready failing, so the load balancer or the endpoints controller stops
+	// sending it new requests before its listener closes:
+	// SHUTDOWN_DELAY_SECONDS, 5 by default.
+	ShutdownDelay time.Duration
+
+	// DrainTimeout is how long requests already in flight, streams included,
+	// get to finish after that before their connections are closed:
+	// DRAIN_TIMEOUT_SECONDS, 20 by default. The delay, the drain and the
+	// usage flush after it (usageFlushTimeout) must fit the orchestrator's
+	// stop timeout, or the process is killed with reports unsent.
+	DrainTimeout time.Duration
+
+	// MetricsEMFInterval is how often the gateway writes the numbers a
+	// scaler reads as a CloudWatch embedded metric format log line, for ECS
+	// where nothing scrapes /metrics: METRICS_EMF_INTERVAL_SECONDS, 0 (off)
+	// by default. MetricsEMFNamespace is the CloudWatch namespace they land
+	// in: METRICS_EMF_NAMESPACE, Zentinelle/Gateway by default.
+	MetricsEMFInterval  time.Duration
+	MetricsEMFNamespace string
 }
 
 // LoadConfig reads configuration from environment variables with sensible defaults.
@@ -135,6 +156,19 @@ func LoadConfig() (*Config, error) {
 			return nil, err
 		}
 		controlPlaneURL = parsed
+	}
+
+	shutdownDelay, err := envSeconds("SHUTDOWN_DELAY_SECONDS", 5, 0, 300)
+	if err != nil {
+		return nil, err
+	}
+	drainTimeout, err := envSeconds("DRAIN_TIMEOUT_SECONDS", 20, 1, 3600)
+	if err != nil {
+		return nil, err
+	}
+	emfInterval, err := envSeconds("METRICS_EMF_INTERVAL_SECONDS", 0, 0, 3600)
+	if err != nil {
+		return nil, err
 	}
 
 	allowEnvKeys := false
@@ -197,7 +231,24 @@ func LoadConfig() (*Config, error) {
 		FailOpen:              failOpen,
 		PolicyTimeout:         time.Duration(policyTimeoutMs) * time.Millisecond,
 		MaxResponseBytes:      maxBytes,
+		ShutdownDelay:         shutdownDelay,
+		DrainTimeout:          drainTimeout,
+		MetricsEMFInterval:    emfInterval,
+		MetricsEMFNamespace:   envOr("METRICS_EMF_NAMESPACE", "Zentinelle/Gateway"),
 	}, nil
+}
+
+// envSeconds reads a whole number of seconds from name, fallback when unset.
+func envSeconds(name string, fallback, least, most int) (time.Duration, error) {
+	seconds := fallback
+	if v := os.Getenv(name); v != "" {
+		parsed, err := strconv.Atoi(v)
+		if err != nil || parsed < least || parsed > most {
+			return 0, fmt.Errorf("invalid %s value %q: %d to %d", name, v, least, most)
+		}
+		seconds = parsed
+	}
+	return time.Duration(seconds) * time.Second, nil
 }
 
 // loadProviderKeys reads every PROVIDER_KEY_<NAME> from the environment, plus

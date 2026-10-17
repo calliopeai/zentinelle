@@ -51,6 +51,10 @@ The gateway tier scales independently from the Django backend:
 - **Stateless**: no sessions and no durable state. The only local state is a
   60-second in-memory cache of provider-key lookups, which any instance can
   rebuild, and the counters its cluster heartbeat reports. Any instance can handle any request.
+  Rate limits, budgets and policy are decided by Zentinelle per request, on
+  its shared Redis and database, so they hold across replicas.
+- **Drains on SIGTERM**: `/ready` fails first, requests in flight and streams
+  finish, then usage reports land (see the README's Scale-out and Draining).
 - **N+1 redundancy**: lose one instance, traffic routes to others.
 - **Independent scaling**: scale gateway tier based on request volume, backend based on policy complexity.
 - **Zero shared state**: provider keys come from Zentinelle per tenant, or
@@ -127,6 +131,10 @@ SSE streaming is the default for LLM responses:
 | `FAIL_OPEN` | `true` | Allow on policy check timeout |
 | `POLICY_TIMEOUT_MS` | `2000` | Policy check timeout |
 | `MAX_RESPONSE_BYTES` | `52428800` | 50MB response cap |
+| `SHUTDOWN_DELAY_SECONDS` | `5` | Serving with `/ready` failing after SIGTERM |
+| `DRAIN_TIMEOUT_SECONDS` | `20` | Time in-flight requests get to finish after that |
+| `METRICS_EMF_INTERVAL_SECONDS` | `0` | CloudWatch embedded metric format lines for the scaler; `0` off |
+| `METRICS_EMF_NAMESPACE` | `Zentinelle/Gateway` | Their CloudWatch namespace |
 | `HEARTBEAT_INTERVAL_SECONDS` | `60` | Cluster heartbeat interval until the answer names one; `0` turns it off, otherwise 10 to 3600 |
 | `ASTROLIFT_CONTROL_PLANE_URL` | - | Control plane that agent heartbeat and event routes pass straight through to (#445); unset turns it off |
 
