@@ -10,6 +10,8 @@ from datetime import timedelta
 from django.utils import timezone
 
 from zentinelle.models import Event, Policy
+from zentinelle.services.actions import (ACTION_DEFAULTS, ACTION_FIELDS,
+                                         decide, denies, escalation_scope)
 from zentinelle.services.policy_engine import PolicyEngine
 
 logger = logging.getLogger(__name__)
@@ -26,7 +28,11 @@ def simulate_policy(
 
     Args:
         tenant_id: Tenant to scope the simulation to.
-        policy_config: Dict with keys: policy_type, config, enforcement.
+        policy_config: Dict with keys: policy_type, config, enforcement, and
+            optionally the action fields (action, block_level, steer_message,
+            escalation; the defaults block). A match is decided as the
+            engine decides it (#413): repeats are replayed per endpoint in
+            the order the events occurred; severity steps are not replayed.
         lookback_days: How many days of history to replay.
         max_events: Cap on events to process.
 
@@ -62,7 +68,13 @@ def simulate_policy(
         enforcement=enforcement,
         enabled=True,
         priority=0,
+        **{name: policy_config.get(name, ACTION_DEFAULTS[name]) for name in ACTION_FIELDS},
     )
+    escalation = temp_policy.escalation or {}
+    if escalation.get('repeat'):
+        events.reverse()
+    # Per scope: when its repeat window opened and the matches in it.
+    windows = {}
 
     engine = PolicyEngine()
     evaluator = engine._get_evaluator(policy_type)
@@ -98,7 +110,18 @@ def simulate_policy(
             )
 
             if not result.passed:
-                if enforcement == Policy.Enforcement.ENFORCE:
+                count = None
+                if escalation.get('repeat') and event.endpoint is not None:
+                    scope = escalation_scope(event.endpoint, context.get('session_id'))
+                    opened, count = windows.get(scope, (None, 0))
+                    if opened is None or (event.occurred_at - opened).total_seconds() >= escalation['window_seconds']:
+                        opened, count = event.occurred_at, 0
+                    count += 1
+                    windows[scope] = (opened, count)
+                decision = decide(action=temp_policy.action, block_level=temp_policy.block_level,
+                                  escalation=escalation, mode=enforcement, count=count,
+                                  approval_kind=getattr(result, 'approval_required', False))
+                if denies(decision):
                     would_block += 1
                     if len(blocked_samples) < 20:
                         blocked_samples.append({

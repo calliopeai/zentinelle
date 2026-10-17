@@ -1475,7 +1475,7 @@ type Query {
   agentGroups(search: String = null, tier: String = null): [AgentGroupType!]!
   agentGroup(id: UUID = null): AgentGroupType
   endpoint(id: ID = null): AgentEndpointType
-  endpoints(search: String = null, status: String = null, agentType: String = null, deploymentId: ID = null): [AgentEndpointType!]!
+  endpoints(search: String = null, status: String = null, agentType: String = null, deploymentId: ID = null, astroliftClusterId: UUID = null): [AgentEndpointType!]!
   policy(id: ID = null): PolicyType
   policies(search: String = null, policyType: String = null, scopeType: String = null): [PolicyType!]!
 
@@ -1486,7 +1486,7 @@ type Query {
 
   """Dry-run a proposed policy config against historical events"""
   simulatePolicy(policyType: String!, config: JSON!, enforcement: String = "enforce", lookbackDays: Int = 7): SimulatePolicyResultType
-  events(eventType: String = null, category: String = null, endpointId: ID = null, userId: String = null): [EventType!]!
+  events(eventType: String = null, category: String = null, endpointId: ID = null, userId: String = null, astroliftClusterId: UUID = null): [EventType!]!
   auditLogs(search: String = null, actor: String = null, action: String = null, resource: String = null, resourceType: String = null, resourceId: String = null, startDate: DateTime = null, endDate: DateTime = null): [AuditLogType!]!
 
   """ClickHouse-backed analytics for the audit logs page."""
@@ -1543,7 +1543,7 @@ type Query {
   myOrganization: OrganizationType
   clientCoveIntegration: ClientCoveIntegrationType
   notifications(first: Int = null, after: String = null, status: String = null): [NotificationType!]!
-  usageMetrics(startDate: DateTime = null, endDate: DateTime = null, granularity: String = null, endpointId: ID = null): UsageMetricsType
+  usageMetrics(startDate: DateTime = null, endDate: DateTime = null, granularity: String = null, endpointId: ID = null, astroliftClusterId: UUID = null): UsageMetricsType
   promptCategories(activeOnly: Boolean = null): [PromptCategoryType!]!
   systemPrompts(first: Int = null, after: String = null, search: String = null, categorySlug: String = null, systemPromptType: String = null, provider: String = null, tagSlugs: [String!] = null, featuredOnly: Boolean = null, verifiedOnly: Boolean = null, favoritesOnly: Boolean = null): [SystemPromptType!]!
   systemPrompt(id: UUID = null, slug: String = null): SystemPromptType

@@ -7,6 +7,18 @@ Notable changes to Zentinelle. The format follows
 
 ### Added
 
+- Agents and usage by Astrolift cluster (#389). `POST /astrolift/agents`
+  takes an optional `cluster_id`, one of the install's live clusters whose
+  gateway serves the agent's tenant, and the agent records it. A usage event
+  `/events` receives with a gateway credential records that gateway's
+  Astrolift cluster, never one from the payload. The `endpoints`, `events`
+  and `usageMetrics` queries take `astroliftClusterId`, within the caller's
+  tenant. `POST settings/astrolift/clusters/<id>/rotate` `{"overlap_seconds"}`
+  lets a portal admin rotate a cluster's gateway credential next to revoking
+  it, audited per tenant; the new credential is shown once and has to be put
+  into the cluster's Secret before the overlap ends. Migration 0073 is on the
+  `zentinelle` schema.
+
 - Rules on tool arguments (#384). A tool_permission policy's `tool_configs`,
   keyed by the tool's name as the harness sends it (Claude's `Bash`, `Read`,
   `Write`, `Edit`; Codex's `shell`, `apply_patch`; Calliope AI's `shell`,
@@ -113,6 +125,23 @@ Notable changes to Zentinelle. The format follows
   volume both containers mount.
 
 ### Changed
+
+- Reports and coverage honour a policy's action (#413). In the control
+  coverage report, an enforced policy whose action and escalation only log
+  or alert now reads `audit-only`, and one that only warns or steers reads
+  the new `not-enforced`; both were `configured`. `/evaluate` coverage counts
+  such a policy as `observation_only`. Change sets list `weakening_changes`:
+  a change after which a policy can no longer refuse a call, or a new
+  enforced policy that never can. The policy simulator and the support
+  assistant's guardrails decide with the action too, and the simulator
+  replays repeat escalation per endpoint.
+- Escalation counts each match once (#413). The scan `/evaluate` runs on the
+  content it logs counts no repeats and raises no alerts; `/scan` does. A
+  call an approval releases does not count, and a call a host holds for an
+  approval counts only if the approval is denied. Behind an agent host key,
+  repeats count per session.
+- Every boundary deny carries `enforcement`, and a dry run marks it
+  `dry_run: true` (#413).
 
 - Backend dependencies: graphene-django is removed. Nothing used it beyond
   `INSTALLED_APPS`; its graphql-relay pinned graphql-core below 3.3, which

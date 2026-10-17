@@ -10,7 +10,8 @@ from django.db.models import Q
 
 from zentinelle.models import AgentEndpoint, Policy
 from zentinelle.models.actions import Action, BlockLevel
-from zentinelle.services.actions import Decision, denies, summarize
+from zentinelle.services.actions import (Decision, can_refuse, count_match,
+                                         denies, escalation_scope, summarize)
 
 if TYPE_CHECKING:
     from zentinelle.services.evaluators.base import BasePolicyEvaluator
@@ -51,6 +52,9 @@ class EvaluationResult:
     # The decided action, its fallback chain and the rule that decided it
     # (services/actions.summarize, #396).
     enforcement: Dict[str, Any] = field(default_factory=dict)
+    # The repeat counts a call held for an approval adds to if the approval
+    # is denied (#413); recorded by services/approvals.
+    approval_counts: List[Dict[str, Any]] = field(default_factory=list)
 
 
 class PolicyEngine:
@@ -263,6 +267,7 @@ class PolicyEngine:
         dry_run: bool = False,
         target_capabilities: Optional[Dict[str, bool]] = None,
         user_verified: bool = False,
+        hold_approvals: bool = False,
     ) -> EvaluationResult:
         """
         Evaluate policies for an action.
@@ -281,6 +286,12 @@ class PolicyEngine:
         fallback chain and never changes `allowed`. A redact decision refuses
         the call whatever the caller declares, because no evaluator returns
         redacted content for a target to pass on in place of the original.
+
+        A match counts toward repeat escalation once nothing can release it
+        (#413): a call an approval releases does not count, and with
+        hold_approvals (a host keeps the call pending) a call held for an
+        approval counts only if the approval is denied, from the result's
+        approval_counts (services/approvals).
         """
         from zentinelle.services.actions import refusal
         from zentinelle.services.evaluation_context import normalize_context
@@ -374,9 +385,10 @@ class PolicyEngine:
             # case the returned evaluator itself is the authority for support.
             supported = (True if self._evaluator_cache is None else
                          policy.policy_type in self._evaluator_cache)
+            # An enforced rule that can never refuse a call observes (#413).
             coverage_status = ('unsupported' if not supported else
-                               'enforced' if policy.enforcement == Policy.Enforcement.ENFORCE else
-                               'observation_only')
+                               'enforced' if policy.enforcement == Policy.Enforcement.ENFORCE and can_refuse(policy)
+                               else 'observation_only')
             coverage_counts[coverage_status] += 1
             try:
                 result = evaluator.evaluate(
@@ -414,6 +426,8 @@ class PolicyEngine:
         approval_only = True
         warnings = []
         decisions = []
+        # Repeat counts held for an approval, recorded only if it is denied.
+        held_counts = []
         severity = self._escalation_severity(action, context, results, outcomes)
         for policy, entry, result, malformed in outcomes:
             if malformed is not None:
@@ -436,14 +450,17 @@ class PolicyEngine:
                     # before #396; recorded under audit; never escalated.
                     decision = self._fail_closed(policy)
                 else:
-                    decision = self._decide(policy, result, endpoint, action, context, severity, dry_run)
-                    if getattr(result, 'advisory', False) and denies(decision):
-                        decision.capped_from = decision.action
-                        decision.action, decision.block_level = Action.ALERT.value, None
+                    decision = self._decide(policy, result, endpoint, action, context, severity, record=False)
                 if self._released_by_approval(decision, result, policy, action, user_id, context):
                     entry['result'] = 'pass'
                     entry['approved'] = True
                 else:
+                    count = self._count_key(policy, endpoint, context)
+                    if count is not None and not dry_run and not getattr(result, 'error', False):
+                        if hold_approvals and decision.action == Action.REQUIRE_APPROVAL:
+                            held_counts.append((decision, count))
+                        else:
+                            decision = self._decide(policy, result, endpoint, action, context, severity, record=True)
                     entry['action'], entry['block_level'] = decision.action, decision.block_level
                     decisions.append(decision)
                     if policy.enforcement == Policy.Enforcement.ENFORCE:
@@ -470,6 +487,13 @@ class PolicyEngine:
 
             if result.warnings:
                 warnings.extend(result.warnings)
+
+        # A held call that is not held after all (something else refused it)
+        # counts now.
+        if held_counts and (allowed or not approval_only):
+            for _decision, count in held_counts:
+                count_match(**count)
+            held_counts = []
 
         if allowed and not dry_run:
             from zentinelle.services.budgets import admit
@@ -508,6 +532,10 @@ class PolicyEngine:
             approval_required=not dry_run and not allowed and approval_only,
             enforcement=summarize(decisions, honourable),
         )
+        if dry_run:
+            # A dry run never refuses, so its decision says it is a preview (#413).
+            evaluation_result.enforcement['dry_run'] = True
+        evaluation_result.approval_counts = [count for _decision, count in held_counts]
 
         # Auto-create incidents for policy violations (skipped in dry_run mode)
         if not dry_run and not allowed:
@@ -611,15 +639,22 @@ class PolicyEngine:
         score, _factors = RiskScorer().compute(action, context, results, signals)
         return _risk_score_to_severity(score)
 
-    def _decide(self, policy, result, endpoint, action, context, severity, dry_run) -> Decision:
-        from zentinelle.services.actions import (count_match, decide,
-                                                 render_steer)
+    @staticmethod
+    def _count_key(policy, endpoint, context) -> Optional[Dict[str, Any]]:
+        """The repeat counter a match of `policy` adds to, or None when it does not escalate by repeats."""
         escalation = policy.escalation or {}
-        count = None
-        if escalation.get('repeat'):
-            count = count_match(tenant_id=endpoint.tenant_id, kind='policy', rule_id=str(policy.id),
-                                scope_id=str(endpoint.id), window_seconds=escalation['window_seconds'],
-                                record=not dry_run)
+        if not escalation.get('repeat'):
+            return None
+        return {'tenant_id': endpoint.tenant_id, 'kind': 'policy', 'rule_id': str(policy.id),
+                'scope_id': escalation_scope(endpoint, context.get('session_id')),
+                'window_seconds': escalation['window_seconds']}
+
+    def _decide(self, policy, result, endpoint, action, context, severity, record) -> Decision:
+        """The decision for a matched policy; `record` adds this match to its repeat count."""
+        from zentinelle.services.actions import decide, render_steer
+        escalation = policy.escalation or {}
+        key = self._count_key(policy, endpoint, context)
+        count = None if key is None else count_match(**key, record=record)
         decision = decide(action=policy.action, block_level=policy.block_level, escalation=escalation,
                           mode=policy.enforcement, count=count, severity=severity,
                           approval_kind=getattr(result, 'approval_required', False),
@@ -629,6 +664,9 @@ class PolicyEngine:
                 'rule': policy.name, 'reason': result.message, 'action': action,
                 'tool': context.get('tool_name') or context.get('tool') or '', 'agent': endpoint.agent_id,
             })
+        if getattr(result, 'advisory', False) and denies(decision):
+            decision.capped_from = decision.action
+            decision.action, decision.block_level = Action.ALERT.value, None
         return decision
 
     @staticmethod

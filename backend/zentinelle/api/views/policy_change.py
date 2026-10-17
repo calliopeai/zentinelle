@@ -10,6 +10,7 @@ from zentinelle.api.permissions import (PORTAL_AUTH, PORTAL_OR_AGENT_AUTH,
                                         OpenOrAgentAuth, PortalAccess)
 from zentinelle.auth.roles import can_admin
 from zentinelle.models import PolicyChangeSet
+from zentinelle.services.policy_rollout import weakening_changes
 
 
 def _serialize(change):
@@ -22,6 +23,7 @@ def _serialize(change):
         'changes': change.changes,
         'base_versions': change.base_versions,
         'validation': change.validation,
+        'weakening_changes': weakening_changes(change),
         'applied_snapshots': change.applied_snapshots,
         'target_selectors': change.target_selectors,
         'created_by': change.created_by,

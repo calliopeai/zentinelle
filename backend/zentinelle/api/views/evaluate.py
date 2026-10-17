@@ -96,6 +96,7 @@ class EvaluateView(APIView):
                 context=context,
                 target_capabilities=capabilities,
                 user_verified=bool(identity),
+                hold_approvals=is_host,
             )
             # A host can keep the call pending, so an action blocked only for
             # want of a human approval is held for one instead of refused.
@@ -307,7 +308,10 @@ class EvaluateView(APIView):
             # The response check belongs to a call already logged at
             # llm:invoke; a row of its own made one call look like two.
             if action != 'llm:response':
+                # The call's content is scanned here as a record of it; /scan
+                # decides on it and counts it (#413).
                 record_interaction(
+                    record=False,
                     tenant_id=endpoint.tenant_id,
                     endpoint=endpoint,
                     deployment_id_ext=endpoint.deployment_id_ext,

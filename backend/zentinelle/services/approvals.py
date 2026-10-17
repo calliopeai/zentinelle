@@ -109,7 +109,7 @@ def open_approval_request(*, endpoint, action, user_id, result, trace_id):
     held = ApprovalRequest.objects.create(
         tenant_id=endpoint.tenant_id, endpoint_id_ext=str(endpoint.pk), subject=str(user_id or ''),
         action=action, context_digest=result.context['_approval_digest'], context=result.context,
-        reason=result.reason or '', trace_id=trace_id,
+        reason=result.reason or '', trace_id=trace_id, escalation_counts=result.approval_counts,
         expires_at=timezone.now() + timedelta(seconds=timeout),
     )
     return held, timeout
@@ -138,6 +138,12 @@ def decide_approval_request(*, tenant_id, request_id, approve, decided_by, reaso
                 digest=held.context_digest, endpoint_id=endpoint.pk, policies=policies,
                 granted_by=decided_by, timeout=approval_timeout(policies),
             )
+        else:
+            # The held call is refused now, so its matches count (#413); one
+            # an approval releases never does.
+            from zentinelle.services.actions import count_match
+            for count in held.escalation_counts or []:
+                count_match(**{**count, 'tenant_id': held.tenant_id})
         held.status = ApprovalRequest.Status.APPROVED if approve else ApprovalRequest.Status.DENIED
         held.decided_by = str(decided_by)
         held.decided_at = timezone.now()

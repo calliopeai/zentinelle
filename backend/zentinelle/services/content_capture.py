@@ -92,13 +92,16 @@ def _unfilled(row, field):
     return _empty(value) or (field == 'input_content' and bool(row.topics) and value == row.topics[0])
 
 
-def record_interaction(merge=False, **kwargs):
+def record_interaction(merge=False, record=True, **kwargs):
     """Inspect raw content in memory, then persist according to the capture profile.
 
     With `merge`, a row the same endpoint already logged under the same
     request_id is completed instead of duplicated: one provider call is one
     row. Only unfilled fields are written, so a later post can never rewrite
     content or lower token counts and cost already recorded.
+
+    Without `record` the scan is a record of content another check decides
+    on: it counts no repeats and raises no alerts (#413).
     """
     from zentinelle.models.compliance import ContentScan, InteractionLog
     from zentinelle.services.content_scanner import ContentScanner
@@ -109,7 +112,8 @@ def record_interaction(merge=False, **kwargs):
         if content:
             _, scan = scanner.scan(content=content, endpoint=kwargs.get('endpoint'),
                                    user_id=kwargs.get('user_identifier') or '', content_type=kind,
-                                   request_id=kwargs.get('request_id', ''))
+                                   session_id=kwargs.get('session_id') or '',
+                                   request_id=kwargs.get('request_id', ''), record=record)
             kwargs['scan'] = scan
     tenant_id = kwargs.get('tenant_id')
     for field in ('input_content', 'output_content'):

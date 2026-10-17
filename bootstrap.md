@@ -777,7 +777,7 @@ itself, and nobody copies a gateway credential by hand:
 7. Each agent task and box gets its own agent key, so its pod carries no
    provider key (#400, calliopeai/astrolift-app#1851):
    `POST .../astrolift/agents` `{"agent_id", "ttl_seconds", "tenant_id"?,
-   "name"?, "deployment_id"?}` answers with the key once, with `expires_at`
+   "name"?, "deployment_id"?, "cluster_id"?}` answers with the key once, with `expires_at`
    and `lifetime_ends_at`. `ttl_seconds` is required (1 to 2,592,000), and
    the key is refused after it. No key works longer than
    `ASTROLIFT_AGENT_KEY_MAX_LIFETIME_SECONDS` (default 7 days) after its mint:
@@ -785,7 +785,11 @@ itself, and nobody copies a gateway credential by hand:
    that needs longer mints a fresh key. `tenant_id` defaults to the install's
    only tenant and must be one of the install's. Astrolift sends
    `deployment_id` = the agent's slug, so a deployment-scoped policy covers
-   every run of that agent. Minting again for an agent the install minted
+   every run of that agent. `cluster_id` names the live cluster of the
+   install the key is for (404 otherwise); its gateway has to serve the
+   agent's tenant (`403 tenant_not_in_cluster_scope`). The agent then
+   filters by that cluster, and a usage event `/events` receives with a
+   gateway credential records the gateway's cluster (#389). Minting again for an agent the install minted
    replaces its key and starts a new lifetime (a retried spawn, a restarted
    box). It brings back only an agent the install's own revoke stopped: one
    stopped by anyone else (the portal's suspend or status change, the kill
@@ -804,7 +808,10 @@ itself, and nobody copies a gateway credential by hand:
    renewals are not, for the reason heartbeats are not.
 
 The portal (admins only) lists the installs serving the admin's tenant with
-their clusters, and can revoke a cluster or disconnect an install. A change
+their clusters, and can revoke a cluster, rotate its gateway credential
+(`POST settings/astrolift/clusters/<id>/rotate` `{"overlap_seconds"}`, the
+new credential shown once for the admin to put into the cluster's Secret
+before the overlap ends), or disconnect an install. A change
 that touches an install needs access to every tenant the install serves.
 
 Every change writes one `AuditLog` record per tenant in scope (actions

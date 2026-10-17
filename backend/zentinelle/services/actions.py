@@ -270,6 +270,37 @@ def decide(*, action: str, block_level: Optional[str], escalation: Dict[str, Any
     return decision
 
 
+REFUSING_ACTIONS = (Action.BLOCK.value, Action.REQUIRE_APPROVAL.value, Action.REDACT.value)
+RECORDING_ACTIONS = (Action.LOG.value, Action.ALERT.value)
+
+
+def ladder(rule: Any) -> List[str]:
+    """Every action a rule can reach: its own, then its escalation steps."""
+    escalation = getattr(rule, 'escalation', None) or {}
+    return [rule.action] + [step['action'] for key in ('repeat', 'severity') for step in escalation.get(key, [])]
+
+
+def can_refuse(rule: Any) -> bool:
+    """Whether a rule under enforce can ever refuse a call (#413).
+
+    One whose action and escalation never reach block, require_approval or
+    redact lets every call through however its mode reads.
+    """
+    return any(action in REFUSING_ACTIONS for action in ladder(rule))
+
+
+def escalation_scope(endpoint: Any, session_id: Any = '') -> str:
+    """What repeat escalation counts per: the endpoint, or a host's session (#413).
+
+    One agent host key serves many sessions (#377), so one session's repeats
+    must not escalate the others.
+    """
+    from zentinelle.models import AgentEndpoint
+    if endpoint.agent_type == AgentEndpoint.AgentType.AGENT_HOST and session_id:
+        return f'{endpoint.id}:session:{session_id}'
+    return str(endpoint.id)
+
+
 def denies(decision: Decision) -> bool:
     """Whether the call must be refused. `allowed` stays safe for callers that read nothing else.
 

@@ -1249,6 +1249,7 @@ class Query:
         status: Optional[str] = None,
         agent_type: Optional[str] = None,
         deployment_id: Optional[strawberry.ID] = None,
+        astrolift_cluster_id: Optional[uuid.UUID] = None,
     ) -> list[AgentEndpointType]:
         if not info.context.request.user.is_authenticated:
             return AgentEndpoint.objects.none()
@@ -1265,6 +1266,9 @@ class Query:
             qs = qs.filter(agent_type=agent_type)
         if deployment_id:
             qs = qs.filter(deployment_id=deployment_id)
+        # The tenant filter above scopes this: another tenant's cluster matches nothing (#389).
+        if astrolift_cluster_id:
+            qs = qs.filter(astrolift_cluster_id=astrolift_cluster_id)
         return qs
 
     # Policies
@@ -1382,6 +1386,7 @@ class Query:
         category: Optional[str] = None,
         endpoint_id: Optional[strawberry.ID] = None,
         user_id: Optional[str] = None,
+        astrolift_cluster_id: Optional[uuid.UUID] = None,
     ) -> list[EventType]:
         if not info.context.request.user.is_authenticated:
             return Event.objects.none()
@@ -1395,6 +1400,9 @@ class Query:
             qs = qs.filter(endpoint_id=endpoint_id)
         if user_id:
             qs = qs.filter(user_identifier=user_id)
+        # Usage events the cluster's gateway reported (#389).
+        if astrolift_cluster_id:
+            qs = qs.filter(astrolift_cluster_id=astrolift_cluster_id)
         return qs
 
     # Audit Logs
@@ -2696,6 +2704,7 @@ class Query:
         end_date: Optional[datetime] = None,
         granularity: Optional[str] = None,
         endpoint_id: Optional[strawberry.ID] = None,
+        astrolift_cluster_id: Optional[uuid.UUID] = None,
     ) -> Optional[UsageMetricsType]:
         from datetime import timedelta
 
@@ -2727,6 +2736,11 @@ class Query:
         )
         if endpoint_id:
             logs = logs.filter(endpoint_id=endpoint_id)
+        agents = AgentEndpoint.objects.filter(tenant_id=tenant_id, status='active')
+        # The calls of the agents whose keys were minted for the cluster (#389).
+        if astrolift_cluster_id:
+            logs = logs.filter(endpoint__astrolift_cluster_id=astrolift_cluster_id)
+            agents = agents.filter(astrolift_cluster_id=astrolift_cluster_id)
 
         agg = logs.aggregate(
             total_api_calls=Count('id'),
@@ -2734,7 +2748,7 @@ class Query:
             total_cost=Sum('estimated_cost_usd'),
         )
 
-        active_agents = AgentEndpoint.objects.filter(tenant_id=tenant_id, status='active').count()
+        active_agents = agents.count()
 
         by_agent_qs = (
             logs.values('endpoint__agent_id', 'endpoint__name')

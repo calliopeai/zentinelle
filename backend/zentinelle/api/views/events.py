@@ -60,34 +60,38 @@ class EventsView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        gateway = self._reporting_gateway(request, auth_endpoint)
         return self.ingest(auth_endpoint, data['events'],
                            identity=getattr(request, 'verified_hub_identity', None),
-                           usage_source=self._usage_source(request, auth_endpoint))
+                           usage_source='gateway' if gateway else 'agent',
+                           astrolift_cluster_id=gateway.astrolift_cluster_id if gateway else None)
 
     @staticmethod
-    def _usage_source(request, auth_endpoint):
-        """Who reported a usage event: 'gateway' only with the gateway's own credential (#412).
+    def _reporting_gateway(request, auth_endpoint):
+        """The gateway registration that reported these events, or None (#412).
 
-        The agent key can post events too, so a `source` in the payload says
-        nothing. A gateway proves itself with its credential, which has to be
-        registered for the agent's tenant. Without one, or with one that does
-        not check out, the report is still metered, as the agent's.
+        Usage is the gateway's only with the gateway's own credential: the
+        agent key can post events too, so a `source` in the payload says
+        nothing. The credential has to be registered for the agent's tenant.
+        Without one, or with one that does not check out, the report is still
+        metered, as the agent's.
         """
         presented = request.META.get('HTTP_X_ZENTINELLE_GATEWAY_CREDENTIAL', '')
         if not presented:
-            return 'agent'
+            return None
         credential = GatewayCredential.authenticate(presented)
         if credential is None or not credential.registration.serves(auth_endpoint.tenant_id):
             logger.warning('Usage reported for agent %s with a gateway credential that is unknown, revoked or '
                            'not registered for tenant %s; recorded as the agent\'s',
                            auth_endpoint.agent_id, auth_endpoint.tenant_id)
-            return 'agent'
-        return 'gateway'
+            return None
+        return credential.registration
 
-    def ingest(self, auth_endpoint, events, *, identity=None, usage_source='agent'):
+    def ingest(self, auth_endpoint, events, *, identity=None, usage_source='agent', astrolift_cluster_id=None):
         """The common authenticated ingest path for REST events and OTLP.
 
-        A usage event's `source` is `usage_source`, whatever the producer sent.
+        A usage event's `source` is `usage_source`, whatever the producer sent,
+        and its cluster is the reporting gateway's Astrolift cluster (#389).
         """
         batch_id = f"batch_{uuid.uuid4().hex[:16]}"
 
@@ -101,7 +105,8 @@ class EventsView(APIView):
                 occurred_at = parse_datetime(occurred_at) or timezone.now()
 
             payload = capture_payload(event_data.get('payload', {}), auth_endpoint.tenant_id)
-            if event_data['type'] in USAGE_EVENT_TYPES and isinstance(payload, dict):
+            usage = event_data['type'] in USAGE_EVENT_TYPES
+            if usage and isinstance(payload, dict):
                 payload['source'] = usage_source
             event = Event(
                 tenant_id=auth_endpoint.tenant_id,
@@ -115,6 +120,7 @@ class EventsView(APIView):
                 status=Event.Status.PENDING,
                 correlation_id=batch_id,
                 producer_event_id=event_data.get('event_id', ''),
+                astrolift_cluster_id=astrolift_cluster_id if usage else None,
             )
             if event.producer_event_id:
                 idempotent_events.append((event, event_data))
@@ -145,6 +151,7 @@ class EventsView(APIView):
                         'occurred_at': event.occurred_at,
                         'status': event.status,
                         'correlation_id': event.correlation_id,
+                        'astrolift_cluster_id': event.astrolift_cluster_id,
                     },
                 )
             if created:

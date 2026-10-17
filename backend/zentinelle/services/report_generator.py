@@ -81,6 +81,8 @@ def generate_control_coverage(tenant_id: str, pack_name: str, format: str = 'csv
         bytes              — format == 'pdf' (PDF via weasyprint or HTML fallback)
     """
     from zentinelle.models import Policy
+    from zentinelle.services.actions import (RECORDING_ACTIONS, can_refuse,
+                                             ladder)
     from zentinelle.services.compliance_packs import get_pack
 
     pack = get_pack(pack_name)
@@ -111,9 +113,14 @@ def generate_control_coverage(tenant_id: str, pack_name: str, format: str = 'csv
         elif any(matching.config.get(k) != v for k, v in policy_def.get('config', {}).items()):
             actual_enforcement = matching.enforcement
             row_status = 'configuration-review'
-        elif matching.enforcement == Policy.Enforcement.AUDIT:
+        elif matching.enforcement == Policy.Enforcement.AUDIT or set(ladder(matching)) <= set(RECORDING_ACTIONS):
+            # An enforced rule that only logs or alerts does what audit does (#413).
             actual_enforcement = matching.enforcement
             row_status = 'audit-only'
+        elif not can_refuse(matching):
+            # It warns or steers, and lets every call through.
+            actual_enforcement = matching.enforcement
+            row_status = 'not-enforced'
         else:
             actual_enforcement = matching.enforcement
             row_status = 'configured'
@@ -159,6 +166,7 @@ def _control_coverage_html(pack: dict, rows: list) -> str:
         'configured': 'badge-active',
         'inactive': 'badge-inactive',
         'audit-only': 'badge-audit',
+        'not-enforced': 'badge-inactive',
     }
 
     rows_html = ''.join(

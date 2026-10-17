@@ -122,6 +122,14 @@ class Event(models.Model):
         default='',
         help_text='Producer-assigned event ID used for idempotent ingestion',
     )
+    # The Astrolift cluster whose gateway reported this usage event, set by
+    # /events from the gateway's credential, never from the payload (#389).
+    # No index or database constraint, so adding it to this high-volume
+    # table locks nothing; clusters are never deleted, only revoked.
+    astrolift_cluster = models.ForeignKey(
+        'zentinelle.AstroliftCluster', null=True, blank=True, on_delete=models.SET_NULL,
+        db_index=False, db_constraint=False, related_name='usage_events',
+    )
 
     class Meta:
         ordering = ['-occurred_at']
