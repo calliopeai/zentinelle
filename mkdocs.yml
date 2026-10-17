@@ -44,6 +44,11 @@ extra_css:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Install by blueprint (AWS):
+    - Overview: install/index.md
+    - Standalone on ECS: install/standalone-ecs.md
+    - Inside Astrolift: install/in-astrolift.md
+    - Full stack: install/full-stack.md
   - Tech Stack: tech-stack.md
   - Reference:
     - Overview: wiki/Home.md
