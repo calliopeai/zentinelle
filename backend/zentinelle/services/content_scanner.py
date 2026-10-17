@@ -396,7 +396,7 @@ class ContentScanner:
         """What a rule's decision reads as to a caller that knows only block, warn and redact.
 
         A rule configured as require_approval holds nothing there, as before
-        #396 (#408 decides whether it should). Escalating into
+        #396; /scan's `allowed` refuses it (#408). Escalating into
         require_approval must not undo the warn or redact the rule applied
         before it, and a legacy caller cannot hold a call, so it reads as
         block: where require_approval's fallback chain ends.

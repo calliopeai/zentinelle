@@ -38,6 +38,7 @@ from zentinelle.api.permissions import (PORTAL_AUTH, PORTAL_OR_AGENT_AUTH,
 from zentinelle.models import (ComplianceAlert, ComplianceAssessment,
                                ContentRule, ContentScan, ContentViolation,
                                InteractionLog)
+from zentinelle.models.actions import Action
 from zentinelle.models.llm_provider_key import _get_fernet
 from zentinelle.services.content_capture import record_interaction
 from zentinelle.services.content_scanner import ContentScanner
@@ -144,17 +145,25 @@ class ScanContentView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+        # `allowed` follows the decided action as /evaluate's does (#408):
+        # block, require_approval and redact refuse. Unlike /evaluate, a scan
+        # has the redacted text to hand back, so a caller that declares
+        # supports_redact passes it on instead of refusing.
+        from zentinelle.services.actions import REFUSING_ACTIONS
+        decided = result.enforcement.get('action')
+        redacts = decided == Action.REDACT and (capabilities or {}).get('supports_redact') is True
+
         # Build response
         response_data = {
-            'allowed': result.action != 'block',
+            'allowed': decided not in REFUSING_ACTIONS or redacts,
             'action': result.action,
             'scan_id': str(scan.id),
             'has_violations': result.has_violations,
             'violation_count': len(result.violations),
             'max_severity': result.max_severity,
             'scan_duration_ms': result.scan_duration_ms,
-            # The decided action and its fallback chain (#396). `allowed` and
-            # `action` keep their legacy precedence; see bootstrap.md.
+            # The decided action and its fallback chain (#396). `action`
+            # keeps its legacy precedence; see bootstrap.md.
             'enforcement': result.enforcement,
         }
 

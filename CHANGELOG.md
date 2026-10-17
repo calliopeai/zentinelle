@@ -126,6 +126,24 @@ Notable changes to Zentinelle. The format follows
 
 ### Changed
 
+- **Breaking:** `/scan`'s `allowed` follows the decided action, as
+  `/evaluate`'s does (#408). Content decided as `require_approval` or
+  `redact` is now refused (`allowed: false`); before, a `require_approval`
+  rule was allowed, and so was a `redact` rule, with the text in
+  `redacted_content`. A caller that declares `supports_redact` in
+  `target_capabilities` is still allowed on a `redact` decision and passes on
+  `enforcement.redacted_content` instead of the original. `supports_approval`
+  changes nothing: a scan holds no call, so a target that can hold one does
+  so from `enforcement`. The legacy `action` field is unchanged. Callers that
+  read only `allowed` see existing redact and require_approval content rules
+  start refusing; review them before upgrading.
+- `ContentRule.enforcement` is out of the model (#416). Nothing reads it and
+  saving no longer writes it from `action`. Migration 0074, on the
+  `zentinelle` schema, keeps the column with a database default, because
+  1.4.0 still selects it on every content-rule read during a rolling deploy
+  or after a rollback; a later release drops it. The GraphQL `enforcement`
+  field and input on content rules are unchanged (derived from and mapped to
+  `action`).
 - Reports and coverage honour a policy's action (#413). In the control
   coverage report, an enforced policy whose action and escalation only log
   or alert now reads `audit-only`, and one that only warns or steers reads
