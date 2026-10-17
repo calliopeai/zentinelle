@@ -5,7 +5,6 @@ import { PermissionGuard } from "@/components/PermissionGuard";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation } from "@apollo/client/react";
-import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import {
   MoreHorizontalIcon,
   BotIcon,
@@ -29,6 +28,7 @@ import {
   UPDATE_ENDPOINT_STATUS,
 } from "@/graphql/agents/mutations";
 import {
+  type ColumnDef,
   DataTable,
   DataTableColumnHeader,
   type FilterConfig,

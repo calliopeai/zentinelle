@@ -4,7 +4,6 @@ import { PermissionGuard } from "@/components/PermissionGuard";
 
 import { useState, useMemo } from "react";
 import { useMutation } from "@apollo/client/react";
-import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import { MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -21,6 +20,7 @@ import {
 } from "@/graphql/policies/mutations";
 import { SectionErrorBoundary } from "@/components/section-error-boundary";
 import {
+  type ColumnDef,
   DataTable,
   DataTableColumnHeader,
   type FilterConfig,

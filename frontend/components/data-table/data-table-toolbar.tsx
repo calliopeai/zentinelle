@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { type RowData } from "@tanstack/react-table";
-import { type LegacyReactTable as Table } from "@tanstack/react-table/legacy";
 import { ListFilterIcon, XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { type Table } from "./features";
 import { type FilterConfig } from "./types";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ const FilterChips = <TData extends RowData>({
   table: Table<TData>;
   filters: FilterConfig[];
 }) => {
-  const columnFilters = table.getState().columnFilters;
+  const columnFilters = table.state.columnFilters;
   if (!columnFilters.length) return null;
 
   return (
@@ -126,7 +126,7 @@ const FilterPanel = <TData extends RowData>({
   const setField = (id: string, value: string) =>
     setDraft((d) => ({ ...d, [id]: value }));
 
-  const activeCount = table.getState().columnFilters.length;
+  const activeCount = table.state.columnFilters.length;
 
   return (
     <Popover open={open} onOpenChange={handleOpen}>
@@ -231,15 +231,14 @@ export const DataTableToolbar = <TData extends RowData>({
 }: DataTableToolbarProps<TData>) => {
   const t = useTranslations("dataTable");
   const isFiltered =
-    !!table.getState().globalFilter ||
-    table.getState().columnFilters.length > 0;
+    !!table.state.globalFilter || table.state.columnFilters.length > 0;
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <Input
           placeholder={searchPlaceholder ?? t("search")}
-          value={table.getState().globalFilter ?? ""}
+          value={table.state.globalFilter ?? ""}
           onChange={(e) => table.setGlobalFilter(e.target.value)}
           className="h-8 w-56"
         />
