@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useMutation } from "@apollo/client/react";
-import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import { MoreHorizontalIcon, PlusIcon, UsersIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,6 +13,7 @@ import type {
 import { DELETE_AGENT_GROUP } from "@/graphql/agent-groups/mutations";
 
 import {
+  type ColumnDef,
   DataTable,
   DataTableColumnHeader,
   type FilterConfig,

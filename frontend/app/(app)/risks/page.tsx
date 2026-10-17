@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useMutation } from "@apollo/client/react";
-import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import Link from "next/link";
 import { MoreHorizontalIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -13,6 +12,7 @@ import { useConfirm } from "@/hooks/use-confirm";
 import type { RiskData } from "@/graphql/risks/types";
 import { SectionErrorBoundary } from "@/components/section-error-boundary";
 import {
+  type ColumnDef,
   DataTable,
   DataTableColumnHeader,
   type FilterConfig,

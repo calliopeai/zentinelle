@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useMutation } from "@apollo/client/react";
-import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import { MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useContentRules } from "@/graphql/content-rules/hooks";
@@ -17,6 +16,7 @@ import {
   DUPLICATE_CONTENT_RULE,
 } from "@/graphql/content-rules/mutations";
 import {
+  type ColumnDef,
   DataTable,
   DataTableColumnHeader,
   type FilterConfig,

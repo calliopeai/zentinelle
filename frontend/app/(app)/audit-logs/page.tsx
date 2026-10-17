@@ -3,7 +3,6 @@
 import { authenticatedFetch } from "@/lib/auth/fetch";
 
 import { useState } from "react";
-import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import {
   CheckCircle2Icon,
   ChevronDownIcon,
@@ -16,6 +15,7 @@ import { toast } from "sonner";
 import { useAuditLogs } from "@/graphql/events/hooks";
 import type { AuditLogData, AuditChange } from "@/graphql/events/types";
 import {
+  type ColumnDef,
   DataTable,
   DataTableColumnHeader,
   type FilterConfig,

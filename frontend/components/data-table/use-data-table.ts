@@ -4,19 +4,9 @@ import {
   type PaginationState,
   type RowData,
   type SortingState,
+  useTable,
 } from "@tanstack/react-table";
-// TanStack Table v9 replaced useReactTable/get*RowModel with a modular
-// features API. @tanstack/react-table/legacy is the library's own v8
-// compatibility layer (see its JSDoc) and keeps this file's behavior
-// unchanged; see zentinelle#402 for graduating off it.
-import {
-  type LegacyColumnDef as ColumnDef,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useLegacyTable,
-} from "@tanstack/react-table/legacy";
+import { type ColumnDef, dataTableFeatures } from "./features";
 
 type UseDataTableOptions<TData extends RowData> = {
   data: TData[];
@@ -49,7 +39,8 @@ export const useDataTable = <TData extends RowData>(
 
   const resetPage = () => setPagination((p) => ({ ...p, pageIndex: 0 }));
 
-  const table = useLegacyTable({
+  const table = useTable({
+    features: dataTableFeatures,
     data,
     columns,
     getRowId,
@@ -64,10 +55,6 @@ export const useDataTable = <TData extends RowData>(
       resetPage();
     },
     onPaginationChange: setPagination,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
   });
 
   return { table };
