@@ -1,24 +1,13 @@
 name: Deploy docs
 
-# zentinelle.dev: the MkDocs site from docs/, with the console Storybook
-# alongside it. Storybook from main is served at /storybook/. A manual run
-# can also publish branches for review under /storybook-preview/<branch>/;
-# those stay up until the next deploy, which publishes main only.
-
 on:
   push:
     branches: [main]
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
-      - 'frontend/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
-    inputs:
-      storybook_refs:
-        description: 'Branches to publish under /storybook-preview/<branch>/, space separated (main is always built)'
-        required: false
-        default: ''
 
 permissions:
   contents: read
@@ -30,66 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  plan:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.plan.outputs.matrix }}
-    steps:
-      - id: plan
-        env:
-          REFS: ${{ inputs.storybook_refs }}
-        run: |
-          set -euo pipefail
-          entries='{"ref":"main","slug":"main","dest":"storybook"}'
-          for ref in $REFS; do
-            if ! [[ "$ref" =~ ^[A-Za-z0-9._/-]+$ ]] || [ "$ref" = main ]; then
-              echo "skipping ref: $ref"; continue
-            fi
-            slug=$(printf '%s' "${ref#feat/}" | tr '/' '-')
-            entries="$entries,{\"ref\":\"$ref\",\"slug\":\"$slug\",\"dest\":\"storybook-preview/$slug\"}"
-          done
-          echo "matrix={\"include\":[$entries]}" >> "$GITHUB_OUTPUT"
-
-  storybook:
-    needs: plan
-    runs-on: ubuntu-latest
-    # A Storybook that does not build never blocks the docs site.
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ matrix.ref }}
-
-      - id: has
-        run: |
-          if [ -d frontend/.storybook ]; then echo "storybook=true" >> "$GITHUB_OUTPUT"; fi
-
-      - if: steps.has.outputs.storybook == 'true'
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-
-      - if: steps.has.outputs.storybook == 'true'
-        working-directory: frontend
-        run: npm ci
-
-      - if: steps.has.outputs.storybook == 'true'
-        working-directory: frontend
-        run: npm run build-storybook -- --output-dir storybook-static
-
-      - if: steps.has.outputs.storybook == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: storybook-${{ matrix.slug }}
-          path: frontend/storybook-static
-          retention-days: 30
-
   build:
-    needs: [plan, storybook]
-    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -105,29 +35,6 @@ jobs:
 
       - name: Build
         run: mkdocs build --strict
-
-      - uses: actions/download-artifact@v8
-        continue-on-error: true
-        with:
-          pattern: storybook-*
-          path: storybooks
-
-      - name: Add Storybooks
-        env:
-          MATRIX: ${{ needs.plan.outputs.matrix }}
-        run: |
-          set -euo pipefail
-          links=""
-          for row in $(jq -c '.include[]' <<<"$MATRIX"); do
-            slug=$(jq -r .slug <<<"$row"); dest=$(jq -r .dest <<<"$row"); ref=$(jq -r .ref <<<"$row")
-            src="storybooks/storybook-$slug"
-            [ -f "$src/index.html" ] || { echo "no Storybook for $ref"; continue; }
-            mkdir -p "site/$dest"; cp -R "$src/." "site/$dest/"
-            [ "$slug" = main ] || links="$links<li><a href=\"$slug/\">$ref</a></li>"
-          done
-          if [ -n "$links" ]; then
-            printf '<!doctype html><meta charset="utf-8"><title>Zentinelle AI Storybook previews</title><h1>Zentinelle AI Storybook previews</h1><ul>%s</ul>\n' "$links" > site/storybook-preview/index.html
-          fi
 
       - uses: actions/upload-pages-artifact@v5
         with:
