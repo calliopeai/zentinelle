@@ -46,3 +46,17 @@ export const Changes: Story = {
     await expect(args.onChange).toHaveBeenCalledWith("offline");
   },
 };
+
+export const LongOptions: Story = {
+  args: {
+    label: "Alert type",
+    allLabel: "Every alert type",
+    options: [
+      { value: "repeat_violations", label: "Repeat violations by one user" },
+      {
+        value: "violation_spike",
+        label: "Violation rate spike across the organization",
+      },
+    ],
+  },
+};
