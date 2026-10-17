@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -48,33 +49,74 @@ func main() {
 
 	heartbeatCtx, stopHeartbeat := context.WithCancel(context.Background())
 	heartbeatStopped := gateway.startHeartbeat(heartbeatCtx)
+	metricsCtx, stopMetrics := context.WithCancel(context.Background())
+	gateway.startMetricsEMF(metricsCtx)
 
 	sig := <-shutdown
 	logJSON("info", "shutdown signal received", map[string]interface{}{
 		"signal": sig.String(),
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
+	clean := gateway.drain(server)
+	stopMetrics()
 	stopHeartbeat()
-	if err := server.Shutdown(ctx); err != nil {
-		logJSON("error", "shutdown error", map[string]interface{}{
-			"error": err.Error(),
-		})
-		os.Exit(1)
-	}
-	// Every handler has returned, so every usage report has been started.
-	// Exiting now would drop the ones still sending or waiting to retry.
-	if !drainUsageReports(ctx) {
-		logJSON("error", "usage reports still pending at shutdown", nil)
-	}
 	select {
 	case <-heartbeatStopped:
-	case <-ctx.Done():
+	case <-time.After(time.Second):
 	}
 
-	logJSON("info", "gateway stopped", nil)
+	logJSON("info", "gateway stopped", map[string]interface{}{
+		"clean": clean,
+	})
+	if !clean {
+		os.Exit(1)
+	}
+}
+
+// usageFlushTimeout is how long usage reports still sending get once every
+// request has finished.
+const usageFlushTimeout = 5 * time.Second
+
+// drain takes this replica out of service and finishes the work it holds.
+// Readiness fails at once while requests are still served for ShutdownDelay,
+// which is the load balancer's time to notice. Then the listener closes and
+// requests in flight, streams included, get DrainTimeout to finish; any still
+// open after that are cut. Last, the usage reports of every finished request
+// get usageFlushTimeout to land, so a scale-in loses no metering.
+//
+// It reports whether everything finished in time.
+func (g *Gateway) drain(server *http.Server) bool {
+	g.draining.Store(true)
+	// Responses from here on carry Connection: close, so a client on a
+	// keep-alive connection to this replica opens its next one through the
+	// load balancer, to a replica that is staying.
+	server.SetKeepAlivesEnabled(false)
+	logJSON("info", "draining", map[string]interface{}{
+		"shutdown_delay": g.cfg.ShutdownDelay.String(),
+		"drain_timeout":  g.cfg.DrainTimeout.String(),
+		"in_flight":      atomic.LoadInt64(&metricActiveConnections),
+	})
+	time.Sleep(g.cfg.ShutdownDelay)
+
+	clean := true
+	ctx, cancel := context.WithTimeout(context.Background(), g.cfg.DrainTimeout)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		logJSON("error", "requests still in flight at the drain timeout, closing them", map[string]interface{}{
+			"error":     err.Error(),
+			"in_flight": atomic.LoadInt64(&metricActiveConnections),
+		})
+		server.Close()
+		clean = false
+	}
+
+	flushCtx, cancelFlush := context.WithTimeout(context.Background(), usageFlushTimeout)
+	defer cancelFlush()
+	if !drainUsageReports(flushCtx) {
+		logJSON("error", "usage reports still pending at shutdown", nil)
+		clean = false
+	}
+	return clean
 }
 
 // logStartup records how the gateway is configured, and what about that

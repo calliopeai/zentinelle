@@ -21,8 +21,8 @@ from typing import List, Optional
 
 import httpx
 from django.conf import settings
-from django.core.cache import cache
 
+from zentinelle.services.evaluators.rate_limit import add_to_counter
 from zentinelle.services.llm_provider import (OPENAI_COMPAT_PROVIDERS,
                                               _check_model_route,
                                               shared_model_id)
@@ -113,15 +113,12 @@ def check_rate_limit(user_id: str, action: str, limit: int) -> tuple[bool, int]:
     Returns:
         (allowed, remaining_count)
     """
-    key = get_rate_limit_key(user_id, action)
-    current = cache.get(key, 0)
-
-    if current >= limit:
+    # Counted first and atomically, so concurrent requests on any backend
+    # replica cannot all read the same count and all get through.
+    count = add_to_counter(get_rate_limit_key(user_id, action), 1, 3600)
+    if count > limit:
         return False, 0
-
-    # Increment counter
-    cache.set(key, current + 1, timeout=3600)  # 1 hour TTL
-    return True, limit - current - 1
+    return True, limit - count
 
 
 def validate_prompt_for_testing(prompt_text: str) -> tuple[bool, str]:
