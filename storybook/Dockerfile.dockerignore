@@ -1,0 +1,13 @@
+# The build context is the repository root; the image needs frontend/ only.
+# Never the host's node_modules or build output, which would land on top of
+# the image's own (see frontend/.dockerignore).
+**
+!frontend/
+!storybook/nginx.conf
+frontend/node_modules
+frontend/.next
+frontend/out
+frontend/storybook-static
+frontend/coverage
+frontend/.env
+frontend/.env.*
