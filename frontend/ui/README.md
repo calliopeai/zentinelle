@@ -11,6 +11,9 @@ ui/
   product.ts            the product: zentinelleBrand + the seven-area nav, gated by capability
   shell/                ZentinelleShell (sidebar, assistant dock, user menu) and its dialogs
   screens/              whole screens, one folder per area as they land; Shell.stories.tsx shows every area empty
+  shared/, patterns/,   generic components the areas built that the package lacks, candidates for
+  components/           @calliopelabs/ui (screens/<area>/components/ holds an area's own, including
+                        its copy of a name another area built differently: Card, StatTile, ...)
   storybook/            catalog helpers, not components: router, GraphQL mocks, fixtures, ShellStory
   test/                 the gates: story coverage, and every story rendered with the a11y checks
 ```
