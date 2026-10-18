@@ -8146,7 +8146,7 @@
       "name": "SeedTests",
       "file_path": "backend/zentinelle/tests/test_seed_integration_policies.py",
       "line_start": 26,
-      "line_end": 103,
+      "line_end": 138,
       "description": "",
       "metadata": "{}"
     },
@@ -24586,7 +24586,7 @@
       "name": "Command",
       "file_path": "backend/zentinelle/management/commands/seed_integration_policies.py",
       "line_start": 47,
-      "line_end": 86,
+      "line_end": 89,
       "description": "",
       "metadata": "{}"
     },

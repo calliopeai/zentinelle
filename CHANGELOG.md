@@ -126,6 +126,9 @@ Notable changes to Zentinelle. The format follows
 
 ### Changed
 
+- Astrolift integration setup seeds delegation and human oversight policies
+  without creating a default monetary budget (astrolift-app#2464). Existing
+  policies and Workbench's separate defaults are preserved.
 - Reports and coverage honour a policy's action (#413). In the control
   coverage report, an enforced policy whose action and escalation only log
   or alert now reads `audit-only`, and one that only warns or steers reads

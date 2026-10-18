@@ -46,7 +46,42 @@ class SeedTests(TestCase):
         output = seed(source='astrolift')
 
         self.assertEqual(Policy.objects.filter(tenant_id=TENANT).count(), 3)
-        self.assertIn('0 created, 3 already present', output)
+        self.assertIn('0 created, 2 already present', output)
+
+    def test_astrolift_seeds_only_delegation_and_oversight_and_is_idempotent(self):
+        output = seed(source='astrolift')
+
+        policies = Policy.objects.filter(tenant_id=TENANT)
+        self.assertEqual({p.policy_type for p in policies}, {'agent_delegation', 'human_oversight'})
+        for policy in policies:
+            self.assertEqual((policy.scope_type, policy.enforcement, policy.action, policy.enabled),
+                             ('organization', 'audit', 'alert', True))
+            self.assertIn('Astrolift', policy.description)
+        self.assertIn('2 created, 0 already present', output)
+        self.assertNotIn('budget_limit', output)
+        self.assertIn('0 created, 2 already present', seed(source='astrolift'))
+        self.assertEqual(policies.count(), 2)
+        self.assertFalse(Policy.objects.filter(tenant_id=OTHER).exists())
+
+    def test_astrolift_preserves_existing_policies_without_mutating_a_budget(self):
+        seed()
+        before = list(Policy.objects.filter(tenant_id=TENANT).order_by('pk').values())
+
+        output = seed(source='astrolift')
+
+        self.assertEqual(list(Policy.objects.filter(tenant_id=TENANT).order_by('pk').values()), before)
+        self.assertIn('0 created, 2 already present', output)
+        self.assertNotIn('budget_limit', output)
+
+    def test_workbench_still_seeds_its_budget_after_astrolift(self):
+        seed(source='astrolift')
+
+        output = seed()
+
+        self.assertEqual({p.policy_type for p in Policy.objects.filter(tenant_id=TENANT)}, SEEDED)
+        self.assertIn('1 created, 2 already present', output)
+        self.assertEqual(Policy.objects.get(tenant_id=TENANT, policy_type='budget_limit').config,
+                         {'monthly_budget_usd': 500, 'alert_threshold_percent': 80, 'hard_limit': False})
 
     def test_an_operators_policy_of_a_type_is_kept_as_it_is(self):
         mine = Policy.objects.create(tenant_id=TENANT, name='Team budget', policy_type='budget_limit',
@@ -84,7 +119,7 @@ class SeedTests(TestCase):
         })
 
     def test_what_they_match_alerts_and_is_never_blocked(self):
-        seed()
+        seed(source='astrolift')
 
         result = self.evaluate_a_risky_spawn()
 
@@ -94,7 +129,7 @@ class SeedTests(TestCase):
         self.assertTrue(any('Delegation depth 9' in w for w in result.warnings))
 
     def test_switched_to_enforce_they_alert_rather_than_block(self):
-        seed()
+        seed(source='astrolift')
         Policy.objects.filter(tenant_id=TENANT).update(enforcement='enforce')
 
         result = self.evaluate_a_risky_spawn()
