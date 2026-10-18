@@ -94,6 +94,8 @@ services:
       - ZENTINELLE_URL=http://backend:8000
       - GATEWAY_PORT=8742
       - FAIL_OPEN=false
+      # One replica and no load balancer to notice it leaving.
+      - SHUTDOWN_DELAY_SECONDS=0
     env_file:
       - .env
     depends_on:

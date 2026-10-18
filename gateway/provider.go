@@ -36,6 +36,24 @@ var providers = map[string]Provider{
 	},
 }
 
+// upstreamOverride, when set, sends every provider's traffic to one base URL
+// instead. It is set only at link time, by the local scale-out load script
+// (scripts/gateway_scale_load.py) pointing the gateway at its stub provider:
+// go build -ldflags "-X main.upstreamOverride=http://127.0.0.1:PORT". No
+// environment variable or request reaches it, and release builds leave it
+// empty.
+var upstreamOverride string
+
+func init() {
+	if upstreamOverride == "" {
+		return
+	}
+	for name, p := range providers {
+		p.BaseURL = upstreamOverride
+		providers[name] = p
+	}
+}
+
 // DetectProvider determines the provider from the request path.
 // Returns the provider config and the remaining path to forward upstream.
 //
