@@ -353,6 +353,10 @@ TEMPORAL_SCHEDULES = {
 
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")
 
+# This server's release, from the image build (VERSION build arg); empty in a
+# build that did not set one. Reported to Astrolift's health card.
+ZENTINELLE_VERSION = os.environ.get("ZENTINELLE_VERSION", "")
+
 # The longest an agent key that an Astrolift install mints for one of its
 # tasks or boxes keeps working after its mint, however often it is renewed
 # (#400). A run that needs longer gets a fresh key.
