@@ -535,10 +535,13 @@ change.
 **Rolling deploys.** The backend migrates at startup while the previous
 release's tasks still serve, so 0062 leaves that release working:
 
-- `ContentRule.enforcement` stays, written from `action` on every save as the
-  nearest legacy value, because the old models read it on every rule lookup.
-  #416 drops it once no environment runs, or could roll back to, the old
-  release.
+- `ContentRule.enforcement` stayed, written from `action` on every save as
+  the nearest legacy value, because the old models read it on every rule
+  lookup. Migration 0074 (#416) takes it out of the model and stops writing
+  it, but keeps the column with a database default: 1.4.0 still selects it
+  on every rule lookup, during a rolling deploy and after a rollback. A later
+  release drops the column once no environment runs, or could roll back to,
+  1.4.0.
 - The new `Policy` columns and `ContentScan.enforcement` have database
   defaults, so an old pod's policy create and `/scan` still insert. A policy
   it creates takes `block` at `tool_call`, which is what it meant.
@@ -610,13 +613,22 @@ Every response, including the 503 for a policy outage, carries `enforcement`:
 `POST /api/zentinelle/v1/scan` takes the same `target_capabilities` and returns
 the same `enforcement` for content rules, with `redacted_content` inside it
 when the decision is `redact`; the decision is stored on the `ContentScan`.
-The legacy `action` and `allowed` keep their old precedence (block, then warn,
-then redact; `log`, `alert` and `require_approval` change nothing there), so
-for a caller reading only `action` a warn rule still wins over a redact rule,
-and a `require_approval` rule holds nothing (#408). A rule that escalation
-raises into `require_approval` reads as `block` there instead: a legacy
-caller cannot hold a call, and escalating must not undo the warn or redact the
-rule applied before it.
+
+- `allowed` follows the decided action as on `/evaluate` (#408): `block`,
+  `require_approval` and `redact` deny, and `log`, `alert`, `warn` and
+  `steer` allow. A scan, unlike an evaluation, has the redacted text, so a
+  caller that declares `supports_redact` is allowed on a `redact` decision
+  and passes on `enforcement.redacted_content` in place of the original.
+  `supports_approval` changes nothing: a scan holds no call, so a
+  `require_approval` decision denies, and a target that can hold the call
+  does so from `enforcement`.
+- The legacy `action` keeps its old precedence (block, then warn, then
+  redact; `log`, `alert` and `require_approval` change nothing there), so for
+  a caller reading only `action` a warn rule still wins over a redact rule,
+  and a `require_approval` rule reads as `allow`. A rule that escalation
+  raises into `require_approval` reads as `block` there instead: escalating
+  must not undo the warn or redact the rule applied before it. Read
+  `allowed` and `enforcement`, not `action`.
 
 Delivering a steer or a stop to a running agent is the target's job
 (Astrolift: #394, calliopeai/astrolift-app#1903).

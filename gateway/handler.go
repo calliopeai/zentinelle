@@ -23,6 +23,11 @@ type Gateway struct {
 	keys       *providerKeyCache
 	credential *gatewayCredential
 	stats      *gatewayStats
+
+	// draining is set on SIGTERM: /ready fails from then on, so the load
+	// balancer stops sending this replica new requests while it finishes
+	// the ones it has.
+	draining atomic.Bool
 }
 
 // NewGateway creates a new Gateway with the given configuration.
@@ -51,6 +56,10 @@ func NewGateway(cfg *Config) *Gateway {
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/health" {
 		g.handleHealth(w, r)
+		return
+	}
+	if r.URL.Path == "/ready" {
+		g.handleReady(w, r)
 		return
 	}
 	if r.URL.Path == "/metrics" {
@@ -90,6 +99,23 @@ func (g *Gateway) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"status":    "ok",
 		"providers": envProviders,
 	})
+}
+
+// handleReady is the readiness check: 503 once the replica is draining.
+// /health stays 200 meanwhile, since a draining replica is not a dead one
+// and restarting it would cut the requests it is finishing.
+func (g *Gateway) handleReady(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method_not_allowed", "GET only")
+		return
+	}
+	status, code := "ready", http.StatusOK
+	if g.draining.Load() {
+		status, code = "draining", http.StatusServiceUnavailable
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"status": status})
 }
 
 func (g *Gateway) handleProxy(w http.ResponseWriter, r *http.Request) {

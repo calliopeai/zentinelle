@@ -1,7 +1,7 @@
 "use client";
 
 import { type RowData } from "@tanstack/react-table";
-import { type LegacyColumn as Column } from "@tanstack/react-table/legacy";
+import { type Column } from "./features";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

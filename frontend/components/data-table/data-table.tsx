@@ -1,7 +1,6 @@
 "use client";
 
 import { flexRender, type RowData } from "@tanstack/react-table";
-import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import { useTranslations } from "next-intl";
 import {
   Table,
@@ -11,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { type ColumnDef } from "./features";
 import { useDataTable } from "./use-data-table";
 import { DataTableToolbar } from "./data-table-toolbar";
 import { DataTablePagination } from "./data-table-pagination";

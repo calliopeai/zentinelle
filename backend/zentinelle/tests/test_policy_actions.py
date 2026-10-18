@@ -18,9 +18,10 @@ from rest_framework.test import APIClient
 from zentinelle.auth.roles import ROLE_OPERATOR, ROLE_VIEWER, assign_role
 from zentinelle.models import (AgentEndpoint, ContentRule, ContentScan, Event,
                                Policy)
+from zentinelle.models.actions import ACTION_ORDER
 from zentinelle.models.notification import Notification
-from zentinelle.services.actions import (Decision, count_match, decide, denies,
-                                         fallback_chain,
+from zentinelle.services.actions import (CAPABILITIES, Decision, count_match,
+                                         decide, denies, fallback_chain,
                                          normalize_capabilities,
                                          normalize_escalation, refusal,
                                          render_steer, select, summarize,
@@ -499,12 +500,40 @@ class ContentRuleActionTests(TestCase):
         first, second = self.scan().json(), self.scan().json()
         self.assertEqual([(b['allowed'], b['action']) for b in (first, second)], [(True, 'warn'), (False, 'block')])
 
-    def test_a_rule_of_its_own_require_approval_still_holds_nothing_on_scan(self):
-        # Unchanged from before #396 until #408 decides otherwise.
-        self.rule('Tickets', action='require_approval')
-        body = self.scan().json()
-        self.assertEqual((body['allowed'], body['action'], body['enforcement']['action']),
-                         (True, 'allow', 'require_approval'))
+    def test_allowed_follows_the_action_set_as_on_evaluate(self):
+        # #408: block, require_approval and redact refuse on /scan as on
+        # /evaluate. Only redact differs, for a caller that can redact: a scan
+        # has the redacted text to hand back, an evaluation does not.
+        everything = {name: True for name in CAPABILITIES}
+        for action in ACTION_ORDER:
+            key, key_hash, prefix = AgentEndpoint.generate_api_key()
+            tenant = f'tenant-{action}'
+            AgentEndpoint.objects.create(tenant_id=tenant, agent_id=f'agent-{action}', name=action,
+                                         api_key_hash=key_hash, api_key_prefix=prefix)
+            client = APIClient()
+            client.credentials(HTTP_X_ZENTINELLE_KEY=key)
+            steer = {'steer_message': 'Stop.'} if action == 'steer' else {}
+            ContentRule.objects.create(tenant_id=tenant, name='Tickets', rule_type='custom_pattern',
+                                       config={'patterns': ['PROJ-\\d+']}, action=action, **steer)
+            Policy.objects.create(tenant_id=tenant, name='No rm', policy_type=Policy.PolicyType.TOOL_PERMISSION,
+                                  config={'denied_tools': ['rm']}, action=action, **steer)
+            for capabilities in (None, {}, everything):
+                with self.subTest(action=action, capabilities=capabilities):
+                    extra = {} if capabilities is None else {'target_capabilities': capabilities}
+                    scanned = client.post(reverse('zentinelle:scan'),
+                                          {'content': 'ticket PROJ-1234', 'user_id': 'user-1', **extra},
+                                          format='json').json()
+                    evaluated = client.post(reverse('zentinelle:evaluate'),
+                                            {'action': 'tool_call', 'user_id': 'user-1',
+                                             'context': {'tool_name': 'rm'}, **extra}, format='json').json()
+                    self.assertEqual((scanned['enforcement']['action'], evaluated['enforcement']['action']),
+                                     (action, action))
+                    refuses = action in ('block', 'require_approval', 'redact')
+                    self.assertEqual(evaluated['allowed'], not refuses)
+                    redacts = action == 'redact' and capabilities is everything
+                    self.assertEqual(scanned['allowed'], not refuses or redacts)
+                    if redacts:
+                        self.assertEqual(scanned['enforcement']['redacted_content'], 'ticket [REDACTED]')
 
     def test_capabilities_that_are_not_booleans_are_refused(self):
         self.rule('Tickets', action='block')
@@ -647,17 +676,6 @@ class RollingDeployTests(TestCase):
         cache.clear()
         self.old = MigrationExecutor(connection).loader.project_state(ActionMigrationTests.before).apps
 
-    def test_an_old_pod_reads_each_rule_as_its_nearest_legacy_value(self):
-        for name, action in (('Steer', 'steer'), ('Alert', 'alert'), ('Block', 'block')):
-            ContentRule.objects.create(tenant_id=TENANT, name=name, rule_type='custom_pattern', action=action,
-                                       steer_message='Stop.' if action == 'steer' else '')
-        changed = ContentRule.objects.get(name='Block')
-        changed.action = 'redact'
-        changed.save(update_fields=['action', 'updated_at'])
-        old_rules = self.old.get_model('zentinelle', 'ContentRule').objects.filter(tenant_id=TENANT)
-        self.assertEqual(dict(old_rules.values_list('name', 'enforcement')),
-                         {'Steer': 'warn', 'Alert': 'log_only', 'Block': 'redact'})
-
     def test_an_old_pod_still_records_scans_and_creates_policies_that_block(self):
         scan = self.old.get_model('zentinelle', 'ContentScan').objects.create(
             tenant_id=TENANT, user_identifier='user-1', content_type='user_input', content_hash='0' * 64,
@@ -674,20 +692,54 @@ class RollingDeployTests(TestCase):
         result = PolicyEngine().evaluate(endpoint, 'tool_call', 'user-1', {'tool_name': 'rm'})
         self.assertEqual((result.allowed, result.enforcement['action']), (False, 'block'))
 
-    def test_new_code_cannot_set_a_rule_the_old_way_and_lose_it(self):
-        # save() writes `enforcement` from `action`, so this would otherwise
-        # store a `log` rule without a word.
-        from django.core.exceptions import ValidationError
-        with self.assertRaisesRegex(ValidationError, 'only mirrors'):
-            ContentRule.objects.create(tenant_id=TENANT, name='Old way', rule_type='custom_pattern',
-                                       enforcement='block')
-        rule = ContentRule.objects.create(tenant_id=TENANT, name='New way', rule_type='custom_pattern',
-                                          action='block', enforcement='block')
-        self.assertEqual((rule.action, rule.enforcement), ('block', 'block'))
-
     def test_an_old_pod_cannot_create_a_content_rule_that_would_read_as_log(self):
         # A database default for `action` would let it through as `log`,
         # whatever its enforcement said. No old path creates rules (#407).
         with self.assertRaises(IntegrityError), transaction.atomic():
             self.old.get_model('zentinelle', 'ContentRule').objects.create(
                 tenant_id=TENANT, name='Old', rule_type='custom_pattern', enforcement='block')
+
+
+class EnforcementOutOfTheModelTests(TransactionTestCase):
+    """0074 takes ContentRule.enforcement out of the model, not the database (#416).
+
+    1.4.0 still selects the column on every content-rule read, during a
+    rolling deploy and after a rollback, so it has to keep reading and writing
+    rules; the reverse gives each rule its nearest legacy value back.
+    """
+
+    before = ('zentinelle', '0073_astrolift_cluster_filters_and_held_counts')
+    after = ('zentinelle', '0074_contentrule_enforcement_out_of_the_model')
+
+    def migrate(self, target):
+        executor = MigrationExecutor(connection)
+        executor.migrate([target])
+        return executor.loader.project_state([target]).apps
+
+    def tearDown(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+    def test_the_release_before_keeps_reading_and_writing_rules(self):
+        self.migrate(self.after)
+        ContentRule.objects.create(tenant_id=TENANT, name='New', rule_type='custom_pattern', action='steer',
+                                   steer_message='Stop.')
+        old_rules = MigrationExecutor(connection).loader.project_state([self.before]).apps.get_model(
+            'zentinelle', 'ContentRule').objects
+        old_rules.create(tenant_id=TENANT, name='Old', rule_type='custom_pattern', action='block',
+                         enforcement='block')
+        # 1.4.0 decides on `action`; the column only has to be readable.
+        self.assertEqual(sorted(old_rules.values_list('name', 'action', 'enforcement')),
+                         [('New', 'steer', 'log_only'), ('Old', 'block', 'block')])
+        self.assertEqual(ContentRule.objects.get(name='Old').action, 'block')
+
+    def test_the_reverse_gives_each_rule_its_nearest_legacy_value(self):
+        self.migrate(self.after)
+        for name, action in (('Steer', 'steer'), ('Alert', 'alert'), ('Redact', 'redact'),
+                             ('Approval', 'require_approval')):
+            ContentRule.objects.create(tenant_id=TENANT, name=name, rule_type='custom_pattern', action=action,
+                                       steer_message='Stop.' if action == 'steer' else '')
+        old = self.migrate(self.before)
+        self.assertEqual(dict(old.get_model('zentinelle', 'ContentRule').objects.values_list('name', 'enforcement')),
+                         {'Steer': 'warn', 'Alert': 'log_only', 'Redact': 'redact',
+                          'Approval': 'require_approval'})

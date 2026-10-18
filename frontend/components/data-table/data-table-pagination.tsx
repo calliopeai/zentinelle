@@ -1,7 +1,7 @@
 "use client";
 
 import { type RowData } from "@tanstack/react-table";
-import { type LegacyReactTable as Table } from "@tanstack/react-table/legacy";
+import { type Table } from "./features";
 import {
   ChevronLeft,
   ChevronRight,
@@ -28,7 +28,7 @@ export const DataTablePagination = <TData extends RowData>({
   table,
 }: DataTablePaginationProps<TData>) => {
   const t = useTranslations("dataTable.pagination");
-  const { pageIndex, pageSize } = table.getState().pagination;
+  const { pageIndex, pageSize } = table.state.pagination;
   const total = table.getFilteredRowModel().rows.length;
 
   return (

@@ -103,30 +103,26 @@ class RateLimitEvaluator(BasePolicyEvaluator):
         limit_name: str,
         dry_run: bool = False,
     ) -> PolicyResult:
-        """Check and increment a rate limit counter."""
+        """Count this request against a fixed window, then check the count.
+
+        Counting first, atomically, is what makes the limit hold across
+        backend replicas: a read then a write let every replica that read the
+        same count admit a request, so N replicas allowed up to N times the
+        limit in a burst.
+        """
         warnings = []
 
-        # Get current count
-        current = cache.get(key, 0)
+        if dry_run:
+            # Don't increment counters in dry-run mode
+            new_count = (cache.get(key) or 0) + 1
+        else:
+            new_count = add_to_counter(key, 1, window_seconds)
 
-        if current >= limit:
+        if new_count > limit:
             return PolicyResult(
                 passed=False,
                 message=f"Rate limit exceeded: {limit} {limit_name}"
             )
-
-        if dry_run:
-            # Don't increment counters in dry-run mode
-            new_count = current + 1
-        else:
-            # Increment counter
-            try:
-                # Use atomic increment if available
-                new_count = cache.incr(key)
-            except ValueError:
-                # Key doesn't exist, create it
-                cache.set(key, 1, timeout=window_seconds)
-                new_count = 1
 
         # Warn if approaching limit
         if new_count >= limit * 0.8:
@@ -144,24 +140,31 @@ class RateLimitEvaluator(BasePolicyEvaluator):
         limit_name: str,
         dry_run: bool = False,
     ) -> PolicyResult:
-        """Check token limit (cumulative counter)."""
+        """Reserve tokens against the day's budget, atomically.
+
+        The tokens are added first and taken back if they do not fit, so two
+        replicas cannot both admit the last of the budget. The day starts at
+        the first request; rewriting the counter on every request used to
+        push its expiry out a day each time, so a busy agent's day never ended.
+        """
         warnings = []
 
-        # Get current token count
-        current = cache.get(key, 0)
+        if dry_run:
+            # Add tokens to counter only outside dry-run mode
+            new_count = (cache.get(key) or 0) + tokens
+        else:
+            new_count = add_to_counter(key, tokens, 86400)
 
-        if current + tokens > limit:
+        if new_count > limit:
+            if not dry_run and tokens:
+                try:
+                    cache.decr(key, tokens)
+                except ValueError:
+                    pass  # The day ended meanwhile; nothing left to give back.
             return PolicyResult(
                 passed=False,
-                message=f"Token limit exceeded: {limit} {limit_name}. Current: {current}, Requested: {tokens}"
+                message=f"Token limit exceeded: {limit} {limit_name}. Current: {new_count - tokens}, Requested: {tokens}"
             )
-
-        new_count = current + tokens
-
-        if not dry_run:
-            # Add tokens to counter — skip in dry-run mode
-            # Set with 24 hour expiry
-            cache.set(key, new_count, timeout=86400)
 
         # Warn if approaching limit
         if new_count >= limit * 0.8:
@@ -170,3 +173,19 @@ class RateLimitEvaluator(BasePolicyEvaluator):
             )
 
         return PolicyResult(passed=True, warnings=warnings)
+
+
+def add_to_counter(key: str, amount: int, window_seconds: int) -> int:
+    """Add to a counter every replica shares, and return its new value.
+
+    ``add`` starts the window only for the first writer and ``incr`` is atomic
+    on the Redis cache, so concurrent requests on any replica each see a
+    distinct count.
+    """
+    cache.add(key, 0, timeout=window_seconds)
+    try:
+        return cache.incr(key, amount)
+    except ValueError:
+        # The window closed between add and incr: this request opens the next.
+        cache.add(key, 0, timeout=window_seconds)
+        return cache.incr(key, amount)

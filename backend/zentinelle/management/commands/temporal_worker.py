@@ -13,6 +13,7 @@ from temporalio.worker import Worker
 
 from config.secret_guard import refuse_insecure_secrets
 from zentinelle.temporal.activities import build_activities, load_tasks
+from zentinelle.temporal.backlog import publish_backlog
 from zentinelle.temporal.client import connect
 from zentinelle.temporal.schedules import sync_schedules
 from zentinelle.temporal.workflows import TaskWorkflow
@@ -20,9 +21,18 @@ from zentinelle.temporal.workflows import TaskWorkflow
 # Concurrent activities per worker; the Celery worker ran with --concurrency=2.
 ACTIVITY_CONCURRENCY = 4
 
-# On SIGTERM, running activities get this long to finish before the worker
-# exits, inside the 30s ECS and compose give a container to stop.
-GRACEFUL_SHUTDOWN = timedelta(seconds=25)
+
+def build_worker(client, executor) -> Worker:
+    return Worker(
+        client,
+        task_queue=settings.TEMPORAL_TASK_QUEUE,
+        workflows=[TaskWorkflow],
+        activities=build_activities(),
+        activity_executor=executor,
+        max_concurrent_activities=ACTIVITY_CONCURRENCY,
+        # On SIGTERM: stop polling, let running activities finish.
+        graceful_shutdown_timeout=timedelta(seconds=settings.TEMPORAL_WORKER_DRAIN_SECONDS),
+    )
 
 
 class Command(BaseCommand):
@@ -38,15 +48,7 @@ class Command(BaseCommand):
         client = await connect()
         await sync_schedules(client, load_tasks())
         with ThreadPoolExecutor(max_workers=ACTIVITY_CONCURRENCY) as executor:
-            worker = Worker(
-                client,
-                task_queue=settings.TEMPORAL_TASK_QUEUE,
-                workflows=[TaskWorkflow],
-                activities=build_activities(),
-                activity_executor=executor,
-                max_concurrent_activities=ACTIVITY_CONCURRENCY,
-                graceful_shutdown_timeout=GRACEFUL_SHUTDOWN,
-            )
+            worker = build_worker(client, executor)
             stop = asyncio.Event()
             loop = asyncio.get_running_loop()
             for sig in (signal.SIGTERM, signal.SIGINT):
@@ -56,4 +58,12 @@ class Command(BaseCommand):
                     f"Temporal worker on {settings.TEMPORAL_ADDRESS} "
                     f"namespace={settings.TEMPORAL_NAMESPACE} queue={settings.TEMPORAL_TASK_QUEUE}"
                 )
+                publisher = None
+                if settings.TEMPORAL_BACKLOG_METRIC_SECONDS > 0:
+                    publisher = asyncio.create_task(publish_backlog(
+                        client, settings.TEMPORAL_TASK_QUEUE, settings.TEMPORAL_BACKLOG_METRIC_NAMESPACE,
+                        settings.TEMPORAL_BACKLOG_METRIC_SECONDS, stop, self.stdout.write,
+                    ))
                 await stop.wait()
+                if publisher is not None:
+                    await publisher

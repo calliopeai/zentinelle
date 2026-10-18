@@ -152,6 +152,22 @@ else:
         "PORT": os.environ.get("POSTGRES_PORT", "5432"),
     }
 
+# Connection reuse, for a scaled-out fleet behind RDS Proxy or PgBouncer. The
+# default, 0, opens a connection per request as before. DB_CONN_MAX_AGE keeps
+# each gunicorn worker's connection that many seconds, health-checked before
+# reuse, so the fleet holds (tasks x workers x three aliases) connections and
+# the pooler bounds what reaches the database. DB_DISABLE_SERVER_SIDE_CURSORS
+# keeps .iterator() from declaring cursors, which pin a session in RDS Proxy
+# and break PgBouncer transaction pooling. Each alias picks its schema with the
+# libpq `options` startup parameter below, so a pooler must honour that: check
+# one with the schema query in docs/scale-out.md before pointing DATABASE_URL
+# at it.
+_db_config["CONN_MAX_AGE"] = int(os.environ.get("DB_CONN_MAX_AGE", "0"))
+_db_config["CONN_HEALTH_CHECKS"] = _db_config["CONN_MAX_AGE"] != 0
+_db_config["DISABLE_SERVER_SIDE_CURSORS"] = (
+    os.environ.get("DB_DISABLE_SERVER_SIDE_CURSORS", "false").lower() in ("1", "true", "yes")
+)
+
 DATABASES = {
     "default": {
         **_db_config,
@@ -256,6 +272,17 @@ CORS_ALLOW_CREDENTIALS = True
 TEMPORAL_ADDRESS = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
 TEMPORAL_NAMESPACE = os.environ.get("TEMPORAL_NAMESPACE", "zentinelle")
 TEMPORAL_TASK_QUEUE = os.environ.get("TEMPORAL_TASK_QUEUE", "zentinelle")
+
+# On SIGTERM the worker stops polling and its running activities get this long
+# to finish before they are cut (a task with retries then runs again on another
+# worker). 25 fits the 30 seconds ECS and compose give a container to stop;
+# raise both together.
+TEMPORAL_WORKER_DRAIN_SECONDS = int(os.environ.get("TEMPORAL_WORKER_DRAIN_SECONDS", "25"))
+# How often the worker publishes its task queue's backlog for the autoscaler,
+# as CloudWatch embedded metric format lines in TEMPORAL_BACKLOG_METRIC_NAMESPACE
+# (zentinelle/temporal/backlog.py). 0 turns it off.
+TEMPORAL_BACKLOG_METRIC_SECONDS = int(os.environ.get("TEMPORAL_BACKLOG_METRIC_SECONDS", "60"))
+TEMPORAL_BACKLOG_METRIC_NAMESPACE = os.environ.get("TEMPORAL_BACKLOG_METRIC_NAMESPACE", "Zentinelle/Temporal")
 
 # The schedule is the single source of truth for periodic work. The worker
 # upserts every entry as a Temporal Schedule at start (schedule id = key) and

@@ -55,6 +55,7 @@ nav:
     - Architecture: wiki/Architecture.md
     - API Reference: wiki/API-Reference.md
     - Agent Host Contract: agent-host.md
+    - Scale-out and Draining: scale-out.md
     - Policy Reference: wiki/Policy-Reference.md
     - SDK Guide: wiki/SDK-Guide.md
     - Compliance Frameworks: wiki/Compliance-Frameworks.md
