@@ -27,6 +27,7 @@ Agent-facing REST endpoints:
 - GET  /api/zentinelle/v1/astrolift/usage       (install credential: its agents' usage)
 - GET  /api/zentinelle/v1/astrolift/policies
 - GET  /api/zentinelle/v1/astrolift/audit
+- GET  /api/zentinelle/v1/astrolift/health      (install credential: its health card)
 - GET  /api/zentinelle/v1/approvals/requests/{request_id}   (poll a held action)
 - GET  /api/zentinelle/v1/effective-policy/{user_id}
 - GET  /api/zentinelle/v1/prompts
@@ -117,6 +118,7 @@ from zentinelle.api.views.astrolift_clusters import (
 from zentinelle.api.views.astrolift_enforcement import (
     AstroliftEnforcementOutcomeView, AstroliftEnforcementView)
 from zentinelle.api.views.astrolift_reads import (AstroliftAuditView,
+                                                  AstroliftHealthView,
                                                   AstroliftPoliciesView,
                                                   AstroliftUsageView)
 from zentinelle.api.views.atlas import AtlasControlMapView
@@ -236,6 +238,8 @@ urlpatterns = [
     path('astrolift/usage', AstroliftUsageView.as_view(), name='astrolift-usage'),
     path('astrolift/policies', AstroliftPoliciesView.as_view(), name='astrolift-policies'),
     path('astrolift/audit', AstroliftAuditView.as_view(), name='astrolift-audit-read'),
+    # ...and the health card's counts, budgets, gateways and version (astrolift-app#2436).
+    path('astrolift/health', AstroliftHealthView.as_view(), name='astrolift-health'),
 
     # Policy endpoints
     path('effective-policy', EffectivePolicyView.as_view(), name='effective-policy'),

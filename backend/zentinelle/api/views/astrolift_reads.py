@@ -14,6 +14,12 @@ portal session:
         {"events": [{id, timestamp, action, resource_type, resource_id,
                      resource_name, deployment_id, agent_id, ext_user_id}],
          "next_cursor": ...}
+    GET astrolift/health?tenant_id=&deployment_id=...
+        {"server_version", "window_hours", "blocks", "open_approvals",
+         "budgets": [{id, name, scope_type, limit_usd, spend_usd, percent,
+                      level}],
+         "clusters": [{cluster_id, status, health, gateway_version,
+                       last_seen_at}]}
 
 `tenant_id` must be one the install was connected for. Each read answers
 only for the agents this install minted keys for in that tenant
@@ -26,25 +32,43 @@ the install's agents: the agent itself, an approval or enforcement for it,
 or a provider key released to it. Audit pages run oldest first; the cursor
 is the last record of a full page, so each one is strictly after the one
 before and the last page carries none.
+
+Health is what Astrolift's Zentinelle health card shows (astrolift-app#2436):
+`blocks` counts the install's agents' evaluations refused in the last
+`window_hours` (a policy_violation event whose decision was not `ask`; a
+held call is in `open_approvals` instead), `open_approvals` the held calls
+of those agents still waiting on a human, and `budgets` each enabled
+budget_limit policy in effect for them, measured as the evaluator measures
+it. `clusters` are the install's live clusters as their gateways last
+reported; `server_version` is this server's release, empty when the build
+did not carry one.
 """
 import base64
 import binascii
 import json
 import uuid
+from datetime import timedelta
 from datetime import timezone as dt_timezone
 from decimal import Decimal
 
-from django.db.models import Q, Sum
+from django.conf import settings
+from django.db.models import Q, Sum, TextField, Value
 from django.db.models.expressions import RawSQL
+from django.db.models.fields.json import KT
+from django.db.models.functions import Coalesce
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework.response import Response
 
 from zentinelle.api.views.astrolift_clusters import _InstallView
-from zentinelle.models import (AgentEndpoint, AstroliftEnforcement, AuditLog,
-                               Policy, UsageMetric)
+from zentinelle.models import (AgentEndpoint, ApprovalRequest,
+                               AstroliftCluster, AstroliftEnforcement,
+                               AuditLog, Event, Policy, UsageMetric)
+from zentinelle.services.budgets import budget_status
 
 AUDIT_PAGE_DEFAULT = 100
 AUDIT_PAGE_MAX = 500
+HEALTH_WINDOW = timedelta(hours=24)
 
 USAGE_METRICS = {
     UsageMetric.MetricType.AI_REQUESTS: 'requests',
@@ -156,24 +180,72 @@ class AstroliftUsageView(_InstallReadView):
             for (deployment, provider, model), entry in sorted(totals.items())]}
 
 
+def _policies_in_effect(tenant_id, agents):
+    """The tenant's enabled policies that apply to one of `agents`."""
+    scope = Q(scope_type=Policy.ScopeType.ORGANIZATION)
+    scope |= Q(scope_type=Policy.ScopeType.SUB_ORGANIZATION,
+               scope_sub_organization_id_ext__in={a.sub_organization_id_ext for a in agents} - {''})
+    scope |= Q(scope_type=Policy.ScopeType.DEPLOYMENT,
+               scope_deployment_id_ext__in={a.deployment_id_ext for a in agents} - {''})
+    scope |= Q(scope_type=Policy.ScopeType.ENDPOINT, scope_endpoint_id__in=[a.pk for a in agents])
+    return Policy.objects.filter(scope, tenant_id=tenant_id, enabled=True).exclude(
+        enforcement=Policy.Enforcement.DISABLED).order_by('-priority', 'name', 'id')
+
+
 class AstroliftPoliciesView(_InstallReadView):
     """The policies in effect for the install's agents in the tenant."""
 
     def read(self, tenant_id, deployments):
-        agents = self._agents(tenant_id, deployments).values()
-        scope = Q(scope_type=Policy.ScopeType.ORGANIZATION)
-        scope |= Q(scope_type=Policy.ScopeType.SUB_ORGANIZATION,
-                   scope_sub_organization_id_ext__in={a.sub_organization_id_ext for a in agents} - {''})
-        scope |= Q(scope_type=Policy.ScopeType.DEPLOYMENT,
-                   scope_deployment_id_ext__in={a.deployment_id_ext for a in agents} - {''})
-        scope |= Q(scope_type=Policy.ScopeType.ENDPOINT, scope_endpoint_id__in=[a.pk for a in agents])
-        policies = Policy.objects.filter(scope, tenant_id=tenant_id, enabled=True).exclude(
-            enforcement=Policy.Enforcement.DISABLED).order_by('-priority', 'name', 'id')
+        policies = _policies_in_effect(tenant_id, self._agents(tenant_id, deployments).values())
         return {'policies': [{
             'id': str(policy.id), 'name': policy.name, 'policy_type': policy.policy_type,
             'enforcement': policy.enforcement, 'scope_type': policy.scope_type,
             'priority': policy.priority, 'description': policy.description,
         } for policy in policies]}
+
+
+def _budget(policy):
+    try:
+        status = budget_status(policy)
+    except (ValueError, ArithmeticError):
+        # A budget configured so it cannot be measured is not shown as one.
+        return None
+    return {
+        'id': str(policy.id), 'name': policy.name, 'scope_type': policy.scope_type,
+        'limit_usd': float(status['limit']), 'spend_usd': float(status['spend']),
+        'percent': float(status['percent']), 'level': status['level'] or '',
+    }
+
+
+class AstroliftHealthView(_InstallReadView):
+    """Blocks in the last 24 hours, open approvals, budgets, gateways and version."""
+
+    def read(self, tenant_id, deployments):
+        agents = self._agents(tenant_id, deployments)
+        since = timezone.now() - HEALTH_WINDOW
+        # An event from before decisions were recorded has none, and is a refusal.
+        decision = Coalesce(KT('payload__result__decision'), Value(''), output_field=TextField())
+        blocks = Event.objects.filter(
+            tenant_id=tenant_id, endpoint_id__in=list(agents), event_type=Event.EventType.POLICY_VIOLATION,
+            occurred_at__gte=since).annotate(decision=decision).exclude(decision='ask').count()
+        open_approvals = ApprovalRequest.objects.filter(
+            tenant_id=tenant_id, endpoint_id_ext__in=[str(pk) for pk in agents],
+            status=ApprovalRequest.Status.PENDING, expires_at__gt=timezone.now()).count()
+        budgets = [_budget(policy) for policy in _policies_in_effect(tenant_id, agents.values()).filter(
+            policy_type=Policy.PolicyType.BUDGET_LIMIT)]
+        clusters = AstroliftCluster.objects.filter(install=self.install, revoked_at__isnull=True).order_by(
+            'external_id')
+        return {
+            'server_version': getattr(settings, 'ZENTINELLE_VERSION', ''),
+            'window_hours': int(HEALTH_WINDOW.total_seconds() // 3600),
+            'blocks': blocks,
+            'open_approvals': open_approvals,
+            'budgets': [budget for budget in budgets if budget is not None],
+            'clusters': [{
+                'cluster_id': cluster.external_id, 'status': cluster.status, 'health': cluster.health,
+                'gateway_version': cluster.gateway_version, 'last_seen_at': _iso(cluster.last_seen_at),
+            } for cluster in clusters],
+        }
 
 
 def _encode_cursor(record):
