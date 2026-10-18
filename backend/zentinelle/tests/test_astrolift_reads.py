@@ -9,19 +9,21 @@ theirs may ever be in the answer.
 """
 from datetime import timedelta
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from zentinelle.models import AgentEndpoint, AuditLog, Policy, UsageMetric
+from zentinelle.models import (AgentEndpoint, ApprovalRequest, AuditLog, Event,
+                               Policy, UsageMetric)
 from zentinelle.tests.test_astrolift_agent_keys import mint
 from zentinelle.tests.test_astrolift_clusters import (TENANT_A, TENANT_B,
                                                       as_install,
                                                       connect_install,
-                                                      make_agent)
+                                                      heartbeat, make_agent,
+                                                      register, revoke)
 
 ROUTES = {'usage': 'zentinelle:astrolift-usage', 'policies': 'zentinelle:astrolift-policies',
-          'audit': 'zentinelle:astrolift-audit-read'}
+          'audit': 'zentinelle:astrolift-audit-read', 'health': 'zentinelle:astrolift-health'}
 
 
 def read(credential, what, **params):
@@ -55,7 +57,7 @@ class _TwoTenants(TestCase):
 class AuthenticationAndTenantTests(_TwoTenants):
     def test_each_read_takes_the_install_credential_only(self):
         agent_key = make_agent(TENANT_A, 'keyed')
-        for what in ('usage', 'policies', 'audit'):
+        for what in ('usage', 'policies', 'audit', 'health'):
             with self.subTest(what=what):
                 anonymous = self.client.get(reverse(ROUTES[what]), {'since': '2026-01-01T00:00:00Z'})
                 self.assertEqual(anonymous.status_code, 401)
@@ -63,7 +65,7 @@ class AuthenticationAndTenantTests(_TwoTenants):
                 self.assertEqual(read(agent_key, what, since='2026-01-01T00:00:00Z').status_code, 401)
 
     def test_a_tenant_the_install_was_not_connected_for_is_refused(self):
-        for what in ('usage', 'policies', 'audit'):
+        for what in ('usage', 'policies', 'audit', 'health'):
             with self.subTest(what=what):
                 response = read(self.credential, what, tenant_id=TENANT_B, since='2026-01-01T00:00:00Z')
                 self.assertEqual(response.status_code, 403)
@@ -252,3 +254,102 @@ class AuditTests(_TwoTenants):
         credential, _ = connect_install([TENANT_A], name='astro-empty')
         self.assertEqual(self.records(credential), {'events': [], 'next_cursor': None})
         self.assertEqual(read(credential, 'usage', since='2026-01-01T00:00:00Z').json(), {'usage': []})
+
+
+class HealthTests(_TwoTenants):
+    """The health card's counts are only of the install's agents in its tenant (astrolift-app#2436)."""
+
+    def block(self, agent, decision='deny', hours_ago=1, event_type=Event.EventType.POLICY_VIOLATION):
+        Event.objects.create(
+            tenant_id=agent.tenant_id, endpoint=agent, deployment_id_ext=agent.deployment_id_ext,
+            event_type=event_type, event_category=Event.Category.ALERT,
+            payload={'result': {'allowed': decision == 'allow', 'decision': decision}},
+            occurred_at=timezone.now() - timedelta(hours=hours_ago))
+
+    def hold(self, agent, status=ApprovalRequest.Status.PENDING, expires_in=timedelta(minutes=10)):
+        ApprovalRequest.objects.create(
+            tenant_id=agent.tenant_id, endpoint_id_ext=str(agent.pk), action='tool_call', context_digest='d' * 64,
+            status=status, expires_at=timezone.now() + expires_in)
+
+    def budget(self, name, limit, tenant=TENANT_A, **fields):
+        return Policy.objects.create(tenant_id=tenant, name=name, policy_type=Policy.PolicyType.BUDGET_LIMIT,
+                                     config={'monthly_budget_usd': limit}, **fields)
+
+    def health(self, credential=None, **params):
+        response = read(credential or self.credential, 'health', **params)
+        self.assertEqual(response.status_code, 200, response.content)
+        return response.json()
+
+    def test_blocks_count_refusals_of_the_installs_agents_in_the_last_day(self):
+        self.block(self.agent('task-1'))
+        self.block(self.agent('task-1'))
+        self.block(self.agent('task-3'))
+        self.block(self.agent('task-1'), decision='ask')  # held, counted as an approval
+        self.block(self.agent('task-1'), hours_ago=25)  # outside the window
+        self.block(self.agent('task-1'), decision='allow', event_type='policy_evaluation_tool_call')
+        self.block(self.agent('other-1'))
+        self.block(self.agent('portal-agent'))
+        self.block(self.agent('task-1', TENANT_B))
+        # An event written before decisions were recorded is still a refusal.
+        Event.objects.create(tenant_id=TENANT_A, endpoint=self.agent('task-2'),
+                             event_type=Event.EventType.POLICY_VIOLATION, payload={},
+                             occurred_at=timezone.now())
+
+        body = self.health()
+        self.assertEqual((body['blocks'], body['window_hours']), (4, 24))
+        self.assertEqual(self.health(deployment_id='writer')['blocks'], 1)
+
+    def test_open_approvals_are_pending_unexpired_holds_of_the_installs_agents(self):
+        self.hold(self.agent('task-1'))
+        self.hold(self.agent('task-2'))
+        self.hold(self.agent('task-1'), status=ApprovalRequest.Status.APPROVED)
+        self.hold(self.agent('task-1'), expires_in=-timedelta(minutes=1))
+        self.hold(self.agent('other-1'))
+        self.hold(self.agent('portal-agent'))
+        self.hold(self.agent('task-1', TENANT_B))
+
+        self.assertEqual(self.health()['open_approvals'], 2)
+        self.assertEqual(self.health(deployment_id='writer')['open_approvals'], 0)
+
+    def test_budgets_are_the_budget_policies_in_effect_with_their_spend(self):
+        org = self.budget('org budget', 100)
+        self.budget('writer budget', 5, scope_type=Policy.ScopeType.DEPLOYMENT, scope_deployment_id_ext='writer')
+        self.budget('elsewhere', 5, scope_type=Policy.ScopeType.DEPLOYMENT, scope_deployment_id_ext='nobody')
+        self.budget('other tenant', 5, tenant=TENANT_B)
+        self.budget('off', 5, enabled=False)
+        self.budget('broken', -1)
+        Policy.objects.create(tenant_id=TENANT_A, name='not a budget', policy_type='rate_limit',
+                              config={'requests_per_minute': 5})
+
+        budgets = self.health()['budgets']
+        self.assertEqual([b['name'] for b in budgets], ['org budget', 'writer budget'])
+        self.assertEqual(budgets[0], {'id': str(org.id), 'name': 'org budget', 'scope_type': 'organization',
+                                      'limit_usd': 100.0, 'spend_usd': 0.0, 'percent': 0.0, 'level': ''})
+        self.assertEqual([b['name'] for b in self.health(deployment_id='reviewer')['budgets']], ['org budget'])
+
+    def test_clusters_are_the_installs_live_clusters_as_their_gateways_reported(self):
+        gateway = register(self.credential, 'c1').json()['gateway']['credential']
+        register(self.credential, 'c2')
+        register(self.credential, 'gone')
+        revoke(self.credential, 'gone')
+        register(self.other_credential, 'theirs')
+        heartbeat(gateway, 'c1', version='1.4.2')
+
+        clusters = self.health()['clusters']
+        self.assertEqual([c['cluster_id'] for c in clusters], ['c1', 'c2'])
+        self.assertEqual((clusters[0]['gateway_version'], clusters[0]['health'], clusters[0]['status']),
+                         ('1.4.2', 'healthy', 'active'))
+        self.assertIsNotNone(clusters[0]['last_seen_at'])
+        self.assertEqual((clusters[1]['gateway_version'], clusters[1]['last_seen_at']), ('', None))
+
+    def test_server_version_is_the_builds(self):
+        with override_settings(ZENTINELLE_VERSION='1.5.0'):
+            self.assertEqual(self.health()['server_version'], '1.5.0')
+        with override_settings(ZENTINELLE_VERSION=''):
+            self.assertEqual(self.health()['server_version'], '')
+
+    def test_an_install_with_no_agents_reads_zero(self):
+        credential, _ = connect_install([TENANT_A], name='astro-empty')
+        self.block(self.agent('task-1'))
+        body = self.health(credential)
+        self.assertEqual((body['blocks'], body['open_approvals'], body['clusters']), (0, 0, []))

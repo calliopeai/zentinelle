@@ -26,6 +26,11 @@ RUN chmod +x /app/entrypoint.sh
 
 RUN python manage.py collectstatic --noinput 2>/dev/null || true
 
+# The release this image is, passed by build-publish.yml (1.4.0, main-abc1234).
+# Last, so a new version does not rebuild the layers above.
+ARG VERSION=""
+ENV ZENTINELLE_VERSION=${VERSION}
+
 EXPOSE 8000
 
 ENTRYPOINT ["/app/entrypoint.sh"]
