@@ -6,15 +6,8 @@ import {
   flexRender,
   type RowData,
   type SortingState,
+  useTable,
 } from "@tanstack/react-table";
-// See components/data-table/use-data-table.ts for why this uses the v9
-// legacy compatibility layer instead of useReactTable.
-import {
-  type LegacyColumnDef as ColumnDef,
-  getCoreRowModel,
-  getSortedRowModel,
-  useLegacyTable,
-} from "@tanstack/react-table/legacy";
 import type { ErrorLike } from "@apollo/client";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { type ColumnDef, dataTableFeatures } from "./features";
 import { type FilterConfig } from "./types";
 import { DataTableToolbar } from "./data-table-toolbar";
 
@@ -131,7 +125,8 @@ export const DataTableServer = <TData extends RowData>({
     onSortingChange?.(next);
   };
 
-  const table = useLegacyTable({
+  const table = useTable({
+    features: dataTableFeatures,
     data,
     columns,
     getRowId,
@@ -148,8 +143,6 @@ export const DataTableServer = <TData extends RowData>({
     onSortingChange: handleSortingChange,
     onGlobalFilterChange: handleGlobalFilterChange,
     onColumnFiltersChange: handleColumnFiltersChange,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   });
 
   const canPrev = page > 1;

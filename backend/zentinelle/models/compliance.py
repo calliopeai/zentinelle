@@ -16,8 +16,7 @@ from decimal import Decimal
 
 from django.db import models
 
-from zentinelle.models.actions import (LEGACY_ENFORCEMENT_FOR_ACTION, Action,
-                                       BlockLevel)
+from zentinelle.models.actions import Action, BlockLevel
 from zentinelle.models.base import Tracking
 
 # ============================================================================
@@ -423,9 +422,8 @@ class ContentRule(Tracking):
         HIGH = 'high', 'High'
         CRITICAL = 'critical', 'Critical'
 
-    # The vocabulary rules used before #396. Rules now store an `action`, and
-    # `enforcement` mirrors it for one release; scan and violation records,
-    # and the legacy API field, keep these values.
+    # The vocabulary rules used before #396. Rules now store an `action`;
+    # scan and violation records, and the legacy API field, keep these values.
     class Enforcement(models.TextChoices):
         BLOCK = 'block', 'Block (Prevent action)'
         WARN = 'warn', 'Warn (Allow but notify user)'
@@ -492,15 +490,6 @@ class ContentRule(Tracking):
         choices=Severity.choices,
         default=Severity.MEDIUM
     )
-    # What rules stored before #396. Pods still running that release read it
-    # during a rolling deploy (the new backend migrates at startup while old
-    # tasks serve), so it stays for one release, written from `action` on
-    # every save. #416 drops it.
-    enforcement = models.CharField(
-        max_length=20,
-        choices=Enforcement.choices,
-        default=Enforcement.LOG_ONLY
-    )
     # What a match does (#396); see services/actions.py.
     action = models.CharField(max_length=20, choices=Action.choices, default=Action.LOG)
     block_level = models.CharField(max_length=20, choices=BlockLevel.choices, default=BlockLevel.TOOL_CALL)
@@ -551,18 +540,9 @@ class ContentRule(Tracking):
             self.escalation = validate_rule_action(self.action, self.block_level, self.steer_message, self.escalation)
         except ValueError as exc:
             raise ValidationError(str(exc)) from exc
-        # save() overwrites `enforcement` from `action`, so a new rule written
-        # the pre-#396 way would silently become a `log` rule.
-        mirrored = LEGACY_ENFORCEMENT_FOR_ACTION[self.action]
-        if self._state.adding and self.enforcement not in (self.Enforcement.LOG_ONLY, mirrored):
-            raise ValidationError("a content rule's action is `action`; `enforcement` only mirrors it (#416)")
 
     def save(self, *args, **kwargs):
         self.clean()
-        self.enforcement = LEGACY_ENFORCEMENT_FOR_ACTION[self.action]
-        update_fields = kwargs.get('update_fields')
-        if update_fields is not None and 'action' in update_fields:
-            kwargs['update_fields'] = {*update_fields, 'enforcement'}
         return super().save(*args, **kwargs)
 
 
