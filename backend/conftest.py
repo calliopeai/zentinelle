@@ -22,8 +22,8 @@ def pytest_configure(config):
     if hasattr(settings, 'DATABASES'):
         for alias in list(settings.DATABASES):
             db = settings.DATABASES[alias]
-            if 'OPTIONS' in db and 'options' in db['OPTIONS']:
-                db['OPTIONS']['options'] = '-c search_path=public'
+            if 'SEARCH_PATH' in db:
+                db['SEARCH_PATH'] = 'public'
             # Mirror non-default aliases to default so Django uses one test DB
             if alias != 'default':
                 db.setdefault('TEST', {})['MIRROR'] = 'default'

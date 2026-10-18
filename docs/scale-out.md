@@ -51,19 +51,28 @@ in process memory across requests except caches of public or bounded data
 |---|---|
 | Readiness | `/api/zentinelle/v1/health` |
 | Connections | `DB_CONN_MAX_AGE` (seconds, 0 by default) keeps each gunicorn worker's connection, health-checked before reuse. A fleet holds tasks x 2 workers x 3 aliases connections; put RDS Proxy or PgBouncer in front so that number never reaches the database |
-| Poolers | `DB_DISABLE_SERVER_SIDE_CURSORS=true` behind any pooler. Each alias selects its schema with the libpq `options` startup parameter, so the pooler must apply it to every server connection it hands that client. PgBouncer 1.26 does, in session and transaction mode; check any other pooler or version with the query below |
+| Poolers | `DB_DISABLE_SERVER_SIDE_CURSORS=true` behind any pooler. Each alias selects its schema with a `SET search_path` when its connection opens, not the libpq `options` startup parameter, which PgBouncer 1.26 mis-routes on Postgres 17 and earlier (#484). PgBouncer does not track that `SET` before Postgres 18, so use session mode there; transaction mode keeps the schema only on Postgres 18, which reports `search_path`. RDS Proxy is untested. Check any pooler with the query below |
 
 Before pointing `DATABASE_URL` at a pooler, check that every alias lands in its
-own schema through it:
+own schema through it, on a fresh connection each time. One pass over the
+aliases can pass on a pooler that mis-routes, so the check repeats each alias
+and then mixes them at random. It runs one client at a time, so it does not
+prove transaction mode, where clients share server connections.
 
 ```bash
 python manage.py shell -c "
+import random
 from django.db import connections
-for alias in ('default', 'zentinelle', 'analytics'):
+want = {'default': 'public', 'zentinelle': 'zentinelle', 'analytics': 'zentinelle_analytics'}
+runs = [a for a in want for _ in range(20)] + random.choices(list(want), k=200)
+wrong = 0
+for alias in runs:
     with connections[alias].cursor() as c:
         c.execute('select current_schema()')
-        print(alias, c.fetchone()[0])"
+        wrong += c.fetchone()[0] != want[alias]
+    connections[alias].close()
+print(wrong, 'of', len(runs), 'wrong')"
 ```
 
-It must print `public`, `zentinelle` and `zentinelle_analytics`. Behind RDS
-Proxy, also watch `DatabaseConnectionsCurrentlySessionPinned`.
+It must print `0 of 260 wrong`. Behind RDS Proxy, also watch
+`DatabaseConnectionsCurrentlySessionPinned`.
