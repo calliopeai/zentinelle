@@ -158,10 +158,11 @@ else:
 # reuse, so the fleet holds (tasks x workers x three aliases) connections and
 # the pooler bounds what reaches the database. DB_DISABLE_SERVER_SIDE_CURSORS
 # keeps .iterator() from declaring cursors, which pin a session in RDS Proxy
-# and break PgBouncer transaction pooling. Each alias picks its schema with the
-# libpq `options` startup parameter below, so a pooler must honour that: check
-# one with the schema query in docs/scale-out.md before pointing DATABASE_URL
-# at it.
+# and break PgBouncer transaction pooling. Each alias picks its schema with a
+# SET search_path on every new connection (SEARCH_PATH below, applied by
+# zentinelle.db_search_path), not the libpq `options` startup parameter, which
+# PgBouncer 1.26 mis-routes on Postgres 17 and earlier (#484). Check a pooler
+# with the schema query in docs/scale-out.md before pointing DATABASE_URL at it.
 _db_config["CONN_MAX_AGE"] = int(os.environ.get("DB_CONN_MAX_AGE", "0"))
 _db_config["CONN_HEALTH_CHECKS"] = _db_config["CONN_MAX_AGE"] != 0
 _db_config["DISABLE_SERVER_SIDE_CURSORS"] = (
@@ -171,15 +172,15 @@ _db_config["DISABLE_SERVER_SIDE_CURSORS"] = (
 DATABASES = {
     "default": {
         **_db_config,
-        "OPTIONS": {"options": "-c search_path=public"},
+        "SEARCH_PATH": "public",
     },
     "zentinelle": {
         **_db_config,
-        "OPTIONS": {"options": "-c search_path=zentinelle"},
+        "SEARCH_PATH": "zentinelle",
     },
     "analytics": {
         **_db_config,
-        "OPTIONS": {"options": "-c search_path=zentinelle_analytics,zentinelle"},
+        "SEARCH_PATH": "zentinelle_analytics,zentinelle",
     },
 }
 

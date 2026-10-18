@@ -192,6 +192,13 @@ Notable changes to Zentinelle. The format follows
 
 ### Fixed
 
+- Behind PgBouncer 1.26 on Postgres 17 or earlier, each database alias now
+  lands in its own schema (#484). The aliases selected their schema with the
+  libpq `options` startup parameter, which PgBouncer 1.26 caches per server
+  connection and hands to the wrong client; they now run a `SET search_path`
+  when each connection opens. Use session mode on Postgres 17 and earlier.
+  The pooler check in `docs/scale-out.md` repeats each alias and mixes them
+  at random instead of one pass.
 - An approval issued with `POST /approvals` now matches the agent's
   `/evaluate` retry (#383). `/evaluate` adds `resource_type` and
   `resource_id` to the context before it is digested and the issuing view did
