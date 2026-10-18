@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { type LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import { toast } from "sonner";
 import {
   CheckIcon,
@@ -18,6 +17,7 @@ import {
 } from "@/graphql/alerts/hooks";
 import type { ComplianceAlertData } from "@/graphql/alerts/types";
 import {
+  type ColumnDef,
   DataTable,
   DataTableColumnHeader,
   type FilterConfig,
