@@ -79,6 +79,9 @@ spec:
         prometheus.io/port: "8742"
         prometheus.io/path: "/metrics"
     spec:
+      # Shutdown delay (5s) + drain timeout (20s) + usage flush (5s), with
+      # room to spare. Raise it with DRAIN_TIMEOUT_SECONDS for long streams.
+      terminationGracePeriodSeconds: 40
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -108,11 +111,14 @@ spec:
             - name: gateway-credential
               mountPath: /var/run/zentinelle
               readOnly: true
-          # Both probes hit /health, which reads no state and takes no
-          # parameter, so a slow policy check cannot make the pod look dead.
+          # Neither probe reads state or takes a parameter, so a slow policy
+          # check cannot make the pod look dead. /ready fails from SIGTERM on
+          # while the gateway keeps serving for SHUTDOWN_DELAY_SECONDS, so the
+          # Service stops sending before the listener closes; /health stays
+          # 200 so a draining pod is not restarted.
           readinessProbe:
             httpGet:
-              path: /health
+              path: /ready
               port: http
             initialDelaySeconds: 2
             periodSeconds: 10

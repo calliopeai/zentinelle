@@ -83,9 +83,13 @@ services:
       ZENTINELLE_URL: http://backend:8000
       GATEWAY_PORT: "8742"
       FAIL_OPEN: "false"
+      # One replica and no load balancer to notice it leaving; in-flight
+      # requests still drain, within the stop grace period below.
+      SHUTDOWN_DELAY_SECONDS: "0"
       LOG_INTERACTIONS: ${LOG_INTERACTIONS:-false}
     volumes:
       - gateway_credential:/var/run/zentinelle:ro
+    stop_grace_period: 30s
     restart: unless-stopped
     depends_on:
       backend:

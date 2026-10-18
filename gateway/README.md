@@ -223,7 +223,8 @@ run on the tenant's key while policy sees no request body. The routes:
 
 | Path | Purpose |
 |------|---------|
-| `/health` | Liveness, and which providers have env keys the gateway will use (empty unless `ALLOW_ENV_PROVIDER_KEYS=true`) |
+| `/health` | Liveness, and which providers have env keys the gateway will use (empty unless `ALLOW_ENV_PROVIDER_KEYS=true`). Stays 200 while the replica drains |
+| `/ready` | Readiness: 200 `{"status": "ready"}`, or 503 `{"status": "draining"}` from SIGTERM on. Point the load balancer's health check and the readiness probe here. See [Scale-out and Draining](#scale-out-and-draining) |
 | `/metrics` | Prometheus text format. No authentication — scrape it from inside the cluster, not from the internet |
 | `/api/dispatch/v1/agents/<id>/callback/`, `/api/clusters/v1/<id>/heartbeat/`, `/api/clusters/v1/<id>/model-test-result/` | Passed to the control plane when `ASTROLIFT_CONTROL_PLANE_URL` is set. See [Control Plane Passthrough](#control-plane-passthrough) |
 | an inference route | Proxied to the provider the path selects (see Route Detection) |
@@ -247,10 +248,71 @@ run on the tenant's key while policy sees no request body. The routes:
 | `FAIL_OPEN` | `false` | Policy/authentication failures deny access; `true` is rejected |
 | `POLICY_TIMEOUT_MS` | `2000` | Max time (ms) to wait for the policy check, and for the provider-key lookup |
 | `MAX_RESPONSE_BYTES` | `52428800` | Max response size (50MB) |
+| `SHUTDOWN_DELAY_SECONDS` | `5` | After SIGTERM, how long the replica keeps serving with `/ready` failing, so the load balancer stops sending to it first. 0 to 300 |
+| `DRAIN_TIMEOUT_SECONDS` | `20` | Then how long requests in flight, streams included, get to finish before they are cut. 1 to 3600 |
+| `METRICS_EMF_INTERVAL_SECONDS` | `0` | Seconds between CloudWatch embedded metric format lines for the scaler; `0` turns them off. See [Scale-out and Draining](#scale-out-and-draining) |
+| `METRICS_EMF_NAMESPACE` | `Zentinelle/Gateway` | CloudWatch namespace of those metrics. Give each install its own |
 
 Adding a provider needs no code change to configure its key: store it for the
 tenant in Zentinelle, or set `PROVIDER_KEY_<NAME>` for the fallback. The
 provider must still be in the routing table for a path to reach it.
+
+## Scale-out and Draining
+
+Any replica can serve any request, so the gateway scales out behind a load
+balancer or a Kubernetes Service with nothing shared between replicas:
+
+- **Rate limits, budgets and policy** are decided by Zentinelle on every
+  request (`/evaluate`), with the counters in its shared Redis and database,
+  so N replicas enforce one limit, not N. The gateway caches nothing about
+  policy.
+- **Provider keys** are cached per replica for at most 60 seconds, which is
+  how long a rotated or revoked key can still be used. A new replica starts
+  empty and looks keys up.
+- **Usage** is reported once per request by the replica that served it, with
+  a random event ID; a retry after a lost answer is a duplicate Zentinelle
+  drops, not a second charge. Draining waits for these reports.
+- **Heartbeat counters** are per replica (`instance`); Zentinelle sums them.
+
+On SIGTERM a replica drains:
+
+1. `/ready` answers 503 and keep-alive connections are closed after their
+   current response, while new requests are still served for
+   `SHUTDOWN_DELAY_SECONDS` (5): the load balancer's time to notice.
+2. The listener closes. Requests in flight, streams included, get
+   `DRAIN_TIMEOUT_SECONDS` (20) to finish; anything still open is cut and the
+   exit status is 1.
+3. Usage reports still sending get 5 seconds to land.
+
+The orchestrator's stop timeout must cover all three: at least 30 seconds with
+the defaults (ECS `stopTimeout`, Kubernetes `terminationGracePeriodSeconds`).
+To let long streams finish, raise `DRAIN_TIMEOUT_SECONDS` and the stop timeout
+together; ECS allows at most 120 seconds. Behind an ALB the target group's
+deregistration delay bounds a stream too, since the ALB closes the connections
+still open when it ends: set it to the longest stream that should survive a
+scale-in.
+
+For the scaler:
+
+| Signal | Where |
+|--------|-------|
+| Requests in flight | `zentinelle_gateway_active_connections` on `/metrics`; `RequestsInFlight` in CloudWatch |
+| Latency | `zentinelle_gateway_request_duration_seconds` histogram; `RequestLatency` in CloudWatch, a distribution CloudWatch takes p95 of |
+| Request rate | `zentinelle_gateway_requests_total`; `Requests` in CloudWatch |
+
+The CloudWatch metrics are written by the gateway itself as embedded metric
+format log lines when `METRICS_EMF_INTERVAL_SECONDS` is set, in
+`METRICS_EMF_NAMESPACE` with no dimensions, so the awslogs driver is all ECS
+needs. Each replica writes its own, so scale on the `Average` of
+`RequestsInFlight` (per replica) and the `p95` of `RequestLatency`. Latency is
+counted at each request's histogram bucket upper bound (60 for anything over
+30 seconds), so p95 reads high, never low.
+
+`python3 scripts/gateway_scale_load.py` (from the repository root) proves this
+locally: it builds the gateway, runs replicas against stub Zentinelle and
+provider servers, scales out and in under load, and checks that no request
+fails and every request's usage is recorded exactly once. It never touches a
+real install.
 
 ## Agent Configuration
 
@@ -294,6 +356,6 @@ go test -v ./...
 - **Zero external dependencies** -- net/http, encoding/json, io, sync, log only
 - **Streaming first** -- http.Flusher for SSE, chunk-by-chunk forwarding
 - **Non-blocking usage** -- goroutine, retried on 5xx/429/no answer, drained on shutdown
-- **Graceful shutdown** -- SIGTERM/SIGINT, drain connections
+- **Graceful shutdown** -- SIGTERM/SIGINT: readiness fails, then in-flight requests and usage reports drain
 - **Structured logging** -- JSON to stderr
 - **Request tracing** -- UUID per request, forwarded as X-Request-ID

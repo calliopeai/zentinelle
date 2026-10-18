@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sort"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // Prometheus metrics, written by hand rather than with client_golang.
@@ -256,4 +258,94 @@ func handleMetrics(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodHead {
 		w.Write([]byte(renderMetrics()))
 	}
+}
+
+// startMetricsEMF writes the numbers a scaler reads every
+// MetricsEMFInterval, as a CloudWatch embedded metric format log line. On ECS
+// nothing scrapes /metrics, and the task's log stream is how a custom metric
+// reaches CloudWatch without an agent beside the gateway. Off when the
+// interval is zero.
+func (g *Gateway) startMetricsEMF(ctx context.Context) {
+	if g.cfg.MetricsEMFInterval <= 0 {
+		return
+	}
+	go func() {
+		tick := time.NewTicker(g.cfg.MetricsEMFInterval)
+		defer tick.Stop()
+		prev := requestDurationTotal()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case now := <-tick.C:
+				cur := requestDurationTotal()
+				logJSON("info", "scaling metrics", emfFields(g.cfg.MetricsEMFNamespace, now,
+					atomic.LoadInt64(&metricActiveConnections), prev, cur))
+				prev = cur
+			}
+		}
+	}()
+}
+
+// requestDurationTotal adds the request duration histogram up over every
+// label set.
+func requestDurationTotal() histogram {
+	total := histogram{counts: make([]uint64, len(latencyBuckets))}
+	for _, h := range metricRequestDuration.snapshot() {
+		for i, c := range h.counts {
+			total.counts[i] += c
+		}
+		total.sum += h.sum
+		total.total += h.total
+	}
+	return total
+}
+
+// emfOverflowSeconds stands for every request slower than the last bucket.
+const emfOverflowSeconds = 60
+
+// emfFields is one embedded metric format record: the requests in flight
+// now, the requests finished since prev, and their latency as a distribution
+// CloudWatch can take percentiles of. Each request is counted at its
+// bucket's upper bound, so p95 reads as "at most", never better than it was.
+func emfFields(namespace string, now time.Time, inFlight int64, prev, cur histogram) map[string]interface{} {
+	requests := cur.total - prev.total
+	metrics := []map[string]string{
+		{"Name": "RequestsInFlight", "Unit": "Count"},
+		{"Name": "Requests", "Unit": "Count"},
+	}
+	fields := map[string]interface{}{
+		"RequestsInFlight": inFlight,
+		"Requests":         requests,
+	}
+
+	var values []float64
+	var counts []uint64
+	var below uint64
+	for i, upper := range latencyBuckets {
+		upTo := cur.counts[i] - prev.counts[i]
+		if n := upTo - below; n > 0 {
+			values = append(values, upper)
+			counts = append(counts, n)
+		}
+		below = upTo
+	}
+	if n := requests - below; n > 0 {
+		values = append(values, emfOverflowSeconds)
+		counts = append(counts, n)
+	}
+	if len(values) > 0 {
+		metrics = append(metrics, map[string]string{"Name": "RequestLatency", "Unit": "Seconds"})
+		fields["RequestLatency"] = map[string]interface{}{"Values": values, "Counts": counts}
+	}
+
+	fields["_aws"] = map[string]interface{}{
+		"Timestamp": now.UnixMilli(),
+		"CloudWatchMetrics": []map[string]interface{}{{
+			"Namespace":  namespace,
+			"Dimensions": [][]string{{}},
+			"Metrics":    metrics,
+		}},
+	}
+	return fields
 }
