@@ -85,7 +85,7 @@ Press **Connect**, name the **Astrolift organization (slug)** (the deployment na
 Offered on **Zentinelle in Astrolift, Workbench beside**, where the Workbench runs its own ECS hub; on the Full loop it shows the refusal instead. Press **Enable** and confirm. The job:
 
 1. reads the hub image's `ai.calliope.junohub.build` label and refuses a hub older than junohub `0ac6a81` (build 4406), which would ignore what Enable writes. When the label cannot be read at all, the job says so and goes on;
-2. registers the hub's agent host endpoint, `<deployment>-workbench-agent-host`, in this Zentinelle as type `agent_host` and takes the key it mints;
+2. registers the hub's agent host endpoint in this Zentinelle as type `agent_host` and takes the key it mints. The id is `<deployment>-workbench-agent-host` the first time; a deregistered agent stays stopped, so an Enable after a Disable takes the first free id with a suffix (`-2`, `-3`, and so on). The install record, and the console's **Integrations** page, show the id in use;
 3. writes the key into the hub secret `<prefix>-junohub-secret` as `AGENT_HOST_ZENTINELLE_KEY`, keeping every other key, and refusing if the secret changed since it was read;
 4. records `JUNOHUB_AGENT_HOST_ZENTINELLE_URL` (Zentinelle's URL) and adds `agenthost` to `JUNOHUB_ENABLE_SERVICES` in the install record;
 5. queues a Workbench **Dry run** with those settings, and seeds the policies (skipped for any type the first integration already created).
