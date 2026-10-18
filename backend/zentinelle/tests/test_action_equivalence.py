@@ -20,6 +20,9 @@ on a tree whose decisions are known to be right:
     ZENTINELLE_RECORD_EQUIVALENCE=1 python -m pytest -q \
         zentinelle/tests/test_action_equivalence.py
 
+A recording made after #408 already has the steps in DENIED_SINCE_408
+refused; empty that set when you commit one.
+
 Rules that share a priority are merged in id order, and ids are random, so
 every case that holds more than one rule gives each its own priority.
 """
@@ -200,6 +203,21 @@ CONTENT_COMBINATIONS = [
     ('log_only_and_require_approval', [('pii_detection', 'log_only', 'low'),
                                        ('custom_pattern', 'require_approval', 'medium')]),
 ]
+# The one change made on purpose since the recording (#408): /scan's
+# `allowed` follows the decided action, so content decided as redact or
+# require_approval, which it used to allow, is refused. These steps are every
+# one that moved; the test applies this to the golden file before comparing.
+DENIED_SINCE_408 = {
+    ('scan:redact', 'pattern'),
+    ('scan:require_approval', 'pattern'),
+    ('scan:warn_and_redact', 'pattern'),
+    ('scan:warn_and_redact', 'pii_and_pattern'),
+    ('scan:redact_and_warn_high', 'pii'),
+    ('scan:redact_and_warn_high', 'pii_and_pattern'),
+    ('scan:redact_and_warn_high', 'secret_and_pii'),
+    ('scan:log_only_and_require_approval', 'pattern'),
+    ('scan:log_only_and_require_approval', 'pii_and_pattern'),
+}
 # /evaluate scans the interaction it records, so content rules act there too.
 EVALUATE_WITH_CONTENT_RULES = (
     'evaluate_with_content_rules',
@@ -460,6 +478,11 @@ class ActionEquivalenceTests(TransactionTestCase):
             GOLDEN.write_text(json.dumps(outcomes, indent=1, sort_keys=True) + '\n')
             self.skipTest(f'recorded {len(outcomes)} cases to {GOLDEN.name}')
         golden = json.loads(GOLDEN.read_text())
+        for label, steps in golden.items():
+            for step in steps if label.startswith('scan:') else ():
+                if (label, step['text']) in DENIED_SINCE_408:
+                    self.assertTrue(step['response']['allowed'])
+                    step['response']['allowed'] = False
         self.assertEqual(sorted(outcomes), sorted(golden), 'the case set changed; record it again')
         for label in golden:
             with self.subTest(case=label):
