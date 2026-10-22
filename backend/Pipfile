@@ -22,6 +22,7 @@ django-filter = "*"
 bcrypt = "*"
 boto3 = "*"
 pyyaml = "*"
+certifi = "*"
 
 [dev-packages]
 pytest-django = "*"
