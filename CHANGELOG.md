@@ -126,6 +126,9 @@ Notable changes to Zentinelle. The format follows
 
 ### Changed
 
+- Astrolift integration setup seeds delegation and human oversight policies
+  without creating a default monetary budget (astrolift-app#2464). Existing
+  policies and Workbench's separate defaults are preserved.
 - **Breaking:** `/scan`'s `allowed` follows the decided action, as
   `/evaluate`'s does (#408). Content decided as `require_approval` or
   `redact` is now refused (`allowed: false`); before, a `require_approval`

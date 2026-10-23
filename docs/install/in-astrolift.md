@@ -24,8 +24,6 @@ The [common prerequisites](index.md#before-you-start), with a hosted zone dedica
 
 Zentinelle adds no required field; **Advanced: footprint** gains the Zentinelle task sizes, database backup retention and deletion protection. Capacity must be on-demand, or Spot with the on-demand anchor node (Lean has the anchor): Zentinelle's backend, console and Temporal run on the anchor, and Spot without it is refused on the requirements screen.
 
-The wizard estimates **about $500 to $880 a month** on Balanced and about $310 to $560 on Lean, before usage.
-
 ## Choose it
 
 1. **Choose what to install**: **Zentinelle in Astrolift**.
@@ -76,8 +74,9 @@ Expected on **History**: the integration job with the message `Zentinelle with A
 ```text
 created agent_delegation: "Agent delegation" in audit mode
 created human_oversight: "Human oversight" in audit mode
-created budget_limit: "Monthly budget" in audit mode
 ```
+
+Astrolift seeds delegation and human oversight only. It creates no default monetary budget. Existing policies, including budgets from an earlier installation or set by an operator, are left unchanged. Workbench's separate defaults are unchanged.
 
 A failed seed does not undo the connection: the job still succeeds, and its message says why and gives the command to run. **Connect** stays offered, to connect another organization or reconnect one; each run mints a new code. A deployment installed from an air-gap bundle is refused here and connects from Astrolift's Zentinelle settings with a code generated in Zentinelle instead.
 
