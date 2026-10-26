@@ -51,15 +51,15 @@ The console has five pages: **Status**, **Install**, **History**, **Agent** and 
 
 ## The first policy firing
 
-Every guide ends the same way: three organization-wide policies exist for Zentinelle's standalone tenant (`00000000-0000-0000-0000-000000000001`), a test agent registers, and one evaluation makes two of them fire. The policies are the ones Zentinelle's `seed_integration_policies` command creates:
+Every guide ends with a test agent registering in Zentinelle's standalone tenant (`00000000-0000-0000-0000-000000000001`) and one evaluation making the delegation and oversight policies fire. Zentinelle's `seed_integration_policies` command creates the missing organization-wide defaults for the selected integration:
 
-| Policy | Type | Settings |
-|---|---|---|
-| Agent delegation | `agent_delegation` | `max_delegation_depth` 3 |
-| Human oversight | `human_oversight` | approval required for `high_cost` and `sensitive_data` |
-| Monthly budget | `budget_limit` | 500 USD a month, alert at 80 percent, no hard limit |
+| Policy | Type | Settings | Integration |
+|---|---|---|---|
+| Agent delegation | `agent_delegation` | `max_delegation_depth` 3 | Astrolift and Workbench |
+| Human oversight | `human_oversight` | approval required for `high_cost` and `sensitive_data` | Astrolift and Workbench |
+| Monthly budget | `budget_limit` | 500 USD a month, alert at 80 percent, no hard limit | Workbench only |
 
-Each is in **audit** mode with the **alert** action: a match is recorded and alerted, and nothing is blocked, even after a policy is switched to enforce. On the Astrolift blueprints, **Enable integrations** runs the command for you; on Zentinelle alone you run it once by hand. A type the tenant already has a policy of is skipped, so running it again changes nothing.
+Each is in **audit** mode with the **alert** action: a match is recorded and alerted, and nothing is blocked, even after a policy is switched to enforce. On the Astrolift blueprints, **Enable integrations** runs the command for you; on Zentinelle alone you run it once by hand. A type the tenant already has a policy of is skipped, so running it again changes nothing. Astrolift creates no default monetary budget and does not delete or change any existing policy, including historical or operator-created budgets. Workbench and standalone instructions using `--source workbench` retain their own defaults.
 
 ### Register a test agent
 
@@ -82,7 +82,7 @@ KEY=$(curl -fsS -X POST "$ZEN/api/zentinelle/v1/register" \
 echo "${KEY:0:12}..."
 ```
 
-Expected: `sk_agent_...`. The registration answer also lists the three policies under `policies`, each with `"enforcement": "audit"` and `"action": "alert"`. Keep `$KEY` in this shell only; it is the agent's credential.
+Expected: `sk_agent_...`. The registration answer also lists the tenant's policies under `policies`, each seeded default with `"enforcement": "audit"` and `"action": "alert"`. Keep `$KEY` in this shell only; it is the agent's credential.
 
 ### Make a policy fire
 
@@ -114,7 +114,7 @@ Expected:
 }
 ```
 
-That is the first policy firing: two policies matched, the decision is `alert`, and the call is still allowed. The full answer's `policies_evaluated` shows `Agent delegation` and `Human oversight` with `"result": "fail"` and `"action": "alert"`, and `Monthly budget` with `"result": "pass"`. The evaluation is recorded as an event in the alert category, which the console shows once you can sign in to it.
+That is the first policy firing: two policies matched, the decision is `alert`, and the call is still allowed. The full answer's `policies_evaluated` shows `Agent delegation` and `Human oversight` with `"result": "fail"` and `"action": "alert"`. A Workbench-seeded `Monthly budget` also appears with `"result": "pass"`. The evaluation is recorded as an event in the alert category, which the console shows once you can sign in to it.
 
 ### Remove the test agent
 

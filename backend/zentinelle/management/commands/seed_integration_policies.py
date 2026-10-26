@@ -4,8 +4,8 @@ Seed the agent governance policies an integration starts with (installer#431).
 Usage:
     python manage.py seed_integration_policies --tenant <id> --source <workbench|astrolift>
 
-Creates one organization-wide agent_delegation, human_oversight and
-budget_limit policy for the tenant, in audit mode with the alert action: a
+Creates organization-wide agent_delegation and human_oversight policies;
+Workbench also seeds budget_limit. Each starts in audit mode with the alert action: a
 match is recorded and the tenant's owners are notified, and nothing is ever
 blocked. Switching a policy to enforce keeps it alerting rather than blocking;
 operators who want a block change its action (and the budget's hard_limit).
@@ -45,8 +45,8 @@ SEEDS = (
 
 
 class Command(BaseCommand):
-    help = ('Seed agent_delegation, human_oversight and budget_limit policies in audit mode '
-            'with the alert action, so switching one to enforce alerts rather than blocks')
+    help = ('Seed agent_delegation and human_oversight policies in audit mode with the '
+            'alert action; Workbench also seeds budget_limit. Existing policies are preserved.')
 
     def add_arguments(self, parser):
         parser.add_argument('--tenant', required=True, help='The tenant to seed the policies for')
@@ -57,9 +57,12 @@ class Command(BaseCommand):
         tenant = options['tenant'].strip()
         if not tenant:
             raise CommandError('A tenant id cannot be empty')
-        source = SOURCES[options['source']]
+        source_key = options['source']
+        source = SOURCES[source_key]
+        seeds = tuple(seed for seed in SEEDS
+                      if source_key != 'astrolift' or seed[0] != Policy.PolicyType.BUDGET_LIMIT)
         created = 0
-        for policy_type, name, config in SEEDS:
+        for policy_type, name, config in seeds:
             existing = Policy.objects.filter(
                 tenant_id=tenant, policy_type=policy_type, scope_type=Policy.ScopeType.ORGANIZATION,
             ).first()
@@ -82,5 +85,5 @@ class Command(BaseCommand):
             created += 1
             self.stdout.write(f'created {policy_type}: "{name}" in audit mode')
         self.stdout.write(self.style.SUCCESS(
-            f'Done: {created} created, {len(SEEDS) - created} already present, for tenant {tenant}.'
+            f'Done: {created} created, {len(seeds) - created} already present, for tenant {tenant}.'
         ))
