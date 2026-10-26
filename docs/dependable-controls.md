@@ -48,3 +48,26 @@ Audit retention removes only an expired contiguous prefix, leaving a signed boun
 Use `/api/zentinelle/v1/audit/export/?from=...&to=...&format=bundle` for a lossless NDJSON export with a final signed manifest. `verify_evidence_bundle(lines, tenant_id)` verifies count, byte digest, tenant and entry hashes without querying the database. The final manifest is required; interrupted, reordered or truncated downloads fail. Keep its selection and checkpoint with the evidence. Plain NDJSON remains lossless; CSV and CEF are convenience formats rather than complete cryptographic evidence.
 
 Compliance reports label matching enforcement as **configured**, with operating evidence **unverified**. Name, type, enabled state, scope, enforcement and expected configuration are checked. A configuration inventory does not establish BROCS maturity or compliance certification. Dated operating evidence and stable control ownership are tracked in [#337](https://github.com/calliopeai/zentinelle/issues/337).
+
+
+## Cognito and runtime SSO
+
+`GET /api/zentinelle/v1/auth/config` exposes only the runtime mode and whether
+OIDC is configured. The login page uses this endpoint, so the same frontend
+image supports local and SSO deployments. `AUTH_MODE=sso` rejects local password
+login; existing local deployments continue to support it.
+
+For Cognito, set `OIDC_GROUP_ROLE_MAPPING` to a nonempty JSON object such as
+`{"deployment-admins":"admin","deployment-readers":"viewer"}`. The claim
+name defaults to `cognito:groups` and can be changed with `OIDC_GROUPS_CLAIM`.
+Values are `admin`, `operator`, or `viewer`; the strongest matching role wins.
+Only groups in the verified ID token count. An invalid mapping, malformed group
+claim, or identity without a matching group is denied. With no mapping, the
+existing scalar `OIDC_ROLE_CLAIM` behavior remains compatible. No account is
+linked to an existing local user by email.
+
+Register `/api/zentinelle/v1/auth/oidc/callback` at the deployment's public HTTPS
+origin as the client's callback, enable authorization code flow and
+`openid email profile`, and configure `OIDC_DISCOVERY_URL`, `OIDC_CLIENT_ID`,
+`OIDC_CLIENT_SECRET`, and `OIDC_REDIRECT_URI` on the backend. Cognito invitations
+and first-password changes happen in Cognito's hosted sign-in.

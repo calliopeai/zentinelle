@@ -4,6 +4,16 @@ Persistent project memory. Decisions, context, open questions. Updated as the pr
 
 ---
 
+## October 2026 Cognito sign-in (#496)
+
+The portal discovers local/SSO mode from `auth/config` at runtime. SSO mode
+refuses local password login. `OIDC_GROUP_ROLE_MAPPING` optionally maps validated
+ID-token groups (default claim `cognito:groups`) to roles; a configured mapping
+is an allowlist, with unknown groups denied and the strongest matching role
+selected. Without a mapping, legacy scalar-role OIDC behavior is preserved.
+Identity remains issuer/subject, never an email-based account link. The installer
+tracks first-admin invitations in calliope-installer#680 and #647.
+
 ## September 2026 enforcement remediation
 
 The top-down BROCS review led to remediation tracked in #332. Prioritize dependable enforcement and evidence before expanding the catalogue. See `docs/dependable-controls.md` for deployment, migration and compatibility notes, and `docs/reviews/2026-09-10-remediation.md` for validation.

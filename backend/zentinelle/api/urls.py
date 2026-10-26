@@ -122,8 +122,8 @@ from zentinelle.api.views.astrolift_reads import (AstroliftAuditView,
                                                   AstroliftPoliciesView,
                                                   AstroliftUsageView)
 from zentinelle.api.views.atlas import AtlasControlMapView
-from zentinelle.api.views.auth import (CSRFTokenView, LoginView, LogoutView,
-                                       MeView)
+from zentinelle.api.views.auth import (AuthConfigView, CSRFTokenView,
+                                       LoginView, LogoutView, MeView)
 from zentinelle.api.views.gateway_provider_key import GatewayProviderKeyView
 from zentinelle.api.views.health import HealthView, ReadyView
 from zentinelle.api.views.llm_provider_keys import (LLMProviderKeyDeleteView,
@@ -150,6 +150,7 @@ urlpatterns = [
     path('approvals/requests/<uuid:request_id>', ApprovalRequestStatusView.as_view(), name='approval-request'),
     path('approvals/requests/<uuid:request_id>/decision', ApprovalRequestDecisionView.as_view(),
          name='approval-request-decision'),
+    path('auth/config', AuthConfigView.as_view(), name='auth-config'),
     path('auth/csrf', CSRFTokenView.as_view(), name='auth-csrf'),
     path('auth/login', LoginView.as_view(), name='auth-login'),
     path('auth/logout', LogoutView.as_view(), name='auth-logout'),

@@ -19,6 +19,8 @@ from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
 from zentinelle.api.permissions import PORTAL_AUTH
+from zentinelle.auth.mode import auth_mode
+from zentinelle.auth.oidc import _get_config
 from zentinelle.auth.roles import can_admin, can_mutate, can_view, get_role
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,21 @@ class CSRFTokenView(APIView):
         return response
 
 
+class AuthConfigView(APIView):
+    """Public runtime sign-in options. Never return provider credentials."""
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        config = _get_config()
+        response = Response({
+            'mode': auth_mode(),
+            'oidc_enabled': bool(config['discovery_url'] and config['client_id']),
+        })
+        response['Cache-Control'] = 'no-store'
+        return response
+
+
 @method_decorator(csrf_protect, name='dispatch')
 class LoginView(APIView):
     """
@@ -65,6 +82,9 @@ class LoginView(APIView):
     throttle_classes = [LoginIPThrottle, LoginUserThrottle]
 
     def post(self, request):
+        if auth_mode() == 'sso':
+            return Response({'error': 'Use single sign-on for this deployment'},
+                            status=status.HTTP_403_FORBIDDEN)
         username = request.data.get('username', '').strip()
         password = request.data.get('password', '')
 

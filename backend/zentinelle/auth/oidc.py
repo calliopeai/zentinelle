@@ -21,6 +21,7 @@ Optional:
 """
 import base64
 import hashlib
+import json
 import logging
 import os
 import secrets
@@ -49,9 +50,35 @@ def _get_config():
         'scopes': os.environ.get('OIDC_SCOPES', 'openid email profile'),
         'tenant_claim': os.environ.get('OIDC_TENANT_CLAIM', 'org_id'),
         'role_claim': os.environ.get('OIDC_ROLE_CLAIM', 'role'),
+        'groups_claim': os.environ.get('OIDC_GROUPS_CLAIM', 'cognito:groups'),
+        'group_role_mapping': os.environ.get('OIDC_GROUP_ROLE_MAPPING', ''),
         'expected_tenant': os.environ.get('OIDC_EXPECTED_TENANT', ''),
         'post_login_url': os.environ.get('OIDC_POST_LOGIN_URL', '/'),
     }
+
+
+def _identity_role(claims: dict, config: dict) -> str:
+    """Map validated group claims; configured allowlists must fail closed."""
+    raw_mapping = config.get('group_role_mapping', '')
+    if raw_mapping:
+        try:
+            mapping = json.loads(raw_mapping)
+        except (TypeError, ValueError) as exc:
+            raise ValueError('Invalid OIDC group role mapping') from exc
+        roles = ('admin', 'operator', 'viewer')
+        if (not isinstance(mapping, dict) or not mapping
+                or any(not isinstance(group, str) or not group or role not in roles
+                       for group, role in mapping.items())):
+            raise ValueError('Invalid OIDC group role mapping')
+        groups = claims.get(config.get('groups_claim', 'cognito:groups'), [])
+        if not isinstance(groups, list) or any(not isinstance(group, str) for group in groups):
+            raise ValueError('Invalid OIDC groups claim')
+        for role in roles:
+            if any(mapping.get(group) == role for group in groups):
+                return role
+        raise ValueError('Identity has no authorized group')
+    role = claims.get(config['role_claim'], '')
+    return role if isinstance(role, str) else ''
 
 
 def _cached_document(url: str, refresh: bool = False) -> dict:
@@ -216,9 +243,7 @@ class OIDCCallbackView(View):
 
         # Extract tenant and role from claims using configured claim names
         tenant_id = claims.get(config['tenant_claim'], '')
-        role = claims.get(config['role_claim'], '')
-        if not isinstance(role, str):
-            role = ''
+        role = _identity_role(claims, config)
 
         issuer = claims.get('iss', '')
         if not issuer or not sub:
