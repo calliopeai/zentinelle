@@ -50,6 +50,25 @@ class CognitoSignInTests(TestCase):
                 OIDCCallbackView()._provision_user(dict(self.claims, **{'cognito:groups': groups}), CONFIG)
         self.assertFalse(get_user_model().objects.exists())
 
+    def test_default_role_admits_unmapped_identities_read_only(self):
+        config = dict(CONFIG, default_role='viewer')
+        self.claims['role'] = 'admin'
+        for groups in ([], ['outsiders']):
+            with self.subTest(groups=groups):
+                user = OIDCCallbackView()._provision_user(dict(self.claims, **{'cognito:groups': groups}), config)
+                self.assertFalse(can_admin(user))
+                self.assertFalse(user.is_staff)
+                self.assertTrue(user.groups.filter(name=ROLE_VIEWER).exists())
+        user = OIDCCallbackView()._provision_user(self.claims, config)
+        self.assertTrue(can_admin(user), 'a mapped group still wins')
+
+    def test_default_role_cannot_be_admin_or_unknown(self):
+        self.claims['cognito:groups'] = []
+        for default_role in ('admin', 'superuser'):
+            with self.subTest(default_role=default_role), self.assertRaises(ValueError):
+                OIDCCallbackView()._provision_user(self.claims, dict(CONFIG, default_role=default_role))
+        self.assertFalse(get_user_model().objects.exists())
+
     def test_invalid_mapping_fails_closed(self):
         for mapping in ('{bad', '[]', '{}', '{"admins":"superuser"}'):
             with self.subTest(mapping=mapping), self.assertRaises(ValueError):
