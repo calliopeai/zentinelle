@@ -62,7 +62,10 @@ For Cognito, set `OIDC_GROUP_ROLE_MAPPING` to a nonempty JSON object such as
 name defaults to `cognito:groups` and can be changed with `OIDC_GROUPS_CLAIM`.
 Values are `admin`, `operator`, or `viewer`; the strongest matching role wins.
 Only groups in the verified ID token count. An invalid mapping, malformed group
-claim, or identity without a matching group is denied. With no mapping, the
+claim, or identity without a matching group is denied, unless
+`OIDC_DEFAULT_ROLE` is set to `viewer` or `operator`: then an identity in no
+mapped group signs in with that role. It is empty by default and never accepts
+`admin`, which only a mapped group grants. With no mapping, the
 existing scalar `OIDC_ROLE_CLAIM` behavior remains compatible. No account is
 linked to an existing local user by email.
 

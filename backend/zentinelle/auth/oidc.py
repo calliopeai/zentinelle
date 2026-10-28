@@ -52,6 +52,7 @@ def _get_config():
         'role_claim': os.environ.get('OIDC_ROLE_CLAIM', 'role'),
         'groups_claim': os.environ.get('OIDC_GROUPS_CLAIM', 'cognito:groups'),
         'group_role_mapping': os.environ.get('OIDC_GROUP_ROLE_MAPPING', ''),
+        'default_role': os.environ.get('OIDC_DEFAULT_ROLE', ''),
         'expected_tenant': os.environ.get('OIDC_EXPECTED_TENANT', ''),
         'post_login_url': os.environ.get('OIDC_POST_LOGIN_URL', '/'),
     }
@@ -76,6 +77,13 @@ def _identity_role(claims: dict, config: dict) -> str:
         for role in roles:
             if any(mapping.get(group) == role for group in groups):
                 return role
+        # Opt-in base role for identities in no mapped group. Never admin:
+        # admin only ever comes from a mapped group.
+        default_role = config.get('default_role', '')
+        if default_role:
+            if default_role not in ('operator', 'viewer'):
+                raise ValueError('Invalid OIDC default role')
+            return default_role
         raise ValueError('Identity has no authorized group')
     role = claims.get(config['role_claim'], '')
     return role if isinstance(role, str) else ''
