@@ -11,7 +11,7 @@ import {
   localizeNav,
   useRailState,
   useRailWidth,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import {
   BookOpenIcon,
   LanguagesIcon,

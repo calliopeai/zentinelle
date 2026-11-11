@@ -1,5 +1,5 @@
 /**
- * A TableController (@calliopelabs/ui) over a list the server returned
+ * A TableController (@calliopelabs/ui-astrolift) over a list the server returned
  * whole. Most Zentinelle list queries (`risks`, `complianceOverview`, the
  * REST evidence maps) take filters but no page arguments, so the route holds
  * one answer and this pages through it. Sorting stays the server's: none is
@@ -9,7 +9,7 @@ import {
   DEFAULT_PAGE_SIZE,
   type PageState,
   type TableController,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 export interface ListControllerOptions {

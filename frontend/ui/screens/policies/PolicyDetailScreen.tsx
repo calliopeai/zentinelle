@@ -14,7 +14,7 @@ import {
   Section,
   useUI,
   type Column,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { MoreHorizontalIcon, SearchXIcon } from "lucide-react";
 import * as React from "react";
 

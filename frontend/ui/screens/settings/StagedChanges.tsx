@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, List, ListItem, Section, StatusBadge } from "@calliopelabs/ui";
+import { Button, List, ListItem, Section, StatusBadge } from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 import {

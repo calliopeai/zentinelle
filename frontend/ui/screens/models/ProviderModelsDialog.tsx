@@ -11,7 +11,7 @@ import {
   ErrorState,
   Input,
   LoadingState,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 import { formatTokens } from "../../shared/figures";

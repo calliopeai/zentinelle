@@ -1,4 +1,4 @@
-import { activeFor } from "@calliopelabs/ui";
+import { activeFor } from "@calliopelabs/ui-astrolift";
 import { describe, expect, it } from "vitest";
 
 import {

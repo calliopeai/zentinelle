@@ -1,4 +1,4 @@
-import { ErrorState, PageFrame, Section, useUI } from "@calliopelabs/ui";
+import { ErrorState, PageFrame, Section, useUI } from "@calliopelabs/ui-astrolift";
 
 import { NeedsAttention } from "./NeedsAttention";
 import { OnboardingCard } from "./OnboardingCard";

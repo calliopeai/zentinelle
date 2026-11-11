@@ -1,4 +1,4 @@
-import { cn, useUI } from "@calliopelabs/ui";
+import { cn, useUI } from "@calliopelabs/ui-astrolift";
 import type * as React from "react";
 
 export interface StatTileProps {
@@ -14,7 +14,7 @@ export interface StatTileProps {
 
 /**
  * One figure with its label. A KPI that links goes to the list it counts.
- * Candidate for @calliopelabs/ui (Astrolift has StatTile; the package does
+ * Candidate for @calliopelabs/ui-astrolift (Astrolift has StatTile; the package does
  * not yet).
  */
 export function StatTile({

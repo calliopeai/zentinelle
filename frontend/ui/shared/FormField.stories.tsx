@@ -3,7 +3,7 @@ import { expect, within } from "storybook/test";
 
 import { SelectField, TextField, TextareaField } from "./FormField";
 
-/** Labelled controls with their hint and error tied on. Candidates for @calliopelabs/ui. */
+/** Labelled controls with their hint and error tied on. Candidates for @calliopelabs/ui-astrolift. */
 const meta = {
   title: "Shared/FormField",
   component: TextField,

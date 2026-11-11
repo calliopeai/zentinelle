@@ -1,4 +1,4 @@
-import { cn, useUI, type StatusTone } from "@calliopelabs/ui";
+import { cn, useUI, type StatusTone } from "@calliopelabs/ui-astrolift";
 import type * as React from "react";
 
 export interface StatTileProps {

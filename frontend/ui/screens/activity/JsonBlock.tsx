@@ -1,4 +1,4 @@
-import { cn } from "@calliopelabs/ui";
+import { cn } from "@calliopelabs/ui-astrolift";
 
 export interface JsonBlockProps {
   /** Names the block for screen readers ("Event payload"). */

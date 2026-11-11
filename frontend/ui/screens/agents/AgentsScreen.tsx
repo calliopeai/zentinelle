@@ -8,7 +8,7 @@ import {
   areaSwitcher,
   type Column,
   type TableController,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { BotIcon, PlusIcon } from "lucide-react";
 import type * as React from "react";
 

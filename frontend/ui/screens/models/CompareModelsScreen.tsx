@@ -7,7 +7,7 @@ import {
   LoadingState,
   PageFrame,
   StatusBadge,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { ScaleIcon, XIcon } from "lucide-react";
 import type * as React from "react";
 

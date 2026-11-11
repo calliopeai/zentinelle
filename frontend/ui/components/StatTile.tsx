@@ -9,7 +9,7 @@ import {
   cn,
   useUI,
   type StatusTone,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import type * as React from "react";
 
 export interface StatTileProps {

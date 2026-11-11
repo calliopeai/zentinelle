@@ -4,7 +4,7 @@ import {
   PageFrame,
   StatusBadge,
   type Column,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { ActivityIcon, PauseIcon, PlayIcon } from "lucide-react";
 import * as React from "react";
 

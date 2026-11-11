@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { StatusBadge } from "@calliopelabs/ui";
+import { StatusBadge } from "@calliopelabs/ui-astrolift";
 import { expect, within } from "storybook/test";
 
 import { DefinitionList } from "./DefinitionList";

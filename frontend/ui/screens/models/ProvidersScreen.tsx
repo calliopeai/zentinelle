@@ -11,7 +11,7 @@ import {
   PageFrame,
   Section,
   StatusBadge,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { PlugIcon } from "lucide-react";
 import * as React from "react";
 

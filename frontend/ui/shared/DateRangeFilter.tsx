@@ -1,4 +1,4 @@
-import { Input, cn } from "@calliopelabs/ui";
+import { Input, cn } from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 export interface DateRange {

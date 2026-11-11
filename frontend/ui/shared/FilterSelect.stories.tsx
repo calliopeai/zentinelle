@@ -10,7 +10,7 @@ const OPTIONS = [
   { value: "offline", label: "Offline" },
 ];
 
-/** One server-side filter in a list's toolbar. A candidate for @calliopelabs/ui's FilterBar. */
+/** One server-side filter in a list's toolbar. A candidate for @calliopelabs/ui-astrolift's FilterBar. */
 const meta = {
   title: "Shared/FilterSelect",
   component: FilterSelect,

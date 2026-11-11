@@ -1,4 +1,4 @@
-import type { PageState, TableController } from "@calliopelabs/ui";
+import type { PageState, TableController } from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 export interface ArrayTableOptions<TRow> {
@@ -21,7 +21,7 @@ export interface ArrayTableOptions<TRow> {
  * back, offers no sort (the server does not sort these), and keeps rows on
  * screen while a new answer is in flight. Replace with a server cursor
  * controller once the query pages; the DataTable does not change. Candidate
- * for @calliopelabs/ui beside the TableController type, with a
+ * for @calliopelabs/ui-astrolift beside the TableController type, with a
  * `fixtureController` for stories.
  */
 export function useArrayTable<TRow>({

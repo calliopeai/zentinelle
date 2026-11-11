@@ -6,7 +6,7 @@
  * `policy-changes`) with no client yet; they come in as counts, and an
  * absent count leaves its row out.
  */
-import type { StatusTone } from "@calliopelabs/ui";
+import type { StatusTone } from "@calliopelabs/ui-astrolift";
 
 import type { ComplianceAlertData } from "@/graphql/alerts/types";
 import type { DashboardStats } from "@/graphql/dashboard/types";

@@ -6,7 +6,7 @@
  * actions under a form with its saved or failed message. Candidates for the
  * package.
  */
-import { Button, cn } from "@calliopelabs/ui";
+import { Button, cn } from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 export interface FieldControlProps {

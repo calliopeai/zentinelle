@@ -1,4 +1,4 @@
-import { EmptyState } from "@calliopelabs/ui";
+import { EmptyState } from "@calliopelabs/ui-astrolift";
 import { LockIcon } from "lucide-react";
 
 export interface AccessStateProps {
@@ -14,7 +14,7 @@ export interface AccessStateProps {
  * The clean 403: a signed-in person reached a page their role cannot open
  * (an old link, a shared URL). Says which role opens it and offers a way
  * out, instead of an empty page or a raw error. A candidate for
- * @calliopelabs/ui.
+ * @calliopelabs/ui-astrolift.
  */
 export function AccessState({
   subject,

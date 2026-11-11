@@ -1,11 +1,11 @@
 /**
- * A TableController (from @calliopelabs/ui) for a list the server returns
+ * A TableController (from @calliopelabs/ui-astrolift) for a list the server returns
  * whole: one page, no server sort. Settings lists are short and bounded
  * (keys, holds, retention policies), and their queries take no paging
  * arguments. A list that can grow without bound needs a paged controller.
  * Candidate for the package.
  */
-import type { PageState, TableController } from "@calliopelabs/ui";
+import type { PageState, TableController } from "@calliopelabs/ui-astrolift";
 
 export interface ListControllerOptions<TRow> {
   rows: readonly TRow[] | null | undefined;
