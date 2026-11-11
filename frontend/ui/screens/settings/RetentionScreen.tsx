@@ -10,7 +10,7 @@ import {
   useUI,
   type Column,
   type TabNavItem,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { ArchiveIcon, ScaleIcon } from "lucide-react";
 import * as React from "react";
 

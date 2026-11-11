@@ -1,4 +1,4 @@
-import { cn } from "@calliopelabs/ui";
+import { cn } from "@calliopelabs/ui-astrolift";
 
 export interface CodeBlockProps {
   /** Text, or a value shown as indented JSON. */

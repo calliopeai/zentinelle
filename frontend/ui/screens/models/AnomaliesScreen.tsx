@@ -9,7 +9,7 @@ import {
   useUI,
   type Column,
   type StatusTone,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { ActivityIcon } from "lucide-react";
 
 import { Panel } from "../../shared/Panel";

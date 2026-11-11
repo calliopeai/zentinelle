@@ -5,7 +5,7 @@ import {
   type Column,
   type StatusTone,
   type TableController,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { ShieldCheckIcon } from "lucide-react";
 
 import { Card } from "../../shared/Card";

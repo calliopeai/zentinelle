@@ -6,7 +6,7 @@ import {
   StatusBadge,
   areaSwitcher,
   type TabNavItem,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { BotIcon } from "lucide-react";
 import type * as React from "react";
 

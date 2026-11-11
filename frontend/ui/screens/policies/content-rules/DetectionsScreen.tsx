@@ -4,7 +4,7 @@ import {
   PageFrame,
   StatusBadge,
   type Column,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { DownloadIcon, RadarIcon } from "lucide-react";
 
 import type {

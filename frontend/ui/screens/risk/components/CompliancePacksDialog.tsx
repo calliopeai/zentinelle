@@ -8,7 +8,7 @@ import {
   ErrorState,
   List,
   ListItem,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 import type { QueryState } from "../model";

@@ -1,4 +1,4 @@
-import { TONE_TOKEN, cn, type StatusTone } from "@calliopelabs/ui";
+import { TONE_TOKEN, cn, type StatusTone } from "@calliopelabs/ui-astrolift";
 
 export interface MeterProps {
   /** Names the measure ("Required controls covered"). */
@@ -23,7 +23,7 @@ const FILL: Record<StatusTone, string> = {
 
 /**
  * A measure against its ceiling: coverage, budget, a share. A meter, not a
- * progress bar: nothing is loading. A candidate for @calliopelabs/ui.
+ * progress bar: nothing is loading. A candidate for @calliopelabs/ui-astrolift.
  */
 export function Meter({
   label,

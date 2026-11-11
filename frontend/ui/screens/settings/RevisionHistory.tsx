@@ -7,7 +7,7 @@ import {
   ListItem,
   Section,
   StatusBadge,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 import { formatDate, type RuntimeActions, type RuntimeRevision } from "./model";

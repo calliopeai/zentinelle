@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import * as previewAnnotations from "../../.storybook/preview";
 
 /**
- * The a11y gate, as in @calliopelabs/ui: every story under ui/ renders
+ * The a11y gate, as in @calliopelabs/ui-astrolift: every story under ui/ renders
  * through the catalog's own decorators, runs its play function, and passes
  * the a11y addon's WCAG A and AA checks (the preview sets
  * `a11y.test: "error"`). A Storybook build only proves the stories compile;

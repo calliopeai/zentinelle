@@ -5,7 +5,11 @@
  * /api/zentinelle/v1/settings (backend/zentinelle/api/views). The routes map
  * what they fetch into these; the screens never fetch.
  */
-import { areaSwitcher, type Crumb, type StatusTone } from "@calliopelabs/ui";
+import {
+  areaSwitcher,
+  type Crumb,
+  type StatusTone,
+} from "@calliopelabs/ui-astrolift";
 
 import type { ApiKeyData } from "@/graphql/api-keys/hooks";
 import type { LegalHoldData } from "@/graphql/legal-holds/types";

@@ -2,7 +2,7 @@
  * The Agents area's vocabulary: the backend's states mapped once onto the
  * package's five status tones, and the formatting every screen shares.
  */
-import type { StatusTone } from "@calliopelabs/ui";
+import type { StatusTone } from "@calliopelabs/ui-astrolift";
 
 import type { EndpointData } from "@/graphql/agents/types";
 

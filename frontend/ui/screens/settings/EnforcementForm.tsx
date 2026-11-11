@@ -1,6 +1,6 @@
 "use client";
 
-import { Section } from "@calliopelabs/ui";
+import { Section } from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 import {

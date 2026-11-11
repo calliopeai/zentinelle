@@ -7,7 +7,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 
 export interface AppearanceDialogProps {
   open: boolean;

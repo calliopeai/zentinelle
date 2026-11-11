@@ -1,6 +1,6 @@
 "use client";
 
-import { cn, useUI } from "@calliopelabs/ui";
+import { cn, useUI } from "@calliopelabs/ui-astrolift";
 
 export interface BarListItem {
   key: string;

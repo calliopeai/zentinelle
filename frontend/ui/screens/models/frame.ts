@@ -3,7 +3,11 @@
  * navigation model (ui-overhaul-ia §4.1), so the sidebar, the crumb and the
  * tabs always agree.
  */
-import { areaSwitcher, type Crumb, type TabNavItem } from "@calliopelabs/ui";
+import {
+  areaSwitcher,
+  type Crumb,
+  type TabNavItem,
+} from "@calliopelabs/ui-astrolift";
 
 import { navFor } from "../../product";
 

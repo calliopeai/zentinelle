@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@calliopelabs/ui";
+import { cn } from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 export interface SelectFieldOption {

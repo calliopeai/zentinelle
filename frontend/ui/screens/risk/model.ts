@@ -8,7 +8,7 @@ import {
   areaSwitcher,
   type StatusTone,
   type TabNavItem,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 
 import { navFor } from "../../product";
 

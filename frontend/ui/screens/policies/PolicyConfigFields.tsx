@@ -1,4 +1,4 @@
-import { Checkbox, Input } from "@calliopelabs/ui";
+import { Checkbox, Input } from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 import { Field } from "../../shared/Field";

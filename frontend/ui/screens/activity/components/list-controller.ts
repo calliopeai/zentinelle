@@ -1,12 +1,12 @@
 /**
- * A TableController (@calliopelabs/ui) over a list the server returned whole.
+ * A TableController (@calliopelabs/ui-astrolift) over a list the server returned whole.
  * The Activity operations (`ComplianceAlerts`, `Notifications`, `GetIncidents`,
  * `GetEvents`, `GetAuditLogs`) take filters but no page or sort arguments, so
  * until they do, this pages what arrived and leaves sorting off. Search and
  * filters still go to the server: `search` is the live input, and the caller
  * debounces it into the query's variables.
  */
-import type { PageState, TableController } from "@calliopelabs/ui";
+import type { PageState, TableController } from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 /** One list as a screen receives it: what the query returned, and how it is doing. */

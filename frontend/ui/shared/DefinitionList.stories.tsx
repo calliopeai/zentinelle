@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { DefinitionList } from "./DefinitionList";
 
-/** Term and value pairs that wrap. A candidate for @calliopelabs/ui. */
+/** Term and value pairs that wrap. A candidate for @calliopelabs/ui-astrolift. */
 const meta = {
   title: "Shared/DefinitionList",
   component: DefinitionList,

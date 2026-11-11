@@ -8,7 +8,7 @@ import {
   areaSwitcher,
   type Column,
   type TableController,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { PlusIcon, UsersIcon } from "lucide-react";
 
 import type { AgentGroupData } from "@/graphql/agent-groups/types";

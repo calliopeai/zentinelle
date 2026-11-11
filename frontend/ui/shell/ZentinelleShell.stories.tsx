@@ -1,4 +1,4 @@
-import { EmptyState, PageFrame } from "@calliopelabs/ui";
+import { EmptyState, PageFrame } from "@calliopelabs/ui-astrolift";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 

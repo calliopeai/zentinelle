@@ -1,6 +1,6 @@
 "use client";
 
-import { Input, Section } from "@calliopelabs/ui";
+import { Input, Section } from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 import { FormActions, FormField, useSaveState } from "./components/FormField";

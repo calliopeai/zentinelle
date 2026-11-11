@@ -10,7 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 import { useAgentGroups } from "@/graphql/agent-groups/hooks";

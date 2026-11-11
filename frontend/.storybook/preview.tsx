@@ -16,7 +16,7 @@ import {
   productStyles,
   type Appearance,
   type LinkProps,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import type { Decorator, Preview } from "@storybook/react-vite";
 import * as React from "react";
 

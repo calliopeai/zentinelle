@@ -4,7 +4,7 @@
  * row; this is for a deep link or a bookmark. Candidate for the package,
  * beside EmptyState and ErrorState.
  */
-import { EmptyState } from "@calliopelabs/ui";
+import { EmptyState } from "@calliopelabs/ui-astrolift";
 import { LockIcon } from "lucide-react";
 
 export interface ForbiddenStateProps {

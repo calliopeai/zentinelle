@@ -1,4 +1,4 @@
-import { StatusDot, cn, type StatusTone } from "@calliopelabs/ui";
+import { StatusDot, cn, type StatusTone } from "@calliopelabs/ui-astrolift";
 import type * as React from "react";
 
 import { formatDateTime } from "./format";

@@ -1,4 +1,4 @@
-import { Button, cn } from "@calliopelabs/ui";
+import { Button, cn } from "@calliopelabs/ui-astrolift";
 import type * as React from "react";
 
 export interface FilterBarProps {

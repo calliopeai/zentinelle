@@ -1,4 +1,4 @@
-import { cn } from "@calliopelabs/ui";
+import { cn } from "@calliopelabs/ui-astrolift";
 import * as React from "react";
 
 import type { SelectOption } from "./FormField";
@@ -17,7 +17,7 @@ export interface FilterSelectProps {
 /**
  * One filter in a list's filter bar, for a query variable the server
  * filters on. The empty value means "no filter". Candidate for
- * @calliopelabs/ui, as part of a FilterBar (Astrolift's list pattern).
+ * @calliopelabs/ui-astrolift, as part of a FilterBar (Astrolift's list pattern).
  */
 export function FilterSelect({
   label,

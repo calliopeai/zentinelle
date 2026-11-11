@@ -3,7 +3,7 @@ import { expect, fn, userEvent, within } from "storybook/test";
 
 import { OneTimeSecret } from "./OneTimeSecret";
 
-/** A key shown once, with a copy that says it worked. A candidate for @calliopelabs/ui. */
+/** A key shown once, with a copy that says it worked. A candidate for @calliopelabs/ui-astrolift. */
 const meta = {
   title: "Shared/OneTimeSecret",
   component: OneTimeSecret,

@@ -1,9 +1,9 @@
-import { Button } from "@calliopelabs/ui";
+import { Button } from "@calliopelabs/ui-astrolift";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { Card } from "./Card";
 
-/** The one bordered box. A candidate for @calliopelabs/ui. */
+/** The one bordered box. A candidate for @calliopelabs/ui-astrolift. */
 const meta = {
   title: "Shared/Card",
   component: Card,

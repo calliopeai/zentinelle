@@ -8,7 +8,7 @@ import {
   StatusDot,
   type Column,
   type TabNavItem,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { BellIcon, CheckCheckIcon, InboxIcon } from "lucide-react";
 import * as React from "react";
 

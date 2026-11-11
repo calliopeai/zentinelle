@@ -8,7 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 
 import { CopyField } from "../../shared/CopyField";
 import { DefinitionList } from "./components/DefinitionList";

@@ -11,7 +11,7 @@ import {
   PageFrame,
   StatusBadge,
   type Column,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { GitPullRequestArrowIcon } from "lucide-react";
 import * as React from "react";
 

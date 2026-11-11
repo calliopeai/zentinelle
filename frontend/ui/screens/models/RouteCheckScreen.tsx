@@ -9,7 +9,7 @@ import {
   StatusBadge,
   type Column,
   type StatusTone,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { RouteIcon } from "lucide-react";
 import * as React from "react";
 

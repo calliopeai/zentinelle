@@ -1,4 +1,4 @@
-import { PageFrame } from "@calliopelabs/ui";
+import { PageFrame } from "@calliopelabs/ui-astrolift";
 
 import { ForbiddenState } from "../../shared/ForbiddenState";
 

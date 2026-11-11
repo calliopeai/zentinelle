@@ -1,4 +1,4 @@
-import { StatusBadge } from "@calliopelabs/ui";
+import { StatusBadge } from "@calliopelabs/ui-astrolift";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { DefinitionList } from "./DefinitionList";

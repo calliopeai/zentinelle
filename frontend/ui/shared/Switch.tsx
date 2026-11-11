@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@calliopelabs/ui";
+import { cn } from "@calliopelabs/ui-astrolift";
 
 export interface SwitchProps {
   /** The accessible name ("Available in the assistant for Anthropic"). */

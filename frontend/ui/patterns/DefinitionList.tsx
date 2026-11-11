@@ -1,4 +1,4 @@
-import { cn } from "@calliopelabs/ui";
+import { cn } from "@calliopelabs/ui-astrolift";
 import type * as React from "react";
 
 export interface Definition {
@@ -17,7 +17,7 @@ export interface DefinitionListProps {
 
 /**
  * The facts of an entity as term and value pairs, in hairline rows. A
- * candidate for @calliopelabs/ui (Astrolift's DefinitionList).
+ * candidate for @calliopelabs/ui-astrolift (Astrolift's DefinitionList).
  */
 export function DefinitionList({
   items,

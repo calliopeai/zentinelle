@@ -4,7 +4,7 @@ import {
   PageFrame,
   StatusBadge,
   type Column,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import { FileTextIcon, PlusIcon } from "lucide-react";
 
 import type { ComplianceReportData } from "@/graphql/compliance-reports/types";

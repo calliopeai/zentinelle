@@ -1,4 +1,4 @@
-import { Button } from "@calliopelabs/ui";
+import { Button } from "@calliopelabs/ui-astrolift";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import * as React from "react";
 
@@ -12,7 +12,7 @@ export interface OneTimeSecretProps {
 
 /**
  * A secret shown once (an API key at creation), with a copy button that
- * says when it worked. Candidate for @calliopelabs/ui: Astrolift and
+ * says when it worked. Candidate for @calliopelabs/ui-astrolift: Astrolift and
  * Zentinelle AI both reveal keys this way.
  */
 export function OneTimeSecret({ label, value, onCopy }: OneTimeSecretProps) {

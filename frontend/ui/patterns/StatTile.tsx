@@ -4,7 +4,7 @@ import {
   cn,
   useUI,
   type StatusTone,
-} from "@calliopelabs/ui";
+} from "@calliopelabs/ui-astrolift";
 import type * as React from "react";
 
 export interface StatTileProps {
@@ -24,7 +24,7 @@ export interface StatTileProps {
 /**
  * One figure with its label: the top row of an overview. Figures come from
  * the server's aggregates, never from counting a fetched list. A candidate
- * for @calliopelabs/ui (Astrolift has StatTile; the package does not yet).
+ * for @calliopelabs/ui-astrolift (Astrolift has StatTile; the package does not yet).
  */
 export function StatTile({
   label,

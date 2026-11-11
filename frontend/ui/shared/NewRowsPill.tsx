@@ -1,4 +1,4 @@
-import { Button, cn } from "@calliopelabs/ui";
+import { Button, cn } from "@calliopelabs/ui-astrolift";
 import { ArrowUpIcon } from "lucide-react";
 
 export interface NewRowsPillProps {
