@@ -3,7 +3,7 @@
  * values are the backend's choices: ComplianceAlert.Status, Incident.Status
  * and Severity, Event.Status, and the audit record's status.
  */
-import type { StatusTone } from "@calliopelabs/ui-astrolift";
+import type { StatusTone } from "@calliopelabs/ui";
 
 import type { NotificationKind } from "@/graphql/notifications/types";
 

@@ -8,7 +8,7 @@ import {
   Section,
   StatusBadge,
   useUI,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { LockIcon, SearchXIcon } from "lucide-react";
 import * as React from "react";
 

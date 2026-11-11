@@ -4,7 +4,7 @@ import {
   ListItem,
   StatusBadge,
   type StatusTone,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import {
   BotIcon,
   ClipboardListIcon,

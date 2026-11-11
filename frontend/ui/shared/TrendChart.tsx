@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@calliopelabs/ui-astrolift";
+import { cn } from "@calliopelabs/ui";
 import * as React from "react";
 
 export interface TrendPoint {

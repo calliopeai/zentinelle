@@ -5,7 +5,7 @@
  * back to the route that refetches. A list that can grow without bound gets a
  * paged controller in its route instead.
  */
-import type { PageState, TableController } from "@calliopelabs/ui-astrolift";
+import type { PageState, TableController } from "@calliopelabs/ui";
 
 export interface FixedListOptions<TRow> {
   rows: readonly TRow[];

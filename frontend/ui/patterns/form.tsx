@@ -1,4 +1,4 @@
-import { cn } from "@calliopelabs/ui-astrolift";
+import { cn } from "@calliopelabs/ui";
 import * as React from "react";
 
 const CONTROL =
@@ -22,7 +22,7 @@ export interface FieldProps {
 
 /**
  * A labelled form control with its hint and error, wired for screen readers.
- * With Select and Textarea, a candidate for @calliopelabs/ui-astrolift, which has Input
+ * With Select and Textarea, a candidate for @calliopelabs/ui, which has Input
  * and Checkbox but no field, select or textarea.
  */
 export function Field({

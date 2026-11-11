@@ -2,7 +2,7 @@
 
 The overhaul of zentinelle#446, on the approved information architecture in
 `docs/design/ui-overhaul-ia.md` (seven areas) and the shared package
-`@calliopelabs/ui-astrolift` (catalog: https://calliope-ux.astro.conflict.cloud).
+`@calliopelabs/ui` (catalog: https://calliope-ux.astro.conflict.cloud).
 Nothing under `app/` uses this folder yet: every component and every screen
 is built and reviewed in Storybook first, then assembled into its route.
 
@@ -12,7 +12,7 @@ ui/
   shell/                ZentinelleShell (sidebar, assistant dock, user menu) and its dialogs
   screens/              whole screens, one folder per area as they land; Shell.stories.tsx shows every area empty
   shared/, patterns/,   generic components the areas built that the package lacks, candidates for
-  components/           @calliopelabs/ui-astrolift (screens/<area>/components/ holds an area's own, including
+  components/           @calliopelabs/ui (screens/<area>/components/ holds an area's own, including
                         its copy of a name another area built differently: Card, StatTile, ...)
   storybook/            catalog helpers, not components: router, GraphQL mocks, fixtures, ShellStory
   test/                 the gates: story coverage, and every story rendered with the a11y checks

@@ -5,7 +5,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   StatusBadge,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 
 import type { AuditLogData } from "@/graphql/events/types";
 

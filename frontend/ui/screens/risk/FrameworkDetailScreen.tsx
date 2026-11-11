@@ -8,7 +8,7 @@ import {
   PageFrame,
   Section,
   StatusBadge,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 
 import type {
   ComplianceCapability,

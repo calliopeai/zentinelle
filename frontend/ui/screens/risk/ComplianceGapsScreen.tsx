@@ -4,7 +4,7 @@ import {
   StatusBadge,
   useUI,
   type Column,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { CheckCircle2Icon } from "lucide-react";
 
 import type {

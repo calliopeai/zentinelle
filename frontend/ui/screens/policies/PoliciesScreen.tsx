@@ -10,7 +10,7 @@ import {
   PageFrame,
   useUI,
   type Column,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { MoreHorizontalIcon, PlusIcon, ShieldCheckIcon } from "lucide-react";
 import * as React from "react";
 

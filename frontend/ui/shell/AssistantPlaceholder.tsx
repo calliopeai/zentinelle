@@ -1,6 +1,6 @@
 "use client";
 
-import { EmptyState } from "@calliopelabs/ui-astrolift";
+import { EmptyState } from "@calliopelabs/ui";
 import { SparklesIcon } from "lucide-react";
 
 /**

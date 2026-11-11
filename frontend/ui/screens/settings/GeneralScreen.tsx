@@ -1,4 +1,4 @@
-import { PageFrame, type TabNavItem } from "@calliopelabs/ui-astrolift";
+import { PageFrame, type TabNavItem } from "@calliopelabs/ui";
 
 import { BootstrapTokens } from "./BootstrapTokens";
 import { EnforcementForm } from "./EnforcementForm";

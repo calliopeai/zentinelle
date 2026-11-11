@@ -1,9 +1,5 @@
 /** The header pieces every Policies screen shares: the crumb switcher and the tab rows of §4.1. */
-import {
-  areaSwitcher,
-  type Crumb,
-  type TabNavItem,
-} from "@calliopelabs/ui-astrolift";
+import { areaSwitcher, type Crumb, type TabNavItem } from "@calliopelabs/ui";
 
 import { navFor } from "../../product";
 

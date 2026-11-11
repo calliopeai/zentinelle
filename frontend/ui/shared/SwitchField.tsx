@@ -5,7 +5,7 @@
  * button with role="switch", so it needs no extra dependency. Candidate for
  * the package, which has a Checkbox but no Switch.
  */
-import { cn } from "@calliopelabs/ui-astrolift";
+import { cn } from "@calliopelabs/ui";
 import * as React from "react";
 
 export interface SwitchFieldProps {

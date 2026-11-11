@@ -1,4 +1,4 @@
-import { ErrorState, LoadingState } from "@calliopelabs/ui-astrolift";
+import { ErrorState, LoadingState } from "@calliopelabs/ui";
 import type * as React from "react";
 
 import type { Loadable } from "./model";

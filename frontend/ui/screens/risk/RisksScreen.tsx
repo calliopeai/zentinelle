@@ -7,7 +7,7 @@ import {
   StatusBadge,
   useUI,
   type Column,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { PlusIcon, ShieldAlertIcon } from "lucide-react";
 import * as React from "react";
 

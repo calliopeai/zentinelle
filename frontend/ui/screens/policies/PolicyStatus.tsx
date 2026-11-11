@@ -1,4 +1,4 @@
-import { StatusBadge } from "@calliopelabs/ui-astrolift";
+import { StatusBadge } from "@calliopelabs/ui";
 
 import { ENFORCEMENT_LABEL, ENFORCEMENT_TONE } from "./labels";
 

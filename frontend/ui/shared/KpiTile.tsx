@@ -1,6 +1,6 @@
 "use client";
 
-import { Skeleton, cn, useUI } from "@calliopelabs/ui-astrolift";
+import { Skeleton, cn, useUI } from "@calliopelabs/ui";
 import type * as React from "react";
 
 export interface KpiTileProps {

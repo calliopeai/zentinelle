@@ -1,4 +1,4 @@
-import { Button, ErrorState, PageFrame } from "@calliopelabs/ui-astrolift";
+import { Button, ErrorState, PageFrame } from "@calliopelabs/ui";
 import { RefreshCwIcon } from "lucide-react";
 import type * as React from "react";
 

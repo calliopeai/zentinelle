@@ -7,7 +7,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   StatusBadge,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 
 import type { ComplianceAlertData } from "@/graphql/alerts/types";
 

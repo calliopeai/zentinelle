@@ -5,7 +5,7 @@ import type { StorybookConfig } from "@storybook/react-vite";
 /**
  * The Zentinelle AI catalog: the new console UI under ui/, built and
  * reviewed here before any page uses it (ui-overhaul-ia §5, "Storybook
- * first"). Same Storybook major and addons as @calliopelabs/ui-astrolift.
+ * first"). Same Storybook major and addons as @calliopelabs/ui.
  */
 const config: StorybookConfig = {
   framework: "@storybook/react-vite",

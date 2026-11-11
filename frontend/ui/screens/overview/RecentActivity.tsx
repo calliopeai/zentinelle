@@ -1,4 +1,4 @@
-import { List, ListItem } from "@calliopelabs/ui-astrolift";
+import { List, ListItem } from "@calliopelabs/ui";
 import { HistoryIcon } from "lucide-react";
 
 import { timeAgo, type ActivityEntry } from "./overview-model";

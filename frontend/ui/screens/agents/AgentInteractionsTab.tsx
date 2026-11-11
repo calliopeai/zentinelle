@@ -3,7 +3,7 @@ import {
   StatusBadge,
   type Column,
   type TableController,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { MessagesSquareIcon } from "lucide-react";
 
 import type { InteractionLogData } from "@/graphql/interactions/types";

@@ -5,7 +5,7 @@ import {
   LoadingState,
   PageFrame,
   Section,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { ShieldAlertIcon } from "lucide-react";
 
 import type { RiskStatsData } from "@/graphql/risks/types";

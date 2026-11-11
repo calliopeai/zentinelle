@@ -1,4 +1,4 @@
-import { List, ListItem, StatusBadge } from "@calliopelabs/ui-astrolift";
+import { List, ListItem, StatusBadge } from "@calliopelabs/ui";
 import { CircleCheckIcon, CircleIcon } from "lucide-react";
 
 import type { OnboardingStep } from "./overview-model";

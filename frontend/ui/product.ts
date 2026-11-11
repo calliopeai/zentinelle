@@ -1,5 +1,5 @@
 /**
- * Zentinelle AI as a product of @calliopelabs/ui-astrolift: the package's Zentinelle
+ * Zentinelle AI as a product of @calliopelabs/ui: the package's Zentinelle
  * brand plus the seven-area navigation model approved on 2026-10-16
  * (docs/design/ui-overhaul-ia.md §4.1). Rows are gated by the capabilities
  * `/auth/me` returns (`view`, `mutate`, `admin`; §4.3): a row with no
@@ -11,7 +11,7 @@ import {
   zentinelleBrand,
   type NavArea,
   type NavModel,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import {
   ActivityIcon,
   BarChart3Icon,

@@ -5,7 +5,7 @@ import {
   PageFrame,
   Section,
   useUI,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import * as React from "react";
 
 import type { CreateRiskInput, RiskData } from "@/graphql/risks/types";

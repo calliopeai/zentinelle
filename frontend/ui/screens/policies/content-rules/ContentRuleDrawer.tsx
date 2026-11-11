@@ -8,7 +8,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   Input,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import * as React from "react";
 
 import type {

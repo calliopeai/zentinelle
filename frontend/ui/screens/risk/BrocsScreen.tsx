@@ -1,4 +1,4 @@
-import { List, ListItem } from "@calliopelabs/ui-astrolift";
+import { List, ListItem } from "@calliopelabs/ui";
 
 import { EvidenceFrame } from "./components/EvidenceFrame";
 import { EvidenceStatusBadge } from "./components/EvidenceStatusBadge";

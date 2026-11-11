@@ -3,7 +3,7 @@
  * DefinitionList). Long values wrap anywhere instead of widening the page.
  * Candidate for the package.
  */
-import { cn } from "@calliopelabs/ui-astrolift";
+import { cn } from "@calliopelabs/ui";
 import type * as React from "react";
 
 export interface Definition {

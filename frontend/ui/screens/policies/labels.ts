@@ -3,7 +3,7 @@
  * (backend/zentinelle/models/policy.py, actions.py, compliance.py,
  * policy_change.py) as people read them, and each state's StatusTone.
  */
-import type { StatusTone } from "@calliopelabs/ui-astrolift";
+import type { StatusTone } from "@calliopelabs/ui";
 
 import type { SelectOption } from "../../shared/Select";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@apollo/client/react";
-import { ConfirmDialog } from "@calliopelabs/ui-astrolift";
+import { ConfirmDialog } from "@calliopelabs/ui";
 import * as React from "react";
 
 import { useAgentGroups } from "@/graphql/agent-groups/hooks";
