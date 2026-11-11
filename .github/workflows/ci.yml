@@ -120,9 +120,13 @@ jobs:
           python manage.py migrate zentinelle 0049 --database zentinelle --no-input
           python manage.py migrate zentinelle --database zentinelle --no-input
           # Dump and restore the complete database into a fresh CI database.
-          pg_dump "$DATABASE_URL" --format=custom --file=/tmp/zentinelle-ci.dump
+          # The tools run from the same postgres:16 image as the service: the
+          # runner's newer pg_dump writes settings (transaction_timeout) that a
+          # 16 server rejects on restore.
+          pg16() { docker run --rm --network host -v /tmp:/tmp postgres:16 "$@"; }
+          pg16 pg_dump "$DATABASE_URL" --format=custom --file=/tmp/zentinelle-ci.dump
           PGPASSWORD=zentinelle createdb "${DATABASE_URL##*/}_recovery" -h localhost -U zentinelle
-          pg_restore --exit-on-error --no-owner --dbname="${DATABASE_URL%/*}/$(basename "${DATABASE_URL##*/}")_recovery" /tmp/zentinelle-ci.dump
+          pg16 pg_restore --exit-on-error --no-owner --dbname="${DATABASE_URL%/*}/$(basename "${DATABASE_URL##*/}")_recovery" /tmp/zentinelle-ci.dump
           pip freeze --all | sort > /tmp/zentinelle-sbom.txt
           sbom_digest="sha256:$(sha256sum /tmp/zentinelle-sbom.txt | cut -d' ' -f1)"
           cat > /tmp/zentinelle-release-checks.json <<JSON
