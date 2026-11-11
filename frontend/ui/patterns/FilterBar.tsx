@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { Button, Input, cn } from "@calliopelabs/ui-astrolift";
+import { Button, Input, cn } from "@calliopelabs/ui";
 import { SearchIcon } from "lucide-react";
 
 import { Select, type SelectOption } from "./form";
@@ -29,7 +29,7 @@ export interface FilterBarProps {
 /**
  * Search and filter selects above a list, each a server argument. Clear
  * shows only while something narrows the list. A candidate for
- * @calliopelabs/ui-astrolift (Astrolift's FilterBar); the package's DataTable has a
+ * @calliopelabs/ui (Astrolift's FilterBar); the package's DataTable has a
  * search box and a toolbar slot, but no filter set of its own.
  */
 export function FilterBar({

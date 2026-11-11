@@ -5,7 +5,7 @@
  * selectable, with a copy button that says when it worked. Candidate for the
  * package.
  */
-import { Button, cn } from "@calliopelabs/ui-astrolift";
+import { Button, cn } from "@calliopelabs/ui";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import * as React from "react";
 

@@ -8,7 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import * as React from "react";
 
 export interface LanguageOption {

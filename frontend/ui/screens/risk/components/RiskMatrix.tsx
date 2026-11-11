@@ -1,4 +1,4 @@
-import { cn } from "@calliopelabs/ui-astrolift";
+import { cn } from "@calliopelabs/ui";
 
 import type { RiskData } from "@/graphql/risks/types";
 

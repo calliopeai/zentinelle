@@ -4,7 +4,7 @@ import {
   activeFor,
   areaSwitcher,
   type TabNavItem,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 

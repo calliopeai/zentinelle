@@ -1,8 +1,4 @@
-import {
-  EmptyState,
-  ErrorState,
-  LoadingState,
-} from "@calliopelabs/ui-astrolift";
+import { EmptyState, ErrorState, LoadingState } from "@calliopelabs/ui";
 import { BarChart3Icon } from "lucide-react";
 
 import type { UsageSummary } from "@/graphql/usage/types";

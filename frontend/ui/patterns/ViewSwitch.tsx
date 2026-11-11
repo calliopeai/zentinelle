@@ -1,4 +1,4 @@
-import { cn, useUI } from "@calliopelabs/ui-astrolift";
+import { cn, useUI } from "@calliopelabs/ui";
 
 export interface ViewOption {
   key: string;
@@ -17,7 +17,7 @@ export interface ViewSwitchProps {
 /**
  * The views of one list (List, Matrix, By RPN) when the page's one row of
  * tabs is already taken by its functions. Links, so a view can be shared;
- * the current one carries `aria-current`. A candidate for @calliopelabs/ui-astrolift.
+ * the current one carries `aria-current`. A candidate for @calliopelabs/ui.
  */
 export function ViewSwitch({
   label,

@@ -1,9 +1,4 @@
-import {
-  DataTable,
-  Section,
-  StatusBadge,
-  type Column,
-} from "@calliopelabs/ui-astrolift";
+import { DataTable, Section, StatusBadge, type Column } from "@calliopelabs/ui";
 import { FileCheckIcon, RadarIcon } from "lucide-react";
 
 import { useListController } from "../../patterns/list-controller";

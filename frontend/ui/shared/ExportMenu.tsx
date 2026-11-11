@@ -6,7 +6,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { DownloadIcon } from "lucide-react";
 import type * as React from "react";
 

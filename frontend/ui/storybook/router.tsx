@@ -3,7 +3,7 @@
  * the breadcrumb switcher and the tabs work inside Storybook. The app passes
  * next/link to UIProvider instead.
  */
-import { type LinkProps, UIProvider } from "@calliopelabs/ui-astrolift";
+import { type LinkProps, UIProvider } from "@calliopelabs/ui";
 import * as React from "react";
 
 const PathContext = React.createContext<{

@@ -8,7 +8,7 @@ import {
   useUI,
   type Column,
   type StatusTone,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { CoinsIcon, RefreshCwIcon } from "lucide-react";
 
 import { SelectField } from "../../shared/SelectField";

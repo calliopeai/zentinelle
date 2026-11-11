@@ -6,7 +6,7 @@ import {
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import * as React from "react";
 
 import { FactList } from "../../shared/FactList";

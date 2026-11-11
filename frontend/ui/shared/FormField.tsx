@@ -1,4 +1,4 @@
-import { Input, cn } from "@calliopelabs/ui-astrolift";
+import { Input, cn } from "@calliopelabs/ui";
 import * as React from "react";
 
 const CONTROL =
@@ -71,7 +71,7 @@ function Frame({
 export type TextFieldProps = FieldBase &
   Omit<React.ComponentProps<"input">, "id" | "className">;
 
-/** A labelled text input, with its hint and error tied to it. Candidate for @calliopelabs/ui-astrolift. */
+/** A labelled text input, with its hint and error tied to it. Candidate for @calliopelabs/ui. */
 export function TextField({
   label,
   hint,
@@ -98,7 +98,7 @@ export function TextField({
 export type TextareaFieldProps = FieldBase &
   Omit<React.ComponentProps<"textarea">, "id" | "className">;
 
-/** A labelled multi-line input. Candidate for @calliopelabs/ui-astrolift. */
+/** A labelled multi-line input. Candidate for @calliopelabs/ui. */
 export function TextareaField({
   label,
   hint,
@@ -135,7 +135,7 @@ export type SelectFieldProps = FieldBase &
     placeholder?: string;
   };
 
-/** A labelled native select: keyboard and screen reader behaviour for free. Candidate for @calliopelabs/ui-astrolift. */
+/** A labelled native select: keyboard and screen reader behaviour for free. Candidate for @calliopelabs/ui. */
 export function SelectField({
   label,
   hint,

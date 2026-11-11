@@ -1,4 +1,4 @@
-import { PageFrame } from "@calliopelabs/ui-astrolift";
+import { PageFrame } from "@calliopelabs/ui";
 
 import { AssistantForm } from "./AssistantForm";
 import { Loaded } from "./Loaded";

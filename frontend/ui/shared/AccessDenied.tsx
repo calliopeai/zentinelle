@@ -1,4 +1,4 @@
-import { EmptyState } from "@calliopelabs/ui-astrolift";
+import { EmptyState } from "@calliopelabs/ui";
 import { LockIcon } from "lucide-react";
 
 export interface AccessDeniedProps {

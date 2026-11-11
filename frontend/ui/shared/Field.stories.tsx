@@ -1,4 +1,4 @@
-import { Input } from "@calliopelabs/ui-astrolift";
+import { Input } from "@calliopelabs/ui";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { Field } from "./Field";

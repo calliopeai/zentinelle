@@ -5,7 +5,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import * as React from "react";
 
 import type { TestContentRulePayload } from "@/graphql/content-rules/types";

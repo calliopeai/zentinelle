@@ -4,7 +4,7 @@ import {
   type Column,
   type StatusTone,
   type TableController,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { ActivityIcon } from "lucide-react";
 
 import type { EventData } from "@/graphql/events/types";

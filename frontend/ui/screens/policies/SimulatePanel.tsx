@@ -7,7 +7,7 @@ import {
   DrawerTitle,
   ErrorState,
   LoadingState,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import * as React from "react";
 
 import type { SimulatePolicyResult } from "@/graphql/policies/simulate";

@@ -1,4 +1,4 @@
-import { Button, StatusBadge, useUI } from "@calliopelabs/ui-astrolift";
+import { Button, StatusBadge, useUI } from "@calliopelabs/ui";
 
 import type { HeldApproval } from "@/lib/approvals";
 

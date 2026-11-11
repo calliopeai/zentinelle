@@ -1,4 +1,4 @@
-import { Button } from "@calliopelabs/ui-astrolift";
+import { Button } from "@calliopelabs/ui";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { Card } from "./Card";

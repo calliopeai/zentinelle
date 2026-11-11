@@ -6,7 +6,7 @@ import {
   LoadingState,
   PageFrame,
   Section,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { BarChart3Icon } from "lucide-react";
 
 import { BarList } from "../../shared/BarList";

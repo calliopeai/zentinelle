@@ -6,7 +6,7 @@ import {
   LoadingState,
   Section,
   StatusBadge,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { LockIcon } from "lucide-react";
 import * as React from "react";
 

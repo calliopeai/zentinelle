@@ -3,7 +3,7 @@
  * package's TableController so a story cannot drift from the contract.
  * The package keeps the same helper unexported (src/data/table.fixtures.ts).
  */
-import type { TableController } from "@calliopelabs/ui-astrolift";
+import type { TableController } from "@calliopelabs/ui";
 
 const noop = () => {};
 

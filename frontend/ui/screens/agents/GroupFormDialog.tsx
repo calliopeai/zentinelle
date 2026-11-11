@@ -6,7 +6,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import * as React from "react";
 
 import { SelectField, TextField, TextareaField } from "../../shared/FormField";

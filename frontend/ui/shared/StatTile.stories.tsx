@@ -3,7 +3,7 @@ import { expect, within } from "storybook/test";
 
 import { StatTile } from "./StatTile";
 
-/** One figure. A tile with `href` links to the list it counts. A candidate for @calliopelabs/ui-astrolift. */
+/** One figure. A tile with `href` links to the list it counts. A candidate for @calliopelabs/ui. */
 const meta = {
   title: "Shared/StatTile",
   component: StatTile,

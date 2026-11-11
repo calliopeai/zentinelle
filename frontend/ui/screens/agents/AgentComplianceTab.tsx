@@ -3,7 +3,7 @@ import {
   StatusBadge,
   type Column,
   type TableController,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { ShieldCheckIcon } from "lucide-react";
 
 import type { ContentViolationData } from "@/graphql/content-scanner/types";

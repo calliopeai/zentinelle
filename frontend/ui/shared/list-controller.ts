@@ -9,7 +9,7 @@ import {
   DEFAULT_PAGE_SIZE,
   type PageState,
   type TableController,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import * as React from "react";
 
 export interface ListControllerOptions<TRow> {

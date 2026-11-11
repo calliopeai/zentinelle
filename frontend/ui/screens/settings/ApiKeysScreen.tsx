@@ -8,7 +8,7 @@ import {
   PageFrame,
   StatusBadge,
   type Column,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { KeyRoundIcon } from "lucide-react";
 import * as React from "react";
 

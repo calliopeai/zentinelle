@@ -1,4 +1,4 @@
-import { StatusBadge } from "@calliopelabs/ui-astrolift";
+import { StatusBadge } from "@calliopelabs/ui";
 
 import { EVIDENCE_LABEL, EVIDENCE_TONE } from "../model";
 

@@ -1,4 +1,4 @@
-import { StatusBadge } from "@calliopelabs/ui-astrolift";
+import { StatusBadge } from "@calliopelabs/ui";
 
 import { RISK_LEVEL_TONE, RISK_LEVELS, labelOf } from "../model";
 

@@ -1,4 +1,4 @@
-import { Section } from "@calliopelabs/ui-astrolift";
+import { Section } from "@calliopelabs/ui";
 
 import { CopyField } from "../../shared/CopyField";
 

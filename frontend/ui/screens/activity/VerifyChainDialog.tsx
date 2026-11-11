@@ -9,7 +9,7 @@ import {
   ErrorState,
   LoadingState,
   StatusBadge,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 
 import { DefinitionList } from "./components/DefinitionList";
 import type { AuditChainVerification } from "./types";

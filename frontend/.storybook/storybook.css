@@ -1,6 +1,6 @@
 /* The catalog's stylesheet: Tailwind with the package preset, scanning only the new UI. */
 @import "tailwindcss" source(none);
-@import "@calliopelabs/ui-astrolift/preset.css";
+@import "@calliopelabs/ui/preset.css";
 @source "../ui";
 
 /* The fonts the app loads with next/font; here they come from @fontsource. */

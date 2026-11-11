@@ -12,7 +12,7 @@ import {
   Section,
   StatusBadge,
   useUI,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { MoreHorizontalIcon } from "lucide-react";
 
 import type {

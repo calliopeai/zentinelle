@@ -1,4 +1,4 @@
-import { DataTable, type Column } from "@calliopelabs/ui-astrolift";
+import { DataTable, type Column } from "@calliopelabs/ui";
 
 import { useListController } from "../../patterns/list-controller";
 import { EvidenceFrame } from "./components/EvidenceFrame";

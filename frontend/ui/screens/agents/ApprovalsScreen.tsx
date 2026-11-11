@@ -5,7 +5,7 @@ import {
   LoadingState,
   PageFrame,
   areaSwitcher,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { ClipboardCheckIcon, RefreshCwIcon } from "lucide-react";
 
 import type { HeldApproval } from "@/lib/approvals";

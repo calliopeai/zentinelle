@@ -1,4 +1,4 @@
-import { Input } from "@calliopelabs/ui-astrolift";
+import { Input } from "@calliopelabs/ui";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import * as React from "react";
 import { expect, userEvent, within } from "storybook/test";

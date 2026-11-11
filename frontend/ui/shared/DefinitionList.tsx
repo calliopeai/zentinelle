@@ -1,4 +1,4 @@
-import { cn } from "@calliopelabs/ui-astrolift";
+import { cn } from "@calliopelabs/ui";
 import type * as React from "react";
 
 export interface Definition {
@@ -30,7 +30,7 @@ function isEmpty(value: React.ReactNode) {
 
 /**
  * Term and value pairs, wrapping long values instead of overflowing.
- * Candidate for @calliopelabs/ui-astrolift (Astrolift's DefinitionList).
+ * Candidate for @calliopelabs/ui (Astrolift's DefinitionList).
  */
 export function DefinitionList({
   items,

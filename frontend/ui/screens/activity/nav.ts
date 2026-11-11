@@ -1,5 +1,5 @@
 /** The Activity area's first crumb: the area, switching between its four functions (from the nav model). */
-import { areaSwitcher } from "@calliopelabs/ui-astrolift";
+import { areaSwitcher } from "@calliopelabs/ui";
 
 import { ZENTINELLE_NAV } from "../../product";
 

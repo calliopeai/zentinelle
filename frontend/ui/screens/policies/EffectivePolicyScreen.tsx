@@ -7,7 +7,7 @@ import {
   Section,
   StatusBadge,
   useUI,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 import { BotIcon } from "lucide-react";
 
 import { Card } from "./components/Card";

@@ -1,4 +1,4 @@
-import { cn } from "@calliopelabs/ui-astrolift";
+import { cn } from "@calliopelabs/ui";
 import type * as React from "react";
 
 export interface CardProps extends Omit<React.ComponentProps<"div">, "title"> {
@@ -13,7 +13,7 @@ export interface CardProps extends Omit<React.ComponentProps<"div">, "title"> {
 /**
  * One bordered box: the last container level of
  * `PageFrame > Section > Card` (ui-overhaul-ia §5). Never nest a Card in a
- * Card, and never put a Section inside one. Candidate for @calliopelabs/ui-astrolift,
+ * Card, and never put a Section inside one. Candidate for @calliopelabs/ui,
  * which has Section but no Card yet.
  */
 export function Card({

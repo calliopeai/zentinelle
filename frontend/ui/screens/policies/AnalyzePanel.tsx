@@ -9,7 +9,7 @@ import {
   ErrorState,
   LoadingState,
   useUI,
-} from "@calliopelabs/ui-astrolift";
+} from "@calliopelabs/ui";
 
 import { StatTile } from "./components/StatTile";
 import { scopeLabel, typeLabel } from "./labels";
