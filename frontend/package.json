@@ -18,7 +18,6 @@
   "dependencies": {
     "@apollo/client": "^4.3.3",
     "@apollo/client-integration-nextjs": "^0.14.4",
-    "@base-ui/react": "^1.9.0",
     "@calliopelabs/ui": "^0.3.1",
     "@hookform/resolvers": "^5.9.1",
     "@radix-ui/react-dialog": "^1.3.1",
