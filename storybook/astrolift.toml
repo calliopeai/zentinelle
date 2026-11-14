@@ -1,13 +1,3 @@
-# The Zentinelle AI console Storybook, a private app on the CONFLICT Astrolift
-# install behind central sign-in. ci_pushed: the managed workflow builds
-# storybook/Dockerfile from the repository root (the image needs frontend/),
-# so the app is registered with those paths, not this directory:
-#
-#   astro app register -f storybook/astrolift.toml \
-#     --manifest-path storybook/astrolift.toml --source-repo calliopeai/zentinelle \
-#     --project-id <guid> --build-mode ci_pushed \
-#     --build-context . --dockerfile storybook/Dockerfile --yes
-
 astrolift_version = 1
 name = "storybook-zentinelle"
 
