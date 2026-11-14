@@ -106,11 +106,6 @@
       "count": 1
     }
   },
-  "components/ThemeToggle.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
   "components/notes-dialog.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
