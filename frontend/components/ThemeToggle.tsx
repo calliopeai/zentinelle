@@ -1,9 +1,8 @@
 "use client";
 
-import { useTheme } from "next-themes";
+import { useAppearance } from "@calliopelabs/ui";
 import { SunIcon, MoonIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -22,11 +21,19 @@ interface ThemeToggleProps {
 }
 
 export const ThemeToggle = ({ variant = "sidebar" }: ThemeToggleProps) => {
-  const { theme, resolvedTheme, setTheme } = useTheme();
+  const { product, mode, personal, setAppearance, reset } = useAppearance();
   const t = useTranslations("settings.theme");
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const isDark = mounted && resolvedTheme === "dark";
+  const isDark = mode === "dark";
+  // Light and dark pick the product's default ground for that mode; system
+  // clears the personal choice so the OS decides.
+  const theme = personal?.ground ? mode : "system";
+  const setTheme = (value: string) => {
+    if (value === "light" || value === "dark") {
+      setAppearance({ ground: product.defaults.ground[value] });
+    } else {
+      reset();
+    }
+  };
 
   if (variant === "select") {
     return (

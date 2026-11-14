@@ -4,8 +4,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ConfirmProvider } from "@/hooks/use-confirm";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
-import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/Toaster";
+import { AppearanceRoot } from "@/components/AppearanceRoot";
+import { AppearanceScript } from "@calliopelabs/ui";
+import { zentinelle } from "@/ui/product";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -26,13 +28,11 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning>
+      <head>
+        <AppearanceScript product={zentinelle} />
+      </head>
       <body className="antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <AppearanceRoot>
           <Toaster />
           <NextIntlClientProvider locale={locale} messages={messages}>
             <ApolloWrapper>
@@ -41,7 +41,7 @@ export default async function RootLayout({
               </TooltipProvider>
             </ApolloWrapper>
           </NextIntlClientProvider>
-        </ThemeProvider>
+        </AppearanceRoot>
       </body>
     </html>
   );
