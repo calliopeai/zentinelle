@@ -12,10 +12,11 @@ import {
   Input,
 } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { FormField, Select, type SelectOption } from "./components/FormField";
 import { SwitchField } from "../../shared/SwitchField";
-import { RETENTION_ENTITY_TYPES, type LegalHoldInput } from "./model";
+import { type LegalHoldInput, useSettingsLabels } from "./model";
 
 export interface LegalHoldDialogProps {
   open: boolean;
@@ -44,6 +45,8 @@ function LegalHoldBody({
   holdTypes,
   onCreate,
 }: LegalHoldDialogProps) {
+  const t = useTranslations("settings.legalHoldDialog");
+  const { RETENTION_ENTITY_TYPES } = useSettingsLabels();
   const [values, setValues] = React.useState<LegalHoldInput>(() => ({
     ...EMPTY,
     holdType: holdTypes[0]?.value ?? EMPTY.holdType,
@@ -54,18 +57,16 @@ function LegalHoldBody({
     key: K,
     value: LegalHoldInput[K],
   ) => setValues({ ...values, [key]: value });
-  const nameError = values.name.trim()
-    ? null
-    : "Name the hold, usually after the matter.";
+  const nameError = values.name.trim() ? null : t("nameTheHoldUsuallyAfter");
   const scopeError =
     !values.appliesToAll && values.entityTypes.length === 0
-      ? "Pick the data the hold covers."
+      ? t("pickTheDataTheHold")
       : null;
   const dateError =
     values.effectiveDate &&
     values.expirationDate &&
     values.expirationDate < values.effectiveDate
-      ? "The hold cannot end before it starts."
+      ? t("theHoldCannotEndBefore")
       : null;
   return (
     <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
@@ -84,7 +85,7 @@ function LegalHoldBody({
               setError(
                 failure instanceof Error
                   ? failure.message
-                  : "The hold was not created.",
+                  : t("theHoldWasNotCreated"),
               );
             } finally {
               setPending(false);
@@ -92,15 +93,12 @@ function LegalHoldBody({
           }}
         >
           <DialogHeader>
-            <DialogTitle>New legal hold</DialogTitle>
-            <DialogDescription>
-              Covered data is kept past every retention policy until the hold is
-              released.
-            </DialogDescription>
+            <DialogTitle>{t("newLegalHold")}</DialogTitle>
+            <DialogDescription>{t("coveredDataIsKeptPast")}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
-              label="Name"
+              label={t("name")}
               error={values.name ? null : nameError}
               className="sm:col-span-2"
             >
@@ -112,7 +110,7 @@ function LegalHoldBody({
                 />
               )}
             </FormField>
-            <FormField label="Type">
+            <FormField label={t("type")}>
               {(control) => (
                 <Select
                   {...control}
@@ -122,17 +120,17 @@ function LegalHoldBody({
                 />
               )}
             </FormField>
-            <FormField label="Reference">
+            <FormField label={t("reference")}>
               {(control) => (
                 <Input
                   {...control}
-                  placeholder="Case or matter number"
+                  placeholder={t("caseOrMatterNumber")}
                   value={values.referenceNumber}
                   onChange={(e) => set("referenceNumber", e.target.value)}
                 />
               )}
             </FormField>
-            <FormField label="Effective from" hint="Empty: from now.">
+            <FormField label={t("effectiveFrom")} hint={t("emptyFromNow")}>
               {(control) => (
                 <Input
                   {...control}
@@ -143,8 +141,8 @@ function LegalHoldBody({
               )}
             </FormField>
             <FormField
-              label="Ends on"
-              hint="Empty: until released."
+              label={t("endsOn")}
+              hint={t("emptyUntilReleased")}
               error={dateError}
             >
               {(control) => (
@@ -156,7 +154,7 @@ function LegalHoldBody({
                 />
               )}
             </FormField>
-            <FormField label="Custodian email" className="sm:col-span-2">
+            <FormField label={t("custodianEmail")} className="sm:col-span-2">
               {(control) => (
                 <Input
                   {...control}
@@ -168,8 +166,8 @@ function LegalHoldBody({
             </FormField>
           </div>
           <SwitchField
-            label="All data"
-            description="Hold every kind of data for this organization. Turn off to pick the kinds."
+            label={t("allData")}
+            description={t("holdEveryKindOfData")}
             checked={values.appliesToAll}
             onCheckedChange={(appliesToAll) =>
               set("appliesToAll", appliesToAll)
@@ -222,7 +220,7 @@ function LegalHoldBody({
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button
               type="submit"
@@ -230,7 +228,7 @@ function LegalHoldBody({
                 pending || Boolean(nameError || dateError || scopeError)
               }
             >
-              {pending ? "Creating" : "Create hold"}
+              {pending ? t("creating") : t("createHold")}
             </Button>
           </DialogFooter>
         </form>

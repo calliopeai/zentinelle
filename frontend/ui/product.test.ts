@@ -69,38 +69,12 @@ describe("navigation copy", () => {
       expect(copy.tabs[page.key], page.key).toBe(page.label);
     }
   });
-
-  it("localizes the interim tabs", () => {
-    const tabs = interimTabs(
-      "/settings/retention/legal-holds",
-      ROLE_CAPABILITIES.admin,
-      (kind, key) => `${kind}:${key}`,
-    );
-    expect(tabs.slice(0, 2).map((t) => t.label)).toEqual([
-      "function:retention",
-      "tab:legal-holds",
-    ]);
-  });
 });
 
 describe("interim tabs", () => {
   const admin = ROLE_CAPABILITIES.admin;
 
-  it("put the function first and mark the page in view", () => {
-    const tabs = interimTabs("/settings/retention/legal-holds", admin);
-    expect(tabs[0]).toMatchObject({
-      key: "retention",
-      href: "/settings/retention",
-    });
-    expect(tabs.filter((t) => t.active).map((t) => t.key)).toEqual([
-      "legal-holds",
-    ]);
-    expect(
-      interimTabs("/settings/retention", admin).find((t) => t.active)?.key,
-    ).toBe("retention");
-  });
-
-  it("are empty for functions without interim pages, and respect roles", () => {
+  it("are empty now that every area has its screens", () => {
     expect(interimTabs("/agents", admin)).toEqual([]);
     expect(
       interimTabs("/settings/retention", ROLE_CAPABILITIES.viewer),

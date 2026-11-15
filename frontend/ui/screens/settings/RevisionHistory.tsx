@@ -9,8 +9,13 @@ import {
   StatusBadge,
 } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
-import { formatDate, type RuntimeActions, type RuntimeRevision } from "./model";
+import {
+  type RuntimeActions,
+  type RuntimeRevision,
+  useSettingsLabels,
+} from "./model";
 
 export interface RevisionHistoryProps {
   revisions: readonly RuntimeRevision[];
@@ -25,20 +30,22 @@ export function RevisionHistory({
   current,
   onRollback,
 }: RevisionHistoryProps) {
+  const t = useTranslations("settings.revisionHistory");
+  const { formatDate } = useSettingsLabels();
   const [target, setTarget] = React.useState<number | null>(null);
   return (
     <Section
-      title="Revisions"
-      description="Rolling back applies an earlier revision as a new one."
+      title={t("revisions")}
+      description={t("rollingBackAppliesAnEarlier")}
       headingLevel="h3"
     >
       <List
-        label="Runtime revisions"
+        label={t("runtimeRevisions")}
         items={revisions}
         getKey={(r) => String(r.revision)}
         empty={{
-          title: "No revisions yet",
-          description: "Every value is still the default.",
+          title: t("noRevisionsYet"),
+          description: t("everyValueIsStillThe"),
         }}
         renderItem={(r) => (
           <ListItem
@@ -55,10 +62,10 @@ export function RevisionHistory({
                   type="button"
                   size="sm"
                   variant="ghost"
-                  aria-label={`Roll back to revision ${r.revision}`}
+                  aria-label={t("rollBackTo", { revision: r.revision })}
                   onClick={() => setTarget(r.revision)}
                 >
-                  Roll back
+                  {t("rollBack")}
                 </Button>
               )
             }
@@ -68,9 +75,13 @@ export function RevisionHistory({
       <ConfirmDialog
         open={target !== null}
         onOpenChange={(open) => !open && setTarget(null)}
-        title={`Roll back to revision ${target}?`}
-        description={`The values of revision ${target} become revision ${current + 1}, in effect at once for every agent and the assistant. Revision ${current} stays in this list.`}
-        confirmLabel="Roll back"
+        title={t("rollBackTitle", { revision: target ?? "" })}
+        description={t("rollBackDescription", {
+          target: target ?? "",
+          next: current + 1,
+          current,
+        })}
+        confirmLabel={t("rollBack")}
         onConfirm={() =>
           target === null ? undefined : onRollback(target, current)
         }

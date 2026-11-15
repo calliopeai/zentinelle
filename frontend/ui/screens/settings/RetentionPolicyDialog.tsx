@@ -11,15 +11,14 @@ import {
   Input,
 } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { FormField, Select } from "./components/FormField";
 import { SwitchField } from "../../shared/SwitchField";
 import {
-  COMPLIANCE_REQUIREMENTS,
-  EXPIRATION_ACTIONS,
-  RETENTION_ENTITY_TYPES,
   type RetentionPolicy,
   type RetentionPolicyInput,
+  useSettingsLabels,
 } from "./model";
 
 export interface RetentionPolicyDialogProps {
@@ -51,6 +50,12 @@ function RetentionPolicyBody({
   policy,
   onSave,
 }: RetentionPolicyDialogProps) {
+  const t = useTranslations("settings.retentionPolicyDialog");
+  const {
+    COMPLIANCE_REQUIREMENTS,
+    EXPIRATION_ACTIONS,
+    RETENTION_ENTITY_TYPES,
+  } = useSettingsLabels();
   const [values, setValues] = React.useState(() => initial(policy));
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -58,13 +63,13 @@ function RetentionPolicyBody({
     key: K,
     value: RetentionPolicyInput[K],
   ) => setValues({ ...values, [key]: value });
-  const nameError = values.name.trim() ? null : "Name the policy.";
+  const nameError = values.name.trim() ? null : t("nameThePolicy");
   const daysError =
     values.retentionDays < 1
-      ? "Keep data for at least a day."
+      ? t("keepDataForAtLeast")
       : values.minimumRetentionDays !== null &&
           values.minimumRetentionDays > values.retentionDays
-        ? "The minimum cannot exceed the retention period."
+        ? t("theMinimumCannotExceedThe")
         : null;
   return (
     <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
@@ -83,7 +88,7 @@ function RetentionPolicyBody({
               setError(
                 failure instanceof Error
                   ? failure.message
-                  : "The policy was not saved.",
+                  : t("thePolicyWasNotSaved"),
               );
             } finally {
               setPending(false);
@@ -92,14 +97,11 @@ function RetentionPolicyBody({
         >
           <DialogHeader>
             <DialogTitle>
-              {policy ? `Edit ${policy.name}` : "New retention policy"}
+              {policy ? `Edit ${policy.name}` : t("newRetentionPolicy")}
             </DialogTitle>
-            <DialogDescription>
-              An active legal hold keeps data past its expiry, whatever this
-              policy says.
-            </DialogDescription>
+            <DialogDescription>{t("anActiveLegalHoldKeeps")}</DialogDescription>
           </DialogHeader>
-          <FormField label="Name" error={values.name ? null : nameError}>
+          <FormField label={t("name")} error={values.name ? null : nameError}>
             {(control) => (
               <Input
                 {...control}
@@ -108,7 +110,7 @@ function RetentionPolicyBody({
               />
             )}
           </FormField>
-          <FormField label="Description">
+          <FormField label={t("description")}>
             {(control) => (
               <Input
                 {...control}
@@ -118,7 +120,7 @@ function RetentionPolicyBody({
             )}
           </FormField>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label="Data">
+            <FormField label={t("data")}>
               {(control) => (
                 <Select
                   {...control}
@@ -128,7 +130,7 @@ function RetentionPolicyBody({
                 />
               )}
             </FormField>
-            <FormField label="After it expires">
+            <FormField label={t("afterItExpires")}>
               {(control) => (
                 <Select
                   {...control}
@@ -138,7 +140,7 @@ function RetentionPolicyBody({
                 />
               )}
             </FormField>
-            <FormField label="Keep for (days)" error={daysError}>
+            <FormField label={t("keepForDays")} error={daysError}>
               {(control) => (
                 <Input
                   {...control}
@@ -149,10 +151,7 @@ function RetentionPolicyBody({
                 />
               )}
             </FormField>
-            <FormField
-              label="Minimum (days)"
-              hint="A floor no one can shorten, for regulated data."
-            >
+            <FormField label={t("minimumDays")} hint={t("aFloorNoOneCan")}>
               {(control) => (
                 <Input
                   {...control}
@@ -168,7 +167,7 @@ function RetentionPolicyBody({
                 />
               )}
             </FormField>
-            <FormField label="Requirement">
+            <FormField label={t("requirement")}>
               {(control) => (
                 <Select
                   {...control}
@@ -179,8 +178,8 @@ function RetentionPolicyBody({
               )}
             </FormField>
             <FormField
-              label="Priority"
-              hint="The higher number wins when two policies cover the same data."
+              label={t("priority")}
+              hint={t("theHigherNumberWinsWhen")}
             >
               {(control) => (
                 <Input
@@ -193,7 +192,7 @@ function RetentionPolicyBody({
             </FormField>
           </div>
           <SwitchField
-            label="Enabled"
+            label={t("enabled")}
             checked={values.enabled}
             onCheckedChange={(enabled) => set("enabled", enabled)}
           />
@@ -209,13 +208,17 @@ function RetentionPolicyBody({
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button
               type="submit"
               disabled={pending || Boolean(nameError || daysError)}
             >
-              {pending ? "Saving" : policy ? "Save policy" : "Create policy"}
+              {pending
+                ? t("saving")
+                : policy
+                  ? t("savePolicy")
+                  : t("createPolicy")}
             </Button>
           </DialogFooter>
         </form>

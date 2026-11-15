@@ -11,18 +11,25 @@ import {
 } from "@calliopelabs/ui";
 import { KeyRoundIcon } from "lucide-react";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { CopyField } from "../../shared/CopyField";
 import { listController } from "./components/list-controller";
 import { CreateApiKeyDialog } from "./CreateApiKeyDialog";
 import {
   API_KEY_TONE,
-  formatDate,
   settingsCrumbs,
   type ApiKey,
   type CreatedApiKey,
   type Loadable,
+  useSettingsLabels,
+  formatDate,
 } from "./model";
+
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
 
 export interface ApiKeysScreenProps {
   /** ApiKeys(search, status). */
@@ -39,10 +46,10 @@ export interface ApiKeysScreenProps {
   onDismissCreated?: () => void;
 }
 
-const columns: Column<ApiKey>[] = [
+const columns = (t: Translate): Column<ApiKey>[] => [
   {
     id: "name",
-    header: "Name",
+    header: t("name"),
     cell: (k) => (
       <div className="min-w-0">
         <p className="truncate font-medium">{k.name}</p>
@@ -56,13 +63,13 @@ const columns: Column<ApiKey>[] = [
   },
   {
     id: "prefix",
-    header: "Key",
+    header: t("key"),
     width: "w-36",
     cell: (k) => <code className="font-mono text-xs">{k.keyPrefix}…</code>,
   },
   {
     id: "scopes",
-    header: "Scopes",
+    header: t("scopes"),
     width: "w-36",
     cell: (k) => (
       <span className="font-mono text-xs">{k.scopes.join(", ")}</span>
@@ -70,7 +77,7 @@ const columns: Column<ApiKey>[] = [
   },
   {
     id: "status",
-    header: "Status",
+    header: t("status"),
     width: "w-28",
     cell: (k) => (
       <StatusBadge tone={API_KEY_TONE[k.status] ?? "muted"}>
@@ -80,17 +87,19 @@ const columns: Column<ApiKey>[] = [
   },
   {
     id: "used",
-    header: "Last used",
+    header: t("lastUsed"),
     width: "w-44",
-    cell: (k) => <span className="text-xs">{formatDate(k.lastUsedAt)}</span>,
+    cell: (k) => (
+      <span className="text-xs">{formatDate(k.lastUsedAt, t("never"))}</span>
+    ),
   },
   {
     id: "created",
-    header: "Created",
+    header: t("created"),
     width: "w-44",
     cell: (k) => (
       <span className="text-xs">
-        {formatDate(k.createdAt)}
+        {formatDate(k.createdAt, t("never"))}
         {k.createdByUsername && (
           <span className="block text-muted-foreground">
             by {k.createdByUsername}
@@ -112,6 +121,7 @@ export function ApiKeysScreen({
   created,
   onDismissCreated,
 }: ApiKeysScreenProps) {
+  const t = useTranslations("settings.apiKeysScreen");
   const [creating, setCreating] = React.useState(false);
   const [confirm, setConfirm] = React.useState<{
     key: ApiKey;
@@ -129,11 +139,11 @@ export function ApiKeysScreen({
   return (
     <PageFrame
       crumbs={settingsCrumbs("api-keys")}
-      title="API keys"
-      description="Keys for scripts and services that call the Zentinelle AI API."
+      title={t("apiKeys")}
+      description={t("keysForScriptsAndServices")}
       primaryAction={
         <Button type="button" onClick={() => setCreating(true)}>
-          New API key
+          {t("newApiKey")}
         </Button>
       }
       notice={
@@ -143,12 +153,12 @@ export function ApiKeysScreen({
             className="grid gap-2 rounded-lg border border-warning-border bg-warning/5 p-4"
           >
             <p className="text-sm font-medium">
-              Copy the key for {created.name} now
+              {t("copyNow", { name: created.name })}
             </p>
             <p className="text-xs text-muted-foreground">
-              It is shown only once. Zentinelle AI keeps only its prefix.
+              {t("itIsShownOnlyOnce")}
             </p>
-            <CopyField label="Copy API key" value={created.apiKey} />
+            <CopyField label={t("copyApiKey")} value={created.apiKey} />
             <div>
               <Button
                 type="button"
@@ -156,7 +166,7 @@ export function ApiKeysScreen({
                 variant="outline"
                 onClick={onDismissCreated}
               >
-                I have copied it
+                {t("iHaveCopiedIt")}
               </Button>
             </div>
           </div>
@@ -164,21 +174,20 @@ export function ApiKeysScreen({
       }
     >
       <DataTable
-        label="API keys"
+        label={t("apiKeys")}
         controller={controller}
-        columns={columns}
+        columns={columns(t)}
         getRowId={(k) => k.id}
-        rowLabel={(k) => `key ${k.name}`}
-        searchPlaceholder="Search keys by name"
+        rowLabel={(k) => t("rowLabel", { name: k.name })}
+        searchPlaceholder={t("searchKeysByName")}
         empty={{
           icon: <KeyRoundIcon aria-hidden className="size-6" />,
-          title: "No API keys yet",
-          description:
-            "Create a key for each script or service, so revoking one stops only that caller.",
+          title: t("noApiKeysYet"),
+          description: t("createAKeyForEach"),
         }}
         emptyFiltered={{
-          title: "No key matches",
-          description: "Try another name, or clear the search.",
+          title: t("noKeyMatches"),
+          description: t("tryAnotherNameOrClear"),
         }}
         rowActions={(k) => (
           <>
@@ -186,14 +195,14 @@ export function ApiKeysScreen({
               <DropdownMenuItem
                 onSelect={() => setConfirm({ key: k, action: "revoke" })}
               >
-                Revoke
+                {t("revoke")}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem
               variant="destructive"
               onSelect={() => setConfirm({ key: k, action: "delete" })}
             >
-              Delete
+              {t("delete")}
             </DropdownMenuItem>
           </>
         )}
@@ -217,11 +226,11 @@ export function ApiKeysScreen({
         }
         description={
           confirm?.action === "delete"
-            ? "The key stops working at once and leaves this list. Its audit history stays."
-            : "The key stops working at once. It stays in this list as revoked, for the audit trail."
+            ? t("theKeyStopsWorkingAt")
+            : t("theKeyStopsWorkingAt2")
         }
         confirmLabel={
-          confirm?.action === "delete" ? "Delete key" : "Revoke key"
+          confirm?.action === "delete" ? t("deleteKey") : t("revokeKey")
         }
         onConfirm={() =>
           confirm?.action === "delete"

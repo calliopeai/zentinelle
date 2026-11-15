@@ -141,10 +141,7 @@ export const Translated: Story = {
   ),
 };
 
-/**
- * As the console mounts it today: rows without a screen left out, and the
- * pages a function will fold into tabs shown as an interim tab row.
- */
+/** As the console mounts it today: every row has its screen, and no interim tab row is left. */
 export const Console: Story = {
   render: () => (
     <ShellStory
@@ -158,22 +155,18 @@ export const Console: Story = {
       ])}
     >
       <PageFrame title="Legal holds">
-        <EmptyState title="The old page renders here" />
+        <EmptyState title="The page renders here" />
       </PageFrame>
     </ShellStory>
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.queryByRole("link", { name: "Assistant" }),
+      canvas.getByRole("link", { name: "Assistant" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("navigation", { name: "Pages" }),
     ).not.toBeInTheDocument();
-    const tabs = within(canvas.getByRole("navigation", { name: "Pages" }));
-    await expect(
-      tabs.getByRole("link", { name: "Legal holds" }),
-    ).toHaveAttribute("aria-current", "page");
-    await expect(
-      tabs.getByRole("link", { name: "Data retention" }),
-    ).toHaveAttribute("href", "/settings/retention");
   },
 };
 

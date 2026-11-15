@@ -15,19 +15,26 @@ import {
 } from "@calliopelabs/ui";
 import { ServerIcon } from "lucide-react";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { listController } from "./components/list-controller";
 import { EnrollmentCodeDialog } from "./EnrollmentCodeDialog";
 import {
   ASTROLIFT_TONE,
   HEALTH_TONE,
-  formatDate,
   settingsCrumbs,
   type AstroliftCluster,
   type AstroliftInstall,
   type EnrollmentCode,
   type Loadable,
+  useSettingsLabels,
+  formatDate,
 } from "./model";
+
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
 
 export interface IntegrationsScreenProps {
   /** GET settings/astrolift. */
@@ -44,10 +51,10 @@ export interface IntegrationsScreenProps {
   onRevokeCluster: (cluster: AstroliftCluster) => Promise<void>;
 }
 
-const clusterColumns: Column<AstroliftCluster>[] = [
+const clusterColumns = (t: Translate): Column<AstroliftCluster>[] => [
   {
     id: "cluster",
-    header: "Cluster",
+    header: t("cluster"),
     cell: (c) => (
       <code className="font-mono text-xs [overflow-wrap:anywhere]">
         {c.cluster_id}
@@ -56,13 +63,13 @@ const clusterColumns: Column<AstroliftCluster>[] = [
   },
   {
     id: "where",
-    header: "Provider and region",
+    header: t("providerAndRegion"),
     width: "w-40",
     cell: (c) => `${c.provider} ${c.region}`,
   },
   {
     id: "status",
-    header: "Status",
+    header: t("status"),
     width: "w-28",
     cell: (c) => (
       <StatusBadge tone={ASTROLIFT_TONE[c.status] ?? "muted"}>
@@ -72,7 +79,7 @@ const clusterColumns: Column<AstroliftCluster>[] = [
   },
   {
     id: "health",
-    header: "Health",
+    header: t("health"),
     width: "w-28",
     cell: (c) => (
       <StatusBadge tone={HEALTH_TONE[c.health] ?? "muted"}>
@@ -82,16 +89,20 @@ const clusterColumns: Column<AstroliftCluster>[] = [
   },
   {
     id: "seen",
-    header: "Last seen",
+    header: t("lastSeen"),
     width: "w-44",
-    cell: (c) => <span className="text-xs">{formatDate(c.last_seen_at)}</span>,
+    cell: (c) => (
+      <span className="text-xs">{formatDate(c.last_seen_at, t("never"))}</span>
+    ),
   },
   {
     id: "gateway",
-    header: "Gateway",
+    header: t("gateway"),
     width: "w-24",
     cell: (c) => (
-      <span className="font-mono text-xs">{c.gateway_version || "None"}</span>
+      <span className="font-mono text-xs">
+        {c.gateway_version || t("none")}
+      </span>
     ),
   },
 ];
@@ -111,23 +122,25 @@ export function IntegrationsScreen({
   onDisconnect,
   onRevokeCluster,
 }: IntegrationsScreenProps) {
+  const t = useTranslations("settings.integrationsScreen");
+  const { formatDate } = useSettingsLabels();
   const [disconnecting, setDisconnecting] =
     React.useState<AstroliftInstall | null>(null);
   const [revoking, setRevoking] = React.useState<AstroliftCluster | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const body = installs.error ? (
     <ErrorState
-      title="Could not load Astrolift AI installs"
+      title={t("couldNotLoadAstroliftAi")}
       error={installs.error}
       onRetry={installs.retry}
     />
   ) : installs.loading || installs.data === null ? (
-    <LoadingState label="Loading Astrolift AI installs" rows={4} />
+    <LoadingState label={t("loadingAstroliftAiInstalls")} rows={4} />
   ) : installs.data.length === 0 ? (
     <EmptyState
       icon={<ServerIcon aria-hidden className="size-6" />}
-      title="No Astrolift AI install is connected"
-      description="Generate an enrollment code and paste it into Astrolift AI with this Zentinelle AI's URL."
+      title={t("noAstroliftAiInstallIs")}
+      description={t("generateAnEnrollmentCodeAnd")}
     />
   ) : (
     installs.data.map((install) => (
@@ -147,9 +160,11 @@ export function IntegrationsScreen({
               {install.base_url}
             </code>
             <span className="block text-xs">
-              Connected {formatDate(install.connected_at)}; last call{" "}
-              {formatDate(install.last_used_at)}; tenants{" "}
-              {install.tenant_ids.join(", ") || "none visible"}
+              {t("installLine", {
+                connected: formatDate(install.connected_at),
+                used: formatDate(install.last_used_at),
+                tenants: install.tenant_ids.join(", ") || t("noneVisible"),
+              })}
             </span>
           </>
         }
@@ -162,22 +177,21 @@ export function IntegrationsScreen({
               aria-label={`Disconnect ${install.name}`}
               onClick={() => setDisconnecting(install)}
             >
-              Disconnect
+              {t("disconnect")}
             </Button>
           ) : undefined
         }
       >
         <DataTable
-          label={`Clusters of ${install.name}`}
+          label={t("clustersOf", { name: install.name })}
           chrome="table"
           controller={listController({ rows: install.clusters })}
-          columns={clusterColumns}
+          columns={clusterColumns(t)}
           getRowId={(c) => c.id}
-          rowLabel={(c) => `cluster ${c.cluster_id}`}
+          rowLabel={(c) => t("clusterRow", { id: c.cluster_id })}
           empty={{
-            title: "No clusters registered yet",
-            description:
-              "A cluster appears once its gateway registers through this install.",
+            title: t("noClustersRegisteredYet"),
+            description: t("aClusterAppearsOnceIts"),
           }}
           rowActions={(c) =>
             c.status === "revoked" ? undefined : (
@@ -185,7 +199,7 @@ export function IntegrationsScreen({
                 variant="destructive"
                 onSelect={() => setRevoking(c)}
               >
-                Revoke
+                {t("revoke")}
               </DropdownMenuItem>
             )
           }
@@ -196,8 +210,8 @@ export function IntegrationsScreen({
   return (
     <PageFrame
       crumbs={settingsCrumbs("integrations")}
-      title="Integrations"
-      description="Astrolift AI installs connected to this Zentinelle AI, and the clusters whose gateways they registered."
+      title={t("integrations")}
+      description={t("astroliftAiInstallsConnectedTo")}
       primaryAction={
         <Button
           type="button"
@@ -210,16 +224,16 @@ export function IntegrationsScreen({
               setError(
                 failure instanceof Error
                   ? failure.message
-                  : "Could not generate a code.",
+                  : t("couldNotGenerateACode2"),
               );
             }
           }}
         >
-          {generating ? "Generating" : "Generate enrollment code"}
+          {generating ? t("generating") : t("generateEnrollmentCode")}
         </Button>
       }
       notice={
-        error && <ErrorState title="Could not generate a code" error={error} />
+        error && <ErrorState title={t("couldNotGenerateACode")} error={error} />
       }
     >
       {body}
@@ -233,17 +247,17 @@ export function IntegrationsScreen({
         onOpenChange={(open) => !open && setDisconnecting(null)}
         destructive
         title={`Disconnect ${disconnecting?.name}?`}
-        description="The install's credential and the gateway credentials of every one of its clusters stop working at once. Reconnecting takes a new enrollment code."
-        confirmLabel="Disconnect"
+        description={t("theInstallSCredentialAnd")}
+        confirmLabel={t("disconnect")}
         onConfirm={() => disconnecting && onDisconnect(disconnecting)}
       />
       <ConfirmDialog
         open={revoking !== null}
         onOpenChange={(open) => !open && setRevoking(null)}
         destructive
-        title={`Revoke cluster ${revoking?.cluster_id}?`}
-        description="Its gateway's credentials stop working at once, so agents in that cluster lose access to stored provider keys until Astrolift AI registers the cluster again."
-        confirmLabel="Revoke cluster"
+        title={t("revokeCluster", { id: revoking?.cluster_id ?? "" })}
+        description={t("itsGatewaySCredentialsStop")}
+        confirmLabel={t("revokeCluster")}
         onConfirm={() => revoking && onRevokeCluster(revoking)}
       />
     </PageFrame>

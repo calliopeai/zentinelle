@@ -285,7 +285,7 @@ export function navFor(capabilities: readonly string[]): NavArea[] {
  * Rows of the approved model whose screens are not built yet. The console
  * leaves them out of the sidebar until their route exists.
  */
-export const UNBUILT_ROUTES: readonly string[] = ["/settings/assistant"];
+export const UNBUILT_ROUTES: readonly string[] = [];
 
 interface InterimPage {
   key: string;
@@ -300,15 +300,8 @@ interface InterimPage {
  * them as a tab row under that function, so nothing becomes unreachable.
  * An area deletes its entries as its screens bring their own tabs.
  */
-export const INTERIM_PAGES: Readonly<Record<string, readonly InterimPage[]>> = {
-  retention: [
-    {
-      key: "legal-holds",
-      label: "Legal holds",
-      href: "/settings/retention/legal-holds",
-    },
-  ],
-};
+export const INTERIM_PAGES: Readonly<Record<string, readonly InterimPage[]>> =
+  {};
 
 const under = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`);

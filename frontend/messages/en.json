@@ -33,6 +33,390 @@
       "light": "Light",
       "dark": "Dark",
       "system": "System"
+    },
+    "labels": {
+      "enforcementModes": {
+        "monitor": "Monitor (record only)",
+        "warn": "Warn (record and notify)",
+        "block": "Block (enforce)"
+      },
+      "scopes": {
+        "read": {
+          "label": "Read",
+          "description": "Read policies, events and usage."
+        },
+        "write": {
+          "label": "Write",
+          "description": "Read, and change policies and rules."
+        },
+        "admin": {
+          "label": "Full access",
+          "description": "Everything, including settings and keys."
+        }
+      },
+      "entityTypes": {
+        "all": "All data",
+        "events": "Telemetry events",
+        "interactions": "AI interactions",
+        "scans": "Content scans",
+        "audit_logs": "Audit logs",
+        "sessions": "User sessions",
+        "secrets": "Secret access logs",
+        "usage_data": "Usage and billing data"
+      },
+      "expirationActions": {
+        "delete": "Delete permanently",
+        "anonymize": "Anonymize",
+        "archive": "Archive to cold storage",
+        "flag": "Flag for review"
+      },
+      "compliance": {
+        "none": "No specific requirement",
+        "gdpr": "GDPR (right to erasure)",
+        "ccpa": "CCPA (data deletion)",
+        "hipaa": "HIPAA (6 year minimum)",
+        "sox": "SOX (7 year minimum)",
+        "pci_dss": "PCI DSS (1 year)",
+        "soc2": "SOC 2",
+        "custom": "Custom"
+      },
+      "never": "Never",
+      "none": "None",
+      "allData": "All data",
+      "nothingSelected": "Nothing selected",
+      "users": "{count, plural, one {# user} other {# users}}",
+      "provenance": {
+        "default": "The default; never changed here.",
+        "byOn": "Set for this organization by {who} on {when}.",
+        "by": "Set for this organization by {who}.",
+        "on": "Set for this organization on {when}.",
+        "set": "Set for this organization."
+      }
+    },
+    "generalScreen": {
+      "tabs": {
+        "organization": "Organization",
+        "enforcement": "Enforcement",
+        "notifications": "Notifications",
+        "runtime": "Runtime",
+        "bootstrap": "Bootstrap tokens"
+      },
+      "general": "General",
+      "generalSettings": "General settings",
+      "runtimeSettings": "runtime settings",
+      "organizationSettings": "organization settings"
+    },
+    "apiKeysScreen": {
+      "apiKeys": "API keys",
+      "keysForScriptsAndServices": "Keys for scripts and services that call the Zentinelle AI API.",
+      "copyApiKey": "Copy API key",
+      "searchKeysByName": "Search keys by name",
+      "name": "Name",
+      "key": "Key",
+      "scopes": "Scopes",
+      "status": "Status",
+      "lastUsed": "Last used",
+      "created": "Created",
+      "noApiKeysYet": "No API keys yet",
+      "createAKeyForEach": "Create a key for each script or service, so revoking one stops only that caller.",
+      "noKeyMatches": "No key matches",
+      "tryAnotherNameOrClear": "Try another name, or clear the search.",
+      "theKeyStopsWorkingAt": "The key stops working at once and leaves this list. Its audit history stays.",
+      "theKeyStopsWorkingAt2": "The key stops working at once. It stays in this list as revoked, for the audit trail.",
+      "deleteKey": "Delete key",
+      "revokeKey": "Revoke key",
+      "newApiKey": "New API key",
+      "itIsShownOnlyOnce": "It is shown only once. Zentinelle AI keeps only its prefix.",
+      "iHaveCopiedIt": "I have copied it",
+      "revoke": "Revoke",
+      "delete": "Delete",
+      "never": "Never",
+      "copyNow": "Copy the key for {name} now",
+      "rowLabel": "key {name}"
+    },
+    "assistantForm": {
+      "modelAndScope": "Model and scope",
+      "leaveTheProviderAndModel": "Leave the provider and model empty to use the shared in-cluster model.",
+      "provider": "Provider",
+      "model": "Model",
+      "theProviderSDefault": "The provider's default",
+      "allowedTopics": "Allowed topics",
+      "governancePoliciesIncidents": "governance, policies, incidents",
+      "policyDrafting": "Policy drafting",
+      "theAssistantMayDraftPolicy": "The assistant may draft policy changes and stage them for approval. Needs an active provider key.",
+      "stageChanges": "Stage changes",
+      "aProviderSetUpUnder": "A provider set up under Models & usage > Providers.",
+      "commaSeparatedTheAssistantDeclines": "Comma separated. The assistant declines anything else.",
+      "stagedForApproval": "Staged for approval"
+    },
+    "assistantScreen": {
+      "assistant": "Assistant",
+      "theAssistantDocksOnThe": "The assistant docks on the right of every page. It reads what the person asking may read, and every change it drafts waits for approval.",
+      "assistantSettings": "assistant settings"
+    },
+    "bootstrapTokens": {
+      "bootstrapTokens": "Bootstrap tokens",
+      "anAgentRegistersWithA": "An agent registers with a bootstrap token, then authenticates with its own API key. Tokens are issued from the Zentinelle AI backend host, never from the browser.",
+      "copyTheGenerateCommand": "Copy the generate command",
+      "generateIntro": "Generate a token for this organization:"
+    },
+    "definitionList": {
+      "none": "None"
+    },
+    "formField": {
+      "theChangeWasNotSaved": "The change was not saved."
+    },
+    "createApiKeyDialog": {
+      "name": "Name",
+      "nameTheKeyAfterWhat": "Name the key after what uses it.",
+      "theKeyWasNotCreated": "The key was not created.",
+      "creating": "Creating",
+      "createKey": "Create key",
+      "forScriptsAndServicesThat": "For scripts and services that call the Zentinelle AI API. Agents register with a bootstrap token instead.",
+      "cancel": "Cancel",
+      "newApiKey": "New API key"
+    },
+    "enforcementForm": {
+      "enforcement": "Enforcement",
+      "defaultsForPoliciesThatDo": "Defaults for policies that do not set their own.",
+      "defaultEnforcementMode": "Default enforcement mode",
+      "newPoliciesStartInThis": "New policies start in this mode. Monitor records what a policy would have done without acting.",
+      "auditLogging": "Audit logging",
+      "recordEveryPolicyDecisionIn": "Record every policy decision in the audit log, for compliance review.",
+      "saveEnforcement": "Save enforcement"
+    },
+    "enrollmentCodeDialog": {
+      "copyEnrollmentCode": "Copy enrollment code",
+      "copyZentinelleAiUrl": "Copy Zentinelle AI URL",
+      "expires": "Expires",
+      "done": "Done",
+      "enrollmentCode": "Enrollment code"
+    },
+    "integrationsScreen": {
+      "couldNotLoadAstroliftAi": "Could not load Astrolift AI installs",
+      "loadingAstroliftAiInstalls": "Loading Astrolift AI installs",
+      "noAstroliftAiInstallIs": "No Astrolift AI install is connected",
+      "generateAnEnrollmentCodeAnd": "Generate an enrollment code and paste it into Astrolift AI with this Zentinelle AI's URL.",
+      "integrations": "Integrations",
+      "astroliftAiInstallsConnectedTo": "Astrolift AI installs connected to this Zentinelle AI, and the clusters whose gateways they registered.",
+      "couldNotGenerateACode": "Could not generate a code",
+      "theInstallSCredentialAnd": "The install's credential and the gateway credentials of every one of its clusters stop working at once. Reconnecting takes a new enrollment code.",
+      "disconnect": "Disconnect",
+      "itsGatewaySCredentialsStop": "Its gateway's credentials stop working at once, so agents in that cluster lose access to stored provider keys until Astrolift AI registers the cluster again.",
+      "revokeCluster": "Revoke cluster {id}?",
+      "cluster": "Cluster",
+      "providerAndRegion": "Provider and region",
+      "status": "Status",
+      "health": "Health",
+      "lastSeen": "Last seen",
+      "gateway": "Gateway",
+      "noClustersRegisteredYet": "No clusters registered yet",
+      "aClusterAppearsOnceIts": "A cluster appears once its gateway registers through this install.",
+      "none": "None",
+      "couldNotGenerateACode2": "Could not generate a code.",
+      "generating": "Generating",
+      "generateEnrollmentCode": "Generate enrollment code",
+      "revoke": "Revoke",
+      "clustersOf": "Clusters of {name}",
+      "never": "Never",
+      "installLine": "Connected {connected}; last call {used}; tenants {tenants}",
+      "noneVisible": "none visible",
+      "clusterRow": "cluster {id}"
+    },
+    "legalHoldDialog": {
+      "name": "Name",
+      "type": "Type",
+      "reference": "Reference",
+      "caseOrMatterNumber": "Case or matter number",
+      "effectiveFrom": "Effective from",
+      "emptyFromNow": "Empty: from now.",
+      "endsOn": "Ends on",
+      "emptyUntilReleased": "Empty: until released.",
+      "custodianEmail": "Custodian email",
+      "allData": "All data",
+      "holdEveryKindOfData": "Hold every kind of data for this organization. Turn off to pick the kinds.",
+      "nameTheHoldUsuallyAfter": "Name the hold, usually after the matter.",
+      "pickTheDataTheHold": "Pick the data the hold covers.",
+      "theHoldCannotEndBefore": "The hold cannot end before it starts.",
+      "theHoldWasNotCreated": "The hold was not created.",
+      "creating": "Creating",
+      "createHold": "Create hold",
+      "coveredDataIsKeptPast": "Covered data is kept past every retention policy until the hold is released.",
+      "cancel": "Cancel",
+      "newLegalHold": "New legal hold"
+    },
+    "notificationsForm": {
+      "notifications": "Notifications",
+      "whereZentinelleAiSendsAlerts": "Where Zentinelle AI sends alerts and incidents.",
+      "email": "Email",
+      "slack": "Slack",
+      "postAlertsAndIncidentsTo": "Post alerts and incidents to a Slack channel through an incoming webhook.",
+      "webhookUrl": "Webhook URL",
+      "saveNotifications": "Save notifications",
+      "slackNotificationsNeedAWebhook": "Slack notifications need a webhook URL.",
+      "enterAUrlThatStarts": "Enter a URL that starts with https://.",
+      "sendAlertsAndIncidentsTo": "Send alerts and incidents to the contact email, once one is set under Organization.",
+      "sendTo": "Send alerts and incidents to {contact}."
+    },
+    "organizationForm": {
+      "organization": "Organization",
+      "howZentinelleAiNamesThis": "How Zentinelle AI names this organization, and where it sends mail.",
+      "name": "Name",
+      "contactEmail": "Contact email",
+      "alertsAndIncidentNoticesGo": "Alerts and incident notices go here.",
+      "timeZone": "Time zone",
+      "anIanaNameSuchAs": "An IANA name, such as Europe/London.",
+      "saveOrganization": "Save organization",
+      "account": "Account",
+      "setWhenTheOrganizationWas": "Set when the organization was provisioned.",
+      "slug": "Slug",
+      "plan": "Plan",
+      "zentinelleAiTier": "Zentinelle AI tier",
+      "deployment": "Deployment",
+      "created": "Created",
+      "theOrganizationNeedsAName": "The organization needs a name."
+    },
+    "retentionPolicyDialog": {
+      "name": "Name",
+      "description": "Description",
+      "data": "Data",
+      "afterItExpires": "After it expires",
+      "keepForDays": "Keep for (days)",
+      "minimumDays": "Minimum (days)",
+      "aFloorNoOneCan": "A floor no one can shorten, for regulated data.",
+      "requirement": "Requirement",
+      "priority": "Priority",
+      "theHigherNumberWinsWhen": "The higher number wins when two policies cover the same data.",
+      "enabled": "Enabled",
+      "nameThePolicy": "Name the policy.",
+      "keepDataForAtLeast": "Keep data for at least a day.",
+      "theMinimumCannotExceedThe": "The minimum cannot exceed the retention period.",
+      "thePolicyWasNotSaved": "The policy was not saved.",
+      "newRetentionPolicy": "New retention policy",
+      "saving": "Saving",
+      "savePolicy": "Save policy",
+      "createPolicy": "Create policy",
+      "anActiveLegalHoldKeeps": "An active legal hold keeps data past its expiry, whatever this policy says.",
+      "cancel": "Cancel"
+    },
+    "retentionScreen": {
+      "retentionPolicies": "Retention policies",
+      "dataItCoversFallsTo": "Data it covers falls to the next policy by priority, or is kept until deleted by hand. Nothing is deleted now.",
+      "deletePolicy": "Delete policy",
+      "legalHolds": "Legal holds",
+      "holdType": "Hold type",
+      "holdStatus": "Hold status",
+      "dataRetention": "Data retention",
+      "policies": "Policies",
+      "policy": "Policy",
+      "data": "Data",
+      "keptFor": "Kept for",
+      "then": "Then",
+      "requirement": "Requirement",
+      "enabled": "Enabled",
+      "noRetentionPolicies": "No retention policies",
+      "withoutOneZentinelleAiKeeps": "Without one, Zentinelle AI keeps every record until it is deleted by hand.",
+      "hold": "Hold",
+      "type": "Type",
+      "covers": "Covers",
+      "status": "Status",
+      "inForce": "In force",
+      "custodian": "Custodian",
+      "allTypes": "All types",
+      "allStatuses": "All statuses",
+      "noLegalHolds": "No legal holds",
+      "placeAHoldWhenLitigation": "Place a hold when litigation, an audit or an investigation needs data kept past its retention period.",
+      "noHoldMatchesTheseFilters": "No hold matches these filters",
+      "clearTheFiltersToSee": "Clear the filters to see every hold.",
+      "none": "None",
+      "retentionPoliciesApplyAgainTo": "Retention policies apply again to the data it held, so data past its period can be deleted on the next run. The hold stays on record as released.",
+      "theHoldLeavesTheRecord": "The hold leaves the record entirely. Release it instead to keep the history.",
+      "releaseHold": "Release hold",
+      "deleteHold": "Delete hold",
+      "edit": "Edit",
+      "delete": "Delete",
+      "release": "Release",
+      "newPolicy": "New policy",
+      "newLegalHold": "New legal hold",
+      "seeLegalHolds": "See legal holds",
+      "couldNotChange": "Could not change {name}.",
+      "policyRow": "policy {name}",
+      "holdRow": "hold {name}",
+      "activeHolds": "{count, plural, one {# active legal hold keeps data past these policies.} other {# active legal holds keep data past these policies.}}"
+    },
+    "revisionHistory": {
+      "revisions": "Revisions",
+      "rollingBackAppliesAnEarlier": "Rolling back applies an earlier revision as a new one.",
+      "runtimeRevisions": "Runtime revisions",
+      "rollBack": "Roll back",
+      "noRevisionsYet": "No revisions yet",
+      "everyValueIsStillThe": "Every value is still the default.",
+      "rollBackTo": "Roll back to revision {revision}",
+      "rollBackTitle": "Roll back to revision {revision}?",
+      "rollBackDescription": "The values of revision {target} become revision {next}, in effect at once for every agent and the assistant. Revision {current} stays in this list."
+    },
+    "runtimeForm": {
+      "runtime": "Runtime",
+      "captureModelDiscoveryAndThe": "Capture, model discovery and the defaults agents get when no policy says otherwise.",
+      "contentCapture": "Content capture",
+      "modelVisibility": "Model visibility",
+      "modelDiscoveryEverySeconds": "Model discovery, every (seconds)",
+      "defaultRateLimitPerMinute": "Default rate limit, per minute",
+      "defaultBudgetCents": "Default budget (cents)",
+      "taxonomyExtensions": "Taxonomy extensions",
+      "projectPhoenixClientAcme": "project:phoenix, client:acme",
+      "requireApprovalForContainment": "Require approval for containment",
+      "suspendRevokeAndToolContainment": "Suspend, revoke and tool containment wait for a person to approve the exact action.",
+      "stageChanges": "Stage changes",
+      "metadataOnly": "Metadata only",
+      "redactedContent": "Redacted content",
+      "fullContent": "Full content",
+      "enabledModels": "Enabled models",
+      "allRegisteredModels": "All registered models",
+      "modelsAPolicyApproves": "Models a policy approves",
+      "from300To86400": "From 300 to 86,400 seconds.",
+      "commaSeparatedSuchAsProject": "Comma separated, such as project:phoenix, client:acme.",
+      "stagedForApproval": "Staged for approval"
+    },
+    "settingsForbiddenScreen": {
+      "settingsNeedTheAdminRole": "Settings need the admin role",
+      "organizationSettingsApiKeysIntegrations": "Organization settings, API keys, integrations, data retention and the assistant are open to admins only. Ask an admin in your organization for access."
+    },
+    "stagedChanges": {
+      "waitingForApproval": "Waiting for approval",
+      "aStagedChangeTakesEffect": "A staged change takes effect only when it is approved and then applied.",
+      "stagedRuntimeChanges": "Staged runtime changes",
+      "nothingIsWaiting": "Nothing is waiting",
+      "stagedChangesAppearHereUntil": "Staged changes appear here until they are applied or rejected.",
+      "approve": "Approve",
+      "apply": "Apply",
+      "reject": "Reject",
+      "noSettings": "No settings",
+      "couldNot": "Could not {verb} the change.",
+      "actOn": "{verb} the change to {keys}",
+      "staged": "Staged by {by} on {on}, from revision {revision}",
+      "stagedApproved": "Staged by {by} on {on}, from revision {revision}; approved by {approver}"
+    },
+    "loaded": {
+      "couldNotLoad": "Could not load {label}"
+    },
+    "connected": {
+      "notStaged": "The change was not staged.",
+      "notMoved": "The change did not move on.",
+      "notRolledBack": "The settings were not rolled back.",
+      "organizationNotSaved": "The organization settings were not saved.",
+      "keyNotCreated": "The key was not created.",
+      "keyNotRevoked": "The key was not revoked.",
+      "keyNotDeleted": "The key was not deleted.",
+      "codeFailed": "No enrollment code was generated.",
+      "notDisconnected": "The install was not disconnected.",
+      "notRevoked": "The cluster was not revoked.",
+      "policyNotSaved": "The retention policy was not saved.",
+      "policyNotChanged": "The retention policy did not change.",
+      "policyNotDeleted": "The retention policy was not deleted.",
+      "holdNotCreated": "The legal hold was not created.",
+      "holdNotReleased": "The legal hold was not released.",
+      "holdNotDeleted": "The legal hold was not deleted."
     }
   },
   "ui": {
@@ -344,9 +728,7 @@
         "retention": "Data retention",
         "assistant": "Assistant"
       },
-      "tabs": {
-        "legal-holds": "Legal holds"
-      }
+      "tabs": {}
     },
     "languageDialog": {
       "description": "Choose the language used throughout the interface.",
@@ -382,7 +764,17 @@
     "export": "Export",
     "exportFormat": "Format",
     "timelineEmpty": "Nothing has happened yet.",
-    "nothing": "No {label}."
+    "nothing": "No {label}.",
+    "accessDenied": {
+      "title": "{what} needs the {role} role",
+      "description": "Your role cannot open {what}. Ask an organization admin if you need it.",
+      "home": "Back to Overview"
+    },
+    "forbidden": {
+      "title": "You do not have access to this page",
+      "description": "Ask an admin in your organization for access.",
+      "home": "Back to Overview"
+    }
   },
   "agents": {
     "statuses": {
