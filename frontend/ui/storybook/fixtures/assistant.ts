@@ -1,9 +1,9 @@
 /**
- * The assistant's conversation as `useChat` (hooks/use-chat.ts) holds it,
- * built from the events `POST /assistant/chat` streams, and the models
- * `GET /assistant/providers` lists.
+ * The assistant's turns as `POST /assistant/chat` streams them (the `data:`
+ * lines lib/assistant/agent.ts adapts to AG-UI), a stand-in for the routes
+ * the assistant calls, and the models `GET /assistant/providers` lists.
  */
-import type { ChatModel, Message } from "@/hooks/use-chat";
+import type { ChatModel } from "@/hooks/use-chat";
 
 export const assistantModels: ChatModel[] = [
   {
@@ -43,110 +43,83 @@ export const assistantProvidersResponse = {
   ],
 };
 
-const at = new Date("2026-10-16T15:00:00Z");
+/** One turn of `POST /assistant/chat`: its `data:` lines, before `[DONE]`. */
+export type ChatTurn = readonly Record<string, unknown>[];
 
-const question: Message = {
-  id: "m1",
-  role: "user",
-  content: "Which agents broke a policy today?",
-  timestamp: at,
-};
-
-const answer: Message = {
-  id: "m2",
-  role: "assistant",
-  content:
-    "Two agents were blocked today:\n\n- **support-bot** sent a prompt with a card number (PII policy).\n- **etl-runner** exceeded its daily token budget.\n\nThe PII policy is in `enforce` mode, so both requests were stopped.",
-  timestamp: at,
-  toolCalls: [
-    {
-      name: "list_policy_violations",
-      args: { since: "today" },
-      result: { count: 2 },
-    },
-  ],
-  navigation: [{ path: "/events", label: "Events" }],
-};
-
-export const conversation: Message[] = [question, answer];
-
-/** The answer is arriving: a tool is running, no text yet. */
-export const streaming: Message[] = [
-  question,
+/** A question answered with a tool, its result and a page to go to. */
+export const answerTurn: ChatTurn = [
+  { tool_call: "list_policy_violations", args: { since: "today" } },
+  { tool_result: "list_policy_violations", result: { count: 2 } },
+  { navigation: { path: "/events", label: "Events" } },
   {
-    id: "m2",
-    role: "assistant",
-    content: "",
-    timestamp: at,
-    toolCalls: [{ name: "list_policy_violations", args: { since: "today" } }],
+    content:
+      "Two agents were blocked today:\n\n- **support-bot** sent a prompt with a card number (PII policy).\n- **etl-runner** exceeded its daily token budget.\n\nThe PII policy is in `enforce` mode, so both requests were stopped.",
   },
 ];
 
 /** The assistant proposes a change and waits for someone to approve it. */
-export const pendingApproval: Message[] = [
+export const proposalTurn: ChatTurn = [
+  { content: "I can pause it. Approve to go ahead." },
   {
-    id: "m1",
-    role: "user",
-    content: "Pause etl-runner until tomorrow.",
-    timestamp: at,
-  },
-  {
-    id: "m2",
-    role: "assistant",
-    content: "I can pause it. Approve to go ahead.",
-    timestamp: at,
-    pendingActions: [
-      {
-        name: "pause_agent",
-        args: { agent_id: "etl-runner" },
-        hash: "a1b2c3",
-        preview: "Pause agent etl-runner until 2026-10-17 00:00 UTC",
-        status: "pending",
-      },
-    ],
+    pending_action: "pause_agent",
+    args: { agent_id: "etl-runner" },
+    hash: "a1b2c3",
+    preview: "Pause agent etl-runner until 2026-10-17 00:00 UTC",
   },
 ];
 
-export const settledActions: Message[] = [
-  pendingApproval[0],
+/** The output guardrail stopped the answer. */
+export const deniedTurn: ChatTurn = [
   {
-    ...pendingApproval[1],
-    pendingActions: [
-      { ...pendingApproval[1].pendingActions![0], status: "completed" },
-      {
-        name: "notify_owner",
-        args: {},
-        hash: "d4e5f6",
-        preview: "Tell the owner of etl-runner",
-        status: "rejected",
-      },
-    ],
+    error: "assistant_guardrail_denied",
+    detail: "The answer named a customer, which the support policy forbids.",
   },
 ];
 
-export const longConversation: Message[] = [
+/** A long answer, to show the conversation scrolling. */
+export const longTurn: ChatTurn = [
   {
-    id: "m1",
-    role: "user",
-    content:
-      "Summarize every compliance gap we have across SOC 2, GDPR, HIPAA, the EU AI Act and NIST AI RMF, grouped by owner, with the controls that would close each one and how long each has been open.",
-    timestamp: at,
-  },
-  {
-    id: "m2",
-    role: "assistant",
     content: Array.from(
       { length: 12 },
       (_, i) =>
-        `${i + 1}. **Control CC${i + 1}.${i}**: evidence for agent-${"x".repeat(40)}-${i} is missing since the last review.`,
-    ).join("\n"),
-    timestamp: at,
-    toolCalls: [
-      {
-        name: "list_compliance_gaps",
-        args: { frameworks: ["soc2", "gdpr", "hipaa", "eu_ai_act", "nist"] },
-        result: { missing_count: 12 },
-      },
-    ],
+        `**Gap ${i + 1}.** Control ${i + 1} has no evidence attached; the owner is team ${(i % 3) + 1}, open ${i + 3} days.`,
+    ).join("\n\n"),
   },
 ];
+
+/**
+ * A fetch that answers the assistant's routes in the page: each chat request
+ * with the next turn (the last repeats) as an event stream, `execute-tool`
+ * with a success, and the models list.
+ */
+export function assistantFetch(turns: readonly ChatTurn[]): typeof fetch {
+  let turn = 0;
+  const encoder = new TextEncoder();
+  return async (input, init) => {
+    const url = String(input instanceof Request ? input.url : input);
+    if (url.includes("/assistant/execute-tool")) {
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      return Response.json({
+        name: body.name,
+        args: body.args,
+        result: { success: true },
+      });
+    }
+    if (url.includes("/assistant/providers"))
+      return Response.json(assistantProvidersResponse);
+    const lines = turns[Math.min(turn++, turns.length - 1)] ?? [];
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const line of lines)
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify(line)}\n\n`),
+          );
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      headers: { "content-type": "text/event-stream" },
+    });
+  };
+}

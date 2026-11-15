@@ -1,8 +1,8 @@
 "use client";
 
-import { useCapability } from "@/components/PermissionGuard";
-import { AssistantConnected } from "@/ui/screens/overview/AssistantConnected";
+import { AssistantScreen } from "@/ui/screens/overview/AssistantScreen";
 
+/** The assistant's own page: the console's conversation (ConsoleFrame holds it), with room to read. */
 export default function AssistantPage() {
-  return <AssistantConnected canMutate={useCapability("mutate")} />;
+  return <AssistantScreen />;
 }

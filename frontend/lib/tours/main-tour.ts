@@ -117,11 +117,12 @@ export const MAIN_TOUR: TourStep[] = [
   },
   {
     route: "/agents",
-    element: "[data-tour='ai-assistant-bubble']",
+    // The assistant's launcher (CalliopeAgent's bubble).
+    element: "[data-slot='agent-launcher']",
     popover: {
       title: "Ask the GRC assistant",
       description:
-        "The blue sparkle in the corner — that's an LLM with 22 tools " +
+        "The sparkle in the corner is an LLM with 22 tools " +
         "wired into your real data. 'What policies are missing?' 'Create a " +
         "rate-limit policy of 60/min.' 'Acknowledge incident X.' Try it.",
       side: "left",

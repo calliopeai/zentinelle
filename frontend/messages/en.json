@@ -498,6 +498,81 @@
       "customAccentInUse": "In use",
       "customAccentOk": "{ratio}:1 against this ground.",
       "customAccentFaint": "{ratio}:1 against this ground; it needs {min}:1. Try a {mode, select, dark {lighter} other {darker}} colour."
+    },
+    "chat": {
+      "conversation": "Conversation",
+      "empty": "No messages yet",
+      "emptyDescription": "Ask a question to start.",
+      "roles": {
+        "user": "You",
+        "assistant": "Zentinelle AI",
+        "system": "System",
+        "developer": "Developer",
+        "tool": "Tool"
+      },
+      "messageFrom": "Message from {speaker}",
+      "thinking": "Thinking",
+      "writing": "Still writing",
+      "jumpToLatest": "Jump to latest",
+      "runFailed": "The answer failed",
+      "retry": "Retry",
+      "composer": "Message",
+      "placeholder": "Ask Zentinelle AI...",
+      "composerHint": "Enter to send, Shift+Enter for a new line.",
+      "send": "Send",
+      "stop": "Stop generating",
+      "attachments": "Attachments",
+      "toolCall": "Tool call {name}",
+      "toolStatus": {
+        "streaming": "preparing",
+        "running": "running",
+        "complete": "done",
+        "failed": "failed",
+        "cancelled": "cancelled",
+        "approval": "needs approval"
+      },
+      "details": "Details",
+      "arguments": "Arguments",
+      "noArguments": "No arguments",
+      "result": "Result",
+      "toolError": "Error",
+      "approvalNeeded": "The assistant is waiting for your approval to run this.",
+      "approve": "Approve",
+      "deny": "Deny",
+      "approveTitle": "Run {name}?",
+      "approveDescription": "The assistant runs it with the arguments shown and continues.",
+      "denyTitle": "Deny {name}?",
+      "denyDescription": "The assistant does not run it and is told why.",
+      "denyReason": "Reason",
+      "progress": "Assistant progress",
+      "steps": "Steps",
+      "runStatus": {
+        "idle": "idle",
+        "running": "running",
+        "finished": "finished",
+        "interrupted": "waiting for you",
+        "cancelled": "stopped",
+        "error": "failed"
+      },
+      "model": "Model"
+    },
+    "agent": {
+      "open": "Open {title}",
+      "close": "Close",
+      "unread": "{count, plural, one {# unread} other {# unread}}",
+      "newConversation": "New conversation",
+      "expand": "Expand",
+      "restore": "Restore",
+      "suggestions": "Suggestions",
+      "emptyTitle": "How can I help?",
+      "emptyDescription": "Ask about your agents, policies, compliance, or anything else.",
+      "waitingOnYou": "Answer the card above to continue.",
+      "shortcut": "Shortcut {keys}",
+      "interrupt": "The assistant is waiting for you",
+      "decline": "Decline",
+      "back": "Back",
+      "sendReview": "Send review",
+      "sharedState": "Shared state"
     }
   },
   "overview": {
@@ -607,6 +682,7 @@
       }
     },
     "assistant": {
+      "title": "Zentinelle AI",
       "screen": {
         "title": "Assistant",
         "description": "Ask about your agents, policies and compliance. Actions it proposes wait for your approval.",
@@ -614,15 +690,10 @@
       },
       "message": {
         "welcome": "Ask about your agents, policies, compliance, or anything else.",
-        "conversation": "Conversation",
-        "you": "You:",
-        "assistant": "Zentinelle AI:",
-        "thinking": "Thinking",
         "suggestedPages": "Suggested pages",
         "image": "image"
       },
       "tool": {
-        "label": "Tools used",
         "error": "error: {message}",
         "done": "done",
         "results": "{count, plural, one {# result} other {# results}}",
@@ -639,27 +710,15 @@
           "completed": "completed",
           "failed": "failed",
           "rejected": "cancelled"
-        }
+        },
+        "executeFailed": "Failed to execute approved action"
       },
       "input": {
-        "label": "Message",
-        "placeholder": "Ask Zentinelle AI...",
-        "send": "Send message",
-        "stop": "Stop generating",
-        "hint": "Enter to send. Shift+Enter for a new line.",
-        "hintCompact": "Cmd+Enter to send",
-        "generating": "Generating..."
+        "placeholder": "Ask Zentinelle AI..."
       },
       "model": {
         "label": "Model",
-        "loading": "Loading models",
-        "placeholder": "Select a model",
-        "none": "No providers configured"
-      },
-      "bubble": {
-        "open": "Open the assistant",
-        "close": "Close the assistant",
-        "description": "The Zentinelle AI assistant, beside the page in view"
+        "loading": "Loading models"
       }
     }
   },
