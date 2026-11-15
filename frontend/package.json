@@ -16,7 +16,7 @@
     "build-storybook": "storybook build --quiet"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.3",
+    "@ag-ui/client": "1.0.4",
     "@apollo/client": "^4.3.3",
     "@apollo/client-integration-nextjs": "^0.14.4",
     "@calliopelabs/ui": "^0.16.0",
