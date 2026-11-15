@@ -1,13 +1,19 @@
 "use client";
 
-import { type LinkProps, type Messages, UIProvider } from "@calliopelabs/ui";
+import {
+  type LinkProps,
+  type MessageOverrides,
+  UIProvider,
+} from "@calliopelabs/ui";
 import { useLocale, useTranslations } from "next-intl";
 import * as React from "react";
 
 /**
  * The environment @calliopelabs/ui components read through `useUI()`: the
- * app's link and every string the library renders, from the `ui` namespace
- * of the message catalog. Mount inside NextIntlClientProvider. The app passes
+ * app's link and every string Zentinelle shows from the library, from the
+ * `ui` namespace of the message catalog (groups it does not use, such as the
+ * workflow editor's, keep the library's English). Mount inside
+ * NextIntlClientProvider. The app passes
  * next/link; the catalog passes a link that stays in the story.
  */
 export function UiEnvironment({
@@ -20,7 +26,7 @@ export function UiEnvironment({
   const t = useTranslations("ui");
   const locale = useLocale();
 
-  const messages = React.useMemo<Messages>(() => {
+  const messages = React.useMemo<MessageOverrides>(() => {
     // A label mid-sentence: English lowercases it ("Show assistant"); other
     // locales keep the caller's casing.
     const noun = (label: string) =>
