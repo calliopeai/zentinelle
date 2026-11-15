@@ -13,25 +13,21 @@ import {
 } from "@calliopelabs/ui";
 import { ArchiveIcon, ScaleIcon } from "lucide-react";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { Select, type SelectOption } from "./components/FormField";
 import { listController } from "./components/list-controller";
 import { SwitchField } from "../../shared/SwitchField";
 import { LegalHoldDialog } from "./LegalHoldDialog";
 import {
-  COMPLIANCE_REQUIREMENTS,
-  EXPIRATION_ACTIONS,
   HOLD_TONE,
-  RETENTION_ENTITY_TYPES,
-  formatDay,
-  holdScope,
-  labelOf,
   settingsCrumbs,
   type LegalHold,
   type LegalHoldInput,
   type Loadable,
   type RetentionPolicy,
   type RetentionPolicyInput,
+  useSettingsLabels,
 } from "./model";
 import { RetentionPolicyDialog } from "./RetentionPolicyDialog";
 
@@ -74,17 +70,17 @@ export interface RetentionScreenProps {
   holdActions: LegalHoldActions;
 }
 
-function tabs(active: RetentionTab): TabNavItem[] {
+function tabs(active: RetentionTab, t: (key: string) => string): TabNavItem[] {
   return [
     {
       key: "policies",
-      label: "Policies",
+      label: t("policies"),
       href: "/settings/retention",
       active: active === "policies",
     },
     {
       key: "legal-holds",
-      label: "Legal holds",
+      label: t("legalHolds"),
       href: "/settings/retention/legal-holds",
       active: active === "legal-holds",
     },
@@ -102,12 +98,19 @@ function PoliciesTab({
   editing: RetentionPolicy | null | undefined;
   setEditing: (policy: RetentionPolicy | null | undefined) => void;
 }) {
+  const t = useTranslations("settings.retentionScreen");
+  const {
+    COMPLIANCE_REQUIREMENTS,
+    EXPIRATION_ACTIONS,
+    RETENTION_ENTITY_TYPES,
+    labelOf,
+  } = useSettingsLabels();
   const [deleting, setDeleting] = React.useState<RetentionPolicy | null>(null);
   const [toggleError, setToggleError] = React.useState<string | null>(null);
   const columns: Column<RetentionPolicy>[] = [
     {
       id: "name",
-      header: "Policy",
+      header: t("policy"),
       cell: (p) => (
         <div className="min-w-0">
           <p className="truncate font-medium">{p.name}</p>
@@ -121,14 +124,14 @@ function PoliciesTab({
     },
     {
       id: "data",
-      header: "Data",
+      header: t("data"),
       width: "w-40",
       cell: (p) =>
         labelOf(RETENTION_ENTITY_TYPES, p.entityType, p.entityTypeDisplay),
     },
     {
       id: "kept",
-      header: "Kept for",
+      header: t("keptFor"),
       width: "w-32",
       align: "right",
       cell: (p) => (
@@ -144,7 +147,7 @@ function PoliciesTab({
     },
     {
       id: "then",
-      header: "Then",
+      header: t("then"),
       width: "w-40",
       cell: (p) =>
         labelOf(
@@ -155,7 +158,7 @@ function PoliciesTab({
     },
     {
       id: "requirement",
-      header: "Requirement",
+      header: t("requirement"),
       width: "w-40",
       cell: (p) =>
         labelOf(
@@ -166,7 +169,7 @@ function PoliciesTab({
     },
     {
       id: "enabled",
-      header: "Enabled",
+      header: t("enabled"),
       width: "w-24",
       cell: (p) => (
         <SwitchField
@@ -181,7 +184,7 @@ function PoliciesTab({
               setToggleError(
                 failure instanceof Error
                   ? failure.message
-                  : `Could not change ${p.name}.`,
+                  : t("couldNotChange", { name: p.name }),
               );
             }
           }}
@@ -197,7 +200,7 @@ function PoliciesTab({
         </p>
       )}
       <DataTable
-        label="Retention policies"
+        label={t("retentionPolicies")}
         controller={listController({
           rows: policies.data,
           loading: policies.loading,
@@ -207,23 +210,22 @@ function PoliciesTab({
         columns={columns}
         getRowId={(p) => p.id}
         onRowActivate={(p) => setEditing(p)}
-        rowLabel={(p) => `policy ${p.name}`}
+        rowLabel={(p) => t("policyRow", { name: p.name })}
         empty={{
           icon: <ArchiveIcon aria-hidden className="size-6" />,
-          title: "No retention policies",
-          description:
-            "Without one, Zentinelle AI keeps every record until it is deleted by hand.",
+          title: t("noRetentionPolicies"),
+          description: t("withoutOneZentinelleAiKeeps"),
         }}
         rowActions={(p) => (
           <>
             <DropdownMenuItem onSelect={() => setEditing(p)}>
-              Edit
+              {t("edit")}
             </DropdownMenuItem>
             <DropdownMenuItem
               variant="destructive"
               onSelect={() => setDeleting(p)}
             >
-              Delete
+              {t("delete")}
             </DropdownMenuItem>
           </>
         )}
@@ -239,8 +241,8 @@ function PoliciesTab({
         onOpenChange={(open) => !open && setDeleting(null)}
         destructive
         title={`Delete ${deleting?.name}?`}
-        description="Data it covers falls to the next policy by priority, or is kept until deleted by hand. Nothing is deleted now."
-        confirmLabel="Delete policy"
+        description={t("dataItCoversFallsTo")}
+        confirmLabel={t("deletePolicy")}
         onConfirm={() => deleting && actions.onDelete(deleting)}
       />
     </>
@@ -260,6 +262,8 @@ function HoldsTab({
 > & {
   actions: LegalHoldActions;
 }) {
+  const t = useTranslations("settings.retentionScreen");
+  const { formatDay, holdScope } = useSettingsLabels();
   const [confirm, setConfirm] = React.useState<{
     hold: LegalHold;
     action: "release" | "delete";
@@ -268,7 +272,7 @@ function HoldsTab({
   const columns: Column<LegalHold>[] = [
     {
       id: "name",
-      header: "Hold",
+      header: t("hold"),
       cell: (h) => (
         <div className="min-w-0">
           <p className="truncate font-medium">{h.name}</p>
@@ -282,19 +286,19 @@ function HoldsTab({
     },
     {
       id: "type",
-      header: "Type",
+      header: t("type"),
       width: "w-32",
       cell: (h) => h.holdTypeDisplay ?? h.holdType,
     },
     {
       id: "scope",
-      header: "Covers",
+      header: t("covers"),
       width: "w-48",
       cell: (h) => <span className="text-xs">{holdScope(h)}</span>,
     },
     {
       id: "status",
-      header: "Status",
+      header: t("status"),
       width: "w-28",
       cell: (h) => (
         <StatusBadge tone={HOLD_TONE[h.status] ?? "muted"}>
@@ -304,7 +308,7 @@ function HoldsTab({
     },
     {
       id: "dates",
-      header: "In force",
+      header: t("inForce"),
       width: "w-48",
       cell: (h) => (
         <span className="text-xs">
@@ -319,11 +323,11 @@ function HoldsTab({
     },
     {
       id: "custodian",
-      header: "Custodian",
+      header: t("custodian"),
       width: "w-48",
       cell: (h) => (
         <span className="text-xs [overflow-wrap:anywhere]">
-          {h.custodianEmail ?? "None"}
+          {h.custodianEmail ?? t("none")}
         </span>
       ),
     },
@@ -332,7 +336,7 @@ function HoldsTab({
   return (
     <>
       <DataTable
-        label="Legal holds"
+        label={t("legalHolds")}
         controller={listController({
           rows: holds.data,
           loading: holds.loading,
@@ -343,22 +347,25 @@ function HoldsTab({
         })}
         columns={columns}
         getRowId={(h) => h.id}
-        rowLabel={(h) => `hold ${h.name}`}
+        rowLabel={(h) => t("holdRow", { name: h.name })}
         toolbar={
           <div className="flex flex-wrap items-center gap-2">
             <Select
-              aria-label="Hold type"
+              aria-label={t("holdType")}
               className="w-40"
-              options={[{ value: "", label: "All types" }, ...holdTypes]}
+              options={[{ value: "", label: t("allTypes") }, ...holdTypes]}
               value={filters.holdType}
               onChange={(e) =>
                 onFiltersChange({ ...filters, holdType: e.target.value })
               }
             />
             <Select
-              aria-label="Hold status"
+              aria-label={t("holdStatus")}
               className="w-36"
-              options={[{ value: "", label: "All statuses" }, ...holdStatuses]}
+              options={[
+                { value: "", label: t("allStatuses") },
+                ...holdStatuses,
+              ]}
               value={filters.status}
               onChange={(e) =>
                 onFiltersChange({ ...filters, status: e.target.value })
@@ -368,13 +375,12 @@ function HoldsTab({
         }
         empty={{
           icon: <ScaleIcon aria-hidden className="size-6" />,
-          title: "No legal holds",
-          description:
-            "Place a hold when litigation, an audit or an investigation needs data kept past its retention period.",
+          title: t("noLegalHolds"),
+          description: t("placeAHoldWhenLitigation"),
         }}
         emptyFiltered={{
-          title: "No hold matches these filters",
-          description: "Clear the filters to see every hold.",
+          title: t("noHoldMatchesTheseFilters"),
+          description: t("clearTheFiltersToSee"),
         }}
         rowActions={(h) => (
           <>
@@ -382,14 +388,14 @@ function HoldsTab({
               <DropdownMenuItem
                 onSelect={() => setConfirm({ hold: h, action: "release" })}
               >
-                Release
+                {t("release")}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem
               variant="destructive"
               onSelect={() => setConfirm({ hold: h, action: "delete" })}
             >
-              Delete
+              {t("delete")}
             </DropdownMenuItem>
           </>
         )}
@@ -405,11 +411,11 @@ function HoldsTab({
         }
         description={
           confirm?.action === "release"
-            ? "Retention policies apply again to the data it held, so data past its period can be deleted on the next run. The hold stays on record as released."
-            : "The hold leaves the record entirely. Release it instead to keep the history."
+            ? t("retentionPoliciesApplyAgainTo")
+            : t("theHoldLeavesTheRecord")
         }
         confirmLabel={
-          confirm?.action === "release" ? "Release hold" : "Delete hold"
+          confirm?.action === "release" ? t("releaseHold") : t("deleteHold")
         }
         onConfirm={() =>
           confirm &&
@@ -428,6 +434,7 @@ function HoldsTab({
  * tab reads only its own query.
  */
 export function RetentionScreen(props: RetentionScreenProps) {
+  const t = useTranslations("settings.retentionScreen");
   const { tab, activeHolds = 0 } = props;
   const [editing, setEditing] = React.useState<
     RetentionPolicy | null | undefined
@@ -437,17 +444,17 @@ export function RetentionScreen(props: RetentionScreenProps) {
   return (
     <PageFrame
       crumbs={settingsCrumbs("retention")}
-      title="Data retention"
-      tabs={tabs(tab)}
-      tabsLabel="Data retention"
+      title={t("dataRetention")}
+      tabs={tabs(tab, t)}
+      tabsLabel={t("dataRetention")}
       primaryAction={
         tab === "policies" ? (
           <Button type="button" onClick={() => setEditing(null)}>
-            New policy
+            {t("newPolicy")}
           </Button>
         ) : (
           <Button type="button" onClick={() => setCreatingHold(true)}>
-            New legal hold
+            {t("newLegalHold")}
           </Button>
         )
       }
@@ -457,11 +464,9 @@ export function RetentionScreen(props: RetentionScreenProps) {
             role="status"
             className="rounded-lg border border-warning-border bg-warning/5 p-3 text-sm"
           >
-            {activeHolds} active legal{" "}
-            {activeHolds === 1 ? "hold keeps" : "holds keep"} data past these
-            policies.{" "}
+            {t("activeHolds", { count: activeHolds })}{" "}
             <Link className="underline" href="/settings/retention/legal-holds">
-              See legal holds
+              {t("seeLegalHolds")}
             </Link>
           </p>
         ) : undefined

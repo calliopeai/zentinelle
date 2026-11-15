@@ -1,5 +1,6 @@
 import { EmptyState } from "@calliopelabs/ui";
 import { LockIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export interface AccessDeniedProps {
   /** What the page is ("Providers"). */
@@ -19,15 +20,16 @@ export function AccessDenied({
   what,
   role,
   homeHref = "/dashboard",
-  homeLabel = "Back to Overview",
+  homeLabel,
 }: AccessDeniedProps) {
+  const t = useTranslations("common.accessDenied");
   return (
     <EmptyState
       icon={<LockIcon />}
-      title={`${what} needs the ${role} role`}
-      description={`Your role cannot open ${what}. Ask an organization admin if you need it.`}
+      title={t("title", { what, role })}
+      description={t("description", { what })}
       actionHref={homeHref}
-      actionLabel={homeLabel}
+      actionLabel={homeLabel ?? t("home")}
     />
   );
 }

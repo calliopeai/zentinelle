@@ -3,8 +3,8 @@
  * redirects to the new one (next.config.ts), keeping its query string, so
  * bookmarks, notification links and docs keep working.
  *
- * Only pages that moved as they are belong here. Routes the IA folds into a
- * tab, view or action of another page (`/settings/retention/legal-holds`) keep their address until that screen exists.
+ * Only pages that moved as they are belong here, and routes the IA folds
+ * into a tab, view or action of another page.
  *
  * Temporary (307) while the areas are in review; permanent once they ship.
  */

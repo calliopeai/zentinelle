@@ -12,9 +12,10 @@ import {
   Input,
 } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { FormField } from "./components/FormField";
-import { API_KEY_SCOPES } from "./model";
+import { useSettingsLabels } from "./model";
 
 export interface CreateApiKeyDialogProps {
   open: boolean;
@@ -29,12 +30,14 @@ export function CreateApiKeyDialog({
   onOpenChange,
   onCreate,
 }: CreateApiKeyDialogProps) {
+  const t = useTranslations("settings.createApiKeyDialog");
+  const { API_KEY_SCOPES } = useSettingsLabels();
   const [name, setName] = React.useState("");
   const [scopes, setScopes] = React.useState<string[]>(["read"]);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [touched, setTouched] = React.useState(false);
-  const nameError = name.trim() ? null : "Name the key after what uses it.";
+  const nameError = name.trim() ? null : t("nameTheKeyAfterWhat");
   const reset = () => {
     setName("");
     setScopes(["read"]);
@@ -66,7 +69,7 @@ export function CreateApiKeyDialog({
               setError(
                 failure instanceof Error
                   ? failure.message
-                  : "The key was not created.",
+                  : t("theKeyWasNotCreated"),
               );
             } finally {
               setPending(false);
@@ -74,13 +77,12 @@ export function CreateApiKeyDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>New API key</DialogTitle>
+            <DialogTitle>{t("newApiKey")}</DialogTitle>
             <DialogDescription>
-              For scripts and services that call the Zentinelle AI API. Agents
-              register with a bootstrap token instead.
+              {t("forScriptsAndServicesThat")}
             </DialogDescription>
           </DialogHeader>
-          <FormField label="Name" error={touched ? nameError : null}>
+          <FormField label={t("name")} error={touched ? nameError : null}>
             {(control) => (
               <Input
                 {...control}
@@ -139,10 +141,10 @@ export function CreateApiKeyDialog({
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Creating" : "Create key"}
+              {pending ? t("creating") : t("createKey")}
             </Button>
           </DialogFooter>
         </form>

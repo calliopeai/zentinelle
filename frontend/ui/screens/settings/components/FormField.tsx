@@ -7,6 +7,7 @@
  * package.
  */
 import { Button, cn } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 export interface FieldControlProps {
@@ -135,6 +136,7 @@ export function FormActions({
 
 /** Runs a save, and holds its pending, saved and failed states for FormActions. */
 export function useSaveState() {
+  const t = useTranslations("settings.formField");
   const [pending, setPending] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -147,9 +149,7 @@ export function useSaveState() {
       setSaved(true);
     } catch (failure) {
       setError(
-        failure instanceof Error
-          ? failure.message
-          : "The change was not saved.",
+        failure instanceof Error ? failure.message : t("theChangeWasNotSaved"),
       );
     } finally {
       setPending(false);

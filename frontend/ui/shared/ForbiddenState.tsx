@@ -6,6 +6,7 @@
  */
 import { EmptyState } from "@calliopelabs/ui";
 import { LockIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export interface ForbiddenStateProps {
   title?: string;
@@ -16,18 +17,19 @@ export interface ForbiddenStateProps {
 }
 
 export function ForbiddenState({
-  title = "You do not have access to this page",
-  description = "Ask an admin in your organization for access.",
+  title,
+  description,
   homeHref = "/dashboard",
-  homeLabel = "Back to Overview",
+  homeLabel,
 }: ForbiddenStateProps) {
+  const t = useTranslations("common.forbidden");
   return (
     <EmptyState
       icon={<LockIcon aria-hidden className="size-6" />}
-      title={title}
-      description={description}
+      title={title ?? t("title")}
+      description={description ?? t("description")}
       actionHref={homeHref}
-      actionLabel={homeLabel}
+      actionLabel={homeLabel ?? t("home")}
     />
   );
 }

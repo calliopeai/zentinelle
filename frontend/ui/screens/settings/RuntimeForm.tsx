@@ -2,6 +2,7 @@
 
 import { Input, Section } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import {
   FormActions,
@@ -12,27 +13,32 @@ import {
 import { SwitchField } from "../../shared/SwitchField";
 import {
   changedKeys,
-  provenanceHint,
   splitList,
   type RuntimeActions,
   type RuntimeSnapshot,
+  useSettingsLabels,
 } from "./model";
+
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
 
 export interface RuntimeFormProps {
   snapshot: RuntimeSnapshot;
   onStage: RuntimeActions["onStage"];
 }
 
-const CAPTURE = [
-  { value: "metadata", label: "Metadata only" },
-  { value: "redacted", label: "Redacted content" },
-  { value: "full", label: "Full content" },
+const CAPTURE = (t: Translate) => [
+  { value: "metadata", label: t("metadataOnly") },
+  { value: "redacted", label: t("redactedContent") },
+  { value: "full", label: t("fullContent") },
 ];
 
-const VISIBILITY = [
-  { value: "enabled_only", label: "Enabled models" },
-  { value: "all_registered", label: "All registered models" },
-  { value: "approved_only", label: "Models a policy approves" },
+const VISIBILITY = (t: Translate) => [
+  { value: "enabled_only", label: t("enabledModels") },
+  { value: "all_registered", label: t("allRegisteredModels") },
+  { value: "approved_only", label: t("modelsAPolicyApproves") },
 ];
 
 /**
@@ -42,6 +48,8 @@ const VISIBILITY = [
  * applied. Bounds are the server's (SETTING_SCHEMA).
  */
 export function RuntimeForm({ snapshot, onStage }: RuntimeFormProps) {
+  const t = useTranslations("settings.runtimeForm");
+  const { provenanceHint } = useSettingsLabels();
   const s = snapshot.settings;
   const initial = {
     content_capture_mode: s.content_capture_mode,
@@ -67,12 +75,12 @@ export function RuntimeForm({ snapshot, onStage }: RuntimeFormProps) {
   const refreshError =
     values.discovery_refresh_seconds < 300 ||
     values.discovery_refresh_seconds > 86400
-      ? "From 300 to 86,400 seconds."
+      ? t("from300To86400")
       : null;
   return (
     <Section
-      title="Runtime"
-      description="Capture, model discovery and the defaults agents get when no policy says otherwise."
+      title={t("runtime")}
+      description={t("captureModelDiscoveryAndThe")}
     >
       <form
         className="grid max-w-3xl gap-4"
@@ -91,30 +99,33 @@ export function RuntimeForm({ snapshot, onStage }: RuntimeFormProps) {
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
-            label="Content capture"
+            label={t("contentCapture")}
             hint={hint("content_capture_mode")}
           >
             {(control) => (
               <Select
                 {...control}
-                options={CAPTURE}
+                options={CAPTURE(t)}
                 value={values.content_capture_mode}
                 onChange={(e) => update("content_capture_mode", e.target.value)}
               />
             )}
           </FormField>
-          <FormField label="Model visibility" hint={hint("model_visibility")}>
+          <FormField
+            label={t("modelVisibility")}
+            hint={hint("model_visibility")}
+          >
             {(control) => (
               <Select
                 {...control}
-                options={VISIBILITY}
+                options={VISIBILITY(t)}
                 value={values.model_visibility}
                 onChange={(e) => update("model_visibility", e.target.value)}
               />
             )}
           </FormField>
           <FormField
-            label="Model discovery, every (seconds)"
+            label={t("modelDiscoveryEverySeconds")}
             hint={hint("discovery_refresh_seconds")}
             error={refreshError}
           >
@@ -132,7 +143,7 @@ export function RuntimeForm({ snapshot, onStage }: RuntimeFormProps) {
             )}
           </FormField>
           <FormField
-            label="Default rate limit, per minute"
+            label={t("defaultRateLimitPerMinute")}
             hint={hint("default_rate_limit_per_minute")}
           >
             {(control) => (
@@ -152,7 +163,7 @@ export function RuntimeForm({ snapshot, onStage }: RuntimeFormProps) {
             )}
           </FormField>
           <FormField
-            label="Default budget (cents)"
+            label={t("defaultBudgetCents")}
             hint={hint("default_budget_cents") ?? "0 means no default budget."}
           >
             {(control) => (
@@ -169,16 +180,15 @@ export function RuntimeForm({ snapshot, onStage }: RuntimeFormProps) {
             )}
           </FormField>
           <FormField
-            label="Taxonomy extensions"
+            label={t("taxonomyExtensions")}
             hint={
-              hint("taxonomy_extensions") ??
-              "Comma separated, such as project:phoenix, client:acme."
+              hint("taxonomy_extensions") ?? t("commaSeparatedSuchAsProject")
             }
           >
             {(control) => (
               <Input
                 {...control}
-                placeholder="project:phoenix, client:acme"
+                placeholder={t("projectPhoenixClientAcme")}
                 value={values.taxonomy_extensions}
                 onChange={(e) => update("taxonomy_extensions", e.target.value)}
               />
@@ -186,17 +196,17 @@ export function RuntimeForm({ snapshot, onStage }: RuntimeFormProps) {
           </FormField>
         </div>
         <SwitchField
-          label="Require approval for containment"
-          description="Suspend, revoke and tool containment wait for a person to approve the exact action."
+          label={t("requireApprovalForContainment")}
+          description={t("suspendRevokeAndToolContainment")}
           checked={values.control_approval_required}
           onCheckedChange={(checked) =>
             update("control_approval_required", checked)
           }
         />
         <FormActions
-          submitLabel="Stage changes"
+          submitLabel={t("stageChanges")}
           pendingLabel="Staging"
-          savedLabel="Staged for approval"
+          savedLabel={t("stagedForApproval")}
           disabled={Object.keys(changes).length === 0 || Boolean(refreshError)}
           {...save}
         >

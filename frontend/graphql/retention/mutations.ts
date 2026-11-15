@@ -28,3 +28,12 @@ export const DELETE_RETENTION_POLICY = gql`
     }
   }
 `;
+
+export const TOGGLE_RETENTION_POLICY_ENABLED = gql`
+  mutation ToggleRetentionPolicyEnabled($id: ID!, $enabled: Boolean!) {
+    toggleRetentionPolicyEnabled(id: $id, enabled: $enabled) {
+      success
+      policyId
+    }
+  }
+`;

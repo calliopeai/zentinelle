@@ -6,6 +6,7 @@
  * what they fetch into these; the screens never fetch.
  */
 import { areaSwitcher, type Crumb, type StatusTone } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import type { ApiKeyData } from "@/graphql/api-keys/hooks";
 import type { LegalHoldData } from "@/graphql/legal-holds/types";
@@ -32,8 +33,8 @@ export interface Loadable<T> {
 /** A save the screen awaits: it throws with the server's reason when `success` is false. */
 export type Save<T> = (value: T) => Promise<void>;
 
-export function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "Never";
+export function formatDate(iso: string | null | undefined, never = ""): string {
+  if (!iso) return never;
   return new Date(iso).toLocaleString("en-GB", {
     day: "numeric",
     month: "short",
@@ -44,8 +45,8 @@ export function formatDate(iso: string | null | undefined): string {
   });
 }
 
-export function formatDay(iso: string | null | undefined): string {
-  if (!iso) return "None";
+export function formatDay(iso: string | null | undefined, none = ""): string {
+  if (!iso) return none;
   return new Date(iso).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -59,11 +60,7 @@ export function formatDay(iso: string | null | undefined): string {
 export type Organization = OrganizationData;
 export type OrganizationUpdate = UpdateOrganizationSettingsInput;
 
-export const ENFORCEMENT_MODES = [
-  { value: "monitor", label: "Monitor (record only)" },
-  { value: "warn", label: "Warn (record and notify)" },
-  { value: "block", label: "Block (enforce)" },
-] as const;
+export const ENFORCEMENT_MODES_VALUES = ["monitor", "warn", "block"] as const;
 
 // General > Runtime, and Assistant: REST settings/runtime (admin, staged).
 
@@ -168,23 +165,7 @@ export interface RuntimeActions {
 export type ApiKey = ApiKeyData;
 
 /** Must match APIKey.SCOPES on the backend; anything else is refused. */
-export const API_KEY_SCOPES = [
-  {
-    value: "read",
-    label: "Read",
-    description: "Read policies, events and usage.",
-  },
-  {
-    value: "write",
-    label: "Write",
-    description: "Read, and change policies and rules.",
-  },
-  {
-    value: "admin",
-    label: "Full access",
-    description: "Everything, including settings and keys.",
-  },
-] as const;
+export const API_KEY_SCOPES_VALUES = ["read", "write", "admin"] as const;
 
 export const API_KEY_TONE: Record<string, StatusTone> = {
   active: "ok",
@@ -275,33 +256,33 @@ export interface RetentionPolicyInput {
   enabled: boolean;
 }
 
-export const RETENTION_ENTITY_TYPES = [
-  { value: "all", label: "All data" },
-  { value: "events", label: "Telemetry events" },
-  { value: "interactions", label: "AI interactions" },
-  { value: "scans", label: "Content scans" },
-  { value: "audit_logs", label: "Audit logs" },
-  { value: "sessions", label: "User sessions" },
-  { value: "secrets", label: "Secret access logs" },
-  { value: "usage_data", label: "Usage and billing data" },
+export const RETENTION_ENTITY_TYPES_VALUES = [
+  "all",
+  "events",
+  "interactions",
+  "scans",
+  "audit_logs",
+  "sessions",
+  "secrets",
+  "usage_data",
 ] as const;
 
-export const EXPIRATION_ACTIONS = [
-  { value: "delete", label: "Delete permanently" },
-  { value: "anonymize", label: "Anonymize" },
-  { value: "archive", label: "Archive to cold storage" },
-  { value: "flag", label: "Flag for review" },
+export const EXPIRATION_ACTIONS_VALUES = [
+  "delete",
+  "anonymize",
+  "archive",
+  "flag",
 ] as const;
 
-export const COMPLIANCE_REQUIREMENTS = [
-  { value: "none", label: "No specific requirement" },
-  { value: "gdpr", label: "GDPR (right to erasure)" },
-  { value: "ccpa", label: "CCPA (data deletion)" },
-  { value: "hipaa", label: "HIPAA (6 year minimum)" },
-  { value: "sox", label: "SOX (7 year minimum)" },
-  { value: "pci_dss", label: "PCI DSS (1 year)" },
-  { value: "soc2", label: "SOC 2" },
-  { value: "custom", label: "Custom" },
+export const COMPLIANCE_REQUIREMENTS_VALUES = [
+  "none",
+  "gdpr",
+  "ccpa",
+  "hipaa",
+  "sox",
+  "pci_dss",
+  "soc2",
+  "custom",
 ] as const;
 
 export type LegalHold = LegalHoldData;
@@ -329,24 +310,11 @@ export function labelOf(
   options: readonly { value: string; label: string }[],
   value: string | null | undefined,
   display?: string | null,
+  none = "",
 ): string {
   return (
-    display ?? options.find((o) => o.value === value)?.label ?? value ?? "None"
+    display ?? options.find((o) => o.value === value)?.label ?? value ?? none
   );
-}
-
-/** Where a runtime value comes from, in a line under its field. */
-export function provenanceHint(
-  p: RuntimeProvenance | undefined,
-): string | undefined {
-  if (!p) return undefined;
-  if (p.source === "default") return "The default; never changed here.";
-  const who = p.changed_by?.name || p.changed_by?.id;
-  const when = p.changed_at ? formatDate(p.changed_at) : null;
-  return ["Set for this organization", who && `by ${who}`, when && `on ${when}`]
-    .filter(Boolean)
-    .join(" ")
-    .concat(".");
 }
 
 /** The keys of `next` that differ from `base`, as a staged change carries them. */
@@ -366,15 +334,63 @@ export function splitList(value: string): string[] {
     .filter(Boolean);
 }
 
-/** The scope of a hold, in a few words. */
-export function holdScope(
-  hold: Pick<LegalHold, "appliesToAll" | "entityTypes" | "userIdentifiers">,
-): string {
-  if (hold.appliesToAll) return "All data";
-  const parts = hold.entityTypes.map((t) => labelOf(RETENTION_ENTITY_TYPES, t));
-  if (hold.userIdentifiers.length)
-    parts.push(
-      `${hold.userIdentifiers.length} user${hold.userIdentifiers.length === 1 ? "" : "s"}`,
-    );
-  return parts.join(", ") || "Nothing selected";
+/**
+ * The area's option lists, dates and derived lines in the reader's
+ * language, from `settings.labels`.
+ */
+export function useSettingsLabels() {
+  const t = useTranslations("settings.labels") as unknown as (
+    key: string,
+    values?: Record<string, string | number>,
+  ) => string;
+  const options = (group: string, values: readonly string[]) =>
+    values.map((value) => ({ value, label: t(`${group}.${value}`) }));
+  const RETENTION_ENTITY_TYPES = options(
+    "entityTypes",
+    RETENTION_ENTITY_TYPES_VALUES,
+  );
+  return {
+    ENFORCEMENT_MODES: options("enforcementModes", ENFORCEMENT_MODES_VALUES),
+    API_KEY_SCOPES: API_KEY_SCOPES_VALUES.map((value) => ({
+      value,
+      label: t(`scopes.${value}.label`),
+      description: t(`scopes.${value}.description`),
+    })),
+    RETENTION_ENTITY_TYPES,
+    EXPIRATION_ACTIONS: options("expirationActions", EXPIRATION_ACTIONS_VALUES),
+    COMPLIANCE_REQUIREMENTS: options(
+      "compliance",
+      COMPLIANCE_REQUIREMENTS_VALUES,
+    ),
+    formatDate: (iso: string | null | undefined) => formatDate(iso, t("never")),
+    formatDay: (iso: string | null | undefined) => formatDay(iso, t("none")),
+    labelOf: (
+      list: readonly { value: string; label: string }[],
+      value: string | null | undefined,
+      display?: string | null,
+    ) => labelOf(list, value, display, t("none")),
+    /** Where a runtime value comes from, in a line under its field. */
+    provenanceHint: (p: RuntimeProvenance | undefined) => {
+      if (!p) return undefined;
+      if (p.source === "default") return t("provenance.default");
+      const who = p.changed_by?.name || p.changed_by?.id;
+      const when = p.changed_at ? formatDate(p.changed_at) : null;
+      if (who && when) return t("provenance.byOn", { who, when });
+      if (who) return t("provenance.by", { who });
+      if (when) return t("provenance.on", { when });
+      return t("provenance.set");
+    },
+    /** The scope of a hold, in a few words. */
+    holdScope: (
+      hold: Pick<LegalHold, "appliesToAll" | "entityTypes" | "userIdentifiers">,
+    ) => {
+      if (hold.appliesToAll) return t("allData");
+      const parts = hold.entityTypes.map((v) =>
+        labelOf(RETENTION_ENTITY_TYPES, v),
+      );
+      if (hold.userIdentifiers.length)
+        parts.push(t("users", { count: hold.userIdentifiers.length }));
+      return parts.join(", ") || t("nothingSelected");
+    },
+  };
 }

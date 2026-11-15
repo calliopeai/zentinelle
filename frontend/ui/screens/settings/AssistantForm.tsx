@@ -2,15 +2,16 @@
 
 import { Input, Section } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { FormActions, FormField, useSaveState } from "./components/FormField";
 import { SwitchField } from "../../shared/SwitchField";
 import {
   changedKeys,
-  provenanceHint,
   splitList,
   type RuntimeActions,
   type RuntimeSnapshot,
+  useSettingsLabels,
 } from "./model";
 
 export interface AssistantFormProps {
@@ -25,6 +26,8 @@ export interface AssistantFormProps {
  * Staged and approved like every runtime change.
  */
 export function AssistantForm({ snapshot, onStage }: AssistantFormProps) {
+  const t = useTranslations("settings.assistantForm");
+  const { provenanceHint } = useSettingsLabels();
   const s = snapshot.settings;
   const initial = {
     assistant_provider: s.assistant_provider,
@@ -46,8 +49,8 @@ export function AssistantForm({ snapshot, onStage }: AssistantFormProps) {
   const changes = changedKeys(initial, values);
   return (
     <Section
-      title="Model and scope"
-      description="Leave the provider and model empty to use the shared in-cluster model."
+      title={t("modelAndScope")}
+      description={t("leaveTheProviderAndModel")}
     >
       <form
         className="grid max-w-3xl gap-4"
@@ -66,11 +69,8 @@ export function AssistantForm({ snapshot, onStage }: AssistantFormProps) {
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
-            label="Provider"
-            hint={
-              hint("assistant_provider") ??
-              "A provider set up under Models & usage > Providers."
-            }
+            label={t("provider")}
+            hint={hint("assistant_provider") ?? t("aProviderSetUpUnder")}
           >
             {(control) => (
               <Input
@@ -81,11 +81,11 @@ export function AssistantForm({ snapshot, onStage }: AssistantFormProps) {
               />
             )}
           </FormField>
-          <FormField label="Model" hint={hint("assistant_model")}>
+          <FormField label={t("model")} hint={hint("assistant_model")}>
             {(control) => (
               <Input
                 {...control}
-                placeholder="The provider's default"
+                placeholder={t("theProviderSDefault")}
                 value={values.assistant_model}
                 onChange={(e) => update("assistant_model", e.target.value)}
               />
@@ -93,16 +93,16 @@ export function AssistantForm({ snapshot, onStage }: AssistantFormProps) {
           </FormField>
         </div>
         <FormField
-          label="Allowed topics"
+          label={t("allowedTopics")}
           hint={
             hint("assistant_allowed_topics") ??
-            "Comma separated. The assistant declines anything else."
+            t("commaSeparatedTheAssistantDeclines")
           }
         >
           {(control) => (
             <Input
               {...control}
-              placeholder="governance, policies, incidents"
+              placeholder={t("governancePoliciesIncidents")}
               value={values.assistant_allowed_topics}
               onChange={(e) =>
                 update("assistant_allowed_topics", e.target.value)
@@ -111,17 +111,17 @@ export function AssistantForm({ snapshot, onStage }: AssistantFormProps) {
           )}
         </FormField>
         <SwitchField
-          label="Policy drafting"
-          description="The assistant may draft policy changes and stage them for approval. Needs an active provider key."
+          label={t("policyDrafting")}
+          description={t("theAssistantMayDraftPolicy")}
           checked={values.policy_copilot_enabled}
           onCheckedChange={(checked) =>
             update("policy_copilot_enabled", checked)
           }
         />
         <FormActions
-          submitLabel="Stage changes"
+          submitLabel={t("stageChanges")}
           pendingLabel="Staging"
-          savedLabel="Staged for approval"
+          savedLabel={t("stagedForApproval")}
           disabled={Object.keys(changes).length === 0}
           {...save}
         >

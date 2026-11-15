@@ -19,6 +19,7 @@ import type {
   LegalHoldOptionsData,
   LegalHoldsQueryData,
 } from "@/graphql/legal-holds/types";
+import { GET_RETENTION_DATA } from "@/graphql/retention/queries";
 import { GET_MY_ORGANIZATION } from "@/graphql/settings/queries";
 import type { MyOrganizationData } from "@/graphql/settings/types";
 
@@ -552,4 +553,24 @@ export const longAstroliftInstalls: AstroliftInstall[] = [
 export const enrollmentCode: EnrollmentCode = {
   code: "ZNT-ENR-7F3C-2A91-B04E",
   expires_at: "2026-10-16T15:00:00Z",
+};
+
+/** `RetentionData`, as `app/(app)/settings/retention` sends it (graphql/retention/queries.ts). */
+export const retentionMocks = {
+  full: [
+    mockQuery(GET_RETENTION_DATA, {
+      retentionPolicies,
+      legalHolds: legalHolds.legalHolds.map((h) => ({
+        id: h.id,
+        name: h.name,
+        status: h.status,
+        holdType: h.holdType,
+        holdTypeDisplay: h.holdTypeDisplay,
+        statusDisplay: h.statusDisplay,
+        effectiveDate: h.effectiveDate,
+        expirationDate: h.expirationDate,
+        isActive: h.isActive,
+      })),
+    }),
+  ],
 };

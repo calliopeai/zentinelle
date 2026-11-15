@@ -1,4 +1,5 @@
 import { Section } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import { CopyField } from "../../shared/CopyField";
 
@@ -13,15 +14,16 @@ export interface BootstrapTokensProps {
  * command ready to copy.
  */
 export function BootstrapTokens({ tenantId }: BootstrapTokensProps) {
+  const t = useTranslations("settings.bootstrapTokens");
   return (
     <Section
-      title="Bootstrap tokens"
-      description="An agent registers with a bootstrap token, then authenticates with its own API key. Tokens are issued from the Zentinelle AI backend host, never from the browser."
+      title={t("bootstrapTokens")}
+      description={t("anAgentRegistersWithA")}
     >
       <div className="grid max-w-2xl gap-3 text-sm">
-        <p>Generate a token for this organization:</p>
+        <p>{t("generateIntro")}</p>
         <CopyField
-          label="Copy the generate command"
+          label={t("copyTheGenerateCommand")}
           value={`python manage.py bootstrap_token generate ${tenantId} --label "production agent"`}
         />
         <p className="text-muted-foreground">

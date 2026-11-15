@@ -1,4 +1,5 @@
 import { PageFrame } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import { AssistantForm } from "./AssistantForm";
 import { Loaded } from "./Loaded";
@@ -19,13 +20,14 @@ export interface AssistantScreenProps {
 
 /** Settings > Assistant (`/settings/assistant`, new): the assistant's model and scope, staged like every runtime change. */
 export function AssistantScreen({ runtime, actions }: AssistantScreenProps) {
+  const t = useTranslations("settings.assistantScreen");
   return (
     <PageFrame
       crumbs={settingsCrumbs("assistant")}
-      title="Assistant"
-      description="The assistant docks on the right of every page. It reads what the person asking may read, and every change it drafts waits for approval."
+      title={t("assistant")}
+      description={t("theAssistantDocksOnThe")}
     >
-      <Loaded label="assistant settings" value={runtime}>
+      <Loaded label={t("assistantSettings")} value={runtime}>
         {(snapshot) => (
           <>
             <AssistantForm

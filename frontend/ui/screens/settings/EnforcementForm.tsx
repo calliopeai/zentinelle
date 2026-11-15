@@ -2,6 +2,7 @@
 
 import { Section } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import {
   FormActions,
@@ -11,10 +12,10 @@ import {
 } from "./components/FormField";
 import { SwitchField } from "../../shared/SwitchField";
 import {
-  ENFORCEMENT_MODES,
   type Organization,
   type OrganizationUpdate,
   type Save,
+  useSettingsLabels,
 } from "./model";
 
 export interface EnforcementFormProps {
@@ -27,6 +28,8 @@ export function EnforcementForm({
   organization,
   onSave,
 }: EnforcementFormProps) {
+  const t = useTranslations("settings.enforcementForm");
+  const { ENFORCEMENT_MODES } = useSettingsLabels();
   const settings = organization.settings ?? {};
   const initial = {
     defaultPolicyMode: settings.default_policy_mode ?? "monitor",
@@ -39,8 +42,8 @@ export function EnforcementForm({
     values.auditLogging !== initial.auditLogging;
   return (
     <Section
-      title="Enforcement"
-      description="Defaults for policies that do not set their own."
+      title={t("enforcement")}
+      description={t("defaultsForPoliciesThatDo")}
     >
       <form
         className="grid max-w-2xl gap-4"
@@ -50,8 +53,8 @@ export function EnforcementForm({
         }}
       >
         <FormField
-          label="Default enforcement mode"
-          hint="New policies start in this mode. Monitor records what a policy would have done without acting."
+          label={t("defaultEnforcementMode")}
+          hint={t("newPoliciesStartInThis")}
           className="sm:max-w-sm"
         >
           {(control) => (
@@ -67,8 +70,8 @@ export function EnforcementForm({
           )}
         </FormField>
         <SwitchField
-          label="Audit logging"
-          description="Record every policy decision in the audit log, for compliance review."
+          label={t("auditLogging")}
+          description={t("recordEveryPolicyDecisionIn")}
           checked={values.auditLogging}
           onCheckedChange={(auditLogging) => {
             save.reset();
@@ -76,7 +79,7 @@ export function EnforcementForm({
           }}
         />
         <FormActions
-          submitLabel="Save enforcement"
+          submitLabel={t("saveEnforcement")}
           disabled={!dirty}
           {...save}
         />

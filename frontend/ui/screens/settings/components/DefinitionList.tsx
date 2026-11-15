@@ -5,6 +5,7 @@
  */
 import { cn } from "@calliopelabs/ui";
 import type * as React from "react";
+import { useTranslations } from "next-intl";
 
 export interface Definition {
   term: string;
@@ -19,6 +20,7 @@ export interface DefinitionListProps {
 }
 
 export function DefinitionList({ items, className }: DefinitionListProps) {
+  const t = useTranslations("settings.definitionList");
   return (
     <dl
       className={cn(
@@ -35,7 +37,7 @@ export function DefinitionList({ items, className }: DefinitionListProps) {
               item.mono && "font-mono text-xs leading-5",
             )}
           >
-            {item.value ?? "None"}
+            {item.value ?? t("none")}
           </dd>
         </div>
       ))}

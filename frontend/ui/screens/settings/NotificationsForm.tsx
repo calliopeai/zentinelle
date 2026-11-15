@@ -2,6 +2,7 @@
 
 import { Input, Section } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { FormActions, FormField, useSaveState } from "./components/FormField";
 import { SwitchField } from "../../shared/SwitchField";
@@ -12,11 +13,13 @@ export interface NotificationsFormProps {
   onSave: Save<OrganizationUpdate>;
 }
 
-function webhookError(url: string, slack: boolean): string | null {
-  if (!url) return slack ? "Slack notifications need a webhook URL." : null;
-  return /^https:\/\/\S+$/.test(url)
-    ? null
-    : "Enter a URL that starts with https://.";
+function webhookError(
+  url: string,
+  slack: boolean,
+  t: (key: string) => string,
+): string | null {
+  if (!url) return slack ? t("slackNotificationsNeedAWebhook") : null;
+  return /^https:\/\/\S+$/.test(url) ? null : t("enterAUrlThatStarts");
 }
 
 /** General > Notifications: where alerts and incidents go. */
@@ -24,6 +27,7 @@ export function NotificationsForm({
   organization,
   onSave,
 }: NotificationsFormProps) {
+  const t = useTranslations("settings.notificationsForm");
   const settings = organization.settings ?? {};
   const initial = {
     emailNotifications: settings.email_notifications ?? false,
@@ -39,12 +43,13 @@ export function NotificationsForm({
   const error = webhookError(
     values.webhookUrl.trim(),
     values.slackNotifications,
+    t,
   );
   const contact = settings.contact_email;
   return (
     <Section
-      title="Notifications"
-      description="Where Zentinelle AI sends alerts and incidents."
+      title={t("notifications")}
+      description={t("whereZentinelleAiSendsAlerts")}
     >
       <form
         className="grid max-w-2xl gap-2"
@@ -57,11 +62,9 @@ export function NotificationsForm({
         }}
       >
         <SwitchField
-          label="Email"
+          label={t("email")}
           description={
-            contact
-              ? `Send alerts and incidents to ${contact}.`
-              : "Send alerts and incidents to the contact email, once one is set under Organization."
+            contact ? t("sendTo", { contact }) : t("sendAlertsAndIncidentsTo")
           }
           checked={values.emailNotifications}
           onCheckedChange={(emailNotifications) => {
@@ -70,8 +73,8 @@ export function NotificationsForm({
           }}
         />
         <SwitchField
-          label="Slack"
-          description="Post alerts and incidents to a Slack channel through an incoming webhook."
+          label={t("slack")}
+          description={t("postAlertsAndIncidentsTo")}
           checked={values.slackNotifications}
           onCheckedChange={(slackNotifications) => {
             save.reset();
@@ -79,7 +82,7 @@ export function NotificationsForm({
           }}
         />
         <FormField
-          label="Webhook URL"
+          label={t("webhookUrl")}
           error={dirty ? error : null}
           className="pt-2"
         >
@@ -98,7 +101,7 @@ export function NotificationsForm({
           )}
         </FormField>
         <FormActions
-          submitLabel="Save notifications"
+          submitLabel={t("saveNotifications")}
           disabled={!dirty || Boolean(error)}
           {...save}
         />

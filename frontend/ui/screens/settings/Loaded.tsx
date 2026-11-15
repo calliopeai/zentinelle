@@ -1,5 +1,6 @@
 import { ErrorState, LoadingState } from "@calliopelabs/ui";
 import type * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type { Loadable } from "./model";
 
@@ -12,10 +13,11 @@ export interface LoadedProps<T> {
 
 /** One query's states for a settings tab: skeleton, inline error with retry, then the content. */
 export function Loaded<T>({ label, value, children }: LoadedProps<T>) {
+  const t = useTranslations("settings.loaded");
   if (value.error)
     return (
       <ErrorState
-        title={`Could not load ${label}`}
+        title={t("couldNotLoad", { label })}
         error={value.error}
         onRetry={value.retry}
       />

@@ -1,4 +1,5 @@
 import { PageFrame } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import { ForbiddenState } from "../../shared/ForbiddenState";
 
@@ -11,11 +12,12 @@ export interface SettingsForbiddenScreenProps {
 export function SettingsForbiddenScreen({
   title,
 }: SettingsForbiddenScreenProps) {
+  const t = useTranslations("settings.settingsForbiddenScreen");
   return (
     <PageFrame title={title}>
       <ForbiddenState
-        title="Settings need the admin role"
-        description="Organization settings, API keys, integrations, data retention and the assistant are open to admins only. Ask an admin in your organization for access."
+        title={t("settingsNeedTheAdminRole")}
+        description={t("organizationSettingsApiKeysIntegrations")}
       />
     </PageFrame>
   );

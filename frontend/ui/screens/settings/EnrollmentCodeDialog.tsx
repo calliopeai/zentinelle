@@ -9,10 +9,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import { CopyField } from "../../shared/CopyField";
 import { DefinitionList } from "./components/DefinitionList";
-import { formatDate, type EnrollmentCode } from "./model";
+import { type EnrollmentCode, useSettingsLabels } from "./model";
 
 export interface EnrollmentCodeDialogProps {
   /** The code just generated; the dialog is open while there is one. */
@@ -28,11 +29,13 @@ export function EnrollmentCodeDialog({
   zentinelleUrl,
   onClose,
 }: EnrollmentCodeDialogProps) {
+  const t = useTranslations("settings.enrollmentCodeDialog");
+  const { formatDate } = useSettingsLabels();
   return (
     <Dialog open={code !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Enrollment code</DialogTitle>
+          <DialogTitle>{t("enrollmentCode")}</DialogTitle>
           <DialogDescription>
             Paste this code into Astrolift AI with this Zentinelle AI&apos;s
             URL. The code works once.
@@ -40,16 +43,18 @@ export function EnrollmentCodeDialog({
         </DialogHeader>
         {code && (
           <div className="grid gap-3">
-            <CopyField label="Copy enrollment code" value={code.code} />
-            <CopyField label="Copy Zentinelle AI URL" value={zentinelleUrl} />
+            <CopyField label={t("copyEnrollmentCode")} value={code.code} />
+            <CopyField label={t("copyZentinelleAiUrl")} value={zentinelleUrl} />
             <DefinitionList
-              items={[{ term: "Expires", value: formatDate(code.expires_at) }]}
+              items={[
+                { term: t("expires"), value: formatDate(code.expires_at) },
+              ]}
             />
           </div>
         )}
         <DialogFooter>
           <Button type="button" onClick={onClose}>
-            Done
+            {t("done")}
           </Button>
         </DialogFooter>
       </DialogContent>

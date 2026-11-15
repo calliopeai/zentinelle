@@ -1,4 +1,5 @@
 import { PageFrame, type TabNavItem } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import { BootstrapTokens } from "./BootstrapTokens";
 import { EnforcementForm } from "./EnforcementForm";
@@ -18,12 +19,13 @@ import { RevisionHistory } from "./RevisionHistory";
 import { RuntimeForm } from "./RuntimeForm";
 import { StagedChanges } from "./StagedChanges";
 
+/** General's tabs, named under `settings.generalScreen.tabs`. */
 export const GENERAL_TABS = [
-  { key: "organization", label: "Organization" },
-  { key: "enforcement", label: "Enforcement" },
-  { key: "notifications", label: "Notifications" },
-  { key: "runtime", label: "Runtime" },
-  { key: "bootstrap", label: "Bootstrap tokens" },
+  { key: "organization" },
+  { key: "enforcement" },
+  { key: "notifications" },
+  { key: "runtime" },
+  { key: "bootstrap" },
 ] as const;
 
 export type GeneralTab = (typeof GENERAL_TABS)[number]["key"];
@@ -38,12 +40,12 @@ export interface GeneralScreenProps {
   runtimeActions: RuntimeActions;
 }
 
-function tabs(active: GeneralTab): TabNavItem[] {
-  return GENERAL_TABS.map((t) => ({
-    key: t.key,
-    label: t.label,
-    href: t.key === "organization" ? "/settings" : `/settings?tab=${t.key}`,
-    active: t.key === active,
+function tabs(active: GeneralTab, t: (key: string) => string): TabNavItem[] {
+  return GENERAL_TABS.map((tab) => ({
+    key: tab.key,
+    label: t(`tabs.${tab.key}`),
+    href: tab.key === "organization" ? "/settings" : `/settings?tab=${tab.key}`,
+    active: tab.key === active,
   }));
 }
 
@@ -59,15 +61,16 @@ export function GeneralScreen({
   runtime,
   runtimeActions,
 }: GeneralScreenProps) {
+  const t = useTranslations("settings.generalScreen");
   return (
     <PageFrame
       crumbs={settingsCrumbs("general")}
-      title="General"
-      tabs={tabs(tab)}
-      tabsLabel="General settings"
+      title={t("general")}
+      tabs={tabs(tab, t)}
+      tabsLabel={t("generalSettings")}
     >
       {tab === "runtime" ? (
-        <Loaded label="runtime settings" value={runtime}>
+        <Loaded label={t("runtimeSettings")} value={runtime}>
           {(snapshot) => (
             <>
               <RuntimeForm
@@ -90,7 +93,7 @@ export function GeneralScreen({
           )}
         </Loaded>
       ) : (
-        <Loaded label="organization settings" value={organization}>
+        <Loaded label={t("organizationSettings")} value={organization}>
           {(org) =>
             tab === "organization" ? (
               <OrganizationForm
