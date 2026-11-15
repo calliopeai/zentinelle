@@ -93,7 +93,7 @@ export function relatedUrlFor(
     case "incident_opened":
       return "/incidents";
     case "budget_warning":
-      return "/budgets/showback";
+      return "/usage/budgets";
     case "policy_violation":
       return "/events";
     case "high_risk":

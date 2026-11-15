@@ -325,7 +325,7 @@ export default function SystemPromptsPage() {
           </p>
         </div>
         <Button size="sm" asChild>
-          <Link href="/system-prompts/create">
+          <Link href="/system-prompts/new">
             <PlusIcon className="mr-1.5 h-4 w-4" />
             Create Prompt
           </Link>

@@ -212,7 +212,7 @@ The retry that releases an approved call:
 
 Operators decide in a portal session. Workload keys cannot call these endpoints (`401`), so no agent can approve its own work.
 
-Open **Governance → Approvals** (`/approvals`) in the portal. The inbox shows the
+Open **Agents → Approvals** (`/agents/approvals`) in the portal. The inbox shows the
 newest pending requests, their agent, user, harness, session, policy reason and
 remaining time. It refreshes every 15 seconds. Viewers can inspect requests;
 operators and administrators can approve or deny, optionally recording a reason

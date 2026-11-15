@@ -2,6 +2,7 @@ import { EmptyState, PageFrame } from "@calliopelabs/ui";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 
+import { UNBUILT_ROUTES, interimTabs } from "../product";
 import { ShellStory } from "../storybook/ShellStory";
 import { ZentinelleShell } from "./ZentinelleShell";
 
@@ -133,6 +134,40 @@ export const Translated: Story = {
       </PageFrame>
     </ShellStory>
   ),
+};
+
+/**
+ * As the console mounts it today: rows without a screen left out, and the
+ * pages a function will fold into tabs shown as an interim tab row.
+ */
+export const Console: Story = {
+  render: () => (
+    <ShellStory
+      path="/policies/hierarchy"
+      defaultAssistantHidden
+      hiddenRoutes={UNBUILT_ROUTES}
+      tabs={interimTabs("/policies/hierarchy", ["view", "mutate", "admin"])}
+    >
+      <PageFrame title="Policy hierarchy">
+        <EmptyState title="The old page renders here" />
+      </PageFrame>
+    </ShellStory>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.queryByRole("link", { name: "Reports" }),
+    ).not.toBeInTheDocument();
+    const tabs = within(canvas.getByRole("navigation", { name: "Pages" }));
+    await expect(tabs.getByRole("link", { name: "Hierarchy" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(tabs.getByRole("link", { name: "Policies" })).toHaveAttribute(
+      "href",
+      "/policies",
+    );
+  },
 };
 
 export const Mobile: Story = {

@@ -1,5 +1,5 @@
 {
-  "app/(app)/budgets/showback/page.tsx": {
+  "app/(app)/usage/budgets/page.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
     }
@@ -30,7 +30,7 @@
       "count": 1
     }
   },
-  "app/(app)/governance/evidence/page.tsx": {
+  "app/(app)/evidence/page.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
     }
@@ -40,7 +40,7 @@
       "count": 3
     }
   },
-  "app/(app)/models/route-canary/page.tsx": {
+  "app/(app)/models/routes/page.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
     }
@@ -75,12 +75,12 @@
       "count": 1
     }
   },
-  "app/(app)/settings/llm-providers/manage-models-dialog.tsx": {
+  "app/(app)/models/providers/manage-models-dialog.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
     }
   },
-  "app/(app)/settings/llm-providers/page.tsx": {
+  "app/(app)/models/providers/page.tsx": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
     },

@@ -1,0 +1,32 @@
+/**
+ * Pages that moved to their ui-overhaul-ia §4.4 address. Each old path
+ * redirects to the new one (next.config.ts), keeping its query string, so
+ * bookmarks, notification links and docs keep working.
+ *
+ * Only pages that moved as they are belong here. Routes the IA folds into a
+ * tab, view or action of another page (`/notifications`, `/policies/simulator`,
+ * `/risks/fmea`, ...) keep their address until that screen exists.
+ *
+ * Temporary (307) while the areas are in review; permanent once they ship.
+ */
+export interface FormerRoute {
+  from: string;
+  to: string;
+}
+
+export const FORMER_ROUTES: readonly FormerRoute[] = [
+  { from: "/approvals", to: "/agents/approvals" },
+  { from: "/monitoring", to: "/usage" },
+  { from: "/observability/anomalies", to: "/usage/anomalies" },
+  { from: "/budgets/showback", to: "/usage/budgets" },
+  { from: "/governance/evidence", to: "/evidence" },
+  { from: "/threats/atlas", to: "/evidence/atlas" },
+  { from: "/models/route-canary", to: "/models/routes" },
+  { from: "/settings/llm-providers", to: "/models/providers" },
+  { from: "/retention", to: "/settings/retention" },
+  { from: "/retention/legal-holds", to: "/settings/retention/legal-holds" },
+  { from: "/content-rules/scanner", to: "/content-rules/detections" },
+  { from: "/system-prompts/create", to: "/system-prompts/new" },
+  // Linked once, never a page.
+  { from: "/audit", to: "/audit-logs" },
+];

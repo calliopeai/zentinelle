@@ -6,11 +6,13 @@
  * `requires` is open to every signed-in role.
  */
 import {
+  activeFor,
   defineProduct,
   visibleNav,
   zentinelleBrand,
   type NavArea,
   type NavModel,
+  type TabNavItem,
 } from "@calliopelabs/ui";
 import {
   ActivityIcon,
@@ -60,7 +62,7 @@ export const ZENTINELLE_NAV: NavModel = [
             label: "Overview",
             href: "/dashboard",
             icon: LayoutDashboardIcon,
-            also: ["/governance"],
+            also: ["/governance", "/assistant"],
           },
         ],
       },
@@ -102,6 +104,7 @@ export const ZENTINELLE_NAV: NavModel = [
             label: "Policies",
             href: "/policies",
             icon: ShieldCheckIcon,
+            also: ["/network"],
           },
           {
             key: "content-rules",
@@ -126,7 +129,13 @@ export const ZENTINELLE_NAV: NavModel = [
     groups: [
       {
         functions: [
-          { key: "alerts", label: "Alerts", href: "/alerts", icon: BellIcon },
+          {
+            key: "alerts",
+            label: "Alerts",
+            href: "/alerts",
+            icon: BellIcon,
+            also: ["/notifications"],
+          },
           {
             key: "incidents",
             label: "Incidents",
@@ -204,6 +213,7 @@ export const ZENTINELLE_NAV: NavModel = [
             label: "Models",
             href: "/models",
             icon: BrainCircuitIcon,
+            also: ["/tools"],
           },
           {
             key: "providers",
@@ -272,4 +282,133 @@ export const zentinelle = defineProduct({
 /** The navigation a signed-in person may open, from their capabilities. */
 export function navFor(capabilities: readonly string[]): NavArea[] {
   return visibleNav(ZENTINELLE_NAV, (c) => capabilities.includes(c));
+}
+
+/**
+ * Rows of the approved model whose screens are not built yet. The console
+ * leaves them out of the sidebar until their route exists.
+ */
+export const UNBUILT_ROUTES: readonly string[] = [
+  "/reports",
+  "/settings/assistant",
+];
+
+interface InterimPage {
+  key: string;
+  label: string;
+  href: string;
+  requires?: string;
+}
+
+/**
+ * Pages that still stand on their own but that §4.1 folds into a tab, view or
+ * action of a function. Until each area's screens land, the console shows
+ * them as a tab row under that function, so nothing becomes unreachable.
+ * An area deletes its entries as its screens bring their own tabs.
+ */
+export const INTERIM_PAGES: Readonly<Record<string, readonly InterimPage[]>> = {
+  overview: [{ key: "assistant", label: "Assistant", href: "/assistant" }],
+  policies: [
+    { key: "hierarchy", label: "Hierarchy", href: "/policies/hierarchy" },
+    { key: "effective", label: "Effective", href: "/policies/effective" },
+    { key: "simulator", label: "Simulator", href: "/policies/simulator" },
+    { key: "analyzer", label: "Analyzer", href: "/policies/analyzer" },
+    { key: "import", label: "Import", href: "/policies/import" },
+    { key: "copilot", label: "Copilot", href: "/policies/copilot" },
+    { key: "network", label: "Network", href: "/network" },
+  ],
+  "content-rules": [
+    {
+      key: "detections",
+      label: "Detections",
+      href: "/content-rules/detections",
+    },
+  ],
+  prompts: [
+    { key: "builder", label: "Builder", href: "/system-prompts/builder" },
+    {
+      key: "generator",
+      label: "Generator",
+      href: "/system-prompts/generator",
+    },
+  ],
+  alerts: [
+    { key: "notifications", label: "Notifications", href: "/notifications" },
+  ],
+  risks: [
+    { key: "overview", label: "Overview", href: "/risks/overview" },
+    { key: "fmea", label: "FMEA", href: "/risks/fmea" },
+    { key: "reports", label: "Reports", href: "/risks/reports" },
+  ],
+  compliance: [
+    {
+      key: "frameworks",
+      label: "Frameworks",
+      href: "/compliance/frameworks",
+    },
+    { key: "gaps", label: "Gaps", href: "/compliance/gaps" },
+    { key: "reports", label: "Reports", href: "/compliance/reports" },
+  ],
+  evidence: [{ key: "atlas", label: "MITRE ATLAS", href: "/evidence/atlas" }],
+  usage: [
+    { key: "budgets", label: "Budgets", href: "/usage/budgets" },
+    { key: "anomalies", label: "Anomalies", href: "/usage/anomalies" },
+  ],
+  models: [
+    { key: "compare", label: "Compare", href: "/models/compare" },
+    {
+      key: "routes",
+      label: "Route check",
+      href: "/models/routes",
+      requires: "admin",
+    },
+    {
+      key: "estimate",
+      label: "Estimate cost",
+      href: "/tools/token-calculator",
+    },
+  ],
+  retention: [
+    {
+      key: "legal-holds",
+      label: "Legal holds",
+      href: "/settings/retention/legal-holds",
+    },
+  ],
+};
+
+const under = (pathname: string, href: string) =>
+  pathname === href || pathname.startsWith(`${href}/`);
+
+/**
+ * The interim tab row for `pathname`: its function, then that function's
+ * interim pages the person may open, with the longest matching href current.
+ * Empty when the function has none.
+ */
+export function interimTabs(
+  pathname: string,
+  capabilities: readonly string[],
+): TabNavItem[] {
+  const nav = navFor(capabilities);
+  const active = activeFor(nav, pathname);
+  if (!active) return [];
+  const pages = (INTERIM_PAGES[active.fn] ?? []).filter(
+    (p) => !p.requires || capabilities.includes(p.requires),
+  );
+  if (pages.length === 0) return [];
+  const fn = nav
+    .find((a) => a.key === active.area)
+    ?.groups.flatMap((g) => g.functions)
+    .find((f) => f.key === active.fn);
+  if (!fn) return [];
+  const rows = [{ key: fn.key, label: fn.label, href: fn.href }, ...pages];
+  const current = rows
+    .filter((r) => under(pathname, r.href))
+    .sort((a, b) => b.href.length - a.href.length)[0];
+  return rows.map((r) => ({
+    key: r.key,
+    label: r.label,
+    href: r.href,
+    active: r === current,
+  }));
 }
