@@ -1,10 +1,16 @@
 import { DataTable, type Column } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import { useListController } from "../../patterns/list-controller";
 import { EvidenceFrame } from "./components/EvidenceFrame";
 import { EvidenceStatusBadge } from "./components/EvidenceStatusBadge";
 import { formatDate, formatDateTime, type QueryState } from "./model";
 import type { AtlasResponse, AtlasTechnique } from "./rest-types";
+
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
 
 export interface AtlasScreenProps extends QueryState {
   capabilities: readonly string[];
@@ -13,15 +19,15 @@ export interface AtlasScreenProps extends QueryState {
   onRefresh?: () => void;
 }
 
-const COLUMNS: Column<AtlasTechnique>[] = [
+const COLUMNS = (t: Translate): Column<AtlasTechnique>[] => [
   {
     id: "technique",
-    header: "Technique",
-    cell: (t) => (
+    header: t("technique"),
+    cell: (tech) => (
       <span className="flex min-w-0 flex-col">
-        <span className="truncate font-medium">{t.name}</span>
+        <span className="truncate font-medium">{tech.name}</span>
         <span className="font-mono text-xs text-muted-foreground">
-          {t.id ?? "Mapping pending"}
+          {tech.id ?? t("mappingPending")}
         </span>
       </span>
     ),
@@ -29,12 +35,12 @@ const COLUMNS: Column<AtlasTechnique>[] = [
   },
   {
     id: "control",
-    header: "Control and boundary",
-    cell: (t) => (
+    header: t("controlAndBoundary"),
+    cell: (tech) => (
       <span className="flex min-w-0 flex-col">
-        <span className="font-mono text-xs">{t.control ?? "None"}</span>
+        <span className="font-mono text-xs">{tech.control ?? t("none")}</span>
         <span className="truncate text-xs text-muted-foreground">
-          {t.enforcement_point}
+          {tech.enforcement_point}
         </span>
       </span>
     ),
@@ -42,26 +48,26 @@ const COLUMNS: Column<AtlasTechnique>[] = [
   },
   {
     id: "owner",
-    header: "Owner",
+    header: t("owner"),
     width: "w-28",
-    cell: (t) => t.owner ?? "Unassigned",
+    cell: (tech) => tech.owner ?? t("unassigned"),
   },
   {
     id: "residual",
-    header: "Residual risk",
-    cell: (t) => t.residual_risk,
+    header: t("residualRisk"),
+    cell: (tech) => tech.residual_risk,
     cellClassName: "max-w-sm whitespace-normal text-sm text-muted-foreground",
   },
   {
     id: "evidence",
-    header: "Evidence",
+    header: t("evidence"),
     width: "w-48",
-    cell: (t) => (
+    cell: (tech) => (
       <span className="flex flex-col items-start gap-1">
-        <EvidenceStatusBadge status={t.evidence_status} />
-        {t.evidence_captured_at && (
+        <EvidenceStatusBadge status={tech.evidence_status} />
+        {tech.evidence_captured_at && (
           <span className="text-xs text-muted-foreground">
-            {formatDateTime(t.evidence_captured_at)}
+            {formatDateTime(tech.evidence_captured_at)}
           </span>
         )}
       </span>
@@ -82,6 +88,7 @@ export function AtlasScreen({
   error,
   onRetry,
 }: AtlasScreenProps) {
+  const t = useTranslations("risk.atlasScreen");
   const controller = useListController(atlas?.techniques ?? [], {
     loading,
     error,
@@ -98,13 +105,13 @@ export function AtlasScreen({
       onRetry={onRetry}
     >
       <DataTable
-        label="ATLAS techniques"
+        label={t("atlasTechniques")}
         controller={controller}
-        columns={COLUMNS}
-        getRowId={(t) => `${t.id ?? "pending"}-${t.name}`}
+        columns={COLUMNS(t)}
+        getRowId={(tech) => `${tech.id ?? "pending"}-${tech.name}`}
         empty={{
-          title: "No techniques mapped",
-          description: "The ATLAS mapping file in this installation is empty.",
+          title: t("noTechniquesMapped"),
+          description: t("theAtlasMappingFileIn"),
         }}
       />
       {atlas && (

@@ -4,7 +4,7 @@
  * bookmarks, notification links and docs keep working.
  *
  * Only pages that moved as they are belong here. Routes the IA folds into a
- * tab, view or action of another page (`/risks/fmea`, ...) keep their address until that screen exists.
+ * tab, view or action of another page (`/usage/budgets`, ...) keep their address until that screen exists.
  *
  * Temporary (307) while the areas are in review; permanent once they ship.
  */
@@ -31,6 +31,10 @@ export const FORMER_ROUTES: readonly FormerRoute[] = [
   { from: "/policies/simulator", to: "/policies?panel=simulate" },
   { from: "/policies/import", to: "/policies/create?source=document" },
   { from: "/network", to: "/policies?type=network_policy" },
+  { from: "/risks/fmea", to: "/risks?view=rpn" },
+  { from: "/risks/reports", to: "/reports?type=risk" },
+  { from: "/compliance/frameworks", to: "/compliance" },
+  { from: "/compliance/reports", to: "/reports?type=compliance" },
   // Astrolift's SECURE portal links here; the Overview is the landing now.
   { from: "/governance", to: "/dashboard" },
   // The demo landing; `?autostart=1` (and `?embed=1`) still start the tour.

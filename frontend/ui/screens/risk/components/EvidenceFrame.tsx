@@ -1,19 +1,21 @@
 import { Button, ErrorState, PageFrame } from "@calliopelabs/ui";
 import { RefreshCwIcon } from "lucide-react";
 import type * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { AccessState } from "../../../patterns/AccessState";
 import {
-  EVIDENCE_TABS,
   areaCrumb,
   isAdmin,
   tabsOf,
   type QueryState,
+  EVIDENCE_TABS_ROUTES,
+  useRiskLabels,
 } from "../model";
 
 export interface EvidenceFrameProps extends QueryState {
   capabilities: readonly string[];
-  tab: (typeof EVIDENCE_TABS)[number]["key"];
+  tab: (typeof EVIDENCE_TABS_ROUTES)[number]["key"];
   /** A control map's own caveat ("not certification"), shown before the body. */
   disclaimer?: string | null;
   onRefresh?: () => void;
@@ -35,23 +37,21 @@ export function EvidenceFrame({
   onRetry,
   children,
 }: EvidenceFrameProps) {
+  const t = useTranslations("risk.evidenceFrame");
+  const { EVIDENCE_TABS } = useRiskLabels();
   const admin = isAdmin(capabilities);
   return (
     <PageFrame
       crumbs={[areaCrumb("evidence", capabilities)]}
-      title="Evidence"
+      title={t("evidence")}
       tabs={admin ? tabsOf(EVIDENCE_TABS, tab) : undefined}
-      tabsLabel="Evidence"
-      description={
-        admin
-          ? "What was measured: control evidence and runtime observation, apart from configuration."
-          : undefined
-      }
+      tabsLabel={t("evidence")}
+      description={admin ? t("whatWasMeasuredControlEvidence") : undefined}
       primaryAction={
         admin && onRefresh ? (
           <Button variant="outline" onClick={onRefresh} disabled={loading}>
             <RefreshCwIcon aria-hidden />
-            Refresh
+            {t("refresh")}
           </Button>
         ) : undefined
       }
@@ -67,7 +67,7 @@ export function EvidenceFrame({
         <AccessState subject="Evidence" />
       ) : error ? (
         <ErrorState
-          title="Could not load evidence"
+          title={t("couldNotLoadEvidence")}
           error={error}
           onRetry={onRetry}
         />

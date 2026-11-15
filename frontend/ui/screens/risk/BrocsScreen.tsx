@@ -1,9 +1,15 @@
 import { List, ListItem } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import { EvidenceFrame } from "./components/EvidenceFrame";
 import { EvidenceStatusBadge } from "./components/EvidenceStatusBadge";
 import { formatDateTime, type QueryState } from "./model";
 import type { BrocsResponse } from "./rest-types";
+
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
 
 export interface BrocsScreenProps extends QueryState {
   capabilities: readonly string[];
@@ -12,13 +18,13 @@ export interface BrocsScreenProps extends QueryState {
   onRefresh?: () => void;
 }
 
-const DOMAIN_LABEL: Record<string, string> = {
-  build: "Build",
-  run: "Run",
-  observe: "Observe",
-  control: "Control",
-  secure: "Secure",
-};
+const DOMAIN_LABEL = (t: Translate): Record<string, string> => ({
+  build: t("build"),
+  run: t("run"),
+  observe: t("observe"),
+  control: t("control"),
+  secure: t("secure"),
+});
 
 /**
  * Evidence > BROCS: the five domains (Build, Run, Observe, Control, Secure),
@@ -33,6 +39,7 @@ export function BrocsScreen({
   error,
   onRetry,
 }: BrocsScreenProps) {
+  const t = useTranslations("risk.brocsScreen");
   return (
     <EvidenceFrame
       capabilities={capabilities}
@@ -44,23 +51,23 @@ export function BrocsScreen({
       onRetry={onRetry}
     >
       <List
-        label="BROCS domains"
+        label={t("brocsDomains")}
         items={brocs?.domains ?? []}
         loading={loading}
         loadingCount={5}
         getKey={(d) => d.id}
         empty={{
-          title: "No domains mapped",
-          description: "The BROCS mapping file in this installation is empty.",
+          title: t("noDomainsMapped"),
+          description: t("theBrocsMappingFileIn"),
         }}
         renderItem={(d) => (
           <ListItem
-            title={DOMAIN_LABEL[d.id] ?? d.id}
+            title={DOMAIN_LABEL(t)[d.id] ?? d.id}
             description={
               <span className="flex flex-col gap-0.5">
                 <span>{d.control}</span>
                 <span className="text-xs">
-                  Your part: {d.customer_responsibility}
+                  {t("yourPart", { part: d.customer_responsibility })}
                 </span>
               </span>
             }

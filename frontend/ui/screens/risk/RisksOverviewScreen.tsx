@@ -7,6 +7,7 @@ import {
   Section,
 } from "@calliopelabs/ui";
 import { ShieldAlertIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { RiskStatsData } from "@/graphql/risks/types";
 
@@ -15,14 +16,12 @@ import { Meter } from "../../patterns/Meter";
 import { StatGrid, StatTile } from "../../patterns/StatTile";
 import { RiskTrendChart } from "./components/RiskTrendChart";
 import {
-  RISKS_TABS,
-  RISK_CATEGORIES,
-  RISK_LEVELS,
   RISK_LEVEL_TONE,
   areaCrumb,
   labelOf,
   tabsOf,
   type QueryState,
+  useRiskLabels,
 } from "./model";
 import type { RiskTrendPoint } from "./rest-types";
 
@@ -49,12 +48,14 @@ export function RisksOverviewScreen({
   error,
   onRetry,
 }: RisksOverviewScreenProps) {
+  const t = useTranslations("risk.risksOverviewScreen");
+  const { RISKS_TABS, RISK_CATEGORIES, RISK_LEVELS } = useRiskLabels();
   const frame = (children: React.ReactNode) => (
     <PageFrame
       crumbs={[areaCrumb("risks", capabilities)]}
-      title="Risks"
+      title={t("risks")}
       tabs={tabsOf(RISKS_TABS, "overview")}
-      tabsLabel="Risks"
+      tabsLabel={t("risks")}
     >
       {children}
     </PageFrame>
@@ -62,7 +63,7 @@ export function RisksOverviewScreen({
   if (error)
     return frame(
       <ErrorState
-        title="Could not load the risk overview"
+        title={t("couldNotLoadTheRisk")}
         error={error}
         onRetry={onRetry}
       />,
@@ -76,10 +77,10 @@ export function RisksOverviewScreen({
             aria-hidden
           />
         }
-        title="Nothing to summarize yet"
-        description="The overview fills in once the register holds a risk."
+        title={t("nothingToSummarizeYet")}
+        description={t("theOverviewFillsInOnce")}
         actionHref="/risks"
-        actionLabel="Open the register"
+        actionLabel={t("openTheRegister")}
       />,
     );
   const total = stats?.totalRisks ?? 0;
@@ -88,30 +89,30 @@ export function RisksOverviewScreen({
     <>
       <StatGrid>
         <StatTile
-          label="Open risks"
+          label={t("openRisks")}
           href="/risks"
           loading={loading}
           value={stats?.openRisks ?? null}
           hint={`of ${total} in the register`}
         />
         <StatTile
-          label="Critical"
+          label={t("critical")}
           href="/risks?riskLevel=critical"
           loading={loading}
           value={stats?.criticalRisks ?? null}
           tone={stats?.criticalRisks ? "error" : "ok"}
-          hint="RPN 200 or more"
+          hint={t("rpn200OrMore")}
         />
         <StatTile
-          label="High"
+          label={t("high")}
           href="/risks?riskLevel=high"
           loading={loading}
           value={stats?.highRisks ?? null}
           tone={stats?.highRisks ? "warn" : "ok"}
-          hint="RPN 75 to 199"
+          hint={t("rpn75To199")}
         />
         <StatTile
-          label="Open incidents"
+          label={t("openIncidents")}
           href="/incidents"
           loading={loading}
           value={stats?.openIncidents ?? null}
@@ -119,14 +120,14 @@ export function RisksOverviewScreen({
           hint={
             sla
               ? `${stats?.slaBreachedCount ?? 0} of ${sla} past their SLA`
-              : "No incidents with an SLA"
+              : t("noIncidentsWithAnSla")
           }
         />
       </StatGrid>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="By level">
+        <Card title={t("byLevel")}>
           {loading ? (
-            <LoadingState rows={4} label="Loading levels" />
+            <LoadingState rows={4} label={t("loadingLevels")} />
           ) : (
             RISK_LEVELS.map((level) => {
               const count =
@@ -145,15 +146,15 @@ export function RisksOverviewScreen({
             })
           )}
         </Card>
-        <Card title="By category">
+        <Card title={t("byCategory")}>
           {loading ? (
-            <LoadingState rows={4} label="Loading categories" />
+            <LoadingState rows={4} label={t("loadingCategories")} />
           ) : (
             stats?.risksByCategory.map((row) => (
               <Meter
                 key={row.category ?? "none"}
                 label={
-                  labelOf(RISK_CATEGORIES, row.category) ?? "Uncategorized"
+                  labelOf(RISK_CATEGORIES, row.category) ?? t("uncategorized")
                 }
                 value={row.count}
                 max={total}
@@ -165,18 +166,18 @@ export function RisksOverviewScreen({
         </Card>
       </div>
       <Section
-        title="Risk index, last 30 days"
-        description="The open risks' RPN as a share of the worst possible, 0 to 100, per day."
+        title={t("riskIndexLast30Days")}
+        description={t("theOpenRisksRpnAs")}
       >
         <Card>
           {trendState.error ? (
             <ErrorState
-              title="Could not load the trend"
+              title={t("couldNotLoadTheTrend")}
               error={trendState.error}
               onRetry={trendState.onRetry}
             />
           ) : trendState.loading ? (
-            <LoadingState rows={3} label="Loading the trend" />
+            <LoadingState rows={3} label={t("loadingTheTrend")} />
           ) : trend.length === 0 ? (
             <p className="text-sm text-muted-foreground">No history yet.</p>
           ) : (

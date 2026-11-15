@@ -10,49 +10,39 @@ import {
   type TabNavItem,
 } from "@calliopelabs/ui";
 
+import { useTranslations } from "next-intl";
+
 import { navFor } from "../../product";
 
 /** The Fibonacci scales of the FMEA assessment, highest first. */
-export const LIKELIHOOD = [
-  { value: 8, label: "Almost certain" },
-  { value: 5, label: "Likely" },
-  { value: 3, label: "Possible" },
-  { value: 2, label: "Unlikely" },
-  { value: 1, label: "Rare" },
+export const LIKELIHOOD_VALUES = [8, 5, 3, 2, 1] as const;
+
+export const IMPACT_VALUES = [1, 2, 3, 5, 8] as const;
+
+export const RISK_CATEGORIES_VALUES = [
+  "security",
+  "privacy",
+  "compliance",
+  "operational",
+  "reputational",
+  "financial",
+  "ethical",
 ] as const;
 
-export const IMPACT = [
-  { value: 1, label: "Negligible" },
-  { value: 2, label: "Minor" },
-  { value: 3, label: "Moderate" },
-  { value: 5, label: "Major" },
-  { value: 8, label: "Severe" },
+export const RISK_STATUSES_VALUES = [
+  "identified",
+  "assessed",
+  "mitigating",
+  "accepted",
+  "transferred",
+  "closed",
 ] as const;
 
-export const RISK_CATEGORIES = [
-  { value: "security", label: "Security" },
-  { value: "privacy", label: "Privacy" },
-  { value: "compliance", label: "Compliance" },
-  { value: "operational", label: "Operational" },
-  { value: "reputational", label: "Reputational" },
-  { value: "financial", label: "Financial" },
-  { value: "ethical", label: "Ethical" },
-] as const;
-
-export const RISK_STATUSES = [
-  { value: "identified", label: "Identified" },
-  { value: "assessed", label: "Assessed" },
-  { value: "mitigating", label: "Mitigating" },
-  { value: "accepted", label: "Accepted" },
-  { value: "transferred", label: "Transferred" },
-  { value: "closed", label: "Closed" },
-] as const;
-
-export const RISK_LEVELS = [
-  { value: "critical", label: "Critical" },
-  { value: "high", label: "High" },
-  { value: "medium", label: "Medium" },
-  { value: "low", label: "Low" },
+export const RISK_LEVELS_VALUES = [
+  "critical",
+  "high",
+  "medium",
+  "low",
 ] as const;
 
 export const RISK_LEVEL_TONE: Record<string, StatusTone> = {
@@ -88,16 +78,6 @@ export const EVIDENCE_TONE: Record<string, StatusTone> = {
   unknown: "muted",
   unverified: "muted",
   unsupported: "muted",
-};
-
-export const EVIDENCE_LABEL: Record<string, string> = {
-  "verified-operating": "Verified operating",
-  "observation-only": "Observation only",
-  stale: "Stale",
-  failed: "Failed",
-  unknown: "Unknown",
-  unverified: "Unverified",
-  unsupported: "Unsupported",
 };
 
 /** Report and assessment states, as the compliance and report jobs name them. */
@@ -155,20 +135,20 @@ export function tabsOf(
   return tabs.map((tab) => ({ ...tab, active: tab.key === active }));
 }
 
-export const RISKS_TABS = [
-  { key: "register", label: "Register", href: "/risks" },
-  { key: "overview", label: "Overview", href: "/risks/overview" },
+export const RISKS_TABS_ROUTES = [
+  { key: "register", href: "/risks" },
+  { key: "overview", href: "/risks/overview" },
 ] as const;
 
-export const COMPLIANCE_TABS = [
-  { key: "frameworks", label: "Frameworks", href: "/compliance" },
-  { key: "gaps", label: "Gaps", href: "/compliance/gaps" },
+export const COMPLIANCE_TABS_ROUTES = [
+  { key: "frameworks", href: "/compliance" },
+  { key: "gaps", href: "/compliance/gaps" },
 ] as const;
 
-export const EVIDENCE_TABS = [
-  { key: "coverage", label: "Coverage", href: "/evidence" },
-  { key: "atlas", label: "MITRE ATLAS", href: "/evidence/atlas" },
-  { key: "brocs", label: "BROCS", href: "/evidence/brocs" },
+export const EVIDENCE_TABS_ROUTES = [
+  { key: "coverage", href: "/evidence" },
+  { key: "atlas", href: "/evidence/atlas" },
+  { key: "brocs", href: "/evidence/brocs" },
 ] as const;
 
 /** What a screen knows about the query behind it. */
@@ -191,4 +171,35 @@ export const frameworkHref = (id: string) =>
 export function coverageTone(covered: number, total: number) {
   if (total === 0 || covered >= total) return "ok" as const;
   return covered === 0 ? ("error" as const) : ("warn" as const);
+}
+
+/**
+ * The area's scales, value names and tab rows in the reader's language, from
+ * `risk.labels`. The scales keep their order and values; only labels change.
+ */
+export function useRiskLabels() {
+  const t = useTranslations("risk.labels") as unknown as (
+    key: string,
+  ) => string;
+  const scale = <V extends string | number>(
+    group: string,
+    values: readonly V[],
+  ) => values.map((value) => ({ value, label: t(`${group}.${value}`) }));
+  const tabs = (
+    group: string,
+    routes: readonly { key: string; href: string }[],
+  ) => routes.map((r) => ({ ...r, label: t(`tabs.${group}.${r.key}`) }));
+  return {
+    LIKELIHOOD: scale("likelihood", LIKELIHOOD_VALUES),
+    IMPACT: scale("impact", IMPACT_VALUES),
+    RISK_CATEGORIES: scale("categories", RISK_CATEGORIES_VALUES),
+    RISK_STATUSES: scale("statuses", RISK_STATUSES_VALUES),
+    RISK_LEVELS: scale("levels", RISK_LEVELS_VALUES),
+    EVIDENCE_LABEL: Object.fromEntries(
+      Object.keys(EVIDENCE_TONE).map((k) => [k, t(`evidence.${k}`)]),
+    ) as Record<string, string>,
+    RISKS_TABS: tabs("risks", RISKS_TABS_ROUTES),
+    COMPLIANCE_TABS: tabs("compliance", COMPLIANCE_TABS_ROUTES),
+    EVIDENCE_TABS: tabs("evidence", EVIDENCE_TABS_ROUTES),
+  };
 }

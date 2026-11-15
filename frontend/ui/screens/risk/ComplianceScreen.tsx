@@ -14,6 +14,7 @@ import {
   useUI,
 } from "@calliopelabs/ui";
 import { MoreHorizontalIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type {
   ComplianceCapability,
@@ -23,7 +24,6 @@ import type {
 import { Meter } from "../../patterns/Meter";
 import { StatGrid, StatTile } from "../../patterns/StatTile";
 import {
-  COMPLIANCE_TABS,
   areaCrumb,
   canMutate,
   coverageTone,
@@ -31,6 +31,7 @@ import {
   isAdmin,
   tabsOf,
   type QueryState,
+  useRiskLabels,
 } from "./model";
 
 export interface ComplianceScreenProps extends QueryState {
@@ -46,31 +47,35 @@ export interface ComplianceScreenProps extends QueryState {
 
 /** The note every coverage figure carries: configuration is not operation. */
 export function ConfigurationNote({ admin }: { admin: boolean }) {
+  const t = useTranslations("risk.complianceScreen");
   const { Link } = useUI();
   return (
     <span className="text-xs text-muted-foreground">
-      Coverage counts the capabilities your policies and rules configure. It
-      does not prove they operate:{" "}
-      {admin ? (
-        <Link href="/evidence" className="underline underline-offset-2">
-          Evidence
-        </Link>
-      ) : (
-        "Evidence, for admins,"
-      )}{" "}
-      holds what was measured.
+      {t.rich("caveat", {
+        evidence: () =>
+          admin ? (
+            <Link href="/evidence" className="underline underline-offset-2">
+              {t("evidence")}
+            </Link>
+          ) : (
+            t("evidenceForAdmins")
+          ),
+      })}
     </span>
   );
 }
 
 function CapabilityItem({ capability }: { capability: ComplianceCapability }) {
+  const t = useTranslations("risk.complianceScreen");
   const supports = capability.supportsFrameworks.length;
   return (
     <ListItem
-      title={capability.name ?? capability.id ?? "Unnamed capability"}
+      title={capability.name ?? capability.id ?? t("unnamedCapability")}
       description={
         capability.enabled && capability.supportingPolicies.length
-          ? `Configured by ${capability.supportingPolicies.join(", ")}`
+          ? t("configuredBy", {
+              policies: capability.supportingPolicies.join(", "),
+            })
           : capability.description
       }
       meta={
@@ -80,7 +85,7 @@ function CapabilityItem({ capability }: { capability: ComplianceCapability }) {
       }
       status={
         <StatusBadge tone={capability.enabled ? "ok" : "muted"}>
-          {capability.enabled ? "Configured" : "Not configured"}
+          {capability.enabled ? t("configured") : t("notConfigured")}
         </StatusBadge>
       }
     />
@@ -102,6 +107,8 @@ export function ComplianceScreen({
   error,
   onRetry,
 }: ComplianceScreenProps) {
+  const t = useTranslations("risk.complianceScreen");
+  const { COMPLIANCE_TABS } = useRiskLabels();
   const editable = canMutate(capabilities);
   const frameworks = overview?.frameworkCoverage ?? [];
   const fullyCovered = frameworks.filter(
@@ -111,13 +118,13 @@ export function ComplianceScreen({
   return (
     <PageFrame
       crumbs={[areaCrumb("compliance", capabilities)]}
-      title="Compliance"
+      title={t("compliance")}
       tabs={tabsOf(COMPLIANCE_TABS, "frameworks")}
-      tabsLabel="Compliance"
+      tabsLabel={t("compliance")}
       primaryAction={
         editable ? (
           <Button onClick={onRunCheck} disabled={checking || loading}>
-            {checking ? "Running check" : "Run check"}
+            {checking ? t("runningCheck") : t("runCheck")}
           </Button>
         ) : undefined
       }
@@ -125,13 +132,17 @@ export function ComplianceScreen({
         editable ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="More actions">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label={t("moreActions")}
+              >
                 <MoreHorizontalIcon aria-hidden />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={onOpenPacks}>
-                Apply a compliance pack
+                {t("applyACompliancePack")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -140,7 +151,7 @@ export function ComplianceScreen({
     >
       {error ? (
         <ErrorState
-          title="Could not load compliance coverage"
+          title={t("couldNotLoadComplianceCoverage")}
           error={error}
           onRetry={onRetry}
         />
@@ -148,7 +159,7 @@ export function ComplianceScreen({
         <>
           <StatGrid>
             <StatTile
-              label="Capabilities configured"
+              label={t("capabilitiesConfigured")}
               loading={loading}
               value={
                 overview
@@ -157,8 +168,8 @@ export function ComplianceScreen({
               }
             />
             <StatTile
-              label="Frameworks configured"
-              hint="Every required capability configured"
+              label={t("frameworksConfigured")}
+              hint={t("everyRequiredCapabilityConfigured")}
               loading={loading}
               value={
                 overview ? `${fullyCovered} of ${frameworks.length}` : null
@@ -170,28 +181,27 @@ export function ComplianceScreen({
               }
             />
             <StatTile
-              label="Required capabilities missing"
+              label={t("requiredCapabilitiesMissing")}
               href="/compliance/gaps"
               loading={loading}
               value={overview ? missing : null}
               tone={overview ? (missing ? "warn" : "ok") : undefined}
-              hint="Across all frameworks; one capability can count for several"
+              hint={t("acrossAllFrameworksOneCapability")}
             />
           </StatGrid>
           <Section
-            title="Frameworks"
+            title={t("frameworks")}
             description={<ConfigurationNote admin={isAdmin(capabilities)} />}
           >
             <List
-              label="Frameworks"
+              label={t("frameworks")}
               items={frameworks}
               loading={loading}
               loadingCount={6}
               getKey={(f) => f.id ?? f.name ?? ""}
               empty={{
-                title: "No frameworks tracked",
-                description:
-                  "The backend tracks no frameworks for this organization.",
+                title: t("noFrameworksTracked"),
+                description: t("theBackendTracksNoFrameworks"),
               }}
               renderItem={(f) => (
                 <ListItem
@@ -221,7 +231,9 @@ export function ComplianceScreen({
                         {f.missingRequired.length} missing
                       </StatusBadge>
                     ) : (
-                      <StatusBadge tone="ok">Required configured</StatusBadge>
+                      <StatusBadge tone="ok">
+                        {t("requiredConfigured")}
+                      </StatusBadge>
                     )
                   }
                 />
@@ -229,15 +241,15 @@ export function ComplianceScreen({
             />
           </Section>
           <Section
-            title="Capability coverage"
-            description="What Zentinelle AI can observe and control, and whether a policy or rule configures it."
+            title={t("capabilityCoverage")}
+            description={t("whatZentinelleAiCanObserve")}
           >
             {!loading && overview && overview.capabilitiesEnabled === 0 ? (
               <EmptyState
-                title="No capability is configured"
-                description="Apply a compliance pack, or create the policies and content rules a framework needs."
+                title={t("noCapabilityIsConfigured")}
+                description={t("applyACompliancePackOr")}
                 actionHref={editable ? "/policies/create" : undefined}
-                actionLabel={editable ? "New policy" : undefined}
+                actionLabel={editable ? t("newPolicy") : undefined}
               />
             ) : (
               <div className="grid gap-6 lg:grid-cols-2">

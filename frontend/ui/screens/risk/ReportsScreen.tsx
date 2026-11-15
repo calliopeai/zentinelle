@@ -6,6 +6,7 @@ import {
   type Column,
 } from "@calliopelabs/ui";
 import { FileTextIcon, PlusIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { ComplianceReportData } from "@/graphql/compliance-reports/types";
 
@@ -21,6 +22,11 @@ import {
 } from "./model";
 import type { ReportJob } from "./rest-types";
 
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
+
 /** One row of the list, whichever operation produced it. */
 export interface ReportRow {
   key: string;
@@ -35,24 +41,26 @@ export interface ReportRow {
   error: string | null;
 }
 
-const JOB_NAME: Record<ReportJob["report_type"], string> = {
-  control_coverage: "Control coverage",
-  violation_summary: "Violation summary",
-  audit_trail: "Audit trail",
-};
+const JOB_NAME = (t: Translate): Record<ReportJob["report_type"], string> => ({
+  control_coverage: t("controlCoverage"),
+  violation_summary: t("violationSummary"),
+  audit_trail: t("auditTrail"),
+});
 
 /** A `GetComplianceReports` row. */
 export function fromComplianceReport(
   report: ComplianceReportData,
+  /** The `risk.reportsScreen` translator. */
+  t: Translate,
   frameworkName: (id: string) => string = (id) => id,
 ): ReportRow {
   return {
     key: `compliance-${report.id}`,
     type: "compliance",
-    name: report.name ?? "Compliance report",
+    name: report.name ?? t("complianceReport"),
     subject: report.framework
       ? frameworkName(report.framework)
-      : "All frameworks",
+      : t("allFrameworks"),
     period: report.period,
     status: report.status ?? "pending",
     createdAt: report.generatedAt,
@@ -64,6 +72,8 @@ export function fromComplianceReport(
 /** A `reports/` job; it downloads from `reports/{id}/download/` once completed. */
 export function fromReportJob(
   job: ReportJob,
+  /** The `risk.reportsScreen` translator. */
+  t: Translate,
   apiBase = "/api/zentinelle/v1",
 ): ReportRow {
   const from = job.params.date_from as string | undefined;
@@ -71,9 +81,12 @@ export function fromReportJob(
   return {
     key: `job-${job.id}`,
     type: "risk",
-    name: JOB_NAME[job.report_type] ?? job.report_type,
-    subject: `${job.format.toUpperCase()} export`,
-    period: from || to ? `${from ?? "start"} to ${to ?? "now"}` : null,
+    name: JOB_NAME(t)[job.report_type] ?? job.report_type,
+    subject: t("jobExport", { format: job.format.toUpperCase() }),
+    period:
+      from || to
+        ? t("jobPeriod", { from: from ?? t("start"), to: to ?? t("now") })
+        : null,
     status: job.status,
     createdAt: job.created_at,
     downloadUrl:
@@ -94,16 +107,21 @@ export interface ReportsScreenProps extends QueryState {
   onGenerate?: () => void;
 }
 
-const VIEWS = [
-  { key: "all", label: "All", href: "/reports" },
-  { key: "compliance", label: "Compliance", href: "/reports?type=compliance" },
-  { key: "risk", label: "Risk and audit", href: "/reports?type=risk" },
-] as const;
+const VIEWS = (t: Translate) =>
+  [
+    { key: "all", label: t("all"), href: "/reports" },
+    {
+      key: "compliance",
+      label: t("compliance"),
+      href: "/reports?type=compliance",
+    },
+    { key: "risk", label: t("riskAndAudit"), href: "/reports?type=risk" },
+  ] as const;
 
-const COLUMNS: Column<ReportRow>[] = [
+const COLUMNS = (t: Translate): Column<ReportRow>[] => [
   {
     id: "name",
-    header: "Report",
+    header: t("report"),
     cell: (r) => (
       <span className="flex min-w-0 flex-col">
         <span className="truncate font-medium">{r.name}</span>
@@ -116,13 +134,13 @@ const COLUMNS: Column<ReportRow>[] = [
   },
   {
     id: "period",
-    header: "Period",
+    header: t("period"),
     cell: (r) =>
       r.period ?? <span className="text-muted-foreground">Not set</span>,
   },
   {
     id: "status",
-    header: "Status",
+    header: t("status"),
     width: "w-32",
     cell: (r) => (
       <StatusBadge
@@ -136,14 +154,14 @@ const COLUMNS: Column<ReportRow>[] = [
   },
   {
     id: "created",
-    header: "Generated",
+    header: t("generated"),
     width: "w-48",
     cell: (r) => formatDateTime(r.createdAt),
   },
   {
     id: "download",
     header: <span className="sr-only">Download</span>,
-    label: "Download",
+    label: t("download"),
     width: "w-28",
     align: "right",
     cell: (r) =>
@@ -154,7 +172,7 @@ const COLUMNS: Column<ReportRow>[] = [
           className="relative z-10 text-sm underline underline-offset-2"
           aria-label={`Download ${r.name}`}
         >
-          Download
+          {t("download")}
         </a>
       ) : null,
   },
@@ -174,6 +192,7 @@ export function ReportsScreen({
   error,
   onRetry,
 }: ReportsScreenProps) {
+  const t = useTranslations("risk.reportsScreen");
   const editable = canMutate(capabilities);
   const shown =
     view === "all" ? reports : reports.filter((r) => r.type === view);
@@ -186,21 +205,23 @@ export function ReportsScreen({
   return (
     <PageFrame
       crumbs={[areaCrumb("reports", capabilities)]}
-      title="Reports"
+      title={t("reports")}
       primaryAction={
         editable ? (
           <Button onClick={onGenerate}>
             <PlusIcon aria-hidden />
-            Generate report
+            {t("generateReport")}
           </Button>
         ) : undefined
       }
-      filters={<ViewSwitch label="Report types" views={VIEWS} active={view} />}
+      filters={
+        <ViewSwitch label={t("reportTypes")} views={VIEWS(t)} active={view} />
+      }
     >
       <DataTable
-        label="Reports"
+        label={t("reports")}
         controller={controller}
-        columns={COLUMNS}
+        columns={COLUMNS(t)}
         getRowId={(r) => r.key}
         rowLabel={(r) => r.name}
         empty={
@@ -212,9 +233,9 @@ export function ReportsScreen({
                     aria-hidden
                   />
                 ),
-                title: "No reports of this type",
+                title: t("noReportsOfThisType"),
                 actionHref: "/reports",
-                actionLabel: "Show all reports",
+                actionLabel: t("showAllReports"),
               }
             : {
                 icon: (
@@ -223,10 +244,10 @@ export function ReportsScreen({
                     aria-hidden
                   />
                 ),
-                title: "No reports yet",
+                title: t("noReportsYet"),
                 description: editable
-                  ? "Generate a compliance, coverage, violation or audit report for a period."
-                  : "No one in your organization has generated a report yet.",
+                  ? t("generateAComplianceCoverageViolation")
+                  : t("noOneInYourOrganization"),
               }
         }
       />

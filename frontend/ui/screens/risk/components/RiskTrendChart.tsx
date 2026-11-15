@@ -1,4 +1,5 @@
 import { cn } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import type { RiskTrendPoint } from "../rest-types";
 import { formatDate } from "../model";
@@ -16,6 +17,7 @@ const H = 120;
  * eye and a table for a screen reader; the server computes every point.
  */
 export function RiskTrendChart({ points, className }: RiskTrendChartProps) {
+  const t = useTranslations("risk.riskTrendChart");
   const last = points.at(-1);
   const first = points[0];
   const step = points.length > 1 ? W / (points.length - 1) : 0;
@@ -60,12 +62,12 @@ export function RiskTrendChart({ points, className }: RiskTrendChartProps) {
         </span>
       </figcaption>
       <table className="sr-only">
-        <caption>Risk index by day</caption>
+        <caption>{t("caption")}</caption>
         <thead>
           <tr>
-            <th scope="col">Day</th>
-            <th scope="col">Index</th>
-            <th scope="col">Open risks</th>
+            <th scope="col">{t("day")}</th>
+            <th scope="col">{t("index")}</th>
+            <th scope="col">{t("openRisks")}</th>
           </tr>
         </thead>
         <tbody>

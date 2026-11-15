@@ -1,6 +1,7 @@
 import { StatusBadge } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
-import { RISK_LEVEL_TONE, RISK_LEVELS, labelOf } from "../model";
+import { RISK_LEVEL_TONE, labelOf, useRiskLabels } from "../model";
 
 export interface RiskLevelBadgeProps {
   level: string | null;
@@ -10,7 +11,9 @@ export interface RiskLevelBadgeProps {
 
 /** A risk's level in words and colour, with its RPN when known. */
 export function RiskLevelBadge({ level, score }: RiskLevelBadgeProps) {
-  const label = labelOf(RISK_LEVELS, level) ?? "Unscored";
+  const t = useTranslations("risk.riskLevelBadge");
+  const { RISK_LEVELS } = useRiskLabels();
+  const label = labelOf(RISK_LEVELS, level) ?? t("unscored");
   return (
     <StatusBadge tone={level ? (RISK_LEVEL_TONE[level] ?? "muted") : "muted"}>
       {score != null ? `${label} ${score}` : label}
