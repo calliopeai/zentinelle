@@ -1,5 +1,6 @@
 import { List, ListItem } from "@calliopelabs/ui";
 import { HistoryIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { timeAgo, type ActivityEntry } from "./overview-model";
 
@@ -16,33 +17,36 @@ export function RecentActivity({
   loading = false,
   now = new Date(),
 }: RecentActivityProps) {
+  const t = useTranslations("overview.recentActivity");
   return (
     <List
-      label="Recent activity"
+      label={t("label")}
       items={entries}
       getKey={(entry) => entry.id}
       loading={loading}
       loadingCount={4}
       empty={{
         icon: <HistoryIcon />,
-        title: "No activity yet",
-        description:
-          "Changes to agents, policies and settings appear here as they happen.",
+        title: t("empty.title"),
+        description: t("empty.description"),
       }}
-      renderItem={(entry) => (
-        <ListItem
-          title={entry.description}
-          description={entry.actor ?? undefined}
-          meta={
-            <time
-              dateTime={entry.timestamp ?? undefined}
-              title={entry.timestamp ?? undefined}
-            >
-              {timeAgo(entry.timestamp, now)}
-            </time>
-          }
-        />
-      )}
+      renderItem={(entry) => {
+        const ago = timeAgo(entry.timestamp, now);
+        return (
+          <ListItem
+            title={entry.description ?? t("untitled")}
+            description={entry.actor ?? undefined}
+            meta={
+              <time
+                dateTime={entry.timestamp ?? undefined}
+                title={entry.timestamp ?? undefined}
+              >
+                {t(`time.${ago.key}`, ago.values)}
+              </time>
+            }
+          />
+        );
+      }}
     />
   );
 }

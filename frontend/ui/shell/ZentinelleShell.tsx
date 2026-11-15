@@ -20,12 +20,14 @@ import {
   PaletteIcon,
   SparklesIcon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import { navFor } from "../product";
 import { AppearanceDialog } from "./AppearanceDialog";
 import { AssistantPlaceholder } from "./AssistantPlaceholder";
 import { LanguageDialog, type LanguageOption } from "./LanguageDialog";
+import { useNavCopy } from "./nav-copy";
 
 export interface ShellLabels {
   assistant: string;
@@ -33,13 +35,6 @@ export interface ShellLabels {
   appearance: string;
   documentation: string;
 }
-
-const DEFAULT_LABELS: ShellLabels = {
-  assistant: "Assistant",
-  language: "Language",
-  appearance: "Appearance",
-  documentation: "Documentation",
-};
 
 export interface ZentinelleShellProps {
   /** The current path, from the router; picks the active row. */
@@ -51,12 +46,13 @@ export interface ZentinelleShellProps {
   locales: readonly LanguageOption[];
   onLocaleChange: (locale: string) => void;
   onSignOut: () => void;
-  /** Nav labels through the app's message catalog (`localizeNav`). English when absent. */
+  /** Nav labels (`localizeNav`). The catalog's `shell.nav` when absent. */
   translate?: (
     kind: "area" | "group" | "function",
     key: string,
     fallback: string,
   ) => string;
+  /** Overrides of the catalog's `shell` labels. */
   labels?: Partial<ShellLabels>;
   /** The assistant dock's content. A placeholder until zentinelle#447 lands. */
   assistant?: React.ReactNode;
@@ -98,10 +94,19 @@ export function ZentinelleShell({
   defaultAssistantHidden = false,
   hiddenRoutes,
   tabs,
-  tabsLabel = "Pages",
+  tabsLabel,
   children,
 }: ZentinelleShellProps) {
-  const labels = { ...DEFAULT_LABELS, ...labelOverrides };
+  const t = useTranslations("shell");
+  const navCopy = useNavCopy();
+  const localize = translate ?? navCopy;
+  const labels: ShellLabels = {
+    assistant: t("assistant"),
+    language: t("language"),
+    appearance: t("appearance"),
+    documentation: t("documentation"),
+    ...labelOverrides,
+  };
   const nav = React.useMemo(() => {
     let visible = navFor(capabilities);
     if (hiddenRoutes?.length) {
@@ -119,8 +124,8 @@ export function ZentinelleShell({
         }))
         .filter((area) => area.groups.length > 0);
     }
-    return translate ? localizeNav(visible, translate) : visible;
-  }, [capabilities, translate, hiddenRoutes]);
+    return localizeNav(visible, localize);
+  }, [capabilities, localize, hiddenRoutes]);
   const active = activeFor(nav, pathname);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useRailState(
@@ -150,7 +155,7 @@ export function ZentinelleShell({
             {tabs && tabs.length > 0 && (
               <TabNav
                 tabs={tabs}
-                label={tabsLabel}
+                label={tabsLabel ?? t("pages")}
                 className="mr-auto -my-2 border-b-0 px-0 md:px-0"
               />
             )}
@@ -159,7 +164,7 @@ export function ZentinelleShell({
               size="sm"
               variant={dockHidden ? "outline" : "secondary"}
               aria-pressed={!dockHidden}
-              title={`${labels.assistant} (])`}
+              title={t("assistantShortcut", { label: labels.assistant })}
               onClick={() => setDockHidden(!dockHidden)}
               className="hidden md:inline-flex"
             >
@@ -186,7 +191,12 @@ export function ZentinelleShell({
                 groups={[
                   [
                     {
-                      label: `${labels.language}: ${locales.find((l) => l.value === locale)?.label ?? locale}`,
+                      label: t("languageItem", {
+                        label: labels.language,
+                        language:
+                          locales.find((l) => l.value === locale)?.label ??
+                          locale,
+                      }),
                       icon: LanguagesIcon,
                       onSelect: () => setDialog("language"),
                     },

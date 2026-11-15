@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 export interface LanguageOption {
@@ -22,6 +23,7 @@ export interface LanguageDialogProps {
   locale: string;
   locales: readonly LanguageOption[];
   onLocaleChange: (locale: string) => void;
+  /** The catalog's copy (`shell.language`, `shell.languageDialog`) unless given. */
   title?: string;
   description?: string;
   applyLabel?: string;
@@ -35,11 +37,13 @@ export function LanguageDialog({
   locale,
   locales,
   onLocaleChange,
-  title = "Language",
-  description = "Choose the language used throughout the interface.",
-  applyLabel = "Apply",
-  cancelLabel = "Cancel",
+  ...copy
 }: LanguageDialogProps) {
+  const t = useTranslations("shell");
+  const title = copy.title ?? t("language");
+  const description = copy.description ?? t("languageDialog.description");
+  const applyLabel = copy.applyLabel ?? t("languageDialog.apply");
+  const cancelLabel = copy.cancelLabel ?? t("languageDialog.cancel");
   const [choice, setChoice] = React.useState(locale);
   const name = React.useId();
   return (

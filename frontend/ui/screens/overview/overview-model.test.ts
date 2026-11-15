@@ -1,4 +1,7 @@
+import { createTranslator } from "next-intl";
 import { describe, expect, it } from "vitest";
+
+import en from "@/messages/en.json";
 
 import {
   dashboardStats,
@@ -9,7 +12,16 @@ import {
   quietRiskStats,
   riskStats,
 } from "../../storybook/fixtures/overview";
-import { timeAgo, toOverview } from "./overview-model";
+import { timeAgo, toOverview, type Copy } from "./overview-model";
+
+// Untyped, as the components' translators are: keys come from the model.
+const translator = (namespace: string) => {
+  const t = createTranslator({ locale: "en", messages: en }) as (
+    key: string,
+    values?: Copy["values"],
+  ) => string;
+  return (copy: Copy) => t(`${namespace}.${copy.key}`, copy.values);
+};
 
 describe("toOverview", () => {
   it("orders what needs attention, most urgent first, and leaves zeros out", () => {
@@ -29,7 +41,40 @@ describe("toOverview", () => {
     ]);
     // The low alert is not counted.
     expect(attention[0].count).toBe(3);
-    expect(attention[0].description).toBe("1 critical, 2 high");
+    expect(translator("overview.attention")(attention[0].description)).toBe(
+      "1 critical, 2 high",
+    );
+  });
+
+  it("names only messages that overview has in en", () => {
+    const overview = toOverview({
+      stats: dashboardStats.dashboardStats,
+      riskStats: riskStats.riskStats,
+      openAlerts: openAlerts.complianceAlerts,
+      pendingApprovals: 1,
+      stagedChanges: 2,
+    });
+    const kpi = translator("overview.kpis");
+    expect(overview.kpis.map((k) => k.detail && kpi(k.detail))).toEqual([
+      expect.stringMatching(/active/),
+      expect.stringMatching(/enabled/),
+      expect.stringMatching(/SLA/),
+      expect.stringMatching(/week/),
+    ]);
+    const attention = translator("overview.attention");
+    for (const item of overview.attention) {
+      expect(
+        attention({ key: `${item.kind}.title`, values: { count: item.count } }),
+      ).not.toBe(`overview.attention.${item.kind}.title`);
+      expect(attention(item.description)).not.toMatch(/^overview\./);
+    }
+    expect(attention({ key: "approvals.title", values: { count: 1 } })).toBe(
+      "1 action waiting for approval",
+    );
+    const steps = translator("overview.onboarding");
+    for (const step of overview.onboarding ?? []) {
+      if (step.known) expect(steps({ key: `steps.${step.key}` })).toBeTruthy();
+    }
   });
 
   it("leaves a REST count out when it is absent", () => {
@@ -98,6 +143,8 @@ describe("timeAgo", () => {
     ["2026-10-14T12:00:00Z", "2 d ago"],
     [null, "Unknown time"],
   ])("%s is %s", (iso, words) => {
-    expect(timeAgo(iso, now)).toBe(words);
+    expect(translator("overview.recentActivity.time")(timeAgo(iso, now))).toBe(
+      words,
+    );
   });
 });

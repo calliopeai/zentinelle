@@ -14,7 +14,9 @@ const ACTIVE_KEY = "zentinelle:demo-tour:active";
  * DemoTour orchestrates a multi-page guided walkthrough using driver.js.
  *
  * Mounted globally (in the (app) layout) but only renders/activates when
- * sessionStorage flag is set — turned on by /demo route or ?tour=1 param.
+ * sessionStorage flag is set: turned on by `?tour=1` on any page, or
+ * `?autostart=1` (what links to the retired /demo page carry; /demo now
+ * redirects to /dashboard and keeps the query).
  *
  * Across route changes the component picks up where it left off via the
  * persisted step index, so tour steps that include `route:` work correctly.
@@ -25,9 +27,21 @@ export function DemoTour() {
   const driverRef = useRef<Driver | null>(null);
   const [active, setActive] = useState(false);
 
-  // Sync active state from sessionStorage (set by /demo or ?tour=1)
+  // Sync active state from sessionStorage, starting the tour when the URL
+  // asks for it (?tour=1, or ?autostart=1 from the old /demo links).
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (
+      url.searchParams.get("tour") === "1" ||
+      url.searchParams.get("autostart") === "1"
+    ) {
+      startDemoTour();
+      // Once: a reload or a shared link of this page does not restart it.
+      url.searchParams.delete("tour");
+      url.searchParams.delete("autostart");
+      window.history.replaceState(window.history.state, "", url);
+    }
     setActive(sessionStorage.getItem(ACTIVE_KEY) === "1");
   }, [pathname]);
 
@@ -148,8 +162,8 @@ export function DemoTour() {
 }
 
 /**
- * Programmatic API to start the tour from anywhere.
- * Used by /demo route and the "Start tour" button.
+ * Programmatic API to start the tour from anywhere: the next render of
+ * DemoTour picks it up. Used for `?tour=1` and `?autostart=1`.
  */
 export function startDemoTour() {
   if (typeof window === "undefined") return;

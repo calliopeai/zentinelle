@@ -49,12 +49,11 @@ const FULL: OverviewInput = {
 function screen(
   props: Partial<OverviewScreenProps> & { input?: OverviewInput },
   role: Role = "operator",
-  path = "/dashboard",
 ): Story {
   const { input = FULL, ...rest } = props;
   return {
     render: () => (
-      <ShellStory path={path} role={role} defaultAssistantHidden>
+      <ShellStory path="/dashboard" role={role} defaultAssistantHidden>
         <OverviewScreen
           data={toOverview(input)}
           canMutate={capabilitiesOf(role).includes("mutate")}
@@ -81,6 +80,9 @@ export const Populated: Story = {
     await expect(
       canvas.getByRole("link", { name: "Turn on a compliance framework" }),
     ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("link", { name: "Ask the assistant" }),
+    ).toHaveAttribute("href", "/assistant");
   },
 };
 
@@ -142,9 +144,6 @@ export const LongData = screen({
     pendingApprovals: 4096,
   },
 });
-
-/** `/governance`, the Astrolift deeplink, lands on the same screen. */
-export const GovernanceDeeplink = screen({}, "operator", "/governance");
 
 export const Narrow: Story = {
   ...screen({}),

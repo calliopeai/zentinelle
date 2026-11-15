@@ -19,6 +19,7 @@ const meta = {
     detail: "11 active, 1 not healthy",
     href: "/agents",
     tone: "warn",
+    unavailableLabel: "Not available",
   },
 } satisfies Meta<typeof StatTile>;
 export default meta;

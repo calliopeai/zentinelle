@@ -1,9 +1,17 @@
-import { ErrorState, PageFrame, Section, useUI } from "@calliopelabs/ui";
+import {
+  Button,
+  ErrorState,
+  PageFrame,
+  Section,
+  useUI,
+} from "@calliopelabs/ui";
+import { SparklesIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { NeedsAttention } from "./NeedsAttention";
 import { OnboardingCard } from "./OnboardingCard";
 import { OverviewKpis } from "./OverviewKpis";
-import type { OverviewData } from "./overview-model";
+import type { Kpi, OverviewData } from "./overview-model";
 import { RecentActivity } from "./RecentActivity";
 
 export interface OverviewScreenProps {
@@ -19,24 +27,15 @@ export interface OverviewScreenProps {
   now?: Date;
 }
 
-const PLACEHOLDER_KPIS = [
-  "Agents",
-  "Policies",
-  "Open incidents",
-  "Events today",
-].map((label) => ({
-  key: label,
-  label,
-  value: null,
-  detail: "",
-  href: "/dashboard",
-}));
+const PLACEHOLDER_KPIS: Kpi[] = (
+  ["agents", "policies", "incidents", "events"] as const
+).map((key) => ({ key, value: null, detail: null, href: "/dashboard" }));
 
 /**
- * Overview (`/dashboard`, also `/governance`): headline numbers that link
- * into their areas, what needs attention, the setup steps while any are
- * left, and the latest activity. One screen, no charts, nothing that needs a
- * whole list.
+ * Overview (`/dashboard`; `/governance` and `/demo` redirect here): headline
+ * numbers that link into their areas, what needs attention, the setup steps
+ * while any are left, and the latest activity. One screen, no charts,
+ * nothing that needs a whole list. The assistant is one link away.
  */
 export function OverviewScreen({
   data,
@@ -48,32 +47,38 @@ export function OverviewScreen({
   now,
 }: OverviewScreenProps) {
   const { Link } = useUI();
+  const t = useTranslations("overview.screen");
+  const assistant = (
+    <Button asChild variant="outline" size="sm">
+      <Link href="/assistant">
+        <SparklesIcon aria-hidden />
+        {t("openAssistant")}
+      </Link>
+    </Button>
+  );
   if (error) {
     return (
-      <PageFrame title="Overview">
-        <ErrorState
-          title="Could not load the overview"
-          error={error}
-          onRetry={onRetry}
-        />
+      <PageFrame title={t("title")} primaryAction={assistant}>
+        <ErrorState title={t("error")} error={error} onRetry={onRetry} />
       </PageFrame>
     );
   }
   const pending = loading || !data;
   return (
     <PageFrame
-      title="Overview"
-      description="What your agents are doing, and what needs someone now."
+      title={t("title")}
+      description={t("description")}
+      primaryAction={assistant}
     >
       <div className="space-y-8">
-        <Section title="At a glance">
+        <Section title={t("atAGlance")}>
           <OverviewKpis
             kpis={data?.kpis ?? PLACEHOLDER_KPIS}
             loading={pending}
           />
         </Section>
         <div className="grid gap-8 lg:grid-cols-2">
-          <Section title="Needs attention">
+          <Section title={t("needsAttention")}>
             <NeedsAttention
               items={data?.attention ?? []}
               loading={pending}
@@ -82,18 +87,18 @@ export function OverviewScreen({
             />
           </Section>
           {data?.onboarding && (
-            <Section title="Get started">
+            <Section title={t("getStarted")}>
               <OnboardingCard steps={data.onboarding} canMutate={canMutate} />
             </Section>
           )}
           <Section
-            title="Recent activity"
+            title={t("recentActivity")}
             action={
               <Link
                 href="/audit-logs"
                 className="text-muted-foreground hover:text-foreground text-sm underline-offset-2 hover:underline"
               >
-                Audit log
+                {t("auditLog")}
               </Link>
             }
             className={data?.onboarding ? "lg:col-span-2" : undefined}

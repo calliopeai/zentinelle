@@ -1,7 +1,10 @@
 import { activeFor } from "@calliopelabs/ui";
 import { describe, expect, it } from "vitest";
 
+import en from "@/messages/en.json";
+
 import {
+  INTERIM_PAGES,
   ROLE_CAPABILITIES,
   ZENTINELLE_NAV,
   interimTabs,
@@ -44,11 +47,39 @@ describe("Zentinelle navigation (ui-overhaul-ia §4)", () => {
       fn: "agents",
     });
     expect(activeFor(nav, "/risk")).toEqual({ area: "risk", fn: "risks" });
-    expect(activeFor(nav, "/governance")).toEqual({
+    expect(activeFor(nav, "/assistant")).toEqual({
       area: "overview",
       fn: "overview",
     });
     expect(activeFor(nav, "/agents/approvals")?.fn).toBe("approvals");
+  });
+});
+
+describe("navigation copy", () => {
+  const copy = en.shell.nav as Record<string, Record<string, string>>;
+
+  it("names every area, function and interim tab in en as the model does", () => {
+    for (const area of ZENTINELLE_NAV) {
+      expect(copy.areas[area.key], area.key).toBe(area.label);
+      for (const fn of area.groups.flatMap((g) => g.functions)) {
+        expect(copy.functions[fn.key], fn.key).toBe(fn.label);
+      }
+    }
+    for (const page of Object.values(INTERIM_PAGES).flat()) {
+      expect(copy.tabs[page.key], page.key).toBe(page.label);
+    }
+  });
+
+  it("localizes the interim tabs", () => {
+    const tabs = interimTabs(
+      "/policies/simulator",
+      ROLE_CAPABILITIES.admin,
+      (kind, key) => `${kind}:${key}`,
+    );
+    expect(tabs.slice(0, 2).map((t) => t.label)).toEqual([
+      "function:policies",
+      "tab:hierarchy",
+    ]);
   });
 });
 

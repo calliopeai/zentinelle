@@ -55,6 +55,7 @@ export const LongData: Story = {
       ...checklistSteps,
       {
         key: "connect_astrolift_cluster_with_a_very_long_backend_key",
+        known: false,
         label:
           "Connect astrolift cluster with a very long backend key nobody gave words",
         done: false,
