@@ -5,6 +5,8 @@
  */
 import { areaSwitcher, type Crumb, type TabNavItem } from "@calliopelabs/ui";
 
+import { useTranslations } from "next-intl";
+
 import { navFor } from "../../product";
 
 export type ModelsFunction = "usage" | "models" | "providers";
@@ -21,14 +23,21 @@ export function areaCrumbs(
 
 export type UsageTab = "overview" | "budgets" | "anomalies";
 
-const USAGE_TABS: readonly { key: UsageTab; label: string; href: string }[] = [
-  { key: "overview", label: "Overview", href: "/usage" },
-  { key: "budgets", label: "Budgets", href: "/usage/budgets" },
-  { key: "anomalies", label: "Anomalies", href: "/usage/anomalies" },
+const USAGE_TABS: readonly { key: UsageTab; href: string }[] = [
+  { key: "overview", href: "/usage" },
+  { key: "budgets", href: "/usage/budgets" },
+  { key: "anomalies", href: "/usage/anomalies" },
 ];
 
-export function usageTabs(active: UsageTab): TabNavItem[] {
-  return USAGE_TABS.map((t) => ({ ...t, active: t.key === active }));
+/** Names a tab by its key (`models.labels.tabs`). */
+type Name = (key: string) => string;
+
+export function usageTabs(active: UsageTab, name: Name): TabNavItem[] {
+  return USAGE_TABS.map((tab) => ({
+    ...tab,
+    label: name(tab.key),
+    active: tab.key === active,
+  }));
 }
 
 export type ModelsTab = "models" | "routes";
@@ -37,20 +46,32 @@ export type ModelsTab = "models" | "routes";
 export function modelsTabs(
   active: ModelsTab,
   capabilities: readonly string[],
+  name: Name,
 ): TabNavItem[] | undefined {
   if (!can(capabilities, "admin")) return undefined;
   return [
     {
       key: "models",
-      label: "Models",
+      label: name("models"),
       href: "/models",
       active: active === "models",
     },
     {
       key: "routes",
-      label: "Route check",
+      label: name("routes"),
       href: "/models/routes",
       active: active === "routes",
     },
   ];
+}
+
+/** The area's tab rows, named under `models.labels.tabs`. */
+export function useModelsFrame() {
+  const t = useTranslations("models.labels");
+  const name = (key: string) => t(`tabs.${key}`);
+  return {
+    usageTabs: (active: UsageTab) => usageTabs(active, name),
+    modelsTabs: (active: ModelsTab, capabilities: readonly string[]) =>
+      modelsTabs(active, capabilities, name),
+  };
 }

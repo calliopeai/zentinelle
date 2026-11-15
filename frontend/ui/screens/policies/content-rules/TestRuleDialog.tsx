@@ -93,7 +93,7 @@ export function TestRuleDialog({
             <>
               <p className="text-sm font-medium">
                 {result.matched
-                  ? `Matched ${result.matches?.length ?? 0} time(s).`
+                  ? t("matched", { count: result.matches?.length ?? 0 })
                   : t("noMatch")}
               </p>
               {result.matched &&

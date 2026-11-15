@@ -12,19 +12,27 @@ import {
 } from "@calliopelabs/ui";
 import { RouteIcon } from "lucide-react";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { AccessDenied } from "../../shared/AccessDenied";
 import { Panel } from "../../shared/Panel";
 import { formatMoment } from "../../shared/figures";
 import { fixedList } from "../../shared/table";
-import { areaCrumbs, can, modelsTabs } from "./frame";
+import { areaCrumbs, can, useModelsFrame } from "./frame";
 import type { CanaryResult } from "./providers";
 
-const STATUS: Record<string, { tone: StatusTone; label: string }> = {
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
+
+const STATUS = (
+  t: Translate,
+): Record<string, { tone: StatusTone; label: string }> => ({
   passed: { tone: "ok", label: "allowed" },
   failed: { tone: "error", label: "denied" },
-  rolled_back: { tone: "muted", label: "rolled back" },
-};
+  rolled_back: { tone: "muted", label: t("rolledBack") },
+});
 
 export interface RouteCheckScreenProps {
   capabilities: readonly string[];
@@ -59,6 +67,8 @@ export function RouteCheckScreen({
   onRollback,
   locale = "en",
 }: RouteCheckScreenProps) {
+  const t = useTranslations("models.routeCheckScreen");
+  const { modelsTabs } = useModelsFrame();
   const [provider, setProvider] = React.useState("");
   const [model, setModel] = React.useState("");
   const providerId = React.useId();
@@ -68,7 +78,7 @@ export function RouteCheckScreen({
   const columns: Column<CanaryResult>[] = [
     {
       id: "route",
-      header: "Provider and model",
+      header: t("providerAndModel"),
       cell: (r) => (
         <span className="font-mono text-xs [overflow-wrap:anywhere]">
           {r.provider}/{r.model}
@@ -77,27 +87,27 @@ export function RouteCheckScreen({
     },
     {
       id: "status",
-      header: "Result",
+      header: t("result"),
       width: "w-32",
       cell: (r) => (
         <StatusBadge
-          tone={STATUS[r.status]?.tone ?? "muted"}
+          tone={STATUS(t)[r.status]?.tone ?? "muted"}
           struck={r.status === "rolled_back"}
         >
-          {STATUS[r.status]?.label ?? r.status}
+          {STATUS(t)[r.status]?.label ?? r.status}
         </StatusBadge>
       ),
     },
     {
       id: "reason",
-      header: "Reason",
+      header: t("reason"),
       cell: (r) => (
         <span className="text-sm [overflow-wrap:anywhere]">{r.reason}</span>
       ),
     },
     {
       id: "when",
-      header: "When",
+      header: t("when"),
       width: "w-40",
       cell: (r) => (
         <span className="text-xs text-muted-foreground">
@@ -108,7 +118,7 @@ export function RouteCheckScreen({
     {
       id: "control",
       header: <span className="sr-only">Control</span>,
-      label: "Control",
+      label: t("control"),
       width: "w-28",
       align: "right",
       cell: (r) =>
@@ -117,9 +127,11 @@ export function RouteCheckScreen({
             size="xs"
             variant="outline"
             onClick={() => onRollback(r.id)}
-            aria-label={`Roll back ${r.provider}/${r.model}`}
+            aria-label={t("rollBackRoute", {
+              route: `${r.provider}/${r.model}`,
+            })}
           >
-            Roll back
+            {t("rollBack")}
           </Button>
         ),
     },
@@ -128,21 +140,21 @@ export function RouteCheckScreen({
   return (
     <PageFrame
       crumbs={areaCrumbs(capabilities, "models")}
-      title="Models"
-      description="Check that policy allows a provider and model before any traffic is sent. A check has no side effects at the provider."
+      title={t("models")}
+      description={t("checkThatPolicyAllowsA")}
       tabs={modelsTabs("routes", capabilities)}
-      tabsLabel="Models tabs"
+      tabsLabel={t("modelsTabs")}
     >
       {!admin ? (
         <AccessDenied
-          what="Route check"
+          what={t("routeCheck")}
           role="admin"
           homeHref="/models"
-          homeLabel="Back to Models"
+          homeLabel={t("backToModels")}
         />
       ) : (
         <>
-          <Section title="Run a check">
+          <Section title={t("runACheck")}>
             <Panel>
               <form
                 className="flex flex-wrap items-end gap-3"
@@ -153,7 +165,7 @@ export function RouteCheckScreen({
               >
                 <div className="flex min-w-40 flex-col gap-1.5">
                   <label htmlFor={providerId} className="text-sm font-medium">
-                    Provider
+                    {t("provider")}
                   </label>
                   <Input
                     id={providerId}
@@ -165,7 +177,7 @@ export function RouteCheckScreen({
                 </div>
                 <div className="flex min-w-56 flex-1 flex-col gap-1.5">
                   <label htmlFor={modelId} className="text-sm font-medium">
-                    Model id
+                    {t("modelId")}
                   </label>
                   <Input
                     id={modelId}
@@ -176,7 +188,7 @@ export function RouteCheckScreen({
                   />
                 </div>
                 <Button type="submit" size="sm" disabled={running}>
-                  {running ? "Checking" : "Run check"}
+                  {running ? t("checking") : t("runCheck")}
                 </Button>
               </form>
               {runError && (
@@ -186,18 +198,17 @@ export function RouteCheckScreen({
               )}
             </Panel>
           </Section>
-          <Section title="Recent checks">
+          <Section title={t("recentChecks")}>
             <DataTable
-              label="Recent route checks"
+              label={t("recentRouteChecks")}
               chrome="table"
               controller={fixedList({ rows: results, loading, error, onRetry })}
               columns={columns}
               getRowId={(r) => r.id}
               empty={{
                 icon: <RouteIcon />,
-                title: "No route checks yet",
-                description:
-                  "Run one above before routing an agent to a new provider or model.",
+                title: t("noRouteChecksYet"),
+                description: t("runOneAboveBeforeRouting"),
               }}
             />
           </Section>

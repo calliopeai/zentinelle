@@ -8,6 +8,7 @@ import {
   DrawerTitle,
 } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { FactList } from "../../shared/FactList";
 import { Meter } from "../../shared/Meter";
@@ -20,11 +21,16 @@ import {
 } from "../../shared/figures";
 import { estimateCost, estimateTokens, isPriced, type Model } from "./models";
 
-const RATIOS = [
-  { value: "0.5", label: "Half the input (short reply)" },
-  { value: "1", label: "Same as the input" },
-  { value: "2", label: "Twice the input (long reply)" },
-  { value: "4", label: "Four times the input" },
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
+
+const RATIOS = (t: Translate) => [
+  { value: "0.5", label: t("halfTheInputShortReply") },
+  { value: "1", label: t("sameAsTheInput") },
+  { value: "2", label: t("twiceTheInputLongReply") },
+  { value: "4", label: t("fourTimesTheInput") },
 ];
 
 export interface EstimateCostDrawerProps {
@@ -49,6 +55,7 @@ export function EstimateCostDrawer({
   modelId,
   locale = "en",
 }: EstimateCostDrawerProps) {
+  const t = useTranslations("models.estimateCostDrawer");
   const priced = React.useMemo(() => models.filter(isPriced), [models]);
   const [text, setText] = React.useState("");
   const [selected, setSelected] = React.useState(modelId ?? "");
@@ -62,22 +69,20 @@ export function EstimateCostDrawer({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent side="right" className="w-full gap-0 sm:max-w-md">
         <DrawerHeader>
-          <DrawerTitle>Estimate cost</DrawerTitle>
+          <DrawerTitle>{t("estimateCost")}</DrawerTitle>
           <DrawerDescription>
-            At registry prices, the prices metering and budgets charge. Tokens
-            are estimated as characters / 4.
+            {t("atRegistryPricesThePrices")}
           </DrawerDescription>
         </DrawerHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
           {priced.length === 0 ? (
             <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-              No model in the registry has prices yet. Sync models from a
-              provider to estimate costs.
+              {t("noModelInTheRegistry")}
             </p>
           ) : (
             <>
               <SelectField
-                label="Model"
+                label={t("model")}
                 value={model?.id ?? ""}
                 onChange={setSelected}
                 options={priced.map((m) => ({
@@ -88,14 +93,14 @@ export function EstimateCostDrawer({
               />
               <div className="flex flex-col gap-1.5">
                 <label htmlFor={textId} className="text-sm font-medium">
-                  Prompt
+                  {t("prompt")}
                 </label>
                 <textarea
                   id={textId}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   rows={8}
-                  placeholder="Paste a prompt, a document or a conversation."
+                  placeholder={t("pasteAPromptADocument")}
                   className="w-full rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -104,13 +109,16 @@ export function EstimateCostDrawer({
                 </p>
               </div>
               <SelectField
-                label="Reply length"
+                label={t("replyLength")}
                 value={ratio}
                 onChange={setRatio}
-                options={RATIOS}
+                options={RATIOS(t)}
               />
               {model && cost && (
-                <section aria-label="Estimate" className="flex flex-col gap-3">
+                <section
+                  aria-label={t("estimate")}
+                  className="flex flex-col gap-3"
+                >
                   <p className="font-mono text-2xl font-semibold tabular-nums">
                     {formatUsd(cost.total, locale)}
                     <span className="ml-2 font-sans text-xs font-normal text-muted-foreground">
@@ -120,17 +128,23 @@ export function EstimateCostDrawer({
                   <FactList
                     items={[
                       {
-                        term: "Input",
-                        value: `${formatCount(tokens, locale)} tokens, ${formatUsd(cost.input, locale)}`,
+                        term: t("input"),
+                        value: t("tokensCost", {
+                          tokens: formatCount(tokens, locale),
+                          cost: formatUsd(cost.input, locale),
+                        }),
                         mono: true,
                       },
                       {
-                        term: "Reply",
-                        value: `${formatCount(cost.outputTokens, locale)} tokens, ${formatUsd(cost.output, locale)}`,
+                        term: t("reply"),
+                        value: t("tokensCost", {
+                          tokens: formatCount(cost.outputTokens, locale),
+                          cost: formatUsd(cost.output, locale),
+                        }),
                         mono: true,
                       },
                       {
-                        term: "Input price",
+                        term: t("inputPrice"),
                         value: formatPerMillion(
                           model.inputPricePerMillion,
                           locale,
@@ -138,7 +152,7 @@ export function EstimateCostDrawer({
                         mono: true,
                       },
                       {
-                        term: "Output price",
+                        term: t("outputPrice"),
                         value: formatPerMillion(
                           model.outputPricePerMillion,
                           locale,
@@ -149,14 +163,14 @@ export function EstimateCostDrawer({
                   />
                   {model.contextWindow ? (
                     <Meter
-                      label="Context window"
+                      label={t("contextWindow")}
                       value={tokens}
                       max={model.contextWindow}
                       valueText={`${((tokens / model.contextWindow) * 100).toFixed(1)}% of ${formatTokens(model.contextWindow, locale)}`}
                     />
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      The registry has no context window for this model.
+                      {t("theRegistryHasNoContext")}
                     </p>
                   )}
                 </section>

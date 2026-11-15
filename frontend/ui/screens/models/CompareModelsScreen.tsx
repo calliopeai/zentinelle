@@ -10,6 +10,7 @@ import {
 } from "@calliopelabs/ui";
 import { ScaleIcon, XIcon } from "lucide-react";
 import type * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { SelectField } from "../../shared/SelectField";
 import {
@@ -19,6 +20,11 @@ import {
 } from "../../shared/figures";
 import { areaCrumbs } from "./frame";
 import { MAX_COMPARE, type Model } from "./models";
+
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
 
 export interface CompareModelsScreenProps {
   capabilities: readonly string[];
@@ -48,14 +54,14 @@ interface Row {
   better?: "low" | "high";
 }
 
-const ROWS: Row[] = [
+const ROWS = (t: Translate): Row[] => [
   {
-    label: "Provider",
+    label: t("provider"),
     value: () => null,
-    show: (m) => m.providerName ?? m.providerSlug ?? "Unknown",
+    show: (m) => m.providerName ?? m.providerSlug ?? t("unknown"),
   },
   {
-    label: "Model id",
+    label: t("modelId"),
     value: () => null,
     show: (m) => (
       <span className="font-mono text-xs [overflow-wrap:anywhere]">
@@ -63,39 +69,43 @@ const ROWS: Row[] = [
       </span>
     ),
   },
-  { label: "Type", value: () => null, show: (m) => m.modelType ?? "unknown" },
   {
-    label: "Context window",
+    label: t("type"),
+    value: () => null,
+    show: (m) => m.modelType ?? "unknown",
+  },
+  {
+    label: t("contextWindow"),
     value: (m) => m.contextWindow,
     show: (m, l) => formatTokens(m.contextWindow, l),
     better: "high",
   },
   {
-    label: "Max output",
+    label: t("maxOutput"),
     value: (m) => m.maxOutputTokens,
     show: (m, l) => formatTokens(m.maxOutputTokens, l),
     better: "high",
   },
   {
-    label: "Input price",
+    label: t("inputPrice"),
     value: (m) => m.inputPricePerMillion,
     show: (m, l) => formatPerMillion(m.inputPricePerMillion, l),
     better: "low",
   },
   {
-    label: "Output price",
+    label: t("outputPrice"),
     value: (m) => m.outputPricePerMillion,
     show: (m, l) => formatPerMillion(m.outputPricePerMillion, l),
     better: "low",
   },
   {
-    label: "1M in, 100K out",
+    label: t("n1mIn100kOut"),
     value: sampleCost,
     show: (m, l) => formatUsd(sampleCost(m), l),
     better: "low",
   },
   {
-    label: "Risk",
+    label: t("risk"),
     value: () => null,
     show: (m) =>
       m.riskLevel ? (
@@ -111,19 +121,19 @@ const ROWS: Row[] = [
           {m.riskLevel}
         </StatusBadge>
       ) : (
-        "Not rated"
+        t("notRated")
       ),
   },
   {
-    label: "Capabilities",
+    label: t("capabilities"),
     value: () => null,
     show: (m) =>
-      m.capabilities?.length ? m.capabilities.join(", ") : "None listed",
+      m.capabilities?.length ? m.capabilities.join(", ") : t("noneListed"),
   },
   {
-    label: "Status",
+    label: t("status"),
     value: () => null,
-    show: (m) => (m.deprecated ? "Deprecated" : "Available"),
+    show: (m) => (m.deprecated ? t("deprecated") : t("available")),
   },
 ];
 
@@ -153,6 +163,7 @@ export function CompareModelsScreen({
   onRetry,
   locale = "en",
 }: CompareModelsScreenProps) {
+  const t = useTranslations("models.compareModelsScreen");
   const byId = new Map(models.map((m) => [m.id, m]));
   const selected = selectedIds
     .map((id) => byId.get(id))
@@ -164,22 +175,20 @@ export function CompareModelsScreen({
     <PageFrame
       crumbs={[
         ...areaCrumbs(capabilities, "models"),
-        { label: "Models", href: "/models" },
+        { label: t("models"), href: "/models" },
       ]}
-      title="Compare models"
-      description={`Up to ${MAX_COMPARE} models side by side, at registry prices.`}
+      title={t("compareModels")}
+      description={t("upTo", { max: MAX_COMPARE })}
       filters={
         <SelectField
-          label="Add a model"
+          label={t("addAModel")}
           value=""
           disabled={full || loading || choices.length === 0}
           onChange={(id) => id && onSelectedChange([...selectedIds, id])}
           options={[
             {
               value: "",
-              label: full
-                ? `${MAX_COMPARE} chosen, the most`
-                : "Choose a model",
+              label: full ? t("full", { max: MAX_COMPARE }) : t("chooseAModel"),
             },
             ...choices.map((m) => ({
               value: m.id,
@@ -192,19 +201,19 @@ export function CompareModelsScreen({
     >
       {error ? (
         <ErrorState
-          title="Could not load models"
+          title={t("couldNotLoadModels")}
           error={error}
           onRetry={onRetry}
         />
       ) : loading ? (
-        <LoadingState label="Loading models" />
+        <LoadingState label={t("loadingModels")} />
       ) : selected.length === 0 ? (
         <EmptyState
           icon={<ScaleIcon />}
-          title="Choose models to compare"
-          description={`Add up to ${MAX_COMPARE} models above, or select rows on Models.`}
+          title={t("chooseModelsToCompare")}
+          description={t("addUpTo", { max: MAX_COMPARE })}
           actionHref="/models"
-          actionLabel="Open models"
+          actionLabel={t("openModels")}
         />
       ) : (
         <div className="min-w-0 overflow-x-auto rounded-lg border">
@@ -246,7 +255,7 @@ export function CompareModelsScreen({
               </tr>
             </thead>
             <tbody>
-              {ROWS.map((row) => {
+              {ROWS(t).map((row) => {
                 const best = bestIndex(row, selected);
                 return (
                   <tr key={row.label} className="border-b last:border-0">

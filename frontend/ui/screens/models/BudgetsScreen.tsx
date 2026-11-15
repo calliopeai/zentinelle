@@ -10,6 +10,7 @@ import {
   type StatusTone,
 } from "@calliopelabs/ui";
 import { CoinsIcon, RefreshCwIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { SelectField } from "../../shared/SelectField";
 import { KpiTile, KpiRow } from "../../shared/KpiTile";
@@ -17,13 +18,13 @@ import { formatCount, formatUsd } from "../../shared/figures";
 import { fixedList } from "../../shared/table";
 import {
   BUDGET_POLICIES_HREF,
-  SHOWBACK_GROUPS,
   type ShowbackEntry,
   type ShowbackGroup,
   type ShowbackReport,
   type ShowbackStatus,
+  useBudgetLabels,
 } from "./budgets";
-import { areaCrumbs, usageTabs } from "./frame";
+import { areaCrumbs, useModelsFrame } from "./frame";
 
 export interface BudgetsScreenProps {
   capabilities: readonly string[];
@@ -61,6 +62,9 @@ export function BudgetsScreen({
   onRefresh,
   locale = "en",
 }: BudgetsScreenProps) {
+  const { SHOWBACK_GROUPS } = useBudgetLabels();
+  const t = useTranslations("models.budgetsScreen");
+  const { usageTabs } = useModelsFrame();
   const { Link } = useUI();
   const entries = report?.entries ?? [];
   const pending = entries.reduce((s, e) => s + e.unreconciled_requests, 0);
@@ -84,7 +88,7 @@ export function BudgetsScreen({
     },
     {
       id: "requests",
-      header: "Requests",
+      header: t("requests"),
       align: "right",
       width: "w-28",
       cell: (e) => (
@@ -95,7 +99,7 @@ export function BudgetsScreen({
     },
     {
       id: "committed",
-      header: "Committed",
+      header: t("committed"),
       align: "right",
       width: "w-32",
       cell: (e) => (
@@ -106,7 +110,7 @@ export function BudgetsScreen({
     },
     {
       id: "actual",
-      header: "Provider reported",
+      header: t("providerReported"),
       align: "right",
       width: "w-36",
       cell: (e) =>
@@ -120,7 +124,7 @@ export function BudgetsScreen({
     },
     {
       id: "status",
-      header: "Status",
+      header: t("status"),
       width: "w-32",
       cell: (e) => (
         <StatusBadge tone={STATUS[e.status]?.tone ?? "muted"}>
@@ -133,19 +137,19 @@ export function BudgetsScreen({
   return (
     <PageFrame
       crumbs={areaCrumbs(capabilities, "usage")}
-      title="Usage"
-      description="Spend admitted against budget policies, reconciled with what each provider reports."
+      title={t("usage")}
+      description={t("spendAdmittedAgainstBudgetPolicies")}
       tabs={usageTabs("budgets")}
-      tabsLabel="Usage tabs"
+      tabsLabel={t("usageTabs")}
       primaryAction={
         <Button asChild size="sm" variant="outline">
-          <Link href={BUDGET_POLICIES_HREF}>Budget policies</Link>
+          <Link href={BUDGET_POLICIES_HREF}>{t("budgetPolicies")}</Link>
         </Button>
       }
       filters={
         <div className="flex flex-wrap items-center gap-3">
           <SelectField
-            label="Group by"
+            label={t("groupBy")}
             value={group}
             options={SHOWBACK_GROUPS}
             onChange={(v) => onGroupChange(v as ShowbackGroup)}
@@ -158,48 +162,46 @@ export function BudgetsScreen({
               disabled={loading}
             >
               <RefreshCwIcon aria-hidden />
-              Refresh
+              {t("refresh")}
             </Button>
           )}
         </div>
       }
     >
       {!error && (
-        <KpiRow label="Budget totals">
+        <KpiRow label={t("budgetTotals")}>
           <KpiTile
-            label="Committed"
+            label={t("committed")}
             value={formatUsd(report?.totals.committed_usd, locale)}
-            hint="Admitted by budget policies"
+            hint={t("admittedByBudgetPolicies")}
             loading={waiting}
           />
           <KpiTile
-            label="Provider reported"
+            label={t("providerReported")}
             value={
               report?.totals.actual_usd == null
-                ? "Not yet"
+                ? t("notYet")
                 : formatUsd(report.totals.actual_usd, locale)
             }
-            hint="From the providers' usage APIs"
+            hint={t("fromTheProvidersUsageApis")}
             loading={waiting}
           />
           <KpiTile
-            label="Pending reconciliation"
+            label={t("pendingReconciliation")}
             value={formatCount(pending, locale)}
-            hint={
-              pending ? "Requests the provider has not reported" : "All current"
-            }
+            hint={pending ? t("requestsTheProviderHasNot") : t("allCurrent")}
             loading={waiting}
           />
           <KpiTile
-            label="Anomalies"
+            label={t("anomalies")}
             value={formatCount(anomalies, locale)}
-            hint="Reported spend differs from committed"
+            hint={t("reportedSpendDiffersFromCommitted")}
             loading={waiting}
           />
         </KpiRow>
       )}
       <DataTable
-        label={`Spend by ${groupLabel.toLowerCase()}`}
+        label={t("spendBy", { group: groupLabel.toLowerCase() })}
         controller={fixedList({
           rows: entries,
           loading,
@@ -210,11 +212,10 @@ export function BudgetsScreen({
         getRowId={(e) => `${e.dimension_id}:${e.status}`}
         empty={{
           icon: <CoinsIcon />,
-          title: "No budget charges yet",
-          description:
-            "Charges appear once an agent's traffic is admitted under a budget policy.",
+          title: t("noBudgetChargesYet"),
+          description: t("chargesAppearOnceAnAgent"),
           actionHref: BUDGET_POLICIES_HREF,
-          actionLabel: "Open budget policies",
+          actionLabel: t("openBudgetPolicies"),
         }}
       />
       {report && (

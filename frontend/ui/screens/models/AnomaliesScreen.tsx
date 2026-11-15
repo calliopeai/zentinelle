@@ -11,6 +11,7 @@ import {
   type StatusTone,
 } from "@calliopelabs/ui";
 import { ActivityIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Panel } from "../../shared/Panel";
 import { SelectField } from "../../shared/SelectField";
@@ -23,17 +24,25 @@ import {
 } from "../../shared/figures";
 import { fixedList } from "../../shared/table";
 import {
-  KIND_LABEL,
   type Anomaly,
   type AnomalyKind,
   type AnomalySeverity,
+  useAnomalyLabels,
 } from "./anomalies";
-import { areaCrumbs, usageTabs } from "./frame";
+import { areaCrumbs, useModelsFrame } from "./frame";
+
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
 
 export type AnomalyFilter = "all" | AnomalyKind;
 
-const FILTERS: { value: AnomalyFilter; label: string }[] = [
-  { value: "all", label: "All kinds" },
+const FILTERS = (
+  t: Translate,
+  KIND_LABEL: Record<AnomalyKind, string>,
+): { value: AnomalyFilter; label: string }[] => [
+  { value: "all", label: t("allKinds") },
   ...(Object.keys(KIND_LABEL) as AnomalyKind[]).map((k) => ({
     value: k,
     label: KIND_LABEL[k],
@@ -84,6 +93,9 @@ export function AnomaliesScreen({
   onRetry,
   locale = "en",
 }: AnomaliesScreenProps) {
+  const { KIND_LABEL, subjectOf } = useAnomalyLabels();
+  const t = useTranslations("models.anomaliesScreen");
+  const { usageTabs } = useModelsFrame();
   const { Link } = useUI();
   const rows =
     filter === "all" ? anomalies : anomalies.filter((a) => a.kind === filter);
@@ -91,30 +103,30 @@ export function AnomaliesScreen({
   const columns: Column<Anomaly>[] = [
     {
       id: "kind",
-      header: "Kind",
+      header: t("kind"),
       width: "w-36",
       cell: (a) => KIND_LABEL[a.kind],
     },
     {
       id: "subject",
-      header: "Subject",
+      header: t("subject"),
       cell: (a) =>
         a.agentId ? (
           <Link
             href={`/agents/${encodeURIComponent(a.agentId)}/usage`}
             className="font-mono text-xs hover:underline [overflow-wrap:anywhere]"
           >
-            {a.subject}
+            {subjectOf(a)}
           </Link>
         ) : (
           <span className="font-mono text-xs [overflow-wrap:anywhere]">
-            {a.subject}
+            {subjectOf(a)}
           </span>
         ),
     },
     {
       id: "observed",
-      header: "Observed",
+      header: t("observed"),
       align: "right",
       width: "w-28",
       cell: (a) => (
@@ -125,7 +137,7 @@ export function AnomaliesScreen({
     },
     {
       id: "expected",
-      header: "Expected",
+      header: t("expected"),
       align: "right",
       width: "w-28",
       cell: (a) => (
@@ -136,7 +148,7 @@ export function AnomaliesScreen({
     },
     {
       id: "sigma",
-      header: "Deviation",
+      header: t("deviation"),
       align: "right",
       width: "w-24",
       cell: (a) => (
@@ -147,7 +159,7 @@ export function AnomaliesScreen({
     },
     {
       id: "severity",
-      header: "Severity",
+      header: t("severity"),
       width: "w-28",
       cell: (a) => (
         <StatusBadge tone={SEVERITY_TONE[a.severity]}>{a.severity}</StatusBadge>
@@ -155,7 +167,7 @@ export function AnomaliesScreen({
     },
     {
       id: "at",
-      header: "Day",
+      header: t("day"),
       width: "w-24",
       cell: (a) => (
         <span className="text-xs text-muted-foreground">
@@ -168,55 +180,53 @@ export function AnomaliesScreen({
   return (
     <PageFrame
       crumbs={areaCrumbs(capabilities, "usage")}
-      title="Usage"
-      description="Days, agents and endpoints well outside their usual range over the last 30 days."
+      title={t("usage")}
+      description={t("daysAgentsAndEndpointsWell")}
       tabs={usageTabs("anomalies")}
-      tabsLabel="Usage tabs"
+      tabsLabel={t("usageTabs")}
       notice={
         <p className="rounded-lg border border-info-border bg-info-bg px-3 py-2 text-sm text-info-fg">
-          Computed from the daily usage totals each time the page opens: more
-          than two standard deviations above the trailing seven days, or above
-          peers. Nothing is stored, so there is nothing to acknowledge yet.
+          {t("computedFromTheDailyUsage")}
         </p>
       }
       filters={
         <SelectField
-          label="Kind"
+          label={t("kind")}
           value={filter}
-          options={FILTERS}
+          options={FILTERS(t, KIND_LABEL)}
           onChange={(v) => onFilterChange(v as AnomalyFilter)}
         />
       }
     >
       {error ? (
         <ErrorState
-          title="Could not load usage"
+          title={t("couldNotLoadUsage")}
           error={error}
           onRetry={onRetry}
         />
       ) : (
         <>
-          <Section title="Baseline">
+          <Section title={t("baseline")}>
             <Panel>
               {loading ? (
                 <TrendChart
-                  label="Tokens per day against the baseline"
+                  label={t("tokensPerDayAgainstThe")}
                   points={[]}
-                  emptyLabel="Loading the baseline"
+                  emptyLabel={t("loadingTheBaseline")}
                 />
               ) : (
                 <TrendChart
-                  label="Tokens per day against the baseline"
+                  label={t("tokensPerDayAgainstThe")}
                   points={baseline}
                   formatValue={(v) => formatCompact(v, locale)}
-                  emptyLabel="Not enough history yet to draw a baseline."
+                  emptyLabel={t("notEnoughHistoryYetTo")}
                 />
               )}
             </Panel>
           </Section>
-          <Section title="Detections">
+          <Section title={t("detections")}>
             <DataTable
-              label="Anomalies"
+              label={t("anomalies")}
               chrome="table"
               controller={fixedList({
                 rows,
@@ -228,13 +238,12 @@ export function AnomaliesScreen({
               getRowId={(a) => a.id}
               empty={{
                 icon: <ActivityIcon />,
-                title: "No anomalies in the last 30 days",
-                description:
-                  "Every day, agent and endpoint stayed within two standard deviations of its baseline.",
+                title: t("noAnomaliesInTheLast"),
+                description: t("everyDayAgentAndEndpoint"),
               }}
               emptyFiltered={{
-                title: "No anomalies of this kind",
-                description: "Choose All kinds to see every detection.",
+                title: t("noAnomaliesOfThisKind"),
+                description: t("chooseAllKindsToSee"),
               }}
             />
           </Section>

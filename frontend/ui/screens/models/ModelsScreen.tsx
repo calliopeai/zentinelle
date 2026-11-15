@@ -12,12 +12,13 @@ import {
   type StatusTone,
 } from "@calliopelabs/ui";
 import { BrainCircuitIcon, CalculatorIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { SelectField } from "../../shared/SelectField";
 import { formatPerMillion, formatTokens } from "../../shared/figures";
 import { fixedList } from "../../shared/table";
 import { EstimateCostDrawer } from "./EstimateCostDrawer";
-import { areaCrumbs, can, modelsTabs } from "./frame";
+import { areaCrumbs, can, useModelsFrame } from "./frame";
 import { MAX_COMPARE, compareHref, type Model, type Option } from "./models";
 
 const RISK_TONE: Record<string, StatusTone> = {
@@ -70,13 +71,15 @@ export function ModelsScreen({
   allModels,
   locale = "en",
 }: ModelsScreenProps) {
+  const t = useTranslations("models.modelsScreen");
+  const { modelsTabs } = useModelsFrame();
   const { Link } = useUI();
   const selection = useRowSelection();
 
   const columns: Column<Model>[] = [
     {
       id: "model",
-      header: "Model",
+      header: t("model"),
       cell: (m) => (
         <div className="flex min-w-0 flex-col">
           <span className="font-medium [overflow-wrap:anywhere]">{m.name}</span>
@@ -88,13 +91,13 @@ export function ModelsScreen({
     },
     {
       id: "provider",
-      header: "Provider",
+      header: t("provider"),
       width: "w-36",
-      cell: (m) => m.providerName ?? m.providerSlug ?? "Unknown",
+      cell: (m) => m.providerName ?? m.providerSlug ?? t("unknown"),
     },
     {
       id: "type",
-      header: "Type",
+      header: t("type"),
       width: "w-24",
       cell: (m) => (
         <span className="font-mono text-xs">{m.modelType ?? "unknown"}</span>
@@ -102,7 +105,7 @@ export function ModelsScreen({
     },
     {
       id: "context",
-      header: "Context",
+      header: t("context"),
       align: "right",
       width: "w-32",
       cell: (m) => (
@@ -113,7 +116,7 @@ export function ModelsScreen({
     },
     {
       id: "input",
-      header: "Input",
+      header: t("input"),
       align: "right",
       width: "w-32",
       cell: (m) => (
@@ -124,7 +127,7 @@ export function ModelsScreen({
     },
     {
       id: "output",
-      header: "Output",
+      header: t("output"),
       align: "right",
       width: "w-32",
       cell: (m) => (
@@ -135,7 +138,7 @@ export function ModelsScreen({
     },
     {
       id: "risk",
-      header: "Risk",
+      header: t("risk"),
       width: "w-36",
       cell: (m) => (
         <div className="flex flex-wrap gap-1">
@@ -157,24 +160,24 @@ export function ModelsScreen({
   return (
     <PageFrame
       crumbs={areaCrumbs(capabilities, "models")}
-      title="Models"
-      description="The models agents may use, with the registry prices metering charges."
+      title={t("models")}
+      description={t("theModelsAgentsMayUse")}
       tabs={modelsTabs("models", capabilities)}
-      tabsLabel="Models tabs"
+      tabsLabel={t("modelsTabs")}
       primaryAction={
         <Button size="sm" onClick={() => onEstimate({})}>
           <CalculatorIcon aria-hidden />
-          Estimate cost
+          {t("estimateCost")}
         </Button>
       }
       menu={
         <Button asChild size="sm" variant="outline">
-          <Link href={compareHref([])}>Compare</Link>
+          <Link href={compareHref([])}>{t("compare")}</Link>
         </Button>
       }
     >
       <DataTable
-        label="Models"
+        label={t("models")}
         controller={fixedList({
           rows: models,
           loading,
@@ -188,21 +191,21 @@ export function ModelsScreen({
         columns={columns}
         getRowId={(m) => m.id}
         rowLabel={(m) => m.name}
-        searchPlaceholder="Search models"
+        searchPlaceholder={t("searchModels")}
         toolbar={
           <SelectField
-            label="Provider"
+            label={t("provider")}
             hideLabel
             value={provider}
             onChange={onProviderChange}
-            options={[{ value: "", label: "All providers" }, ...providers]}
+            options={[{ value: "", label: t("allProviders") }, ...providers]}
           />
         }
         selection={selection}
         bulkActions={(s) =>
           s.selectedCount > MAX_COMPARE ? (
             <span className="text-sm text-muted-foreground">
-              Compare up to {MAX_COMPARE} models
+              {t("compareUpTo", { max: MAX_COMPARE })}
             </span>
           ) : (
             <Button asChild size="sm">
@@ -214,22 +217,25 @@ export function ModelsScreen({
         }
         rowActions={(m) => (
           <DropdownMenuItem onSelect={() => onEstimate({ modelId: m.id })}>
-            Estimate cost
+            {t("estimateCost")}
           </DropdownMenuItem>
         )}
         empty={{
           icon: <BrainCircuitIcon />,
-          title: "No models in the registry",
+          title: t("noModelsInTheRegistry"),
           description: can(capabilities, "admin")
-            ? "Add a provider key, then sync its models into the registry."
-            : "An admin adds provider keys and syncs their models.",
+            ? t("addAProviderKeyThen")
+            : t("anAdminAddsProviderKeys"),
           ...(can(capabilities, "admin")
-            ? { actionHref: "/models/providers", actionLabel: "Open providers" }
+            ? {
+                actionHref: "/models/providers",
+                actionLabel: t("openProviders"),
+              }
             : {}),
         }}
         emptyFiltered={{
-          title: "No models match",
-          description: "Clear the search or choose All providers.",
+          title: t("noModelsMatch"),
+          description: t("clearTheSearchOrChoose"),
         }}
       />
       <EstimateCostDrawer

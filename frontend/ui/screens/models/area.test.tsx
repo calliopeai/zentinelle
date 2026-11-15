@@ -149,10 +149,11 @@ describe("models", () => {
   });
 
   it("gives Route check to admins only", () => {
-    expect(modelsTabs("models", ["view", "mutate"])).toBeUndefined();
+    const name = (key: string) => key;
+    expect(modelsTabs("models", ["view", "mutate"], name)).toBeUndefined();
     expect(
-      modelsTabs("routes", ["view", "mutate", "admin"])?.[1],
-    ).toMatchObject({ label: "Route check", active: true });
+      modelsTabs("routes", ["view", "mutate", "admin"], name)?.[1],
+    ).toMatchObject({ key: "routes", label: "routes", active: true });
   });
 });
 

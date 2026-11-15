@@ -89,7 +89,7 @@ export function CompliancePacksDialog({
                 <span className="font-mono text-xs">
                   {pack.version ? `v${pack.version}` : null}
                   {pack.policyCount != null &&
-                    ` · ${pack.policyCount} policies`}
+                    ` · ${t("policies", { count: pack.policyCount })}`}
                 </span>
               }
               actions={

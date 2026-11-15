@@ -72,13 +72,13 @@ describe("navigation copy", () => {
 
   it("localizes the interim tabs", () => {
     const tabs = interimTabs(
-      "/usage/anomalies",
+      "/settings/retention/legal-holds",
       ROLE_CAPABILITIES.admin,
       (kind, key) => `${kind}:${key}`,
     );
     expect(tabs.slice(0, 2).map((t) => t.label)).toEqual([
-      "function:usage",
-      "tab:budgets",
+      "function:retention",
+      "tab:legal-holds",
     ]);
   });
 });
@@ -87,26 +87,23 @@ describe("interim tabs", () => {
   const admin = ROLE_CAPABILITIES.admin;
 
   it("put the function first and mark the page in view", () => {
-    const tabs = interimTabs("/usage/anomalies", admin);
-    expect(tabs[0]).toMatchObject({ key: "usage", href: "/usage" });
+    const tabs = interimTabs("/settings/retention/legal-holds", admin);
+    expect(tabs[0]).toMatchObject({
+      key: "retention",
+      href: "/settings/retention",
+    });
     expect(tabs.filter((t) => t.active).map((t) => t.key)).toEqual([
-      "anomalies",
+      "legal-holds",
     ]);
-    expect(interimTabs("/usage/u-1", admin).find((t) => t.active)?.key).toBe(
-      "usage",
-    );
-  });
-
-  it("cover pages outside the function's prefix", () => {
     expect(
-      interimTabs("/tools/token-calculator", admin).find((t) => t.active)?.key,
-    ).toBe("estimate");
+      interimTabs("/settings/retention", admin).find((t) => t.active)?.key,
+    ).toBe("retention");
   });
 
   it("are empty for functions without interim pages, and respect roles", () => {
     expect(interimTabs("/agents", admin)).toEqual([]);
     expect(
-      interimTabs("/models", ROLE_CAPABILITIES.viewer).map((t) => t.key),
-    ).not.toContain("routes");
+      interimTabs("/settings/retention", ROLE_CAPABILITIES.viewer),
+    ).toEqual([]);
   });
 });

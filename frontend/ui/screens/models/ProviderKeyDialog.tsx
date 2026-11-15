@@ -11,6 +11,7 @@ import {
   Input,
 } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 export interface ProviderKeyDialogProps {
   open: boolean;
@@ -30,11 +31,12 @@ export function ProviderKeyDialog({
   rotating,
   onSave,
 }: ProviderKeyDialogProps) {
+  const t = useTranslations("models.providerKeyDialog");
   const [value, setValue] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const id = React.useId();
-  const verb = rotating ? "Rotate" : "Add";
+  const verb = rotating ? t("rotate") : t("add");
 
   return (
     <Dialog
@@ -61,7 +63,7 @@ export function ProviderKeyDialog({
               onOpenChange(false);
             } catch (err) {
               setError(
-                err instanceof Error ? err.message : "Could not save the key.",
+                err instanceof Error ? err.message : t("couldNotSaveTheKey"),
               );
             } finally {
               setSaving(false);
@@ -73,15 +75,14 @@ export function ProviderKeyDialog({
               {verb} the {providerLabel} key
             </DialogTitle>
             <DialogDescription>
-              Stored encrypted at rest. Zentinelle AI shows only its first eight
-              characters afterwards.
+              {t("storedEncryptedAtRestZentinelle")}
               {rotating &&
                 " The current key stops working once this one is saved."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-1.5">
             <label htmlFor={id} className="text-sm font-medium">
-              API key
+              {t("apiKey")}
             </label>
             <Input
               id={id}
@@ -105,10 +106,10 @@ export function ProviderKeyDialog({
               disabled={saving}
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button type="submit" disabled={saving || !value.trim()}>
-              {saving ? "Saving" : "Save key"}
+              {saving ? t("saving") : t("saveKey")}
             </Button>
           </DialogFooter>
         </form>

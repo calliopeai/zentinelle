@@ -3,15 +3,27 @@
  * frontend/app/(app)/budgets/showback reads). A budget is a `budget_limit`
  * policy, edited in Policies; this is the spend against it.
  */
-export const SHOWBACK_GROUPS = [
-  { value: "endpoint", label: "Agent" },
-  { value: "team", label: "Team" },
-  { value: "app", label: "App" },
-  { value: "session", label: "Session" },
-  { value: "task", label: "Task" },
+import { useTranslations } from "next-intl";
+export const SHOWBACK_GROUP_VALUES = [
+  "endpoint",
+  "team",
+  "app",
+  "session",
+  "task",
 ] as const;
 
-export type ShowbackGroup = (typeof SHOWBACK_GROUPS)[number]["value"];
+export type ShowbackGroup = (typeof SHOWBACK_GROUP_VALUES)[number];
+
+/** The showback groupings, named under `models.labels.groups`. */
+export function useBudgetLabels() {
+  const t = useTranslations("models.labels");
+  return {
+    SHOWBACK_GROUPS: SHOWBACK_GROUP_VALUES.map((value) => ({
+      value,
+      label: t(`groups.${value}`),
+    })),
+  };
+}
 
 export type ShowbackStatus = "reconciled" | "unreconciled" | "anomaly";
 

@@ -163,7 +163,7 @@ export function PolicyChangesScreen({
           setFailure(null);
           onOpenChange(c.id);
         }}
-        rowLabel={(c) => `change ${c.title}`}
+        rowLabel={(c) => t("rowLabel", { title: c.title })}
         toolbar={
           <FilterBar label={t("changeFilters")}>
             <Select

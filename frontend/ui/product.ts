@@ -211,7 +211,6 @@ export const ZENTINELLE_NAV: NavModel = [
             label: "Models",
             href: "/models",
             icon: BrainCircuitIcon,
-            also: ["/tools"],
           },
           {
             key: "providers",
@@ -302,24 +301,6 @@ interface InterimPage {
  * An area deletes its entries as its screens bring their own tabs.
  */
 export const INTERIM_PAGES: Readonly<Record<string, readonly InterimPage[]>> = {
-  usage: [
-    { key: "budgets", label: "Budgets", href: "/usage/budgets" },
-    { key: "anomalies", label: "Anomalies", href: "/usage/anomalies" },
-  ],
-  models: [
-    { key: "compare", label: "Compare", href: "/models/compare" },
-    {
-      key: "routes",
-      label: "Route check",
-      href: "/models/routes",
-      requires: "admin",
-    },
-    {
-      key: "estimate",
-      label: "Estimate cost",
-      href: "/tools/token-calculator",
-    },
-  ],
   retention: [
     {
       key: "legal-holds",

@@ -85,7 +85,11 @@ export function RiskMatrix({
                       <button
                         type="button"
                         aria-pressed={isSelected}
-                        aria-label={`${n} ${n === 1 ? "risk" : "risks"}, likelihood ${likelihood.label}, impact ${impact.label}`}
+                        aria-label={t("cell", {
+                          count: n,
+                          likelihood: likelihood.label,
+                          impact: impact.label,
+                        })}
                         className={cn(
                           cellClass,
                           "font-semibold outline-none hover:ring-1 hover:ring-ring focus-visible:ring-2 focus-visible:ring-ring",

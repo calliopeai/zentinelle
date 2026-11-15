@@ -210,7 +210,7 @@ export function ComplianceScreen({
                   description={
                     <Meter
                       compact
-                      label={`${f.name}: required capabilities configured`}
+                      label={t("requiredOf", { name: f.name ?? "" })}
                       value={f.requiredCovered}
                       max={f.requiredTotal}
                       tone={coverageTone(f.requiredCovered, f.requiredTotal)}
@@ -262,12 +262,14 @@ export function ComplianceScreen({
                   <div key={title} className="flex min-w-0 flex-col gap-2">
                     <h3 className="text-sm font-medium">{title}</h3>
                     <List
-                      label={`${title} capabilities`}
+                      label={t("capabilitiesOf", { title })}
                       items={items}
                       loading={loading}
                       getKey={(c) => c.id ?? c.name ?? ""}
                       empty={{
-                        title: `No ${title.toLowerCase()} capabilities`,
+                        title: t("noCapabilities", {
+                          title: title.toLowerCase(),
+                        }),
                       }}
                       renderItem={(c) => <CapabilityItem capability={c} />}
                     />
