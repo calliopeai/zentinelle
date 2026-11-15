@@ -9,8 +9,14 @@ import {
   Input,
 } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { Field, Select, type SelectOption } from "../../../patterns/form";
+
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
 
 /**
  * What the dialog asks for, in the shape of the two operations behind it:
@@ -31,17 +37,17 @@ export type ReportRequest =
       dateTo: string;
     };
 
-export const REPORT_KINDS: readonly SelectOption[] = [
-  { value: "compliance", label: "Framework compliance" },
-  { value: "control_coverage", label: "Control coverage" },
-  { value: "violation_summary", label: "Violation summary" },
-  { value: "audit_trail", label: "Audit trail" },
+export const REPORT_KINDS = (t: Translate): readonly SelectOption[] => [
+  { value: "compliance", label: t("frameworkCompliance") },
+  { value: "control_coverage", label: t("controlCoverage") },
+  { value: "violation_summary", label: t("violationSummary") },
+  { value: "audit_trail", label: t("auditTrail") },
 ];
 
-const FORMATS: readonly SelectOption[] = [
+const FORMATS = (t: Translate): readonly SelectOption[] => [
   { value: "csv", label: "CSV" },
   { value: "pdf", label: "PDF" },
-  { value: "ndjson", label: "NDJSON" },
+  { value: "ndjson", label: t("ndjson") },
 ];
 
 export interface GenerateReportDialogProps {
@@ -69,6 +75,7 @@ export function GenerateReportDialog({
   today,
   onSubmit,
 }: GenerateReportDialogProps) {
+  const t = useTranslations("risk.generateReportDialog");
   const [kind, setKind] = React.useState("compliance");
   const [framework, setFramework] = React.useState("");
   const [format, setFormat] = React.useState("csv");
@@ -77,7 +84,7 @@ export function GenerateReportDialog({
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const periodError =
-    from && to && from > to ? "The period ends before it starts." : null;
+    from && to && from > to ? t("thePeriodEndsBeforeIt") : null;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -109,49 +116,43 @@ export function GenerateReportDialog({
       <DialogContent>
         <form onSubmit={submit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>Generate a report</DialogTitle>
-            <DialogDescription>
-              Reports run on the server and appear in the list when they are
-              ready.
-            </DialogDescription>
+            <DialogTitle>{t("generateReport")}</DialogTitle>
+            <DialogDescription>{t("reportsRunOnTheServer")}</DialogDescription>
           </DialogHeader>
-          <Field label="Report">
+          <Field label={t("report")}>
             <Select
-              options={REPORT_KINDS}
+              options={REPORT_KINDS(t)}
               value={kind}
               onChange={(event) => setKind(event.target.value)}
             />
           </Field>
           {kind === "compliance" ? (
-            <Field
-              label="Framework"
-              hint="Leave as All frameworks for one report across every framework."
-            >
+            <Field label={t("framework")} hint={t("leaveAsAllFrameworksFor")}>
               <Select
                 options={frameworks}
-                placeholder="All frameworks"
+                placeholder={t("allFrameworks")}
                 value={framework}
                 onChange={(event) => setFramework(event.target.value)}
               />
             </Field>
           ) : (
-            <Field label="Format">
+            <Field label={t("format")}>
               <Select
-                options={FORMATS}
+                options={FORMATS(t)}
                 value={format}
                 onChange={(event) => setFormat(event.target.value)}
               />
             </Field>
           )}
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="From" required>
+            <Field label={t("from")} required>
               <Input
                 type="date"
                 value={from}
                 onChange={(event) => setFrom(event.target.value)}
               />
             </Field>
-            <Field label="To" required error={periodError}>
+            <Field label={t("to")} required error={periodError}>
               <Input
                 type="date"
                 value={to}
@@ -171,10 +172,10 @@ export function GenerateReportDialog({
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button type="submit" disabled={pending || Boolean(periodError)}>
-              {pending ? "Generating" : "Generate"}
+              {pending ? t("generating") : t("generate")}
             </Button>
           </DialogFooter>
         </form>

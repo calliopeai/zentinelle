@@ -15,6 +15,7 @@ import {
 } from "@calliopelabs/ui";
 import { MoreHorizontalIcon } from "lucide-react";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type { RiskData } from "@/graphql/risks/types";
 
@@ -22,10 +23,6 @@ import { Card } from "../../patterns/Card";
 import { DefinitionList } from "../../patterns/DefinitionList";
 import { RiskLevelBadge } from "./components/RiskLevelBadge";
 import {
-  IMPACT,
-  LIKELIHOOD,
-  RISK_CATEGORIES,
-  RISK_STATUSES,
   RISK_STATUS_TONE,
   areaCrumb,
   canMutate,
@@ -33,6 +30,7 @@ import {
   formatDateTime,
   labelOf,
   type QueryState,
+  useRiskLabels,
 } from "./model";
 
 export interface RiskDetailScreenProps extends QueryState {
@@ -47,7 +45,7 @@ export interface RiskDetailScreenProps extends QueryState {
 }
 
 const scaleText = (
-  scale: typeof LIKELIHOOD | typeof IMPACT,
+  scale: readonly { value: number; label: string }[],
   value: number | null,
 ) => (value == null ? null : `${labelOf(scale, value)} (${value})`);
 
@@ -66,25 +64,28 @@ export function RiskDetailScreen({
   error,
   onRetry,
 }: RiskDetailScreenProps) {
+  const t = useTranslations("risk.riskDetailScreen");
+  const { IMPACT, LIKELIHOOD, RISK_CATEGORIES, RISK_STATUSES } =
+    useRiskLabels();
   const { Link } = useUI();
   const [confirming, setConfirming] = React.useState(false);
   const editable = canMutate(capabilities);
   const crumbs = [
     areaCrumb("risks", capabilities),
-    { label: "Register", href: "/risks" },
+    { label: t("register"), href: "/risks" },
   ];
 
   if (loading)
     return (
-      <PageFrame crumbs={crumbs} title="Risk">
-        <LoadingState variant="page" label="Loading the risk" />
+      <PageFrame crumbs={crumbs} title={t("risk")}>
+        <LoadingState variant="page" label={t("loadingTheRisk")} />
       </PageFrame>
     );
   if (error)
     return (
-      <PageFrame crumbs={crumbs} title="Risk">
+      <PageFrame crumbs={crumbs} title={t("risk")}>
         <ErrorState
-          title="Could not load the risk"
+          title={t("couldNotLoadTheRisk")}
           error={error}
           onRetry={onRetry}
         />
@@ -92,12 +93,12 @@ export function RiskDetailScreen({
     );
   if (!risk)
     return (
-      <PageFrame crumbs={crumbs} title="Risk not found">
+      <PageFrame crumbs={crumbs} title={t("riskNotFound")}>
         <EmptyState
-          title="This risk is not in the register"
-          description="It was deleted, or the link is wrong."
+          title={t("thisRiskIsNotIn")}
+          description={t("itWasDeletedOrThe")}
           actionHref="/risks"
-          actionLabel="Back to the register"
+          actionLabel={t("backToTheRegister")}
         />
       </PageFrame>
     );
@@ -117,7 +118,7 @@ export function RiskDetailScreen({
       primaryAction={
         editable ? (
           <Button onClick={() => void onReview?.()} disabled={reviewing}>
-            {reviewing ? "Marking reviewed" : "Mark reviewed"}
+            {reviewing ? t("markingReviewed") : t("markReviewed")}
           </Button>
         ) : undefined
       }
@@ -125,19 +126,23 @@ export function RiskDetailScreen({
         editable ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="More actions">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label={t("moreActions")}
+              >
                 <MoreHorizontalIcon aria-hidden />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem asChild>
-                <Link href={`/risks/${risk.id}?edit=1`}>Edit</Link>
+                <Link href={`/risks/${risk.id}?edit=1`}>{t("edit")}</Link>
               </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"
                 onSelect={() => setConfirming(true)}
               >
-                Delete
+                {t("delete")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -149,10 +154,10 @@ export function RiskDetailScreen({
           {risk.description}
         </p>
       )}
-      <Section title="Assessment">
+      <Section title={t("assessment")}>
         <div className="grid gap-4 lg:grid-cols-2">
           <Card
-            title="Inherent"
+            title={t("inherent")}
             action={
               <RiskLevelBadge level={risk.riskLevel} score={risk.riskScore} />
             }
@@ -160,30 +165,33 @@ export function RiskDetailScreen({
             <DefinitionList
               items={[
                 {
-                  term: "Likelihood",
+                  term: t("likelihood"),
                   description: scaleText(LIKELIHOOD, risk.likelihood),
                 },
-                { term: "Impact", description: scaleText(IMPACT, risk.impact) },
+                {
+                  term: t("impact"),
+                  description: scaleText(IMPACT, risk.impact),
+                },
                 { term: "RPN", description: risk.riskScore },
               ]}
             />
           </Card>
-          <Card title="Residual, after mitigation">
+          <Card title={t("residualAfterMitigation")}>
             <DefinitionList
-              emptyLabel="Not assessed"
+              emptyLabel={t("notAssessed")}
               items={[
                 {
-                  term: "Likelihood",
+                  term: t("likelihood"),
                   description: scaleText(LIKELIHOOD, risk.residualLikelihood),
                 },
                 {
-                  term: "Impact",
+                  term: t("impact"),
                   description: scaleText(IMPACT, risk.residualImpact),
                 },
                 {
-                  term: "Score",
+                  term: t("score"),
                   description: residualSet
-                    ? `${risk.residualRiskScore}, likelihood x impact. The server leaves severity out, so it does not compare with the RPN.`
+                    ? t("residual", { score: risk.residualRiskScore ?? "" })
                     : null,
                 },
               ]}
@@ -191,24 +199,27 @@ export function RiskDetailScreen({
           </Card>
         </div>
       </Section>
-      <Section title="Mitigation and review">
+      <Section title={t("mitigationAndReview")}>
         <DefinitionList
           columns={2}
           items={[
-            { term: "Plan", description: risk.mitigationPlan || null },
-            { term: "Progress", description: risk.mitigationStatus || null },
-            { term: "Owner", description: risk.ownerName },
+            { term: t("plan"), description: risk.mitigationPlan || null },
+            { term: t("progress"), description: risk.mitigationStatus || null },
+            { term: t("owner"), description: risk.ownerName },
             {
-              term: "Last reviewed",
-              description: formatDateTime(risk.lastReviewedAt) ?? "Never",
+              term: t("lastReviewed"),
+              description: formatDateTime(risk.lastReviewedAt) ?? t("never"),
             },
             {
-              term: "Next review",
+              term: t("nextReview"),
               description: formatDate(risk.nextReviewDate),
             },
-            { term: "Identified", description: formatDate(risk.identifiedAt) },
             {
-              term: "Incidents",
+              term: t("identified"),
+              description: formatDate(risk.identifiedAt),
+            },
+            {
+              term: t("incidents"),
               description: risk.incidentCount ? (
                 <Link
                   href={`/incidents?search=${encodeURIComponent(risk.name)}`}
@@ -217,11 +228,11 @@ export function RiskDetailScreen({
                   {risk.incidentCount} linked
                 </Link>
               ) : (
-                "None linked"
+                t("noneLinked")
               ),
             },
             {
-              term: "Tags",
+              term: t("tags"),
               description: risk.tags.length ? (
                 <span className="flex flex-wrap gap-1">
                   {risk.tags.map((tag) => (
@@ -242,9 +253,9 @@ export function RiskDetailScreen({
         open={confirming}
         onOpenChange={setConfirming}
         destructive
-        title="Delete this risk?"
-        description="The risk leaves the register. Incidents linked to it stay, without the link. This cannot be undone."
-        confirmLabel="Delete risk"
+        title={t("deleteThisRisk")}
+        description={t("theRiskLeavesTheRegister")}
+        confirmLabel={t("deleteRisk")}
         onConfirm={() => onDelete?.()}
       />
     </PageFrame>

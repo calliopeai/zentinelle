@@ -72,13 +72,13 @@ describe("navigation copy", () => {
 
   it("localizes the interim tabs", () => {
     const tabs = interimTabs(
-      "/risks/fmea",
+      "/usage/anomalies",
       ROLE_CAPABILITIES.admin,
       (kind, key) => `${kind}:${key}`,
     );
     expect(tabs.slice(0, 2).map((t) => t.label)).toEqual([
-      "function:risks",
-      "tab:overview",
+      "function:usage",
+      "tab:budgets",
     ]);
   });
 });
@@ -87,11 +87,13 @@ describe("interim tabs", () => {
   const admin = ROLE_CAPABILITIES.admin;
 
   it("put the function first and mark the page in view", () => {
-    const tabs = interimTabs("/risks/fmea", admin);
-    expect(tabs[0]).toMatchObject({ key: "risks", href: "/risks" });
-    expect(tabs.filter((t) => t.active).map((t) => t.key)).toEqual(["fmea"]);
-    expect(interimTabs("/risks/r-1", admin).find((t) => t.active)?.key).toBe(
-      "risks",
+    const tabs = interimTabs("/usage/anomalies", admin);
+    expect(tabs[0]).toMatchObject({ key: "usage", href: "/usage" });
+    expect(tabs.filter((t) => t.active).map((t) => t.key)).toEqual([
+      "anomalies",
+    ]);
+    expect(interimTabs("/usage/u-1", admin).find((t) => t.active)?.key).toBe(
+      "usage",
     );
   });
 

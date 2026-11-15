@@ -10,6 +10,7 @@ import {
   ListItem,
 } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type { QueryState } from "../model";
 
@@ -44,6 +45,7 @@ export function CompliancePacksDialog({
   error,
   onRetry,
 }: CompliancePacksDialogProps) {
+  const t = useTranslations("risk.compliancePacksDialog");
   const [pending, setPending] = React.useState<string | null>(null);
   const [failure, setFailure] = React.useState<string | null>(null);
   async function activate(pack: CompliancePack) {
@@ -62,25 +64,22 @@ export function CompliancePacksDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Apply a compliance pack</DialogTitle>
-          <DialogDescription>
-            A pack creates or updates the policies a framework expects. Review
-            them in Policies before they enforce.
-          </DialogDescription>
+          <DialogTitle>{t("applyPack")}</DialogTitle>
+          <DialogDescription>{t("aPackCreatesOrUpdates")}</DialogDescription>
         </DialogHeader>
         {failure && (
-          <ErrorState title="Could not apply the pack" error={failure} />
+          <ErrorState title={t("couldNotApplyThePack")} error={failure} />
         )}
         <List
-          label="Compliance packs"
+          label={t("compliancePacks")}
           items={packs}
           getKey={(pack) => pack.name}
           loading={loading}
           error={error}
           onRetry={onRetry}
           empty={{
-            title: "No packs available",
-            description: "This installation ships no compliance packs.",
+            title: t("noPacksAvailable"),
+            description: t("thisInstallationShipsNoCompliance"),
           }}
           renderItem={(pack) => (
             <ListItem
@@ -101,7 +100,7 @@ export function CompliancePacksDialog({
                   onClick={() => void activate(pack)}
                   aria-label={`Apply ${pack.displayName ?? pack.name}`}
                 >
-                  {pending === pack.name ? "Applying" : "Apply"}
+                  {pending === pack.name ? t("applying") : t("apply")}
                 </Button>
               }
             />

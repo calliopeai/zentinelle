@@ -10,6 +10,7 @@ import {
 } from "@calliopelabs/ui";
 import { PlusIcon, ShieldAlertIcon } from "lucide-react";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type { RiskData, RiskListVariables } from "@/graphql/risks/types";
 
@@ -19,12 +20,6 @@ import { ViewSwitch } from "../../patterns/ViewSwitch";
 import { RiskLevelBadge } from "./components/RiskLevelBadge";
 import { RiskMatrix } from "./components/RiskMatrix";
 import {
-  IMPACT,
-  LIKELIHOOD,
-  RISKS_TABS,
-  RISK_CATEGORIES,
-  RISK_LEVELS,
-  RISK_STATUSES,
   RISK_STATUS_TONE,
   areaCrumb,
   canMutate,
@@ -32,7 +27,13 @@ import {
   labelOf,
   tabsOf,
   type QueryState,
+  useRiskLabels,
 } from "./model";
+
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
 
 export type RegisterView = "list" | "matrix" | "rpn";
 
@@ -50,68 +51,85 @@ export interface RisksScreenProps extends QueryState {
   onDelete?: (risk: RiskData) => void;
 }
 
-const VIEWS = [
-  { key: "list", label: "List", href: "/risks" },
-  { key: "matrix", label: "Matrix", href: "/risks?view=matrix" },
-  { key: "rpn", label: "By RPN", href: "/risks?view=rpn" },
-] as const;
+const VIEWS = (t: Translate) =>
+  [
+    { key: "list", label: t("list"), href: "/risks" },
+    { key: "matrix", label: t("matrix"), href: "/risks?view=matrix" },
+    { key: "rpn", label: t("byRpn"), href: "/risks?view=rpn" },
+  ] as const;
 
-const FILTERS: FilterSpec[] = [
+const FILTERS = (
+  t: Translate,
+  labels: ReturnType<typeof useRiskLabels>,
+): FilterSpec[] => [
   {
     key: "category",
-    label: "Category",
-    anyLabel: "Any category",
-    options: [...RISK_CATEGORIES],
+    label: t("category"),
+    anyLabel: t("anyCategory"),
+    options: labels.RISK_CATEGORIES,
   },
   {
     key: "status",
-    label: "Status",
-    anyLabel: "Any status",
-    options: [...RISK_STATUSES],
+    label: t("status"),
+    anyLabel: t("anyStatus"),
+    options: labels.RISK_STATUSES,
   },
   {
     key: "riskLevel",
-    label: "Level",
-    anyLabel: "Any level",
-    options: [...RISK_LEVELS],
+    label: t("level"),
+    anyLabel: t("anyLevel"),
+    options: labels.RISK_LEVELS,
   },
 ];
 
 function RiskName({ risk }: { risk: RiskData }) {
+  const t = useTranslations("risk.risksScreen");
+  const { RISK_CATEGORIES } = useRiskLabels();
   return (
     <span className="flex min-w-0 flex-col">
       <span className="truncate font-medium">{risk.name}</span>
       <span className="truncate text-xs text-muted-foreground">
         {risk.categoryDisplay ?? labelOf(RISK_CATEGORIES, risk.category)}
-        {risk.ownerName ? ` · ${risk.ownerName}` : " · No owner"}
+        {` · ${risk.ownerName ?? t("noOwner")}`}
       </span>
     </span>
   );
 }
 
-const statusCell = (risk: RiskData) => (
-  <StatusBadge tone={RISK_STATUS_TONE[risk.status] ?? "muted"}>
-    {risk.statusDisplay ?? labelOf(RISK_STATUSES, risk.status)}
-  </StatusBadge>
-);
+function RiskStatus({ risk }: { risk: RiskData }) {
+  const { RISK_STATUSES } = useRiskLabels();
+  return (
+    <StatusBadge tone={RISK_STATUS_TONE[risk.status] ?? "muted"}>
+      {risk.statusDisplay ?? labelOf(RISK_STATUSES, risk.status)}
+    </StatusBadge>
+  );
+}
 
-const LIST_COLUMNS: Column<RiskData>[] = [
+const LIST_COLUMNS = (
+  t: Translate,
+  labels: ReturnType<typeof useRiskLabels>,
+): Column<RiskData>[] => [
   {
     id: "name",
-    header: "Risk",
+    header: t("risk"),
     cell: (r) => <RiskName risk={r} />,
     cellClassName: "max-w-md",
   },
   {
     id: "level",
-    header: "Level",
+    header: t("level"),
     width: "w-36",
     cell: (r) => <RiskLevelBadge level={r.riskLevel} score={r.riskScore} />,
   },
-  { id: "status", header: "Status", width: "w-32", cell: statusCell },
+  {
+    id: "status",
+    header: t("status"),
+    width: "w-32",
+    cell: (r) => <RiskStatus risk={r} />,
+  },
   {
     id: "incidents",
-    header: "Incidents",
+    header: t("incidents"),
     width: "w-24",
     align: "right",
     cell: (r) => (
@@ -120,7 +138,7 @@ const LIST_COLUMNS: Column<RiskData>[] = [
   },
   {
     id: "review",
-    header: "Next review",
+    header: t("nextReview"),
     width: "w-32",
     cell: (r) =>
       formatDate(r.nextReviewDate) ?? (
@@ -129,24 +147,27 @@ const LIST_COLUMNS: Column<RiskData>[] = [
   },
 ];
 
-const RPN_COLUMNS: Column<RiskData>[] = [
+const RPN_COLUMNS = (
+  t: Translate,
+  labels: ReturnType<typeof useRiskLabels>,
+): Column<RiskData>[] => [
   {
     id: "name",
-    header: "Risk",
+    header: t("risk"),
     cell: (r) => <RiskName risk={r} />,
     cellClassName: "max-w-sm",
   },
   {
     id: "likelihood",
-    header: "Likelihood",
+    header: t("likelihood"),
     width: "w-32",
-    cell: (r) => labelOf(LIKELIHOOD, r.likelihood),
+    cell: (r) => labelOf(labels.LIKELIHOOD, r.likelihood),
   },
   {
     id: "impact",
-    header: "Impact",
+    header: t("impact"),
     width: "w-28",
-    cell: (r) => labelOf(IMPACT, r.impact),
+    cell: (r) => labelOf(labels.IMPACT, r.impact),
   },
   {
     id: "rpn",
@@ -161,7 +182,7 @@ const RPN_COLUMNS: Column<RiskData>[] = [
   },
   {
     id: "residual",
-    header: "Residual",
+    header: t("residual"),
     width: "w-24",
     align: "right",
     cell: (r) => (
@@ -172,7 +193,7 @@ const RPN_COLUMNS: Column<RiskData>[] = [
   },
   {
     id: "level",
-    header: "Level",
+    header: t("level"),
     width: "w-32",
     cell: (r) => <RiskLevelBadge level={r.riskLevel} />,
   },
@@ -196,6 +217,9 @@ export function RisksScreen({
   error,
   onRetry,
 }: RisksScreenProps) {
+  const t = useTranslations("risk.risksScreen");
+  const labels = useRiskLabels();
+  const { IMPACT, LIKELIHOOD, RISKS_TABS } = labels;
   const { Link } = useUI();
   const [cell, setCell] = React.useState<{
     likelihood: number;
@@ -227,16 +251,16 @@ export function RisksScreen({
     ? (risk: RiskData) => (
         <>
           <DropdownMenuItem onSelect={() => onReview?.(risk)}>
-            Mark reviewed
+            {t("markReviewed")}
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href={`/risks/${risk.id}?edit=1`}>Edit</Link>
+            <Link href={`/risks/${risk.id}?edit=1`}>{t("edit")}</Link>
           </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
             onSelect={() => onDelete?.(risk)}
           >
-            Delete
+            {t("delete")}
           </DropdownMenuItem>
         </>
       )
@@ -244,9 +268,11 @@ export function RisksScreen({
 
   const table = (
     <DataTable
-      label="Risks"
+      label={t("risks")}
       controller={controller}
-      columns={view === "rpn" ? RPN_COLUMNS : LIST_COLUMNS}
+      columns={
+        view === "rpn" ? RPN_COLUMNS(t, labels) : LIST_COLUMNS(t, labels)
+      }
       getRowId={(r) => r.id}
       rowHref={(r) => `/risks/${r.id}`}
       rowLabel={(r) => r.name}
@@ -258,16 +284,15 @@ export function RisksScreen({
             aria-hidden
           />
         ),
-        title: "No risks in the register",
-        description:
-          "Record what could go wrong with your agents, how likely it is and what it would cost.",
+        title: t("noRisksInTheRegister"),
+        description: t("recordWhatCouldGoWrong"),
         ...(editable
-          ? { actionHref: "/risks/create", actionLabel: "New risk" }
+          ? { actionHref: "/risks/create", actionLabel: t("newRisk") }
           : {}),
       }}
       emptyFiltered={{
-        title: "No risks match",
-        description: "No risk matches this search and these filters.",
+        title: t("noRisksMatch"),
+        description: t("noRiskMatchesThisSearch"),
       }}
     />
   );
@@ -275,34 +300,38 @@ export function RisksScreen({
   return (
     <PageFrame
       crumbs={[areaCrumb("risks", capabilities)]}
-      title="Risks"
+      title={t("risks")}
       tabs={tabsOf(RISKS_TABS, "register")}
-      tabsLabel="Risks"
+      tabsLabel={t("risks")}
       primaryAction={
         editable ? (
           <Button asChild>
             <Link href="/risks/create">
               <PlusIcon aria-hidden />
-              New risk
+              {t("newRisk")}
             </Link>
           </Button>
         ) : undefined
       }
       filters={
         <FilterBar
-          searchLabel="Search risks"
+          searchLabel={t("searchRisks")}
           search={filters.search ?? ""}
           onSearchChange={(search) =>
             onFiltersChange({ ...filters, search: search || null })
           }
-          filters={FILTERS}
+          filters={FILTERS(t, labels)}
           values={filters as Record<string, string>}
           onChange={(key, value) =>
             onFiltersChange({ ...filters, [key]: value || null })
           }
           onClear={clearFilters}
           trailing={
-            <ViewSwitch label="Register views" views={VIEWS} active={view} />
+            <ViewSwitch
+              label={t("registerViews")}
+              views={VIEWS(t)}
+              active={view}
+            />
           }
         />
       }
@@ -310,16 +339,19 @@ export function RisksScreen({
       {view === "matrix" && !loading && !error && risks.length > 0 ? (
         <>
           <Section
-            title="Likelihood and impact"
-            description="Select a cell to list its risks."
+            title={t("likelihoodAndImpact")}
+            description={t("selectACellToList")}
           >
             <RiskMatrix risks={risks} selected={cell} onSelect={setCell} />
           </Section>
           <Section
             title={
               cell
-                ? `${labelOf(LIKELIHOOD, cell.likelihood)} likelihood, ${labelOf(IMPACT, cell.impact)} impact`
-                : "All risks"
+                ? t("cellFilter", {
+                    likelihood: labelOf(LIKELIHOOD, cell.likelihood) ?? "",
+                    impact: labelOf(IMPACT, cell.impact) ?? "",
+                  })
+                : t("allRisks")
             }
           >
             {table}

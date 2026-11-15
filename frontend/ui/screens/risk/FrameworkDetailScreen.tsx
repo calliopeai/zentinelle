@@ -9,6 +9,7 @@ import {
   Section,
   StatusBadge,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import type {
   ComplianceCapability,
@@ -37,15 +38,18 @@ export interface FrameworkDetailScreenProps extends QueryState {
 }
 
 function ConfiguredRow({ capability }: { capability: ComplianceCapability }) {
+  const t = useTranslations("risk.frameworkDetailScreen");
   return (
     <ListItem
       title={capability.name ?? capability.id}
       description={
         capability.supportingPolicies.length
-          ? `Configured by ${capability.supportingPolicies.join(", ")}`
+          ? t("configuredBy", {
+              policies: capability.supportingPolicies.join(", "),
+            })
           : capability.description
       }
-      status={<StatusBadge tone="ok">Configured</StatusBadge>}
+      status={<StatusBadge tone="ok">{t("configured")}</StatusBadge>}
     />
   );
 }
@@ -65,24 +69,25 @@ export function FrameworkDetailScreen({
   error,
   onRetry,
 }: FrameworkDetailScreenProps) {
+  const t = useTranslations("risk.frameworkDetailScreen");
   const crumbs = [
     areaCrumb("compliance", capabilities),
-    { label: "Frameworks", href: "/compliance" },
+    { label: t("frameworks"), href: "/compliance" },
   ];
   const framework = overview?.frameworkCoverage.find(
     (f) => f.id === frameworkId,
   );
   if (loading)
     return (
-      <PageFrame crumbs={crumbs} title="Framework">
-        <LoadingState variant="page" label="Loading the framework" />
+      <PageFrame crumbs={crumbs} title={t("framework")}>
+        <LoadingState variant="page" label={t("loadingTheFramework")} />
       </PageFrame>
     );
   if (error)
     return (
-      <PageFrame crumbs={crumbs} title="Framework">
+      <PageFrame crumbs={crumbs} title={t("framework")}>
         <ErrorState
-          title="Could not load the framework"
+          title={t("couldNotLoadTheFramework")}
           error={error}
           onRetry={onRetry}
         />
@@ -90,12 +95,12 @@ export function FrameworkDetailScreen({
     );
   if (!framework)
     return (
-      <PageFrame crumbs={crumbs} title="Framework not tracked">
+      <PageFrame crumbs={crumbs} title={t("frameworkNotTracked")}>
         <EmptyState
-          title={`Zentinelle AI does not track ${frameworkId}`}
-          description="The frameworks list shows every framework the backend tracks."
+          title={t("notTracked", { id: frameworkId })}
+          description={t("theFrameworksListShowsEvery")}
           actionHref="/compliance"
-          actionLabel="All frameworks"
+          actionLabel={t("allFrameworks")}
         />
       </PageFrame>
     );
@@ -129,21 +134,21 @@ export function FrameworkDetailScreen({
         >
           {framework.missingRequired.length
             ? `${framework.missingRequired.length} required missing`
-            : "Required configured"}
+            : t("requiredConfigured")}
         </StatusBadge>
       }
       description={<ConfigurationNote admin={isAdmin(capabilities)} />}
       primaryAction={
         canMutate(capabilities) ? (
           <Button variant="outline" onClick={onGenerateReport}>
-            Generate report
+            {t("generateReport")}
           </Button>
         ) : undefined
       }
     >
       <StatGrid>
         <StatTile
-          label="Required configured"
+          label={t("requiredConfigured")}
           value={`${framework.requiredCovered} of ${framework.requiredTotal}`}
           tone={coverageTone(
             framework.requiredCovered,
@@ -151,27 +156,24 @@ export function FrameworkDetailScreen({
           )}
         />
         <StatTile
-          label="Recommended configured"
+          label={t("recommendedConfigured")}
           value={`${recommendedCovered} of ${recommendedTotal}`}
         />
       </StatGrid>
       <Meter
-        label="All capabilities configured"
+        label={t("allCapabilitiesConfigured")}
         value={framework.totalCovered}
         max={framework.totalCount}
         tone={coverageTone(framework.totalCovered, framework.totalCount)}
       />
-      <Section
-        title="Missing"
-        description="Required first. Each needs a policy or a content rule."
-      >
+      <Section title={t("missing")} description={t("requiredFirstEachNeedsA")}>
         <List
-          label="Missing capabilities"
+          label={t("missingCapabilities")}
           items={[...missingRequired, ...missingRecommended]}
           getKey={(id) => id}
           empty={{
-            title: "Nothing missing",
-            description: "Every capability this framework names is configured.",
+            title: t("nothingMissing"),
+            description: t("everyCapabilityThisFrameworkNames"),
           }}
           renderItem={(id) => (
             <ListItem
@@ -179,21 +181,21 @@ export function FrameworkDetailScreen({
               description={byId.get(id)?.description}
               status={
                 <StatusBadge tone={missingRequired.has(id) ? "warn" : "muted"}>
-                  {missingRequired.has(id) ? "Required" : "Recommended"}
+                  {missingRequired.has(id) ? t("required") : t("recommended")}
                 </StatusBadge>
               }
             />
           )}
         />
       </Section>
-      <Section title="Configured">
+      <Section title={t("configured")}>
         <List
-          label="Configured capabilities"
+          label={t("configuredCapabilities")}
           items={configured}
           getKey={(c) => c.id ?? ""}
           empty={{
-            title: "Nothing configured yet",
-            description: "No enabled capability supports this framework.",
+            title: t("nothingConfiguredYet"),
+            description: t("noEnabledCapabilitySupportsThis"),
           }}
           renderItem={(c) => <ConfiguredRow capability={c} />}
         />

@@ -1,8 +1,9 @@
 import { cn } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import type { RiskData } from "@/graphql/risks/types";
 
-import { IMPACT, LIKELIHOOD } from "../model";
+import { useRiskLabels } from "../model";
 
 export interface RiskMatrixProps {
   risks: readonly Pick<RiskData, "id" | "likelihood" | "impact">[];
@@ -32,6 +33,8 @@ export function RiskMatrix({
   onSelect,
   className,
 }: RiskMatrixProps) {
+  const t = useTranslations("risk.riskMatrix");
+  const { IMPACT, LIKELIHOOD } = useRiskLabels();
   const count = (likelihood: number, impact: number) =>
     risks.filter((r) => r.likelihood === likelihood && r.impact === impact)
       .length;
@@ -39,7 +42,7 @@ export function RiskMatrix({
     <div className={cn("@container overflow-x-auto", className)}>
       <table className="w-full min-w-lg table-fixed border-separate border-spacing-1 text-sm">
         <caption className="pb-2 text-left text-xs text-muted-foreground">
-          Risks by likelihood (rows) and impact (columns)
+          {t("risksByLikelihoodRowsAnd")}
         </caption>
         <thead>
           <tr>

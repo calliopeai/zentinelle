@@ -1,16 +1,22 @@
 import { DataTable, Section, StatusBadge, type Column } from "@calliopelabs/ui";
 import { FileCheckIcon, RadarIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { useListController } from "../../patterns/list-controller";
 import { StatGrid, StatTile } from "../../patterns/StatTile";
 import { EvidenceFrame } from "./components/EvidenceFrame";
 import { EvidenceStatusBadge } from "./components/EvidenceStatusBadge";
-import { EVIDENCE_LABEL, formatDateTime, type QueryState } from "./model";
+import { formatDateTime, type QueryState, useRiskLabels } from "./model";
 import type {
   ControlEvidenceResponse,
   EvidenceRecord,
   Workload,
 } from "./rest-types";
+
+type Translate = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
 
 export interface EvidenceCoverageScreenProps extends QueryState {
   capabilities: readonly string[];
@@ -19,31 +25,31 @@ export interface EvidenceCoverageScreenProps extends QueryState {
   onRefresh?: () => void;
 }
 
-const WORKLOAD_COLUMNS: Column<Workload>[] = [
+const WORKLOAD_COLUMNS = (t: Translate): Column<Workload>[] => [
   {
     id: "agent",
-    header: "Workload",
+    header: t("workload"),
     cell: (w) => <span className="font-mono text-xs">{w.agent_id}</span>,
   },
   {
     id: "registered",
-    header: "Registered",
+    header: t("registered"),
     width: "w-28",
     cell: (w) => w.registered_status,
   },
   {
     id: "runtime",
-    header: "Runtime evidence",
+    header: t("runtimeEvidence"),
     width: "w-36",
     cell: (w) => (
       <StatusBadge tone={w.status === "observed" ? "ok" : "muted"}>
-        {w.status === "observed" ? "Observed" : "Unknown"}
+        {w.status === "observed" ? t("observed") : t("unknown")}
       </StatusBadge>
     ),
   },
   {
     id: "last",
-    header: "Last observed",
+    header: t("lastObserved"),
     width: "w-52",
     cell: (w) =>
       w.last_observed_at ? (
@@ -61,34 +67,34 @@ const WORKLOAD_COLUMNS: Column<Workload>[] = [
   },
 ];
 
-const RECORD_COLUMNS: Column<EvidenceRecord>[] = [
+const RECORD_COLUMNS = (t: Translate): Column<EvidenceRecord>[] => [
   {
     id: "control",
-    header: "Control",
+    header: t("control"),
     cell: (r) => <span className="font-mono text-xs">{r.control_id}</span>,
   },
   {
     id: "status",
-    header: "Status",
+    header: t("status"),
     width: "w-44",
     cell: (r) => <EvidenceStatusBadge status={r.effective_status} />,
   },
   {
     id: "source",
-    header: "Source",
+    header: t("source"),
     cell: (r) =>
       r.source || <span className="text-muted-foreground">Not recorded</span>,
     cellClassName: "max-w-xs truncate",
   },
   {
     id: "captured",
-    header: "Captured",
+    header: t("captured"),
     width: "w-48",
     cell: (r) => formatDateTime(r.captured_at),
   },
   {
     id: "expires",
-    header: "Expires",
+    header: t("expires"),
     width: "w-48",
     cell: (r) =>
       formatDateTime(r.expires_at) ?? (
@@ -110,6 +116,8 @@ export function EvidenceCoverageScreen({
   error,
   onRetry,
 }: EvidenceCoverageScreenProps) {
+  const t = useTranslations("risk.evidenceCoverageScreen");
+  const { EVIDENCE_LABEL } = useRiskLabels();
   const runtime = evidence?.runtime_coverage;
   const workloads = useListController(runtime?.workloads ?? [], {
     loading,
@@ -137,40 +145,42 @@ export function EvidenceCoverageScreen({
     >
       <StatGrid>
         <StatTile
-          label="Registered workloads"
+          label={t("registeredWorkloads")}
           loading={loading}
           value={runtime?.registered_workloads ?? null}
         />
         <StatTile
-          label="Observed at runtime"
+          label={t("observedAtRuntime")}
           loading={loading}
           value={runtime?.observed_workloads ?? null}
           tone={runtime ? "ok" : undefined}
           hint={
             formatDateTime(runtime?.coverage_as_of)
-              ? `Last event ${formatDateTime(runtime?.coverage_as_of)}`
+              ? t("lastEvent", {
+                  time: formatDateTime(runtime?.coverage_as_of) ?? "",
+                })
               : undefined
           }
         />
         <StatTile
-          label="Never observed"
+          label={t("neverObserved")}
           loading={loading}
           value={runtime?.unobserved_workloads ?? null}
           tone={runtime?.unobserved_workloads ? "warn" : undefined}
-          hint="Registered, with no runtime event"
+          hint={t("registeredWithNoRuntimeEvent")}
         />
         <StatTile
-          label="Verified operating"
+          label={t("verifiedOperating")}
           loading={loading}
           value={evidence ? `${operating} of ${total}` : null}
-          hint="Evidence records"
+          hint={t("evidenceRecords")}
         />
       </StatGrid>
-      <Section title="Workload runtime coverage">
+      <Section title={t("workloadRuntimeCoverage")}>
         <DataTable
-          label="Workloads"
+          label={t("workloads")}
           controller={workloads}
-          columns={WORKLOAD_COLUMNS}
+          columns={WORKLOAD_COLUMNS(t)}
           getRowId={(w) => w.endpoint_id}
           rowHref={(w) => `/agents/${encodeURIComponent(w.agent_id)}/activity`}
           rowLabel={(w) => w.agent_id}
@@ -178,16 +188,15 @@ export function EvidenceCoverageScreen({
             icon: (
               <RadarIcon className="size-5 text-muted-foreground" aria-hidden />
             ),
-            title: "No registered workloads",
-            description:
-              "Workloads appear here once an agent registers with Zentinelle AI.",
+            title: t("noRegisteredWorkloads"),
+            description: t("workloadsAppearHereOnceAn"),
             actionHref: "/agents",
-            actionLabel: "Open Agents",
+            actionLabel: t("openAgents"),
           }}
         />
       </Section>
       <Section
-        title="Control evidence"
+        title={t("controlEvidence")}
         description={
           evidence
             ? Object.entries(evidence.coverage)
@@ -201,9 +210,9 @@ export function EvidenceCoverageScreen({
         }
       >
         <DataTable
-          label="Evidence records"
+          label={t("evidenceRecords")}
           controller={records}
-          columns={RECORD_COLUMNS}
+          columns={RECORD_COLUMNS(t)}
           getRowId={(r) => r.id}
           empty={{
             icon: (
@@ -212,9 +221,8 @@ export function EvidenceCoverageScreen({
                 aria-hidden
               />
             ),
-            title: "No control evidence on record",
-            description:
-              "CI and operators record evidence through the evidence API; until then every control reads as unverified.",
+            title: t("noControlEvidenceOnRecord"),
+            description: t("ciAndOperatorsRecordEvidence"),
           }}
         />
       </Section>

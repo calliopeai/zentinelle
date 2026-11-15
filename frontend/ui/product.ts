@@ -286,10 +286,7 @@ export function navFor(capabilities: readonly string[]): NavArea[] {
  * Rows of the approved model whose screens are not built yet. The console
  * leaves them out of the sidebar until their route exists.
  */
-export const UNBUILT_ROUTES: readonly string[] = [
-  "/reports",
-  "/settings/assistant",
-];
+export const UNBUILT_ROUTES: readonly string[] = ["/settings/assistant"];
 
 interface InterimPage {
   key: string;
@@ -305,21 +302,6 @@ interface InterimPage {
  * An area deletes its entries as its screens bring their own tabs.
  */
 export const INTERIM_PAGES: Readonly<Record<string, readonly InterimPage[]>> = {
-  risks: [
-    { key: "overview", label: "Overview", href: "/risks/overview" },
-    { key: "fmea", label: "FMEA", href: "/risks/fmea" },
-    { key: "reports", label: "Reports", href: "/risks/reports" },
-  ],
-  compliance: [
-    {
-      key: "frameworks",
-      label: "Frameworks",
-      href: "/compliance/frameworks",
-    },
-    { key: "gaps", label: "Gaps", href: "/compliance/gaps" },
-    { key: "reports", label: "Reports", href: "/compliance/reports" },
-  ],
-  evidence: [{ key: "atlas", label: "MITRE ATLAS", href: "/evidence/atlas" }],
   usage: [
     { key: "budgets", label: "Budgets", href: "/usage/budgets" },
     { key: "anomalies", label: "Anomalies", href: "/usage/anomalies" },

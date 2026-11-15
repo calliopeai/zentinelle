@@ -161,7 +161,7 @@ export const Console: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.queryByRole("link", { name: "Reports" }),
+      canvas.queryByRole("link", { name: "Assistant" }),
     ).not.toBeInTheDocument();
     const tabs = within(canvas.getByRole("navigation", { name: "Pages" }));
     await expect(tabs.getByRole("link", { name: "Budgets" })).toHaveAttribute(

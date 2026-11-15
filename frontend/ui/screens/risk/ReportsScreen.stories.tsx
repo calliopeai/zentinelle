@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { createTranslator } from "next-intl";
 import * as React from "react";
 import { expect, userEvent, within } from "storybook/test";
 
@@ -27,6 +28,14 @@ import {
  * Reports (new): `GetComplianceReports` and the `reports/` jobs in one list,
  * replacing `/risks/reports` and `/compliance/reports`.
  */
+
+import en from "@/messages/en.json";
+
+const tr = createTranslator({
+  locale: "en",
+  messages: en,
+  namespace: "risk.reportsScreen",
+}) as (key: string, values?: Record<string, string | number>) => string;
 const meta = {
   title: "Risk & compliance/Screens/Reports",
   parameters: { layout: "fullscreen" },
@@ -65,9 +74,9 @@ const jobs: ReportJob[] = [
 
 const rows: ReportRow[] = [
   ...complianceReports.map((r) =>
-    fromComplianceReport(r, (id) => NAMES[id] ?? id),
+    fromComplianceReport(r, tr, (id) => NAMES[id] ?? id),
   ),
-  ...jobs.map((j) => fromReportJob(j)),
+  ...jobs.map((j) => fromReportJob(j, tr)),
 ].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
 
 function Reports({
@@ -182,7 +191,7 @@ function Connected() {
       <ReportsScreen
         capabilities={capabilitiesOf("viewer")}
         view="all"
-        reports={reports.map((r) => fromComplianceReport(r))}
+        reports={reports.map((r) => fromComplianceReport(r, tr))}
         loading={loading}
         error={error}
         onRetry={() => void refetch()}

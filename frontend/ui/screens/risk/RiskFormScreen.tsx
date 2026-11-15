@@ -7,20 +7,14 @@ import {
   useUI,
 } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type { CreateRiskInput, RiskData } from "@/graphql/risks/types";
 
 import { AccessState } from "../../patterns/AccessState";
 import { Field, Select, Textarea } from "../../patterns/form";
 import { RiskLevelBadge } from "./components/RiskLevelBadge";
-import {
-  IMPACT,
-  LIKELIHOOD,
-  RISK_CATEGORIES,
-  RISK_STATUSES,
-  areaCrumb,
-  canMutate,
-} from "./model";
+import { areaCrumb, canMutate, useRiskLabels } from "./model";
 
 export interface RiskFormScreenProps {
   capabilities: readonly string[];
@@ -33,7 +27,7 @@ export interface RiskFormScreenProps {
   onSubmit: (input: CreateRiskInput) => Promise<readonly string[]>;
 }
 
-const scale = (items: typeof LIKELIHOOD | typeof IMPACT) =>
+const scale = (items: readonly { value: number; label: string }[]) =>
   items.map((item) => ({
     value: String(item.value),
     label: `${item.label} (${item.value})`,
@@ -61,6 +55,9 @@ export function RiskFormScreen({
   risk,
   onSubmit,
 }: RiskFormScreenProps) {
+  const t = useTranslations("risk.riskFormScreen");
+  const { IMPACT, LIKELIHOOD, RISK_CATEGORIES, RISK_STATUSES } =
+    useRiskLabels();
   const { Link } = useUI();
   const editing = Boolean(risk);
   const [values, setValues] = React.useState(() => ({
@@ -83,18 +80,18 @@ export function RiskFormScreen({
   const [serverErrors, setServerErrors] = React.useState<readonly string[]>([]);
   const crumbs = [
     areaCrumb("risks", capabilities),
-    { label: "Register", href: "/risks" },
+    { label: t("register"), href: "/risks" },
   ];
-  const title = editing ? `Edit ${risk?.name}` : "New risk";
+  const title = editing ? `Edit ${risk?.name}` : t("newRisk");
 
   if (!canMutate(capabilities))
     return (
-      <PageFrame crumbs={crumbs} title={editing ? "Edit risk" : "New risk"}>
+      <PageFrame crumbs={crumbs} title={editing ? t("editRisk") : t("newRisk")}>
         <AccessState
-          subject="Changing risks"
+          subject={t("changingRisks")}
           role="operator"
           homeHref="/risks"
-          homeLabel="Back to the register"
+          homeLabel={t("backToRegister")}
         />
       </PageFrame>
     );
@@ -108,13 +105,13 @@ export function RiskFormScreen({
     ) =>
       setValues((v) => ({ ...v, [key]: event.target.value }));
   const errors = {
-    name: values.name.trim() ? null : "A risk needs a name.",
+    name: values.name.trim() ? null : t("aRiskNeedsAName"),
     description: values.description.trim()
       ? null
-      : "Describe what could happen.",
+      : t("describeWhatCouldHappen"),
     residual:
       Boolean(values.residualLikelihood) !== Boolean(values.residualImpact)
-        ? "Set both residual values, or neither."
+        ? t("setBothResidualValuesOr")
         : null,
   };
   const invalid = Object.values(errors).some(Boolean);
@@ -168,30 +165,34 @@ export function RiskFormScreen({
         {serverErrors.length > 0 && (
           <ErrorState
             title={
-              editing ? "Could not save the risk" : "Could not create the risk"
+              editing ? t("couldNotSaveTheRisk") : t("couldNotCreateTheRisk")
             }
             error={serverErrors.join(" ")}
           />
         )}
-        <Section title="The risk" headingLevel="h2">
-          <Field label="Name" required error={show(errors.name)}>
+        <Section title={t("theRisk")} headingLevel="h2">
+          <Field label={t("name")} required error={show(errors.name)}>
             <Input value={values.name} onChange={set("name")} maxLength={255} />
           </Field>
-          <Field label="Description" required error={show(errors.description)}>
+          <Field
+            label={t("description")}
+            required
+            error={show(errors.description)}
+          >
             <Textarea
               value={values.description}
               onChange={set("description")}
             />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Category">
+            <Field label={t("category")}>
               <Select
                 options={RISK_CATEGORIES}
                 value={values.category}
                 onChange={set("category")}
               />
             </Field>
-            <Field label="Status">
+            <Field label={t("status")}>
               <Select
                 options={RISK_STATUSES}
                 value={values.status}
@@ -201,19 +202,19 @@ export function RiskFormScreen({
           </div>
         </Section>
         <Section
-          title="Assessment"
+          title={t("assessment")}
           action={<RiskLevelBadge level={levelOf(preview)} score={preview} />}
-          description="Before any mitigation. The preview assumes moderate severity."
+          description={t("beforeAnyMitigationThePreview")}
         >
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Likelihood">
+            <Field label={t("likelihood")}>
               <Select
                 options={scale(LIKELIHOOD)}
                 value={values.likelihood}
                 onChange={set("likelihood")}
               />
             </Field>
-            <Field label="Impact">
+            <Field label={t("impact")}>
               <Select
                 options={scale(IMPACT)}
                 value={values.impact}
@@ -223,16 +224,16 @@ export function RiskFormScreen({
           </div>
         </Section>
         <Section
-          title="Mitigation"
-          description="Optional until there is a plan."
+          title={t("mitigation")}
+          description={t("optionalUntilThereIsA")}
         >
-          <Field label="Plan">
+          <Field label={t("plan")}>
             <Textarea
               value={values.mitigationPlan}
               onChange={set("mitigationPlan")}
             />
           </Field>
-          <Field label="Progress" hint="Where the plan stands, in a line.">
+          <Field label={t("progress")} hint={t("whereThePlanStandsIn")}>
             <Input
               value={values.mitigationStatus}
               onChange={set("mitigationStatus")}
@@ -240,24 +241,27 @@ export function RiskFormScreen({
             />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Residual likelihood" error={show(errors.residual)}>
+            <Field
+              label={t("residualLikelihood")}
+              error={show(errors.residual)}
+            >
               <Select
                 options={scale(LIKELIHOOD)}
-                placeholder="Not assessed"
+                placeholder={t("notAssessed")}
                 value={values.residualLikelihood}
                 onChange={set("residualLikelihood")}
               />
             </Field>
-            <Field label="Residual impact">
+            <Field label={t("residualImpact")}>
               <Select
                 options={scale(IMPACT)}
-                placeholder="Not assessed"
+                placeholder={t("notAssessed")}
                 value={values.residualImpact}
                 onChange={set("residualImpact")}
               />
             </Field>
           </div>
-          <Field label="Next review">
+          <Field label={t("nextReview")}>
             <Input
               type="date"
               value={values.nextReviewDate}
@@ -268,10 +272,16 @@ export function RiskFormScreen({
         </Section>
         <div className="flex gap-2">
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving" : editing ? "Save changes" : "Create risk"}
+            {pending
+              ? t("saving")
+              : editing
+                ? t("saveChanges")
+                : t("createRisk")}
           </Button>
           <Button variant="outline" asChild>
-            <Link href={risk ? `/risks/${risk.id}` : "/risks"}>Cancel</Link>
+            <Link href={risk ? `/risks/${risk.id}` : "/risks"}>
+              {t("cancel")}
+            </Link>
           </Button>
         </div>
       </form>

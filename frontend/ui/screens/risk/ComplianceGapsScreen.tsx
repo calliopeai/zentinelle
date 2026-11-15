@@ -6,6 +6,7 @@ import {
   type Column,
 } from "@calliopelabs/ui";
 import { CheckCircle2Icon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type {
   ComplianceCapability,
@@ -15,12 +16,12 @@ import type {
 import { useListController } from "../../patterns/list-controller";
 import { ConfigurationNote } from "./ComplianceScreen";
 import {
-  COMPLIANCE_TABS,
   areaCrumb,
   frameworkHref,
   isAdmin,
   tabsOf,
   type QueryState,
+  useRiskLabels,
 } from "./model";
 
 export interface ComplianceGapsScreenProps extends QueryState {
@@ -105,6 +106,8 @@ export function ComplianceGapsScreen({
   error,
   onRetry,
 }: ComplianceGapsScreenProps) {
+  const t = useTranslations("risk.complianceGapsScreen");
+  const { COMPLIANCE_TABS } = useRiskLabels();
   const gaps = gapsOf(overview);
   const controller = useListController(gaps, {
     loading,
@@ -114,12 +117,14 @@ export function ComplianceGapsScreen({
   const columns: Column<Gap>[] = [
     {
       id: "capability",
-      header: "Capability",
+      header: t("capability"),
       cell: (g) => (
         <span className="flex min-w-0 flex-col">
           <span className="truncate font-medium">{g.name}</span>
           <span className="truncate text-xs text-muted-foreground">
-            {g.capability?.capabilityType === "control" ? "Control" : "Observe"}
+            {g.capability?.capabilityType === "control"
+              ? t("control")
+              : t("observe")}
             {g.capability?.supportingPolicies.length
               ? ` · ${g.capability.supportingPolicies.join(", ")}`
               : ""}
@@ -129,24 +134,24 @@ export function ComplianceGapsScreen({
     },
     {
       id: "weight",
-      header: "Gap",
+      header: t("gap"),
       width: "w-32",
       cell: (g) =>
         g.requiredBy.length ? (
-          <StatusBadge tone="warn">Required</StatusBadge>
+          <StatusBadge tone="warn">{t("required")}</StatusBadge>
         ) : (
-          <StatusBadge tone="muted">Recommended</StatusBadge>
+          <StatusBadge tone="muted">{t("recommended")}</StatusBadge>
         ),
     },
     {
       id: "required",
-      header: "Required by",
+      header: t("requiredBy"),
       cell: (g) => <Frameworks items={g.requiredBy} />,
       cellClassName: "whitespace-normal",
     },
     {
       id: "recommended",
-      header: "Recommended by",
+      header: t("recommendedBy"),
       cell: (g) => <Frameworks items={g.recommendedBy} />,
       cellClassName: "whitespace-normal",
     },
@@ -154,13 +159,13 @@ export function ComplianceGapsScreen({
   return (
     <PageFrame
       crumbs={[areaCrumb("compliance", capabilities)]}
-      title="Compliance"
+      title={t("compliance")}
       tabs={tabsOf(COMPLIANCE_TABS, "gaps")}
-      tabsLabel="Compliance"
+      tabsLabel={t("compliance")}
       description={<ConfigurationNote admin={isAdmin(capabilities)} />}
     >
       <DataTable
-        label="Gaps"
+        label={t("gaps")}
         controller={controller}
         columns={columns}
         getRowId={(g) => g.id}
@@ -169,9 +174,8 @@ export function ComplianceGapsScreen({
           icon: (
             <CheckCircle2Icon className="size-5 text-success" aria-hidden />
           ),
-          title: "No gaps",
-          description:
-            "Every capability the tracked frameworks ask for is configured.",
+          title: t("noGaps"),
+          description: t("everyCapabilityTheTrackedFrameworks"),
         }}
       />
     </PageFrame>
