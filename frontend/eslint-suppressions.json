@@ -12,14 +12,6 @@
       "count": 1
     }
   },
-  "app/(app)/content-rules/create-content-rule-dialog.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
   "app/(app)/evidence/page.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
@@ -39,11 +31,6 @@
     }
   },
   "app/(app)/models/routes/page.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "app/(app)/policies/edit-policy-dialog.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
     }
