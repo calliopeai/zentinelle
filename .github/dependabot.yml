@@ -13,9 +13,11 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/frontend"
+    # Daily, so a new @calliopelabs/ui release arrives as its own pull request
+    # within a day (calliopeai/calliope-ux#3). The rest stays one grouped pull
+    # request, refreshed in place.
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "daily"
     ignore:
       # typescript-eslint (through eslint-config-next) needs the TypeScript JS
       # API, which TypeScript 7 no longer ships, and eslint-config-next's
@@ -26,6 +28,10 @@ updates:
       - dependency-name: "eslint"
         update-types: ["version-update:semver-major"]
     groups:
+      # First match wins: the shared UI packages get their own pull request.
+      calliopelabs:
+        patterns:
+          - "@calliopelabs/*"
       all-dependencies:
         patterns:
           - "*"
