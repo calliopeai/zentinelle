@@ -6,8 +6,11 @@ import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 
 import { setLocale } from "@/app/actions/locale";
-import { ChatBubble } from "@/components/ChatBubble";
 import { UiEnvironment } from "@/components/UiEnvironment";
+import {
+  AssistantBubble,
+  ZentinelleAssistantProvider,
+} from "@/components/ZentinelleAssistant";
 import { pickerLocales, type Locale } from "@/i18n/config";
 import { logout, type SessionUser } from "@/lib/auth/session";
 import { UNBUILT_ROUTES, interimTabs } from "@/ui/product";
@@ -75,29 +78,31 @@ export function ConsoleFrame({
 
   return (
     <UiEnvironment link={Link}>
-      <ZentinelleShell
-        pathname={pathname}
-        capabilities={capabilities}
-        user={{ name: user.username, email: user.email }}
-        locale={locale}
-        locales={pickerLocales.map((value) => ({ value, label: t(value) }))}
-        onLocaleChange={async (next) => {
-          await setLocale(next as Locale);
-          router.refresh();
-        }}
-        onSignOut={async () => {
-          await logout();
-          window.location.href = "/auth/login";
-        }}
-        // The dock stays empty until the assistant lands (zentinelle#447);
-        // ChatBubble is the working assistant meanwhile.
-        defaultAssistantHidden
-        hiddenRoutes={UNBUILT_ROUTES}
-        tabs={interimTabs(pathname, capabilities, navCopy)}
-      >
-        {children}
-      </ZentinelleShell>
-      <ChatBubble />
+      <ZentinelleAssistantProvider>
+        <ZentinelleShell
+          pathname={pathname}
+          capabilities={capabilities}
+          user={{ name: user.username, email: user.email }}
+          locale={locale}
+          locales={pickerLocales.map((value) => ({ value, label: t(value) }))}
+          onLocaleChange={async (next) => {
+            await setLocale(next as Locale);
+            router.refresh();
+          }}
+          onSignOut={async () => {
+            await logout();
+            window.location.href = "/auth/login";
+          }}
+          // The dock stays empty until the assistant lands (zentinelle#447);
+          // the assistant's bubble is the working assistant meanwhile.
+          defaultAssistantHidden
+          hiddenRoutes={UNBUILT_ROUTES}
+          tabs={interimTabs(pathname, capabilities, navCopy)}
+        >
+          {children}
+        </ZentinelleShell>
+        <AssistantBubble />
+      </ZentinelleAssistantProvider>
     </UiEnvironment>
   );
 }
