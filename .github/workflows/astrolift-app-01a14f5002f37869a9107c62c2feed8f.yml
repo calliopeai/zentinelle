@@ -1,0 +1,134 @@
+# astrolift-ci-owner: {"app_guid":"01a14f50-02f3-7869-a910-7c62c2feed8f","organization_id":34,"source_kind":"github","source_repo":"calliopeai/zentinelle"}
+# astrolift-app-id: 01a14f50-02f3-7869-a910-7c62c2feed8f
+# Managed by Astrolift — do not edit by hand. Re-sync via Settings → CI setup → Sync workflow file.
+# astrolift-managed: template-version=13 sha256=d9bc61d9ba474093
+name: astrolift deploy
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  # Concurrency groups are already repository-scoped by GitHub. Keep the key
+  # bounded to the app GUID: refs can be arbitrarily long, and this workflow
+  # deploys only the configured branch (plus explicit manual dispatches).
+  group: "astrolift-01a14f5002f37869a9107c62c2feed8f"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: "arn:aws:iam::790347818717:role/astrolift-conflict-storybook-zentinelle-ecr-push"
+          aws-region: "us-west-2"
+          role-session-name: astrolift-${{ github.run_id }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Check for existing image
+        id: image_exists
+        env:
+          ECR_REPO: "conflict/storybook-zentinelle"
+        run: |
+          if aws ecr describe-images --repository-name "$ECR_REPO" --image-ids imageTag=${{ github.sha }} >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Image for ${{ github.sha }} already in the registry — skipping build (immutable tags reject re-pushes)."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push image
+        if: steps.image_exists.outputs.exists != 'true'
+        env:
+          IMAGE: "790347818717.dkr.ecr.us-west-2.amazonaws.com/conflict/storybook-zentinelle:${{ github.sha }}"
+          DOCKERFILE: "storybook/Dockerfile"
+          BUILD_CONTEXT: "."
+          BUILD_ARGS_JSON: "{}"
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          command = ["docker", "build", "-f", os.environ["DOCKERFILE"], "-t", os.environ["IMAGE"]]
+          for name, value in json.loads(os.environ["BUILD_ARGS_JSON"]).items():
+              command.extend(["--build-arg", f"{name}={value}"])
+          command.append(os.environ["BUILD_CONTEXT"])
+          subprocess.run(command, check=True)
+          PY
+          docker push "$IMAGE"
+
+      - name: Notify Astrolift
+        env:
+          API_URL: "https://astrolift.us-west-2.conflict.softinfra.net"
+          APP_SLUG: "storybook-zentinelle"
+          ENVIRONMENT: "production"
+          TOKEN: ${{ secrets['ASTROLIFT_DEPLOY_TOKEN_01A14F5002F37869A9107C62C2FEED8F'] }}
+        run: |
+          code=$(curl -sS -o /tmp/astrolift-deploy-response.json -w '%{http_code}' -X POST "$API_URL/api/cli/v1/apps/$APP_SLUG/deploy/" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"image_tags\":{\"*\":\"${{ github.sha }}\"},\"commit_sha\":\"${{ github.sha }}\",\"branch\":\"${{ github.ref_name }}\",\"trigger_kind\":\"ci\",\"environment\":\"$ENVIRONMENT\"}")
+          cat /tmp/astrolift-deploy-response.json; echo
+          case "$code" in
+            2*) echo "Astrolift accepted the deploy (HTTP $code)." ;;
+            *) echo "Astrolift deploy notification FAILED (HTTP $code) — a redirect or auth layer counts as failure."; exit 1 ;;
+          esac
+          # Accepted is not deployed: follow the deployment to a terminal state.
+          python3 - <<'PY'
+          import json, os, sys, time, urllib.error, urllib.request
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, *args, **kwargs):
+                  return None  # a redirect is an auth layer, never the API
+
+          with open("/tmp/astrolift-deploy-response.json") as fh:
+              polling_url = json.load(fh).get("polling_url") or ""
+          if not polling_url:
+              print("::warning::Astrolift returned no polling_url; the rollout result is not checked.")
+              sys.exit(0)
+          url = os.environ["API_URL"] + "/" + polling_url.lstrip("/")
+          opener = urllib.request.build_opener(NoRedirect)
+          deadline = time.monotonic() + 15 * 60
+          while True:
+              body = None
+              request = urllib.request.Request(url, headers={"Authorization": "Bearer " + os.environ["TOKEN"]})
+              try:
+                  with opener.open(request, timeout=30) as resp:
+                      body = json.load(resp)
+              except urllib.error.HTTPError as exc:
+                  if exc.code < 500 and exc.code != 429:
+                      print(f"Astrolift deploy status FAILED (HTTP {exc.code}) reading {polling_url}.")
+                      sys.exit(1)
+                  print(f"Deploy status returned HTTP {exc.code}; retrying.")
+              except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+                  print(f"Deploy status unreadable ({exc}); retrying.")
+              if body is not None:
+                  state = body.get("state") or ""
+                  status = body.get("status") or state
+                  reason = body.get("reason") or ""
+                  if body.get("superseded") or "superseded by a newer deploy" in reason:
+                      print("Deployment superseded by a newer deploy; that deploy's run reports the rollout.")
+                      sys.exit(0)
+                  if state in ("succeeded", "completed"):
+                      print(f"Astrolift deploy succeeded ({status}).")
+                      sys.exit(0)
+                  if state in ("failed", "cancelled", "timed_out"):
+                      print(f"Astrolift deploy FAILED ({status}): {reason or 'no reason recorded'}")
+                      sys.exit(1)
+                  print(f"Deployment {status}{': ' + reason if reason else ''}; waiting.")
+              if time.monotonic() >= deadline:
+                  print(f"Astrolift deploy did not finish within 15 minutes; last seen {polling_url}.")
+                  sys.exit(1)
+              time.sleep(10)
+          PY
