@@ -23,7 +23,7 @@ export interface StatTileProps {
   /** A status mark beside the detail. The detail says it in words too. */
   tone?: StatusTone;
   /** Shown instead of the value when it is `null`. */
-  unavailableLabel?: string;
+  unavailableLabel: string;
   loading?: boolean;
   className?: string;
 }
@@ -34,7 +34,7 @@ export function StatTile({
   detail,
   href,
   tone,
-  unavailableLabel = "Not available",
+  unavailableLabel,
   loading = false,
   className,
 }: StatTileProps) {

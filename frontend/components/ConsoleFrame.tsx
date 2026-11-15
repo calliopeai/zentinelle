@@ -11,6 +11,7 @@ import { UiEnvironment } from "@/components/UiEnvironment";
 import { pickerLocales, type Locale } from "@/i18n/config";
 import { logout, type SessionUser } from "@/lib/auth/session";
 import { UNBUILT_ROUTES, interimTabs } from "@/ui/product";
+import { useNavCopy } from "@/ui/shell/nav-copy";
 import { ZentinelleShell } from "@/ui/shell/ZentinelleShell";
 
 const EMBED_KEY = "zentinelle:embed";
@@ -60,6 +61,7 @@ export function ConsoleFrame({
   const router = useRouter();
   const locale = useLocale();
   const t = useTranslations("language");
+  const navCopy = useNavCopy();
   const embed = useEmbedMode(embeddable);
   const capabilities = user.capabilities ?? [];
 
@@ -91,7 +93,7 @@ export function ConsoleFrame({
         // ChatBubble is the working assistant meanwhile.
         defaultAssistantHidden
         hiddenRoutes={UNBUILT_ROUTES}
-        tabs={interimTabs(pathname, capabilities)}
+        tabs={interimTabs(pathname, capabilities, navCopy)}
       >
         {children}
       </ZentinelleShell>

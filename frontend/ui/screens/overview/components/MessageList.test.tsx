@@ -1,8 +1,10 @@
-// @vitest-environment jsdom
 import { cleanup, render } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ChatMessage } from "@/components/ChatBubble";
+import en from "@/messages/en.json";
+
+import { ChatMessage } from "./MessageList";
 
 afterEach(() => {
   cleanup();
@@ -12,14 +14,16 @@ afterEach(() => {
 function renderAnswer(content: string) {
   const fetchSpy = vi.spyOn(globalThis, "fetch");
   const { container } = render(
-    <ChatMessage
-      message={{
-        id: "m1",
-        role: "assistant",
-        content,
-        timestamp: new Date(0),
-      }}
-    />,
+    <NextIntlClientProvider locale="en" messages={en}>
+      <ChatMessage
+        message={{
+          id: "m1",
+          role: "assistant",
+          content,
+          timestamp: new Date(0),
+        }}
+      />
+    </NextIntlClientProvider>,
   );
   return { container, fetchSpy };
 }

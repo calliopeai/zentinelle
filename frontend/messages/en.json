@@ -137,5 +137,250 @@
       "customAccentOk": "{ratio}:1 against this ground.",
       "customAccentFaint": "{ratio}:1 against this ground; it needs {min}:1. Try a {mode, select, dark {lighter} other {darker}} colour."
     }
+  },
+  "overview": {
+    "screen": {
+      "title": "Overview",
+      "description": "What your agents are doing, and what needs someone now.",
+      "error": "Could not load the overview",
+      "openAssistant": "Ask the assistant",
+      "atAGlance": "At a glance",
+      "needsAttention": "Needs attention",
+      "getStarted": "Get started",
+      "recentActivity": "Recent activity",
+      "auditLog": "Audit log"
+    },
+    "kpis": {
+      "unavailable": "Not available",
+      "agents": {
+        "label": "Agents",
+        "none": "None registered yet",
+        "healthy": "{active} active, all healthy",
+        "unhealthy": "{active} active, {unhealthy} not healthy"
+      },
+      "policies": {
+        "label": "Policies",
+        "enabled": "{enabled} enabled"
+      },
+      "incidents": {
+        "label": "Open incidents",
+        "unread": "Could not be read",
+        "pastSla": "{count} past SLA",
+        "withinSla": "None past SLA"
+      },
+      "events": {
+        "label": "Events today",
+        "noChange": "No change from last week",
+        "up": "+{trend}% this week against last",
+        "down": "-{trend}% this week against last"
+      }
+    },
+    "attention": {
+      "label": "Needs attention",
+      "empty": {
+        "title": "Nothing needs attention",
+        "description": "No open alerts, incidents, approvals or staged changes right now."
+      },
+      "partialError": "Some signals could not be read",
+      "tones": {
+        "error": "urgent",
+        "warn": "review",
+        "info": "pending",
+        "ok": "ok",
+        "muted": "info"
+      },
+      "alerts": {
+        "title": "{count, plural, one {# open alert} other {# open alerts}}",
+        "mixed": "{critical} critical, {high} high",
+        "highOnly": "High severity"
+      },
+      "incidents": {
+        "title": "{count, plural, one {# open incident} other {# open incidents}}",
+        "pastSla": "{count} past SLA",
+        "withinSla": "Within SLA"
+      },
+      "approvals": {
+        "title": "{count, plural, one {# action waiting for approval} other {# actions waiting for approval}}",
+        "description": "Agents are holding these until someone decides"
+      },
+      "changes": {
+        "title": "{count, plural, one {# staged policy change} other {# staged policy changes}}",
+        "description": "Waiting for an admin to approve and promote"
+      },
+      "agents": {
+        "title": "{count, plural, one {# agent not healthy} other {# agents not healthy}}",
+        "description": "Not reporting a healthy heartbeat"
+      },
+      "risks": {
+        "title": "{count, plural, one {# critical risk} other {# critical risks}}",
+        "description": "In the risk register"
+      }
+    },
+    "onboarding": {
+      "progress": "{done} of {total} done",
+      "progressViewer": "{done} of {total} done. An operator or admin can take the rest.",
+      "label": "Setup steps",
+      "empty": "Nothing left to set up",
+      "done": "done",
+      "toDo": "to do",
+      "steps": {
+        "register_agent": "Register an agent",
+        "create_policy": "Create a policy",
+        "enable_compliance": "Turn on a compliance framework"
+      }
+    },
+    "recentActivity": {
+      "label": "Recent activity",
+      "empty": {
+        "title": "No activity yet",
+        "description": "Changes to agents, policies and settings appear here as they happen."
+      },
+      "untitled": "Activity",
+      "time": {
+        "unknown": "Unknown time",
+        "justNow": "Just now",
+        "minutes": "{count} min ago",
+        "hours": "{count} h ago",
+        "days": "{count} d ago"
+      }
+    },
+    "assistant": {
+      "screen": {
+        "title": "Assistant",
+        "description": "Ask about your agents, policies and compliance. Actions it proposes wait for your approval.",
+        "clear": "Clear conversation"
+      },
+      "message": {
+        "welcome": "Ask about your agents, policies, compliance, or anything else.",
+        "conversation": "Conversation",
+        "you": "You:",
+        "assistant": "Zentinelle AI:",
+        "thinking": "Thinking",
+        "suggestedPages": "Suggested pages",
+        "image": "image"
+      },
+      "tool": {
+        "label": "Tools used",
+        "error": "error: {message}",
+        "done": "done",
+        "results": "{count, plural, one {# result} other {# results}}",
+        "gaps": "{count, plural, one {# gap} other {# gaps}}"
+      },
+      "action": {
+        "confirmationRequired": "Confirmation required",
+        "approve": "Approve",
+        "reject": "Cancel",
+        "viewer": "An operator or admin can approve this.",
+        "status": {
+          "pending": "pending",
+          "approved": "running",
+          "completed": "completed",
+          "failed": "failed",
+          "rejected": "cancelled"
+        }
+      },
+      "input": {
+        "label": "Message",
+        "placeholder": "Ask Zentinelle AI...",
+        "send": "Send message",
+        "stop": "Stop generating",
+        "hint": "Enter to send. Shift+Enter for a new line.",
+        "hintCompact": "Cmd+Enter to send",
+        "generating": "Generating..."
+      },
+      "model": {
+        "label": "Model",
+        "loading": "Loading models",
+        "placeholder": "Select a model",
+        "none": "No providers configured"
+      },
+      "bubble": {
+        "open": "Open the assistant",
+        "close": "Close the assistant",
+        "description": "The Zentinelle AI assistant, beside the page in view"
+      }
+    }
+  },
+  "shell": {
+    "assistant": "Assistant",
+    "assistantShortcut": "{label} (])",
+    "language": "Language",
+    "languageItem": "{label}: {language}",
+    "appearance": "Appearance",
+    "documentation": "Documentation",
+    "pages": "Pages",
+    "nav": {
+      "areas": {
+        "overview": "Overview",
+        "agents": "Agents",
+        "policies": "Policies",
+        "activity": "Activity",
+        "risk": "Risk & compliance",
+        "models": "Models & usage",
+        "settings": "Settings"
+      },
+      "functions": {
+        "overview": "Overview",
+        "agents": "Agents",
+        "groups": "Groups",
+        "approvals": "Approvals",
+        "policies": "Policies",
+        "content-rules": "Content rules",
+        "prompts": "Prompt library",
+        "alerts": "Alerts",
+        "incidents": "Incidents",
+        "events": "Events",
+        "audit-log": "Audit log",
+        "risks": "Risks",
+        "compliance": "Compliance",
+        "evidence": "Evidence",
+        "reports": "Reports",
+        "usage": "Usage",
+        "models": "Models",
+        "providers": "Providers",
+        "general": "General",
+        "api-keys": "API keys",
+        "integrations": "Integrations",
+        "retention": "Data retention",
+        "assistant": "Assistant"
+      },
+      "tabs": {
+        "hierarchy": "Hierarchy",
+        "effective": "Effective",
+        "simulator": "Simulator",
+        "analyzer": "Analyzer",
+        "import": "Import",
+        "copilot": "Copilot",
+        "network": "Network",
+        "detections": "Detections",
+        "builder": "Builder",
+        "generator": "Generator",
+        "notifications": "Notifications",
+        "overview": "Overview",
+        "fmea": "FMEA",
+        "reports": "Reports",
+        "frameworks": "Frameworks",
+        "gaps": "Gaps",
+        "atlas": "MITRE ATLAS",
+        "budgets": "Budgets",
+        "anomalies": "Anomalies",
+        "compare": "Compare",
+        "routes": "Route check",
+        "estimate": "Estimate cost",
+        "legal-holds": "Legal holds"
+      }
+    },
+    "languageDialog": {
+      "description": "Choose the language used throughout the interface.",
+      "apply": "Apply",
+      "cancel": "Cancel"
+    },
+    "appearanceDialog": {
+      "description": "Ground, accent, density and corners, for you on this console."
+    },
+    "assistantPlaceholder": {
+      "title": "The assistant docks here",
+      "description": "Ask about policies, agents and spend, and act on the page in view. Coming with the Zentinelle AI assistant."
+    }
   }
 }

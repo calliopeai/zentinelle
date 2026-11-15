@@ -25,11 +25,6 @@
       "count": 1
     }
   },
-  "app/(app)/demo/page.tsx": {
-    "react-hooks/rules-of-hooks": {
-      "count": 1
-    }
-  },
   "app/(app)/evidence/page.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
@@ -91,11 +86,6 @@
   "components/AppSidebar.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
-    }
-  },
-  "components/ChatBubble.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 13
     }
   },
   "components/DemoTour.tsx": {

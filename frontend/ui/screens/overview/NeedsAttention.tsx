@@ -1,10 +1,4 @@
-import {
-  ErrorState,
-  List,
-  ListItem,
-  StatusBadge,
-  type StatusTone,
-} from "@calliopelabs/ui";
+import { ErrorState, List, ListItem, StatusBadge } from "@calliopelabs/ui";
 import {
   BotIcon,
   ClipboardListIcon,
@@ -13,6 +7,7 @@ import {
   SirenIcon,
   TriangleAlertIcon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type * as React from "react";
 
 import type { AttentionItem, AttentionKind } from "./overview-model";
@@ -24,14 +19,6 @@ const ICONS: Record<AttentionKind, React.ComponentType> = {
   changes: GitPullRequestArrowIcon,
   agents: BotIcon,
   risks: ShieldAlertIcon,
-};
-
-const TONE_LABEL: Record<StatusTone, string> = {
-  error: "urgent",
-  warn: "review",
-  info: "pending",
-  ok: "ok",
-  muted: "info",
 };
 
 export interface NeedsAttentionProps {
@@ -49,29 +36,29 @@ export function NeedsAttention({
   error,
   onRetry,
 }: NeedsAttentionProps) {
+  const t = useTranslations("overview.attention");
   const list = (
     <List
-      label="Needs attention"
+      label={t("label")}
       items={items}
       getKey={(item) => item.kind}
       loading={loading}
       loadingCount={3}
       empty={{
-        title: "Nothing needs attention",
-        description:
-          "No open alerts, incidents, approvals or staged changes right now.",
+        title: t("empty.title"),
+        description: t("empty.description"),
       }}
       renderItem={(item) => {
         const Icon = ICONS[item.kind];
         return (
           <ListItem
-            title={item.title}
+            title={t(`${item.kind}.title`, { count: item.count })}
             href={item.href}
-            description={item.description}
+            description={t(item.description.key, item.description.values)}
             icon={<Icon />}
             status={
               <StatusBadge tone={item.tone}>
-                {TONE_LABEL[item.tone]}
+                {t(`tones.${item.tone}`)}
               </StatusBadge>
             }
           />
@@ -84,11 +71,7 @@ export function NeedsAttention({
   // failed, and show only the rows that did load.
   return (
     <div className="space-y-3">
-      <ErrorState
-        title="Some signals could not be read"
-        error={error}
-        onRetry={onRetry}
-      />
+      <ErrorState title={t("partialError")} error={error} onRetry={onRetry} />
       {items.length > 0 && list}
     </div>
   );

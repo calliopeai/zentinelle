@@ -27,6 +27,10 @@ export const FORMER_ROUTES: readonly FormerRoute[] = [
   { from: "/retention/legal-holds", to: "/settings/retention/legal-holds" },
   { from: "/content-rules/scanner", to: "/content-rules/detections" },
   { from: "/system-prompts/create", to: "/system-prompts/new" },
+  // Astrolift's SECURE portal links here; the Overview is the landing now.
+  { from: "/governance", to: "/dashboard" },
+  // The demo landing; `?autostart=1` (and `?embed=1`) still start the tour.
+  { from: "/demo", to: "/dashboard" },
   // Linked once, never a page.
   { from: "/audit", to: "/audit-logs" },
 ];

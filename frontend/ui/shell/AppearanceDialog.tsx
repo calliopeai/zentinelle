@@ -8,10 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 export interface AppearanceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The catalog's copy (`shell.appearance`, `shell.appearanceDialog`) unless given. */
   title?: string;
   description?: string;
 }
@@ -24,15 +26,18 @@ export interface AppearanceDialogProps {
 export function AppearanceDialog({
   open,
   onOpenChange,
-  title = "Appearance",
-  description = "Ground, accent, density and corners, for you on this console.",
+  title,
+  description,
 }: AppearanceDialogProps) {
+  const t = useTranslations("shell");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle>{title ?? t("appearance")}</DialogTitle>
+          <DialogDescription>
+            {description ?? t("appearanceDialog.description")}
+          </DialogDescription>
         </DialogHeader>
         <AppearancePicker />
       </DialogContent>

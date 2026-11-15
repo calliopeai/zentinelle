@@ -62,7 +62,7 @@ export const ZENTINELLE_NAV: NavModel = [
             label: "Overview",
             href: "/dashboard",
             icon: LayoutDashboardIcon,
-            also: ["/governance", "/assistant"],
+            also: ["/assistant"],
           },
         ],
       },
@@ -307,7 +307,6 @@ interface InterimPage {
  * An area deletes its entries as its screens bring their own tabs.
  */
 export const INTERIM_PAGES: Readonly<Record<string, readonly InterimPage[]>> = {
-  overview: [{ key: "assistant", label: "Assistant", href: "/assistant" }],
   policies: [
     { key: "hierarchy", label: "Hierarchy", href: "/policies/hierarchy" },
     { key: "effective", label: "Effective", href: "/policies/effective" },
@@ -383,11 +382,17 @@ const under = (pathname: string, href: string) =>
 /**
  * The interim tab row for `pathname`: its function, then that function's
  * interim pages the person may open, with the longest matching href current.
- * Empty when the function has none.
+ * Empty when the function has none. `translate` localizes the labels
+ * (`useNavCopy` in ui/shell); English when absent.
  */
 export function interimTabs(
   pathname: string,
   capabilities: readonly string[],
+  translate?: (
+    kind: "function" | "tab",
+    key: string,
+    fallback: string,
+  ) => string,
 ): TabNavItem[] {
   const nav = navFor(capabilities);
   const active = activeFor(nav, pathname);
@@ -405,9 +410,9 @@ export function interimTabs(
   const current = rows
     .filter((r) => under(pathname, r.href))
     .sort((a, b) => b.href.length - a.href.length)[0];
-  return rows.map((r) => ({
+  return rows.map((r, i) => ({
     key: r.key,
-    label: r.label,
+    label: translate?.(i === 0 ? "function" : "tab", r.key, r.label) ?? r.label,
     href: r.href,
     active: r === current,
   }));
