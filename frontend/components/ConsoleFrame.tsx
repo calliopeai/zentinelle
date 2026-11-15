@@ -1,6 +1,5 @@
 "use client";
 
-import { UIProvider } from "@calliopelabs/ui";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -8,7 +7,8 @@ import * as React from "react";
 
 import { setLocale } from "@/app/actions/locale";
 import { ChatBubble } from "@/components/ChatBubble";
-import { locales, type Locale } from "@/i18n/config";
+import { UiEnvironment } from "@/components/UiEnvironment";
+import { pickerLocales, type Locale } from "@/i18n/config";
 import { logout, type SessionUser } from "@/lib/auth/session";
 import { UNBUILT_ROUTES, interimTabs } from "@/ui/product";
 import { ZentinelleShell } from "@/ui/shell/ZentinelleShell";
@@ -65,20 +65,20 @@ export function ConsoleFrame({
 
   if (embed) {
     return (
-      <UIProvider link={Link}>
+      <UiEnvironment link={Link}>
         <main className="min-h-dvh p-4">{children}</main>
-      </UIProvider>
+      </UiEnvironment>
     );
   }
 
   return (
-    <UIProvider link={Link}>
+    <UiEnvironment link={Link}>
       <ZentinelleShell
         pathname={pathname}
         capabilities={capabilities}
         user={{ name: user.username, email: user.email }}
         locale={locale}
-        locales={locales.map((value) => ({ value, label: t(value) }))}
+        locales={pickerLocales.map((value) => ({ value, label: t(value) }))}
         onLocaleChange={async (next) => {
           await setLocale(next as Locale);
           router.refresh();
@@ -96,6 +96,6 @@ export function ConsoleFrame({
         {children}
       </ZentinelleShell>
       <ChatBubble />
-    </UIProvider>
+    </UiEnvironment>
   );
 }

@@ -12,14 +12,16 @@ import {
   AppearanceProvider,
   CORNERS,
   DENSITY_KEYS,
-  UIProvider,
   productStyles,
   type Appearance,
   type LinkProps,
 } from "@calliopelabs/ui";
 import type { Decorator, Preview } from "@storybook/react-vite";
+import { NextIntlClientProvider } from "next-intl";
 import * as React from "react";
 
+import { UiEnvironment } from "../components/UiEnvironment";
+import en from "../messages/en.json";
 import { zentinelle } from "../ui/product";
 import { GraphQLMocks, type GraphQLParameters } from "../ui/storybook/graphql";
 
@@ -79,13 +81,15 @@ const withProviders: Decorator = (Story, context) => {
   const globals = context.globals as Record<string, string>;
   const graphql = context.parameters.graphql as GraphQLParameters | undefined;
   return (
-    <UIProvider link={StoryLink}>
-      <StoryAppearance key={JSON.stringify(globals)} globals={globals}>
-        <GraphQLMocks mocks={graphql?.mocks}>
-          <Story />
-        </GraphQLMocks>
-      </StoryAppearance>
-    </UIProvider>
+    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+      <UiEnvironment link={StoryLink}>
+        <StoryAppearance key={JSON.stringify(globals)} globals={globals}>
+          <GraphQLMocks mocks={graphql?.mocks}>
+            <Story />
+          </GraphQLMocks>
+        </StoryAppearance>
+      </UiEnvironment>
+    </NextIntlClientProvider>
   );
 };
 

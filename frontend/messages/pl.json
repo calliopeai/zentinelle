@@ -1,9 +1,4 @@
 {
-  "user": {
-    "account": "Konto",
-    "notifications": "Powiadomienia",
-    "logout": "Wyloguj się"
-  },
   "language": {
     "label": "Język",
     "en": "Angielski",
@@ -13,15 +8,6 @@
     "de": "Niemiecki",
     "it": "Włoski",
     "pt": "Portugalski"
-  },
-  "dashboard": {
-    "stats": {
-      "revenue": "Przychód całkowity",
-      "orders": "Zamówienia",
-      "customers": "Klienci",
-      "products": "Produkty",
-      "fromLastMonth": "w porównaniu z poprzednim miesiącem"
-    }
   },
   "dataTable": {
     "search": "Szukaj…",
@@ -43,55 +29,10 @@
     }
   },
   "settings": {
-    "title": "Ustawienia",
-    "description": "Zarządzaj preferencjami aplikacji.",
-    "language": {
-      "title": "Język",
-      "description": "Wybierz język używany w całym interfejsie."
-    },
     "theme": {
-      "title": "Wygląd",
-      "description": "Wybierz preferowany schemat kolorów.",
       "light": "Jasny",
       "dark": "Ciemny",
       "system": "Systemowy"
-    }
-  },
-  "hooks": {
-    "title": "Hooki",
-    "description": "Interaktywne demo wbudowanych hooków narzędziowych.",
-    "debounce": {
-      "title": "useDebounce",
-      "description": "Wartość aktualizuje się dopiero po zatrzymaniu pisania przez 300 ms.",
-      "label": "Pole wyszukiwania",
-      "placeholder": "Wpisz coś…",
-      "raw": "Wartość bieżąca",
-      "debounced": "Wartość po debounce"
-    },
-    "localStorage": {
-      "title": "useLocalStorage",
-      "description": "Licznik zapisywany w localStorage — przeżywa odświeżenie strony.",
-      "label": "Licznik",
-      "increment": "Zwiększ",
-      "reset": "Resetuj"
-    },
-    "clipboard": {
-      "title": "useCopyToClipboard",
-      "description": "Kopiuje tekst do schowka; przycisk resetuje się po 2 sekundach.",
-      "label": "Tekst do skopiowania",
-      "copy": "Kopiuj",
-      "copied": "Skopiowano!"
-    },
-    "confirm": {
-      "title": "useConfirm",
-      "description": "Oczekuje na Promise z AlertDialog — bez lokalnego stanu dialogu.",
-      "trigger": "Usuń element",
-      "dialogTitle": "Usunąć ten element?",
-      "dialogDescription": "Tej operacji nie można cofnąć.",
-      "confirmLabel": "Usuń",
-      "cancelLabel": "Anuluj",
-      "resultConfirmed": "Potwierdzono — element usunięty.",
-      "resultCancelled": "Anulowano."
     }
   }
 }

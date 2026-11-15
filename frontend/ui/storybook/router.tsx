@@ -1,10 +1,12 @@
 /**
  * A router for stories: links change a path held in state, so the sidebar,
  * the breadcrumb switcher and the tabs work inside Storybook. The app passes
- * next/link to UIProvider instead.
+ * next/link to UiEnvironment instead.
  */
-import { type LinkProps, UIProvider } from "@calliopelabs/ui";
+import type { LinkProps } from "@calliopelabs/ui";
 import * as React from "react";
+
+import { UiEnvironment } from "@/components/UiEnvironment";
 
 const PathContext = React.createContext<{
   path: string;
@@ -44,7 +46,7 @@ export function StoryRouter({
   const value = React.useMemo(() => ({ path, go: setPath }), [path]);
   return (
     <PathContext.Provider value={value}>
-      <UIProvider link={StoryLink}>{children}</UIProvider>
+      <UiEnvironment link={StoryLink}>{children}</UiEnvironment>
     </PathContext.Provider>
   );
 }

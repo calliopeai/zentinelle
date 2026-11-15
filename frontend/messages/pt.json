@@ -1,9 +1,4 @@
 {
-  "user": {
-    "account": "Conta",
-    "notifications": "Notificações",
-    "logout": "Sair"
-  },
   "language": {
     "label": "Idioma",
     "en": "Inglês",
@@ -13,15 +8,6 @@
     "de": "Alemão",
     "it": "Italiano",
     "pt": "Português"
-  },
-  "dashboard": {
-    "stats": {
-      "revenue": "Receita total",
-      "orders": "Pedidos",
-      "customers": "Clientes",
-      "products": "Produtos",
-      "fromLastMonth": "em relação ao mês passado"
-    }
   },
   "dataTable": {
     "search": "Pesquisar…",
@@ -43,55 +29,10 @@
     }
   },
   "settings": {
-    "title": "Configurações",
-    "description": "Gerencie as preferências da sua aplicação.",
-    "language": {
-      "title": "Idioma",
-      "description": "Escolha o idioma usado em toda a interface."
-    },
     "theme": {
-      "title": "Aparência",
-      "description": "Escolha seu esquema de cores preferido.",
       "light": "Claro",
       "dark": "Escuro",
       "system": "Sistema"
-    }
-  },
-  "hooks": {
-    "title": "Hooks",
-    "description": "Demos interativos dos hooks utilitários integrados.",
-    "debounce": {
-      "title": "useDebounce",
-      "description": "O valor só é atualizado após 300 ms sem digitação.",
-      "label": "Campo de pesquisa",
-      "placeholder": "Digite algo…",
-      "raw": "Valor atual",
-      "debounced": "Valor com debounce"
-    },
-    "localStorage": {
-      "title": "useLocalStorage",
-      "description": "Contador persistido no localStorage — sobrevive ao recarregamento da página.",
-      "label": "Contador",
-      "increment": "Incrementar",
-      "reset": "Redefinir"
-    },
-    "clipboard": {
-      "title": "useCopyToClipboard",
-      "description": "Copia texto para a área de transferência; o botão é redefinido após 2 segundos.",
-      "label": "Texto a copiar",
-      "copy": "Copiar",
-      "copied": "Copiado!"
-    },
-    "confirm": {
-      "title": "useConfirm",
-      "description": "Aguarda uma Promise de um AlertDialog — sem estado local de diálogo.",
-      "trigger": "Excluir item",
-      "dialogTitle": "Excluir este item?",
-      "dialogDescription": "Esta ação não pode ser desfeita.",
-      "confirmLabel": "Excluir",
-      "cancelLabel": "Cancelar",
-      "resultConfirmed": "Confirmado — item excluído.",
-      "resultCancelled": "Cancelado."
     }
   }
 }

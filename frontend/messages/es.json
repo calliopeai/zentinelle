@@ -1,9 +1,4 @@
 {
-  "user": {
-    "account": "Cuenta",
-    "notifications": "Notificaciones",
-    "logout": "Cerrar sesión"
-  },
   "language": {
     "label": "Idioma",
     "en": "Inglés",
@@ -13,15 +8,6 @@
     "de": "Alemán",
     "it": "Italiano",
     "pt": "Portugués"
-  },
-  "dashboard": {
-    "stats": {
-      "revenue": "Ingresos totales",
-      "orders": "Pedidos",
-      "customers": "Clientes",
-      "products": "Productos",
-      "fromLastMonth": "respecto al mes anterior"
-    }
   },
   "dataTable": {
     "search": "Buscar…",
@@ -43,55 +29,10 @@
     }
   },
   "settings": {
-    "title": "Configuración",
-    "description": "Gestiona las preferencias de tu aplicación.",
-    "language": {
-      "title": "Idioma",
-      "description": "Elige el idioma que se usará en toda la interfaz."
-    },
     "theme": {
-      "title": "Apariencia",
-      "description": "Elige tu esquema de colores preferido.",
       "light": "Claro",
       "dark": "Oscuro",
       "system": "Sistema"
-    }
-  },
-  "hooks": {
-    "title": "Hooks",
-    "description": "Demos interactivos de los hooks de utilidad integrados.",
-    "debounce": {
-      "title": "useDebounce",
-      "description": "El valor se actualiza solo después de que se deja de escribir durante 300 ms.",
-      "label": "Campo de búsqueda",
-      "placeholder": "Escribe algo…",
-      "raw": "Valor actual",
-      "debounced": "Valor con debounce"
-    },
-    "localStorage": {
-      "title": "useLocalStorage",
-      "description": "Contador persistido en localStorage — sobrevive al refresco de página.",
-      "label": "Contador",
-      "increment": "Incrementar",
-      "reset": "Restablecer"
-    },
-    "clipboard": {
-      "title": "useCopyToClipboard",
-      "description": "Copia texto al portapapeles; el botón se restablece después de 2 segundos.",
-      "label": "Texto a copiar",
-      "copy": "Copiar",
-      "copied": "¡Copiado!"
-    },
-    "confirm": {
-      "title": "useConfirm",
-      "description": "Espera una Promise de un AlertDialog — sin estado local de diálogo.",
-      "trigger": "Eliminar elemento",
-      "dialogTitle": "¿Eliminar este elemento?",
-      "dialogDescription": "Esta acción no se puede deshacer.",
-      "confirmLabel": "Eliminar",
-      "cancelLabel": "Cancelar",
-      "resultConfirmed": "Confirmado — elemento eliminado.",
-      "resultCancelled": "Cancelado."
     }
   }
 }

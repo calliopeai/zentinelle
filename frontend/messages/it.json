@@ -1,9 +1,4 @@
 {
-  "user": {
-    "account": "Account",
-    "notifications": "Notifiche",
-    "logout": "Esci"
-  },
   "language": {
     "label": "Lingua",
     "en": "Inglese",
@@ -13,15 +8,6 @@
     "de": "Tedesco",
     "it": "Italiano",
     "pt": "Portoghese"
-  },
-  "dashboard": {
-    "stats": {
-      "revenue": "Fatturato totale",
-      "orders": "Ordini",
-      "customers": "Clienti",
-      "products": "Prodotti",
-      "fromLastMonth": "rispetto al mese scorso"
-    }
   },
   "dataTable": {
     "search": "Cerca…",
@@ -43,55 +29,10 @@
     }
   },
   "settings": {
-    "title": "Impostazioni",
-    "description": "Gestisci le preferenze della tua applicazione.",
-    "language": {
-      "title": "Lingua",
-      "description": "Scegli la lingua usata in tutta l'interfaccia."
-    },
     "theme": {
-      "title": "Aspetto",
-      "description": "Scegli la combinazione di colori preferita.",
       "light": "Chiaro",
       "dark": "Scuro",
       "system": "Sistema"
-    }
-  },
-  "hooks": {
-    "title": "Hook",
-    "description": "Demo interattive degli hook di utilità integrati.",
-    "debounce": {
-      "title": "useDebounce",
-      "description": "Il valore si aggiorna solo dopo che la digitazione si è interrotta per 300 ms.",
-      "label": "Campo di ricerca",
-      "placeholder": "Scrivi qualcosa…",
-      "raw": "Valore attuale",
-      "debounced": "Valore con debounce"
-    },
-    "localStorage": {
-      "title": "useLocalStorage",
-      "description": "Contatore persistito in localStorage — sopravvive all'aggiornamento della pagina.",
-      "label": "Contatore",
-      "increment": "Incrementa",
-      "reset": "Reimposta"
-    },
-    "clipboard": {
-      "title": "useCopyToClipboard",
-      "description": "Copia il testo negli appunti; il pulsante si reimposta dopo 2 secondi.",
-      "label": "Testo da copiare",
-      "copy": "Copia",
-      "copied": "Copiato!"
-    },
-    "confirm": {
-      "title": "useConfirm",
-      "description": "Attende una Promise da un AlertDialog — senza stato locale del dialogo.",
-      "trigger": "Elimina elemento",
-      "dialogTitle": "Eliminare questo elemento?",
-      "dialogDescription": "Questa azione non può essere annullata.",
-      "confirmLabel": "Elimina",
-      "cancelLabel": "Annulla",
-      "resultConfirmed": "Confermato — elemento eliminato.",
-      "resultCancelled": "Annullato."
     }
   }
 }
