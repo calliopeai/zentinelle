@@ -6,13 +6,14 @@ import {
   DrawerTitle,
   StatusBadge,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import type { EventData } from "@/graphql/events/types";
 
 import { DefinitionList } from "./components/DefinitionList";
-import { formatDateTime, humanize } from "../../shared/format";
+import { formatDateTime } from "../../shared/format";
 import { JsonBlock } from "./JsonBlock";
-import { EVENT_STATUS_TONE, toneOf } from "./tones";
+import { EVENT_STATUS_TONE, toneOf, useActivityLabels } from "./tones";
 
 export interface EventDrawerProps {
   /** The event on show; null closes the drawer. */
@@ -22,6 +23,8 @@ export interface EventDrawerProps {
 
 /** One event in a side sheet, payload included. */
 export function EventDrawer({ event, onClose }: EventDrawerProps) {
+  const t = useTranslations("activity.events.drawer");
+  const labels = useActivityLabels();
   return (
     <Drawer open={event !== null} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="sm:max-w-lg">
@@ -30,38 +33,43 @@ export function EventDrawer({ event, onClose }: EventDrawerProps) {
             <DrawerHeader>
               <div className="pr-6">
                 <StatusBadge tone={toneOf(EVENT_STATUS_TONE, event.status)}>
-                  {event.status}
+                  {labels.eventStatus(event.status)}
                 </StatusBadge>
               </div>
               <DrawerTitle className="break-words">
-                {humanize(event.eventType)}
+                {labels.eventType(event.eventType)}
               </DrawerTitle>
               <DrawerDescription>
-                {humanize(event.eventCategory)} event from{" "}
-                {event.endpointName ?? "an unknown agent"}
+                {t("description", {
+                  category: labels.eventCategory(event.eventCategory),
+                  agent: event.endpointName ?? t("unknownAgent"),
+                })}
               </DrawerDescription>
             </DrawerHeader>
             <div className="flex flex-col gap-4 px-4 pb-4">
               <DefinitionList
                 columns={1}
                 items={[
-                  { term: "Occurred", value: formatDateTime(event.occurredAt) },
                   {
-                    term: "Processed",
+                    term: t("occurred"),
+                    value: formatDateTime(event.occurredAt),
+                  },
+                  {
+                    term: t("processed"),
                     value: event.processedAt
                       ? formatDateTime(event.processedAt)
-                      : "Not yet",
+                      : t("notYet"),
                   },
-                  { term: "User", value: event.userIdentifier, mono: true },
+                  { term: t("user"), value: event.userIdentifier, mono: true },
                   {
-                    term: "Correlation id",
+                    term: t("correlation"),
                     value: event.correlationId,
                     mono: true,
                   },
-                  { term: "Event id", value: event.id, mono: true },
+                  { term: t("id"), value: event.id, mono: true },
                 ]}
               />
-              <JsonBlock label="Payload" value={event.payload} />
+              <JsonBlock label={t("payload")} value={event.payload} />
             </div>
           </>
         )}

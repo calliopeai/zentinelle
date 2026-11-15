@@ -99,9 +99,6 @@ describe("interim tabs", () => {
 
   it("cover pages outside the function's prefix", () => {
     expect(
-      interimTabs("/notifications", admin).find((t) => t.active)?.key,
-    ).toBe("notifications");
-    expect(
       interimTabs("/tools/token-calculator", admin).find((t) => t.active)?.key,
     ).toBe("estimate");
   });

@@ -4,7 +4,7 @@
  * bookmarks, notification links and docs keep working.
  *
  * Only pages that moved as they are belong here. Routes the IA folds into a
- * tab, view or action of another page (`/notifications`, `/policies/simulator`,
+ * tab, view or action of another page (`/policies/simulator`,
  * `/risks/fmea`, ...) keep their address until that screen exists.
  *
  * Temporary (307) while the areas are in review; permanent once they ship.
@@ -31,6 +31,8 @@ export const FORMER_ROUTES: readonly FormerRoute[] = [
   { from: "/governance", to: "/dashboard" },
   // The demo landing; `?autostart=1` (and `?embed=1`) still start the tour.
   { from: "/demo", to: "/dashboard" },
+  // Alerts' Mine view replaced the notifications page.
+  { from: "/notifications", to: "/alerts?view=mine" },
   // Linked once, never a page.
   { from: "/audit", to: "/audit-logs" },
 ];

@@ -10,6 +10,7 @@ import {
   LoadingState,
   StatusBadge,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import { DefinitionList } from "./components/DefinitionList";
 import type { AuditChainVerification } from "./types";
@@ -33,43 +34,38 @@ export function VerifyChainDialog({
   error,
   onRetry,
 }: VerifyChainDialogProps) {
+  const t = useTranslations("activity.audit.verifyDialog");
+  const c = useTranslations("common");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Audit chain</DialogTitle>
-          <DialogDescription>
-            Every record carries the hash of the one before it. A break means a
-            record was changed or removed after it was written.
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         {verifying ? (
-          <LoadingState label="Verifying the audit chain" rows={3} />
+          <LoadingState label={t("loading")} rows={3} />
         ) : error ? (
-          <ErrorState
-            title="Could not verify the chain"
-            error={error}
-            onRetry={onRetry}
-          />
+          <ErrorState title={t("error")} error={error} onRetry={onRetry} />
         ) : result ? (
           <div className="flex flex-col gap-3">
             <StatusBadge
               tone={result.valid ? "ok" : "error"}
               className="self-start"
             >
-              {result.valid ? "intact" : "broken"}
+              {result.valid ? t("intact") : t("broken")}
             </StatusBadge>
             <DefinitionList
               columns={1}
               items={[
                 {
-                  term: "Records checked",
+                  term: t("checked"),
                   value: result.records_checked.toLocaleString("en"),
                 },
                 ...(result.unverifiable_records
                   ? [
                       {
-                        term: "Written before hashing",
+                        term: t("unverifiable"),
                         value: result.unverifiable_records.toLocaleString("en"),
                       },
                     ]
@@ -77,17 +73,17 @@ export function VerifyChainDialog({
                 ...(result.broken_at_sequence !== null
                   ? [
                       {
-                        term: "Broken at sequence",
+                        term: t("brokenAt"),
                         value: result.broken_at_sequence,
                         mono: true,
                       },
                     ]
                   : []),
-                { term: "Root hash", value: result.root_hash, mono: true },
+                { term: t("root"), value: result.root_hash, mono: true },
                 ...(result.expected_hash
                   ? [
                       {
-                        term: "Expected hash",
+                        term: t("expected"),
                         value: result.expected_hash,
                         mono: true,
                       },
@@ -96,7 +92,7 @@ export function VerifyChainDialog({
                 ...(result.actual_hash
                   ? [
                       {
-                        term: "Actual hash",
+                        term: t("actual"),
                         value: result.actual_hash,
                         mono: true,
                       },
@@ -108,7 +104,7 @@ export function VerifyChainDialog({
         ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Done
+            {c("done")}
           </Button>
         </DialogFooter>
       </DialogContent>

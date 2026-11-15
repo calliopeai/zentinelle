@@ -6,6 +6,7 @@ import {
   type Column,
 } from "@calliopelabs/ui";
 import { ScrollTextIcon, ShieldCheckIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import type { AuditLogData } from "@/graphql/events/types";
@@ -19,7 +20,7 @@ import {
 } from "./components/list-controller";
 import { AuditEntryDrawer, actorLabel } from "./AuditEntryDrawer";
 import { activityCrumb } from "./nav";
-import { AUDIT_STATUS_TONE, toneOf } from "./tones";
+import { AUDIT_STATUS_TONE, toneOf, useActivityLabels } from "./tones";
 import type { AuditChainVerification } from "./types";
 import { VerifyChainDialog } from "./VerifyChainDialog";
 
@@ -55,6 +56,8 @@ export function auditExportFormats(
   apiBase: string,
   range: DateRange,
   today: string,
+  /** The `activity.audit` translator, for each format's name and description. */
+  t: (key: string) => string,
 ): ExportFormat[] {
   const query = (format: string) =>
     `${apiBase.replace(/\/+$/, "")}/audit/export/?${new URLSearchParams({
@@ -62,38 +65,21 @@ export function auditExportFormats(
       from: range.from || EPOCH,
       to: range.to || today,
     })}`;
-  return [
-    {
-      key: "csv",
-      label: "CSV",
-      description: "One row per record, for a spreadsheet",
-      href: query("csv"),
-    },
-    {
-      key: "ndjson",
-      label: "NDJSON",
-      description: "One JSON record per line, with hashes",
-      href: query("ndjson"),
-    },
-    {
-      key: "cef",
-      label: "CEF",
-      description: "For a SIEM (Splunk, Sentinel, QRadar)",
-      href: query("cef"),
-    },
-    {
-      key: "bundle",
-      label: "Evidence bundle",
-      description: "Signed NDJSON with a chain checkpoint",
-      href: query("bundle"),
-    },
-  ];
+  return ["csv", "ndjson", "cef", "bundle"].map((key) => ({
+    key,
+    label: t(`formats.${key}.label`),
+    description: t(`formats.${key}.description`),
+    href: query(key),
+  }));
 }
 
-const COLUMNS: Column<AuditLogData>[] = [
+const columns = (
+  t: ReturnType<typeof useTranslations>,
+  status: (value: string) => string,
+): Column<AuditLogData>[] => [
   {
     id: "when",
-    header: "When",
+    header: t("columns.when"),
     width: "w-44",
     cell: (e) => (
       <span className="font-mono text-xs">{formatDateTime(e.timestamp)}</span>
@@ -101,7 +87,7 @@ const COLUMNS: Column<AuditLogData>[] = [
   },
   {
     id: "action",
-    header: "Action",
+    header: t("columns.action"),
     cell: (e) => (
       <div className="flex min-w-0 flex-col">
         <span className="truncate font-mono text-xs">{e.action}</span>
@@ -113,18 +99,18 @@ const COLUMNS: Column<AuditLogData>[] = [
   },
   {
     id: "actor",
-    header: "Actor",
+    header: t("columns.actor"),
     width: "w-48",
-    cell: (e) => <span className="block truncate">{actorLabel(e)}</span>,
+    cell: (e) => <span className="block truncate">{actorLabel(e, t)}</span>,
   },
   {
     id: "status",
-    header: "Result",
+    header: t("columns.result"),
     width: "w-28",
     cell: (e) =>
       e.status ? (
         <StatusBadge tone={toneOf(AUDIT_STATUS_TONE, e.status)}>
-          {e.status}
+          {status(e.status)}
         </StatusBadge>
       ) : (
         "–"
@@ -132,11 +118,15 @@ const COLUMNS: Column<AuditLogData>[] = [
   },
 ];
 
-function rangeLabel(range: DateRange) {
-  if (range.from && range.to) return `from ${range.from} to ${range.to}`;
-  if (range.from) return `from ${range.from} on`;
-  if (range.to) return `up to ${range.to}`;
-  return "of every date";
+/** What the export covers, under `activity.audit.range`. */
+function rangeScope(
+  t: ReturnType<typeof useTranslations>,
+  { from, to }: DateRange,
+) {
+  if (from && to) return t("range.between", { from, to });
+  if (from) return t("range.from", { from });
+  if (to) return t("range.to", { to });
+  return t("range.all");
 }
 
 /**
@@ -154,6 +144,8 @@ export function AuditLogScreen({
   verify,
   onVerify,
 }: AuditLogScreenProps) {
+  const t = useTranslations("activity.audit");
+  const labels = useActivityLabels();
   const [open, setOpen] = React.useState<AuditLogData | null>(null);
   const [verifyOpen, setVerifyOpen] = React.useState(false);
   const controller = useListController({
@@ -167,45 +159,50 @@ export function AuditLogScreen({
   return (
     <PageFrame
       crumbs={[activityCrumb("audit-log")]}
-      title="Audit log"
-      description="Who changed what, when, and from where. Records are hash-chained."
+      title={t("title")}
+      description={t("description")}
       primaryAction={
         <Button
           size="sm"
           variant="outline"
+          data-tour="audit-chain"
           onClick={() => {
             setVerifyOpen(true);
             onVerify();
           }}
         >
           <ShieldCheckIcon aria-hidden />
-          Verify chain
+          {t("verify")}
         </Button>
       }
       menu={
         <ExportMenu
-          formats={auditExportFormats(apiBase, range, today)}
-          scope={`Exports every record ${rangeLabel(range)}. The search does not apply.`}
+          formats={auditExportFormats(apiBase, range, today, t)}
+          scope={rangeScope(t, range)}
         />
       }
     >
       <DataTable
-        label="Audit log"
+        label={t("tableLabel")}
         controller={controller}
-        columns={COLUMNS}
+        columns={columns(t, labels.auditStatus)}
         getRowId={(e) => e.id}
         onRowActivate={setOpen}
-        rowLabel={(e) => `${e.action} at ${formatDateTime(e.timestamp)}`}
-        searchPlaceholder="Search actions, resources and actors"
+        rowLabel={(e) =>
+          t("rowLabel", {
+            action: e.action,
+            time: formatDateTime(e.timestamp),
+          })
+        }
+        searchPlaceholder={t("search")}
         empty={{
           icon: <ScrollTextIcon className="size-5" aria-hidden />,
-          title: "No audit records",
-          description:
-            "Changes to policies, agents, keys and settings are recorded here as they happen.",
+          title: t("empty.title"),
+          description: t("empty.description"),
         }}
         emptyFiltered={{
-          title: "No records match",
-          description: "Change the search or widen the dates.",
+          title: t("emptyFiltered.title"),
+          description: t("emptyFiltered.description"),
         }}
         toolbar={<DateRangeFilter value={range} onChange={onRangeChange} />}
       />

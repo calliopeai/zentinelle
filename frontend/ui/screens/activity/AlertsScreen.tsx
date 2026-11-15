@@ -10,6 +10,7 @@ import {
   type TabNavItem,
 } from "@calliopelabs/ui";
 import { BellIcon, CheckCheckIcon, InboxIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import type { ComplianceAlertData } from "@/graphql/alerts/types";
@@ -28,12 +29,11 @@ import { AlertDrawer, isAlertActive } from "./AlertDrawer";
 import { activityCrumb } from "./nav";
 import { notificationHref } from "./notification-href";
 import {
-  ALERT_SEVERITIES,
   ALERT_STATUS_TONE,
-  ALERT_TYPES,
   SEVERITY_TONE,
   notificationTone,
   toneOf,
+  useActivityLabels,
 } from "./tones";
 
 /** The three views of Alerts (ui-overhaul-ia §4.1): Mine is the person's notifications. */
@@ -71,25 +71,30 @@ export interface AlertsScreenProps {
   onMarkAllRead?: () => void;
 }
 
-const VIEWS: { key: AlertsView; label: string }[] = [
-  { key: "open", label: "Open" },
-  { key: "all", label: "All" },
-  { key: "mine", label: "Mine" },
-];
+const VIEWS: AlertsView[] = ["open", "all", "mine"];
 
-function tabs(view: AlertsView, unread: number | null): TabNavItem[] {
-  return VIEWS.map((v) => ({
-    key: v.key,
-    label: v.key === "mine" && unread ? `${v.label} (${unread})` : v.label,
-    href: v.key === "open" ? "/alerts" : `/alerts?view=${v.key}`,
-    active: v.key === view,
+type Translate = ReturnType<typeof useTranslations>;
+
+function tabs(
+  t: Translate,
+  view: AlertsView,
+  unread: number | null,
+): TabNavItem[] {
+  return VIEWS.map((key) => ({
+    key,
+    label:
+      key === "mine" && unread
+        ? t("views.mineUnread", { count: unread })
+        : t(`views.${key}`),
+    href: key === "open" ? "/alerts" : `/alerts?view=${key}`,
+    active: key === view,
   }));
 }
 
-const ALERT_COLUMNS: Column<ComplianceAlertData>[] = [
+const alertColumns = (t: Translate): Column<ComplianceAlertData>[] => [
   {
     id: "severity",
-    header: "Severity",
+    header: t("columns.severity"),
     width: "w-28",
     cell: (a) => (
       <StatusBadge tone={toneOf(SEVERITY_TONE, a.severity)}>
@@ -99,7 +104,7 @@ const ALERT_COLUMNS: Column<ComplianceAlertData>[] = [
   },
   {
     id: "alert",
-    header: "Alert",
+    header: t("columns.alert"),
     cell: (a) => (
       <div className="flex min-w-0 flex-col">
         <span className="truncate font-medium">{a.title}</span>
@@ -111,7 +116,7 @@ const ALERT_COLUMNS: Column<ComplianceAlertData>[] = [
   },
   {
     id: "agent",
-    header: "Agent",
+    header: t("columns.agent"),
     width: "w-40",
     cell: (a) => (
       <span className="block truncate">{a.endpointName ?? "–"}</span>
@@ -119,7 +124,7 @@ const ALERT_COLUMNS: Column<ComplianceAlertData>[] = [
   },
   {
     id: "violations",
-    header: "Violations",
+    header: t("columns.violations"),
     width: "w-24",
     align: "right",
     cell: (a) => (
@@ -128,7 +133,7 @@ const ALERT_COLUMNS: Column<ComplianceAlertData>[] = [
   },
   {
     id: "last",
-    header: "Last seen",
+    header: t("columns.last"),
     width: "w-44",
     cell: (a) => (
       <span className="font-mono text-xs">
@@ -138,7 +143,7 @@ const ALERT_COLUMNS: Column<ComplianceAlertData>[] = [
   },
   {
     id: "status",
-    header: "Status",
+    header: t("columns.status"),
     width: "w-32",
     cell: (a) => (
       <StatusBadge tone={toneOf(ALERT_STATUS_TONE, a.status)}>
@@ -148,10 +153,13 @@ const ALERT_COLUMNS: Column<ComplianceAlertData>[] = [
   },
 ];
 
-const NOTIFICATION_COLUMNS: Column<NotificationData>[] = [
+const notificationColumns = (
+  t: Translate,
+  type: (value: string) => string,
+): Column<NotificationData>[] => [
   {
     id: "notification",
-    header: "Notification",
+    header: t("mine.columns.notification"),
     cell: (n) => (
       <div className="flex min-w-0 items-start gap-2">
         <StatusDot tone={notificationTone(n.type)} className="mt-1.5" />
@@ -164,7 +172,7 @@ const NOTIFICATION_COLUMNS: Column<NotificationData>[] = [
             {n.subject}
           </span>
           <span className="truncate text-xs text-muted-foreground">
-            {humanize(n.type)}
+            {type(n.type)}
             {n.message ? `: ${n.message}` : ""}
           </span>
         </div>
@@ -173,7 +181,7 @@ const NOTIFICATION_COLUMNS: Column<NotificationData>[] = [
   },
   {
     id: "received",
-    header: "Received",
+    header: t("mine.columns.received"),
     width: "w-44",
     cell: (n) => (
       <span className="font-mono text-xs">{formatDateTime(n.createdAt)}</span>
@@ -181,11 +189,11 @@ const NOTIFICATION_COLUMNS: Column<NotificationData>[] = [
   },
   {
     id: "status",
-    header: "Status",
+    header: t("mine.columns.status"),
     width: "w-24",
     cell: (n) => (
       <StatusBadge tone={n.status === "UNREAD" ? "info" : "muted"}>
-        {n.status === "UNREAD" ? "unread" : "read"}
+        {n.status === "UNREAD" ? t("mine.unread") : t("mine.read")}
       </StatusBadge>
     ),
   },
@@ -209,6 +217,8 @@ function AlertsTable({
   | "onMarkRead"
   | "onMarkAllRead"
 >) {
+  const t = useTranslations("activity.alerts");
+  const labels = useActivityLabels();
   const [open, setOpen] = React.useState<ComplianceAlertData | null>(null);
   const [resolving, setResolving] = React.useState<ComplianceAlertData | null>(
     null,
@@ -223,9 +233,9 @@ function AlertsTable({
   return (
     <>
       <DataTable
-        label="Alerts"
+        label={t("tableLabel")}
         controller={controller}
-        columns={ALERT_COLUMNS}
+        columns={alertColumns(t)}
         getRowId={(a) => a.id}
         onRowActivate={setOpen}
         rowLabel={(a) => a.title}
@@ -233,37 +243,35 @@ function AlertsTable({
           view === "open"
             ? {
                 icon: <BellIcon className="size-5" aria-hidden />,
-                title: "No open alerts",
-                description:
-                  "Alerts open when an agent breaks a content rule or a policy threshold. Resolved and dismissed alerts are under All.",
+                title: t("emptyOpen.title"),
+                description: t("emptyOpen.description"),
                 actionHref: "/alerts?view=all",
-                actionLabel: "See all alerts",
+                actionLabel: t("emptyOpen.action"),
               }
             : {
                 icon: <BellIcon className="size-5" aria-hidden />,
-                title: "No alerts yet",
-                description:
-                  "Alerts open when an agent breaks a content rule or a policy threshold.",
+                title: t("emptyAll.title"),
+                description: t("emptyAll.description"),
                 actionHref: "/content-rules",
-                actionLabel: "Review content rules",
+                actionLabel: t("emptyAll.action"),
               }
         }
         emptyFiltered={{
-          title: "No alerts match these filters",
-          description: "Clear the filters to see every alert in this view.",
+          title: t("emptyFiltered.title"),
+          description: t("emptyFiltered.description"),
         }}
         toolbar={
           <>
             <FilterSelect
-              label="Severity"
+              label={t("filters.severity")}
               value={filters.severity}
-              options={ALERT_SEVERITIES}
+              options={labels.alertSeverities}
               onChange={(severity) => onFiltersChange({ ...filters, severity })}
             />
             <FilterSelect
-              label="Type"
+              label={t("filters.type")}
               value={filters.alertType}
-              options={ALERT_TYPES}
+              options={labels.alertTypes}
               onChange={(alertType) =>
                 onFiltersChange({ ...filters, alertType })
               }
@@ -277,18 +285,18 @@ function AlertsTable({
                   <>
                     {a.status === "open" && (
                       <DropdownMenuItem onSelect={() => onAcknowledge?.(a)}>
-                        Acknowledge
+                        {t("acknowledge")}
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem onSelect={() => setResolving(a)}>
-                      Resolve…
+                      {t("resolveMenu")}
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => onDismiss?.(a)}>
-                      Dismiss
+                      {t("dismiss")}
                     </DropdownMenuItem>
                   </>
                 ) : (
-                  <DropdownMenuItem disabled>No actions left</DropdownMenuItem>
+                  <DropdownMenuItem disabled>{t("noActions")}</DropdownMenuItem>
                 )
             : undefined
         }
@@ -307,12 +315,12 @@ function AlertsTable({
       <ConfirmDialog
         open={resolving !== null}
         onOpenChange={(o) => !o && setResolving(null)}
-        title="Resolve this alert?"
+        title={t("resolveDialog.title")}
         description={resolving?.title}
-        confirmLabel="Resolve"
+        confirmLabel={t("resolve")}
         reason={{
-          label: "Resolution notes",
-          placeholder: "What was done, for the audit log",
+          label: t("resolveDialog.notes"),
+          placeholder: t("resolveDialog.placeholder"),
         }}
         onConfirm={(notes) => resolving && onResolve?.(resolving, notes)}
       />
@@ -332,6 +340,7 @@ function MineTable({
   | "onNotificationStatusChange"
   | "onMarkRead"
 >) {
+  const t = useTranslations("activity.alerts");
   const controller = useListController({
     ...notifications,
     isFiltered: notificationStatus !== "",
@@ -339,33 +348,32 @@ function MineTable({
   });
   return (
     <DataTable
-      label="Your notifications"
+      label={t("mine.tableLabel")}
       controller={controller}
-      columns={NOTIFICATION_COLUMNS}
+      columns={notificationColumns(t, humanize)}
       getRowId={(n) => n.id}
       rowHref={notificationHref}
       rowLabel={(n) => n.subject}
       empty={{
         icon: <InboxIcon className="size-5" aria-hidden />,
-        title: "Nothing for you",
-        description:
-          "Incidents assigned to you, budget warnings and risks that rise land here.",
+        title: t("mine.empty.title"),
+        description: t("mine.empty.description"),
       }}
       emptyFiltered={{
         title:
           notificationStatus === "UNREAD"
-            ? "You have read everything"
-            : "No notifications match",
-        description: "Show every notification to see the rest.",
+            ? t("mine.emptyUnread")
+            : t("mine.emptyFiltered.title"),
+        description: t("mine.emptyFiltered.description"),
       }}
       toolbar={
         <FilterSelect
-          label="Show"
+          label={t("mine.show")}
           value={notificationStatus}
-          allLabel="Every notification"
+          allLabel={t("mine.every")}
           options={[
-            { value: "UNREAD", label: "Unread" },
-            { value: "READ", label: "Read" },
+            { value: "UNREAD", label: t("mine.unreadOption") },
+            { value: "READ", label: t("mine.readOption") },
           ]}
           onChange={(v) =>
             onNotificationStatusChange(v as NotificationStatus | "")
@@ -376,7 +384,7 @@ function MineTable({
         <DropdownMenuItem
           onSelect={() => onMarkRead?.(n, n.status === "UNREAD")}
         >
-          {n.status === "UNREAD" ? "Mark read" : "Mark unread"}
+          {n.status === "UNREAD" ? t("mine.markRead") : t("mine.markUnread")}
         </DropdownMenuItem>
       )}
     />
@@ -389,26 +397,23 @@ function MineTable({
  * in a side sheet; a notification row links to what it is about.
  */
 export function AlertsScreen(props: AlertsScreenProps) {
+  const t = useTranslations("activity.alerts");
   const { view, unreadCount, onMarkAllRead } = props;
   return (
     <PageFrame
       crumbs={[activityCrumb("alerts")]}
-      title="Alerts"
-      description={
-        view === "mine"
-          ? "Notifications for you: assignments, budget warnings and risks that rise."
-          : "Content rule and policy violations, grouped into alerts."
-      }
+      title={t("title")}
+      description={view === "mine" ? t("mineDescription") : t("description")}
       primaryAction={
         view === "mine" && unreadCount ? (
           <Button variant="outline" size="sm" onClick={onMarkAllRead}>
             <CheckCheckIcon aria-hidden />
-            Mark all read
+            {t("markAllRead")}
           </Button>
         ) : undefined
       }
-      tabs={tabs(view, unreadCount)}
-      tabsLabel="Alert views"
+      tabs={tabs(t, view, unreadCount)}
+      tabsLabel={t("tabsLabel")}
     >
       {view === "mine" ? <MineTable {...props} /> : <AlertsTable {...props} />}
     </PageFrame>

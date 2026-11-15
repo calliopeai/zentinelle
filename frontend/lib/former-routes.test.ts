@@ -37,14 +37,16 @@ describe("former routes", () => {
 
   it("redirect to a page, from a path that is no longer one", () => {
     for (const { from, to } of FORMER_ROUTES) {
-      expect(pages, `${from} -> ${to}`).toContain(to);
+      // A target's query (`?view=mine`) selects a view of the page.
+      expect(pages, `${from} -> ${to}`).toContain(to.split("?")[0]);
       expect(pages, from).not.toContain(from);
     }
   });
 
   it("never chain", () => {
     const sources = new Set(FORMER_ROUTES.map((r) => r.from));
-    for (const { to } of FORMER_ROUTES) expect(sources).not.toContain(to);
+    for (const { to } of FORMER_ROUTES)
+      expect(sources).not.toContain(to.split("?")[0]);
   });
 });
 

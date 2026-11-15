@@ -6,13 +6,14 @@ import {
   DrawerTitle,
   StatusBadge,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import type { AuditLogData } from "@/graphql/events/types";
 
 import { DefinitionList } from "./components/DefinitionList";
 import { formatDateTime } from "../../shared/format";
 import { JsonBlock } from "./JsonBlock";
-import { AUDIT_STATUS_TONE, toneOf } from "./tones";
+import { AUDIT_STATUS_TONE, toneOf, useActivityLabels } from "./tones";
 
 export interface AuditEntryDrawerProps {
   /** The record on show; null closes the drawer. */
@@ -20,18 +21,22 @@ export interface AuditEntryDrawerProps {
   onClose: () => void;
 }
 
-/** Who acted, by what credential. */
+/** Who acted, by what credential; `t` is the `activity.audit` translator. */
 export function actorLabel(
   entry: Pick<AuditLogData, "actor" | "apiKeyPrefix">,
+  t: (key: string, values?: Record<string, string>) => string,
 ) {
   const a = entry.actor;
   if (a?.name || a?.email) return a.name ?? a.email ?? "";
-  if (entry.apiKeyPrefix) return `API key ${entry.apiKeyPrefix}`;
-  return a?.type ?? "System";
+  if (entry.apiKeyPrefix)
+    return t("actor.apiKey", { prefix: entry.apiKeyPrefix });
+  return a?.type ?? t("actor.system");
 }
 
 /** One audit record: who did what to which resource, from where, and the fields it changed. */
 export function AuditEntryDrawer({ entry, onClose }: AuditEntryDrawerProps) {
+  const t = useTranslations("activity.audit");
+  const labels = useActivityLabels();
   return (
     <Drawer open={entry !== null} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="sm:max-w-lg">
@@ -41,7 +46,7 @@ export function AuditEntryDrawer({ entry, onClose }: AuditEntryDrawerProps) {
               {entry.status && (
                 <div className="pr-6">
                   <StatusBadge tone={toneOf(AUDIT_STATUS_TONE, entry.status)}>
-                    {entry.status}
+                    {labels.auditStatus(entry.status)}
                   </StatusBadge>
                 </div>
               )}
@@ -49,41 +54,54 @@ export function AuditEntryDrawer({ entry, onClose }: AuditEntryDrawerProps) {
                 {entry.action}
               </DrawerTitle>
               <DrawerDescription className="break-words">
-                {actorLabel(entry)} on{" "}
-                {entry.resourceName || entry.resourceType}
+                {t("drawer.description", {
+                  actor: actorLabel(entry, t),
+                  resource: entry.resourceName || entry.resourceType,
+                })}
               </DrawerDescription>
             </DrawerHeader>
             <div className="flex flex-col gap-4 px-4 pb-4">
               <DefinitionList
                 columns={1}
                 items={[
-                  { term: "When", value: formatDateTime(entry.timestamp) },
-                  { term: "Actor", value: actorLabel(entry) },
-                  { term: "Actor email", value: entry.actor?.email },
                   {
-                    term: "Resource",
+                    term: t("drawer.when"),
+                    value: formatDateTime(entry.timestamp),
+                  },
+                  { term: t("drawer.actor"), value: actorLabel(entry, t) },
+                  { term: t("drawer.email"), value: entry.actor?.email },
+                  {
+                    term: t("drawer.resource"),
                     value: `${entry.resourceType} ${entry.resourceId}`,
                     mono: true,
                   },
-                  { term: "IP address", value: entry.ipAddress, mono: true },
-                  { term: "User agent", value: entry.userAgent, mono: true },
+                  {
+                    term: t("drawer.ip"),
+                    value: entry.ipAddress,
+                    mono: true,
+                  },
+                  {
+                    term: t("drawer.userAgent"),
+                    value: entry.userAgent,
+                    mono: true,
+                  },
                 ]}
               />
               {entry.changes && entry.changes.length > 0 && (
                 <table className="w-full text-left text-sm">
                   <caption className="mb-1 text-left text-xs text-muted-foreground">
-                    Changes
+                    {t("drawer.changes")}
                   </caption>
                   <thead className="text-xs text-muted-foreground">
                     <tr>
                       <th scope="col" className="py-1 font-normal">
-                        Field
+                        {t("drawer.field")}
                       </th>
                       <th scope="col" className="py-1 font-normal">
-                        Before
+                        {t("drawer.before")}
                       </th>
                       <th scope="col" className="py-1 font-normal">
-                        After
+                        {t("drawer.after")}
                       </th>
                     </tr>
                   </thead>
@@ -108,7 +126,7 @@ export function AuditEntryDrawer({ entry, onClose }: AuditEntryDrawerProps) {
                 </table>
               )}
               {entry.details && (
-                <JsonBlock label="Details" value={entry.details} />
+                <JsonBlock label={t("drawer.details")} value={entry.details} />
               )}
             </div>
           </>

@@ -1,4 +1,5 @@
 import { cn } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 export interface JsonBlockProps {
   /** Names the block for screen readers ("Event payload"). */
@@ -9,9 +10,12 @@ export interface JsonBlockProps {
 
 /** A payload as indented JSON, wrapping long strings instead of scrolling a page sideways. */
 export function JsonBlock({ label, value, className }: JsonBlockProps) {
+  const t = useTranslations("common");
   if (value === null || value === undefined)
     return (
-      <p className="text-sm text-muted-foreground">No {label.toLowerCase()}.</p>
+      <p className="text-sm text-muted-foreground">
+        {t("nothing", { label: label.toLowerCase() })}
+      </p>
     );
   return (
     <pre

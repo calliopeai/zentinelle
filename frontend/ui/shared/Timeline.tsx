@@ -1,4 +1,5 @@
 import { StatusDot, cn, type StatusTone } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 import type * as React from "react";
 
 import { formatDateTime } from "./format";
@@ -27,11 +28,16 @@ export interface TimelineProps {
 export function Timeline({
   label,
   entries,
-  emptyLabel = "Nothing has happened yet.",
+  emptyLabel,
   className,
 }: TimelineProps) {
+  const t = useTranslations("common");
   if (entries.length === 0) {
-    return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        {emptyLabel ?? t("timelineEmpty")}
+      </p>
+    );
   }
   return (
     <ol aria-label={label} className={cn("flex flex-col", className)}>
