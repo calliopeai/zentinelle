@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { GlobeIcon } from "lucide-react";
 import { setLocale } from "@/app/actions/locale";
-import { locales, type Locale } from "@/i18n/config";
+import { pickerLocales, type Locale } from "@/i18n/config";
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -54,7 +54,7 @@ export const LanguageSwitcher = ({ variant = "sidebar" }: Props) => {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {locales.map((l) => (
+          {pickerLocales.map((l) => (
             <SelectItem key={l} value={l}>
               {t(l)}
             </SelectItem>
@@ -80,7 +80,7 @@ export const LanguageSwitcher = ({ variant = "sidebar" }: Props) => {
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start">
-            {locales.map((l) => (
+            {pickerLocales.map((l) => (
               <DropdownMenuItem
                 key={l}
                 onSelect={() => handleChange(l)}

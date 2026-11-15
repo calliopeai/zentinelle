@@ -1,9 +1,4 @@
 {
-  "user": {
-    "account": "Compte",
-    "notifications": "Notifications",
-    "logout": "Se déconnecter"
-  },
   "language": {
     "label": "Langue",
     "en": "Anglais",
@@ -13,15 +8,6 @@
     "de": "Allemand",
     "it": "Italien",
     "pt": "Portugais"
-  },
-  "dashboard": {
-    "stats": {
-      "revenue": "Chiffre d'affaires total",
-      "orders": "Commandes",
-      "customers": "Clients",
-      "products": "Produits",
-      "fromLastMonth": "par rapport au mois dernier"
-    }
   },
   "dataTable": {
     "search": "Rechercher…",
@@ -43,55 +29,10 @@
     }
   },
   "settings": {
-    "title": "Paramètres",
-    "description": "Gérez les préférences de votre application.",
-    "language": {
-      "title": "Langue",
-      "description": "Choisissez la langue utilisée dans toute l'interface."
-    },
     "theme": {
-      "title": "Apparence",
-      "description": "Choisissez votre schéma de couleurs préféré.",
       "light": "Clair",
       "dark": "Sombre",
       "system": "Système"
-    }
-  },
-  "hooks": {
-    "title": "Hooks",
-    "description": "Démos interactives des hooks utilitaires intégrés.",
-    "debounce": {
-      "title": "useDebounce",
-      "description": "La valeur se met à jour uniquement après 300 ms sans frappe.",
-      "label": "Champ de recherche",
-      "placeholder": "Tapez quelque chose…",
-      "raw": "Valeur actuelle",
-      "debounced": "Valeur avec debounce"
-    },
-    "localStorage": {
-      "title": "useLocalStorage",
-      "description": "Compteur persisté dans localStorage — survit au rechargement de page.",
-      "label": "Compteur",
-      "increment": "Incrémenter",
-      "reset": "Réinitialiser"
-    },
-    "clipboard": {
-      "title": "useCopyToClipboard",
-      "description": "Copie le texte dans le presse-papiers ; le bouton se réinitialise après 2 secondes.",
-      "label": "Texte à copier",
-      "copy": "Copier",
-      "copied": "Copié !"
-    },
-    "confirm": {
-      "title": "useConfirm",
-      "description": "Attend une Promise d'un AlertDialog — sans état de dialogue local.",
-      "trigger": "Supprimer l'élément",
-      "dialogTitle": "Supprimer cet élément ?",
-      "dialogDescription": "Cette action est irréversible.",
-      "confirmLabel": "Supprimer",
-      "cancelLabel": "Annuler",
-      "resultConfirmed": "Confirmé — élément supprimé.",
-      "resultCancelled": "Annulé."
     }
   }
 }

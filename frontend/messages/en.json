@@ -1,9 +1,4 @@
 {
-  "user": {
-    "account": "Account",
-    "notifications": "Notifications",
-    "logout": "Log out"
-  },
   "language": {
     "label": "Language",
     "en": "English",
@@ -13,15 +8,6 @@
     "de": "German",
     "it": "Italian",
     "pt": "Portuguese"
-  },
-  "dashboard": {
-    "stats": {
-      "revenue": "Total revenue",
-      "orders": "Orders",
-      "customers": "Customers",
-      "products": "Products",
-      "fromLastMonth": "from last month"
-    }
   },
   "dataTable": {
     "search": "Search…",
@@ -43,55 +29,113 @@
     }
   },
   "settings": {
-    "title": "Settings",
-    "description": "Manage your application preferences.",
-    "language": {
-      "title": "Language",
-      "description": "Choose the language used throughout the interface."
-    },
     "theme": {
-      "title": "Appearance",
-      "description": "Choose your preferred color scheme.",
       "light": "Light",
       "dark": "Dark",
       "system": "System"
     }
   },
-  "hooks": {
-    "title": "Hooks",
-    "description": "Interactive demos for the built-in utility hooks.",
-    "debounce": {
-      "title": "useDebounce",
-      "description": "Value updates only after typing has stopped for 300 ms.",
-      "label": "Search input",
-      "placeholder": "Type something…",
-      "raw": "Raw value",
-      "debounced": "Debounced value"
+  "ui": {
+    "shell": {
+      "skipToContent": "Skip to content",
+      "navigation": "Navigation",
+      "close": "Close"
     },
-    "localStorage": {
-      "title": "useLocalStorage",
-      "description": "Counter persisted to localStorage — survives page refresh.",
-      "label": "Count",
-      "increment": "Increment",
-      "reset": "Reset"
+    "nav": {
+      "label": "Main",
+      "collapse": "Collapse sidebar",
+      "expand": "Expand sidebar",
+      "collapseTitle": "Collapse sidebar ([)",
+      "expandTitle": "Expand sidebar ([)"
     },
-    "clipboard": {
-      "title": "useCopyToClipboard",
-      "description": "Copies text to the clipboard; button resets after 2 seconds.",
-      "label": "Text to copy",
-      "copy": "Copy",
-      "copied": "Copied!"
+    "rail": {
+      "show": "Show {label}",
+      "hide": "Hide {label}",
+      "resize": "Resize {label}",
+      "expand": "Expand {label} to full width",
+      "restore": "Restore {label} to the side"
+    },
+    "breadcrumb": {
+      "label": "Breadcrumb",
+      "switchFrom": "Switch from {label}"
+    },
+    "table": {
+      "search": "Search",
+      "clearSearch": "Clear search",
+      "results": "{count, plural, one {# result} other {# results}}",
+      "filteredResults": "Filtered results shown.",
+      "loading": "Loading",
+      "loadFailed": "Could not load {label}",
+      "requestFailed": "The request failed.",
+      "retry": "Retry",
+      "noMatches": "No matches",
+      "noMatchesDescription": "No {label} match the search.",
+      "selected": "{count, number} selected",
+      "clearSelection": "Clear",
+      "selectRow": "Select {id}",
+      "selectPage": "Select all {label} on this page",
+      "actions": "Actions",
+      "rowActions": "Actions for {label}",
+      "rowsPerPage": "Rows per page",
+      "page": "Page {page, number}",
+      "previousPage": "Previous page",
+      "nextPage": "Next page",
+      "sortKey": "sort key {index}"
+    },
+    "states": {
+      "errorTitle": "Something went wrong",
+      "unexpected": "An unexpected error occurred.",
+      "retry": "Try again",
+      "errorId": "Error ID {digest}",
+      "loading": "Loading",
+      "learnMore": "Learn more"
+    },
+    "dialog": {
+      "close": "Close"
     },
     "confirm": {
-      "title": "useConfirm",
-      "description": "Awaits a Promise from an AlertDialog — no local dialog state required.",
-      "trigger": "Delete item",
-      "dialogTitle": "Delete this item?",
-      "dialogDescription": "This action cannot be undone.",
-      "confirmLabel": "Delete",
-      "cancelLabel": "Cancel",
-      "resultConfirmed": "Confirmed — item deleted.",
-      "resultCancelled": "Cancelled."
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "working": "Working",
+      "failed": "That did not work. Try again.",
+      "reasonRequired": "A reason is required."
+    },
+    "user": {
+      "accountMenu": "{initials}, account menu for {name}",
+      "signOut": "Sign out"
+    },
+    "appearance": {
+      "locked": "Your organization has locked the theme. These settings are read-only.",
+      "themes": "Theme",
+      "accent": "Accent",
+      "ground": "Ground",
+      "density": "Density",
+      "corners": "Corners",
+      "reset": "Use the default",
+      "modes": {
+        "dark": "dark",
+        "light": "light"
+      },
+      "densities": {
+        "compact": {
+          "label": "Compact",
+          "hint": "Dense rows with hairline dividers"
+        },
+        "cards": {
+          "label": "Cards",
+          "hint": "Boxed items that flow into columns"
+        }
+      },
+      "cornerSquare": "Square",
+      "cornerRounded": "Rounded",
+      "cornerPixels": "{corners}px",
+      "customAccent": "Custom accent",
+      "customAccentPick": "Pick a colour",
+      "customAccentHelp": "Any colour that stands 3:1 off the ground. Status colours never change.",
+      "customAccentInvalid": "Use a hex colour such as #2f9e52.",
+      "customAccentInUse": "In use",
+      "customAccentOk": "{ratio}:1 against this ground.",
+      "customAccentFaint": "{ratio}:1 against this ground; it needs {min}:1. Try a {mode, select, dark {lighter} other {darker}} colour."
     }
   }
 }

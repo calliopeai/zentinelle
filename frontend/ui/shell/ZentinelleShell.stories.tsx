@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 
 import { UNBUILT_ROUTES, interimTabs } from "../product";
+import { CATALOG_LOCALES } from "../storybook/session";
 import { ShellStory } from "../storybook/ShellStory";
 import { ZentinelleShell } from "./ZentinelleShell";
 
@@ -89,7 +90,11 @@ export const AssistantHidden: Story = {
 /** The user menu opens the language dialog; personal settings live here, not in Settings. */
 export const LanguageFromUserMenu: Story = {
   render: () => (
-    <ShellStory path="/dashboard" defaultAssistantHidden>
+    <ShellStory
+      path="/dashboard"
+      defaultAssistantHidden
+      locales={CATALOG_LOCALES}
+    >
       <PageFrame title="Overview">
         <EmptyState title="The Overview screen renders here" />
       </PageFrame>

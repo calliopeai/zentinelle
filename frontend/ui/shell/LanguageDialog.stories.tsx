@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import * as React from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 
-import { STORY_LOCALES } from "../storybook/session";
+import { CATALOG_LOCALES } from "../storybook/session";
 import { LanguageDialog } from "./LanguageDialog";
 
 const meta = {
@@ -12,7 +12,7 @@ const meta = {
     open: true,
     onOpenChange: fn(),
     locale: "en",
-    locales: STORY_LOCALES,
+    locales: CATALOG_LOCALES,
     onLocaleChange: fn(),
   },
 } satisfies Meta<typeof LanguageDialog>;
