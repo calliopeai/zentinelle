@@ -1,22 +1,4 @@
 {
-  "app/(app)/compliance/gaps/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "app/(app)/compliance/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    },
-    "react-hooks/set-state-in-render": {
-      "count": 1
-    }
-  },
-  "app/(app)/evidence/page.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
   "app/(app)/models/providers/manage-models-dialog.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
@@ -33,21 +15,6 @@
   "app/(app)/models/routes/page.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
-    }
-  },
-  "app/(app)/risks/fmea/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "app/(app)/risks/overview/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 10
-    }
-  },
-  "app/(app)/risks/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
     }
   },
   "app/(app)/settings/api-keys/page.tsx": {
