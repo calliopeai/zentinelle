@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import * as React from "react";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 
+import { chooseOption } from "../storybook/select";
 import { FilterSelect } from "./FilterSelect";
 
 const OPTIONS = [
@@ -10,7 +11,7 @@ const OPTIONS = [
   { value: "offline", label: "Offline" },
 ];
 
-/** One server-side filter in a list's toolbar. A candidate for @calliopelabs/ui's FilterBar. */
+/** One server-side filter in a list's toolbar. */
 const meta = {
   title: "Shared/FilterSelect",
   component: FilterSelect,
@@ -42,7 +43,8 @@ export const Changes: Story = {
     const select = within(canvasElement).getByRole("combobox", {
       name: "Status",
     });
-    await userEvent.selectOptions(select, "offline");
+    await chooseOption(select, "Offline");
+    await expect(select).toHaveTextContent("Offline");
     await expect(args.onChange).toHaveBeenCalledWith("offline");
   },
 };

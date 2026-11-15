@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, screen, userEvent, waitFor } from "storybook/test";
 
+import { chooseOption } from "../../storybook/select";
 import { GroupFormDialog, type GroupFormDialogProps } from "./GroupFormDialog";
 
 /** Create or edit a group: CreateAgentGroup or UpdateAgentGroup. */
@@ -19,9 +20,9 @@ export const Create: Story = {
       await screen.findByRole("textbox", { name: /Name/ }),
       "Research",
     );
-    await userEvent.selectOptions(
+    await chooseOption(
       screen.getByRole("combobox", { name: /Tier/ }),
-      "restricted",
+      "Restricted",
     );
     await userEvent.click(screen.getByRole("button", { name: "Create group" }));
     await waitFor(() =>

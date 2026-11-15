@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   PageFrame,
+  Select,
   StatusBadge,
   useUI,
   type Column,
@@ -18,9 +19,13 @@ import { useTranslations } from "next-intl";
 
 import type { SystemPromptData } from "@/graphql/prompts/types";
 
+import {
+  ANY,
+  fromSelectValue,
+  toSelectValue,
+} from "../../../shared/select-any";
 import { FilterBar } from "../../../shared/FilterBar";
 import { useListController } from "../../../shared/list-controller";
-import { Select } from "../../../shared/Select";
 import { accessOf } from "../access";
 import { areaCrumb } from "../frame";
 import { PROMPT_STATUS_TONE, usePolicyLabels } from "../labels";
@@ -208,11 +213,11 @@ export function PromptLibraryScreen({
             <Select
               aria-label={t("promptType")}
               options={[
-                { value: "", label: t("allTypes") },
+                { value: ANY, label: t("allTypes") },
                 ...PROMPT_TYPE_OPTIONS,
               ]}
-              value={type}
-              onValueChange={onTypeChange}
+              value={toSelectValue(type)}
+              onValueChange={(v) => onTypeChange(fromSelectValue(v))}
               className="w-44"
             />
             <Select

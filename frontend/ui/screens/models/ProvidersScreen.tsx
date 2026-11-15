@@ -11,6 +11,7 @@ import {
   PageFrame,
   Section,
   StatusBadge,
+  Switch,
 } from "@calliopelabs/ui";
 import { PlugIcon } from "lucide-react";
 import * as React from "react";
@@ -19,7 +20,6 @@ import { useTranslations } from "next-intl";
 import { AccessDenied } from "../../shared/AccessDenied";
 import { SelectField } from "../../shared/SelectField";
 import { KpiTile, KpiRow } from "../../shared/KpiTile";
-import { Switch } from "../../shared/Switch";
 import { formatDay } from "../../shared/figures";
 import { areaCrumbs, can } from "./frame";
 import { ProviderKeyDialog } from "./ProviderKeyDialog";
@@ -182,7 +182,7 @@ export function ProvidersScreen({
                   p.storedKey ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <Switch
-                        label={t("inAssistant", { provider: p.label })}
+                        aria-label={t("inAssistant", { provider: p.label })}
                         checked={p.storedKey.enabledForAssistant}
                         onCheckedChange={(next) =>
                           onToggleAssistant(p.id, next)

@@ -1,11 +1,18 @@
 "use client";
 
-import { cn } from "@calliopelabs/ui";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+  cn,
+} from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
 
 import type { ChatModel } from "@/hooks/use-chat";
-
-import { CONTROL_CLASS } from "../../../shared/controls";
 
 export interface ModelSelectorProps {
   /** `useAvailableModels`: the models of providers with a key. */
@@ -16,7 +23,7 @@ export interface ModelSelectorProps {
   className?: string;
 }
 
-/** The assistant's model, grouped by provider. A native select, so keyboards and phones get the platform picker. */
+/** The assistant's model, grouped by provider. */
 export function ModelSelector({
   models,
   loading = false,
@@ -34,35 +41,37 @@ export function ModelSelector({
   }
   const known = models.some((m) => m.value === value);
   return (
-    <select
+    <Select
       aria-label={t("label")}
       value={loading || !known ? "" : value}
       disabled={loading || models.length === 0}
-      onChange={(event) => onValueChange(event.target.value)}
-      className={cn(
-        CONTROL_CLASS,
-        "bg-background dark:bg-background h-8 w-auto max-w-56 pr-7",
-        className,
-      )}
+      onValueChange={onValueChange}
     >
-      {(loading || !known) && (
-        <option value="" disabled>
-          {loading
-            ? t("loading")
-            : models.length === 0
-              ? t("none")
-              : t("placeholder")}
-        </option>
-      )}
-      {[...byProvider].map(([provider, providerModels]) => (
-        <optgroup key={provider} label={provider}>
-          {providerModels.map((model) => (
-            <option key={model.value} value={model.value}>
-              {model.label}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
+      <SelectTrigger
+        className={cn("bg-background dark:bg-background max-w-56", className)}
+      >
+        <SelectValue
+          placeholder={
+            loading
+              ? t("loading")
+              : models.length === 0
+                ? t("none")
+                : t("placeholder")
+          }
+        />
+      </SelectTrigger>
+      <SelectContent>
+        {[...byProvider].map(([provider, providerModels]) => (
+          <SelectGroup key={provider}>
+            <SelectLabel>{provider}</SelectLabel>
+            {providerModels.map((model) => (
+              <SelectItem key={model.value} value={model.value}>
+                {model.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

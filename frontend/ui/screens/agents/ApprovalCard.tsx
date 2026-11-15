@@ -1,11 +1,10 @@
-import { Button, StatusBadge, useUI } from "@calliopelabs/ui";
+import { Button, Field, Input, StatusBadge, useUI } from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
 
 import type { HeldApproval } from "@/lib/approvals";
 
 import { Card } from "../../shared/Card";
 import { DefinitionList } from "../../shared/DefinitionList";
-import { TextField } from "../../shared/FormField";
 import { agentHref, formatTime } from "./format";
 
 export interface ApprovalCardProps {
@@ -175,15 +174,15 @@ export function ApprovalCard({
       </details>
       {canDecide && (
         <div className="flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-end">
-          <TextField
-            className="sm:flex-1"
-            label={t("reason")}
-            maxLength={1000}
-            value={reason}
-            onChange={(e) => onReasonChange(e.target.value)}
-            disabled={disabled}
-            placeholder={t("reasonPlaceholder")}
-          />
+          <Field className="sm:flex-1" label={t("reason")}>
+            <Input
+              maxLength={1000}
+              value={reason}
+              onChange={(e) => onReasonChange(e.target.value)}
+              disabled={disabled}
+              placeholder={t("reasonPlaceholder")}
+            />
+          </Field>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"

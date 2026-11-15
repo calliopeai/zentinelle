@@ -6,7 +6,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Field,
   Input,
+  Select,
+  Textarea,
 } from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
 import * as React from "react";
@@ -21,10 +24,6 @@ export interface ReportIncidentDialogProps {
   /** Sends `CreateIncident`. A rejection keeps the dialog open and shows its message. */
   onSubmit: (input: CreateIncidentInput) => Promise<unknown> | void;
 }
-
-const FIELD = "flex flex-col gap-1 text-sm";
-const SELECT =
-  "h-8 rounded-lg border border-input bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 /** Report an incident by hand, with the fields `CreateIncidentInput` takes that a person knows at the start. */
 export function ReportIncidentDialog({
@@ -41,7 +40,6 @@ export function ReportIncidentDialog({
   const [incidentType, setIncidentType] = React.useState("other");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const id = React.useId();
 
   const reset = () => {
     setTitle("");
@@ -94,65 +92,41 @@ export function ReportIncidentDialog({
               {t("reportDialog.description")}
             </DialogDescription>
           </DialogHeader>
-          <div className={FIELD}>
-            <label htmlFor={`${id}-title`}>
-              {t("reportDialog.titleField")}
-            </label>
+          <Field label={t("reportDialog.titleField")}>
             <Input
-              id={`${id}-title`}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               aria-invalid={error !== null && !title.trim()}
               required
             />
-          </div>
-          <div className={FIELD}>
-            <label htmlFor={`${id}-description`}>
-              {t("reportDialog.what")}
-            </label>
-            <textarea
-              id={`${id}-description`}
+          </Field>
+          <Field label={t("reportDialog.what")}>
+            <Textarea
+              className="min-h-20"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
               aria-invalid={error !== null && !description.trim()}
               required
-              className="rounded-lg border border-input bg-transparent dark:bg-input/30 px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
-          </div>
+          </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className={FIELD}>
-              <label htmlFor={`${id}-severity`}>
-                {t("reportDialog.severity")}
-              </label>
-              <select
-                id={`${id}-severity`}
+            <Field label={t("reportDialog.severity")}>
+              <Select
+                className="w-full"
                 value={severity}
-                onChange={(e) => setSeverity(e.target.value)}
-                className={SELECT}
-              >
-                {labels.incidentSeverities.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className={FIELD}>
-              <label htmlFor={`${id}-type`}>{t("reportDialog.type")}</label>
-              <select
-                id={`${id}-type`}
+                onValueChange={setSeverity}
+                options={labels.incidentSeverities}
+              />
+            </Field>
+            <Field label={t("reportDialog.type")}>
+              <Select
+                className="w-full"
                 value={incidentType}
-                onChange={(e) => setIncidentType(e.target.value)}
-                className={SELECT}
-              >
-                {labels.incidentTypes.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+                onValueChange={setIncidentType}
+                options={labels.incidentTypes}
+              />
+            </Field>
           </div>
           {error && (
             <p role="alert" className="text-sm text-danger-fg">

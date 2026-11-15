@@ -6,11 +6,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Field,
+  Input,
+  Select,
+  Textarea,
 } from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
 import * as React from "react";
 
-import { SelectField, TextField, TextareaField } from "../../shared/FormField";
 import { OneTimeSecret } from "../../shared/OneTimeSecret";
 import { useAgentLabels } from "./format";
 
@@ -180,60 +183,63 @@ function AgentFormDialogContent({
                 : t("editDescription")}
             </DialogDescription>
           </DialogHeader>
-          <TextField
-            label={t("name")}
-            required
-            value={form.name}
-            onChange={(e) => set("name")(e.target.value)}
-            error={errorText(errors.name)}
-            maxLength={255}
-            autoComplete="off"
-          />
+          <Field label={t("name")} required error={errorText(errors.name)}>
+            <Input
+              value={form.name}
+              onChange={(e) => set("name")(e.target.value)}
+              maxLength={255}
+              autoComplete="off"
+            />
+          </Field>
           {mode === "register" ? (
-            <TextField
+            <Field
               label={t("agentId")}
               required
-              value={form.agentId}
-              onChange={(e) => set("agentId")(e.target.value)}
               error={errorText(errors.agentId)}
               hint={t("agentIdHint")}
-              maxLength={100}
-              autoComplete="off"
-              spellCheck={false}
-            />
+            >
+              <Input
+                value={form.agentId}
+                onChange={(e) => set("agentId")(e.target.value)}
+                maxLength={100}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </Field>
           ) : (
-            <TextField
-              label={t("agentId")}
-              value={form.agentId}
-              readOnly
-              disabled
-            />
+            <Field label={t("agentId")}>
+              <Input value={form.agentId} readOnly disabled />
+            </Field>
           )}
-          <SelectField
-            label={t("type")}
-            required
-            value={form.agentType}
-            onChange={(e) => set("agentType")(e.target.value)}
-            options={typeOptions}
-            placeholder={t("typePlaceholder")}
-            error={errorText(errors.agentType)}
-          />
-          <TextField
-            label={t("capabilities")}
-            value={form.capabilities}
-            onChange={(e) => set("capabilities")(e.target.value)}
-            hint={t("capabilitiesHint")}
-            autoComplete="off"
-          />
-          <TextareaField
+          <Field label={t("type")} required error={errorText(errors.agentType)}>
+            <Select
+              className="w-full"
+              value={form.agentType}
+              onValueChange={set("agentType")}
+              options={typeOptions}
+              placeholder={t("typePlaceholder")}
+            />
+          </Field>
+          <Field label={t("capabilities")} hint={t("capabilitiesHint")}>
+            <Input
+              value={form.capabilities}
+              onChange={(e) => set("capabilities")(e.target.value)}
+              autoComplete="off"
+            />
+          </Field>
+          <Field
             label={t("metadata")}
-            value={form.metadata}
-            onChange={(e) => set("metadata")(e.target.value)}
             error={errorText(errors.metadata)}
             hint={t("metadataHint")}
-            spellCheck={false}
-            rows={4}
-          />
+          >
+            <Textarea
+              className="min-h-24"
+              value={form.metadata}
+              onChange={(e) => set("metadata")(e.target.value)}
+              spellCheck={false}
+              rows={4}
+            />
+          </Field>
           {failure && (
             <p
               role="alert"

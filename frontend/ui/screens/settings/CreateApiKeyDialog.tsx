@@ -9,12 +9,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Field,
   Input,
 } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
-import { FormField } from "./components/FormField";
 import { useSettingsLabels } from "./model";
 
 export interface CreateApiKeyDialogProps {
@@ -82,17 +82,14 @@ export function CreateApiKeyDialog({
               {t("forScriptsAndServicesThat")}
             </DialogDescription>
           </DialogHeader>
-          <FormField label={t("name")} error={touched ? nameError : null}>
-            {(control) => (
-              <Input
-                {...control}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="ci-policy-sync"
-                autoFocus
-              />
-            )}
-          </FormField>
+          <Field label={t("name")} error={touched ? nameError : null}>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="ci-policy-sync"
+              autoFocus
+            />
+          </Field>
           <fieldset className="grid gap-2">
             <legend className="mb-1 text-sm font-medium">Scopes</legend>
             {API_KEY_SCOPES.map((scope) => {

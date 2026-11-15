@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 
 import { assistantProvidersResponse } from "../../storybook/fixtures/assistant";
 import { ShellStory } from "../../storybook/ShellStory";
@@ -40,9 +40,13 @@ type Story = StoryObj<typeof meta>;
 export const Ready: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const model = await canvas.findByRole("combobox", { name: "Model" });
+    await waitFor(() => expect(model).toBeEnabled());
+    await userEvent.click(model);
     await expect(
-      await canvas.findByRole("option", { name: "GPT-4o" }),
+      await screen.findByRole("option", { name: "GPT-4o" }),
     ).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
     await expect(
       canvas.getByRole("textbox", { name: "Message" }),
     ).toBeInTheDocument();

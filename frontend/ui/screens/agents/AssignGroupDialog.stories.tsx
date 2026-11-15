@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, screen, userEvent, waitFor } from "storybook/test";
 
+import { chooseOption } from "../../storybook/select";
 import { groups } from "../../storybook/fixtures/agents";
 import { AssignGroupDialog } from "./AssignGroupDialog";
 
@@ -23,9 +24,9 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   play: async ({ args }) => {
-    await userEvent.selectOptions(
+    await chooseOption(
       await screen.findByRole("combobox", { name: /Group/ }),
-      "grp-2",
+      "Finance",
     );
     await userEvent.click(screen.getByRole("button", { name: "Assign" }));
     await waitFor(() => expect(args.onAssign).toHaveBeenCalledWith("grp-2"));
@@ -46,9 +47,9 @@ export const Refused: Story = {
     ),
   },
   play: async () => {
-    await userEvent.selectOptions(
+    await chooseOption(
       await screen.findByRole("combobox", { name: /Group/ }),
-      "grp-3",
+      "Internal tools",
     );
     await userEvent.click(screen.getByRole("button", { name: "Assign" }));
     await expect(await screen.findByRole("alert")).toHaveTextContent(

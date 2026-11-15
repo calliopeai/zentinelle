@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
+import { chooseOption } from "../../storybook/select";
 import { aiModels, longAiModels } from "../../storybook/fixtures/models";
 import { EstimateCostDrawer } from "./EstimateCostDrawer";
 
@@ -22,9 +23,9 @@ export const Estimates: Story = {
     await userEvent.click(body.getByRole("textbox", { name: "Prompt" }));
     await userEvent.paste("x".repeat(4000));
     await expect(body.getByText("$0.0180")).toBeInTheDocument();
-    await userEvent.selectOptions(
+    await chooseOption(
       body.getByRole("combobox", { name: "Model" }),
-      "m2",
+      /Claude Haiku 4\.5/,
     );
     await expect(body.getByText("$0.0060")).toBeInTheDocument();
   },

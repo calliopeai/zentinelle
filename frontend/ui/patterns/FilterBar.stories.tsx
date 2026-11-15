@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import * as React from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 
+import { chooseOption } from "../storybook/select";
 import { FilterBar, type FilterSpec } from "./FilterBar";
 import { ViewSwitch } from "./ViewSwitch";
 
@@ -77,10 +78,12 @@ export const WithSearchAndViews: Story = {
     await expect(
       canvas.queryByRole("button", { name: "Clear filters" }),
     ).toBeNull();
-    await userEvent.selectOptions(canvas.getByLabelText("Status"), "closed");
+    await chooseOption(canvas.getByLabelText("Status"), "Closed");
     await userEvent.click(
       canvas.getByRole("button", { name: "Clear filters" }),
     );
-    await expect(canvas.getByLabelText("Status")).toHaveValue("");
+    await expect(canvas.getByLabelText("Status")).toHaveTextContent(
+      "Any status",
+    );
   },
 };

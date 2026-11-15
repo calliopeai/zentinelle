@@ -6,11 +6,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Field,
+  Input,
+  Select,
+  Textarea,
 } from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
 import * as React from "react";
 
-import { SelectField, TextField, TextareaField } from "../../shared/FormField";
 import { useAgentLabels } from "./format";
 
 export interface GroupFormValues {
@@ -93,35 +96,42 @@ function GroupFormDialogContent({
           </DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
-        <TextField
-          label={t("name")}
-          required
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          error={nameError}
-          maxLength={255}
-          autoComplete="off"
-        />
-        <TextareaField
-          label={t("groupDescription")}
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          rows={2}
-        />
-        <SelectField
+        <Field label={t("name")} required error={nameError}>
+          <Input
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            maxLength={255}
+            autoComplete="off"
+          />
+        </Field>
+        <Field label={t("groupDescription")}>
+          <Textarea
+            className="min-h-20"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            rows={2}
+          />
+        </Field>
+        <Field
           label={t("tier")}
           required
-          value={form.tier}
-          onChange={(e) => setForm({ ...form, tier: e.target.value })}
-          options={labels.tierOptions}
           hint={labels.tierDescription(form.tier)}
-        />
-        <SelectField
-          label={t("color")}
-          value={form.color}
-          onChange={(e) => setForm({ ...form, color: e.target.value })}
-          options={labels.colorOptions}
-        />
+        >
+          <Select
+            className="w-full"
+            value={form.tier}
+            onValueChange={(tier) => setForm({ ...form, tier })}
+            options={labels.tierOptions}
+          />
+        </Field>
+        <Field label={t("color")}>
+          <Select
+            className="w-full"
+            value={form.color}
+            onValueChange={(color) => setForm({ ...form, color })}
+            options={labels.colorOptions}
+          />
+        </Field>
         {failure && (
           <p
             role="alert"

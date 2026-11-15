@@ -1,8 +1,8 @@
 import type * as React from "react";
-import { Button, Input, cn } from "@calliopelabs/ui";
+import { Button, Input, Select, cn, type SelectOption } from "@calliopelabs/ui";
 import { SearchIcon } from "lucide-react";
 
-import { Select, type SelectOption } from "./form";
+import { ANY, fromSelectValue, toSelectValue } from "../shared/select-any";
 
 export interface FilterSpec {
   key: string;
@@ -71,11 +71,9 @@ export function FilterBar({
         <Select
           key={filter.key}
           aria-label={filter.label}
-          placeholder={filter.anyLabel}
-          options={filter.options}
-          value={values[filter.key] ?? ""}
-          onChange={(event) => onChange(filter.key, event.target.value)}
-          className="w-auto"
+          options={[{ value: ANY, label: filter.anyLabel }, ...filter.options]}
+          value={toSelectValue(values[filter.key] ?? "")}
+          onValueChange={(next) => onChange(filter.key, fromSelectValue(next))}
         />
       ))}
       {narrowed && (

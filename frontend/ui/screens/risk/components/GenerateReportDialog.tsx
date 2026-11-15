@@ -6,12 +6,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Field,
   Input,
+  Select,
+  type SelectOption,
 } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
-import { Field, Select, type SelectOption } from "../../../patterns/form";
+import {
+  ANY,
+  fromSelectValue,
+  toSelectValue,
+} from "../../../shared/select-any";
 
 type Translate = (
   key: string,
@@ -121,26 +128,31 @@ export function GenerateReportDialog({
           </DialogHeader>
           <Field label={t("report")}>
             <Select
+              className="w-full"
               options={REPORT_KINDS(t)}
               value={kind}
-              onChange={(event) => setKind(event.target.value)}
+              onValueChange={setKind}
             />
           </Field>
           {kind === "compliance" ? (
             <Field label={t("framework")} hint={t("leaveAsAllFrameworksFor")}>
               <Select
-                options={frameworks}
-                placeholder={t("allFrameworks")}
-                value={framework}
-                onChange={(event) => setFramework(event.target.value)}
+                className="w-full"
+                options={[
+                  { value: ANY, label: t("allFrameworks") },
+                  ...frameworks,
+                ]}
+                value={toSelectValue(framework)}
+                onValueChange={(v) => setFramework(fromSelectValue(v))}
               />
             </Field>
           ) : (
             <Field label={t("format")}>
               <Select
+                className="w-full"
                 options={FORMATS(t)}
                 value={format}
-                onChange={(event) => setFormat(event.target.value)}
+                onValueChange={setFormat}
               />
             </Field>
           )}

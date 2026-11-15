@@ -7,13 +7,14 @@ import {
   LoadingState,
   PageFrame,
   Section,
+  Select,
   StatusBadge,
 } from "@calliopelabs/ui";
 import { GitForkIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { fromSelectValue, toSelectValue } from "../../shared/select-any";
 import { FilterBar } from "../../shared/FilterBar";
-import { Select } from "../../shared/Select";
 import { areaCrumb, workspaceTabs } from "./frame";
 import { usePolicyLabels } from "./labels";
 import type { HierarchyTier } from "./map";
@@ -149,8 +150,8 @@ export function PolicyHierarchyScreen({
           <Select
             aria-label={t("policyType")}
             options={typeOptions()}
-            value={type}
-            onValueChange={onTypeChange}
+            value={toSelectValue(type)}
+            onValueChange={(v) => onTypeChange(fromSelectValue(v))}
             className="w-44"
           />
         </FilterBar>

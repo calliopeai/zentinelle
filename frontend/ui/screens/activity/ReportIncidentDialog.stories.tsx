@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, screen, userEvent, waitFor } from "storybook/test";
 
+import { chooseOption } from "../../storybook/select";
 import { ReportIncidentDialog } from "./ReportIncidentDialog";
 
 const meta = {
@@ -25,7 +26,10 @@ export const Submits: Story = {
       screen.getByLabelText("What happened"),
       "A tool echoed an API key.",
     );
-    await userEvent.selectOptions(screen.getByLabelText("Severity"), "high");
+    await chooseOption(
+      screen.getByRole("combobox", { name: "Severity" }),
+      "High",
+    );
     await userEvent.click(
       screen.getByRole("button", { name: "Report incident" }),
     );

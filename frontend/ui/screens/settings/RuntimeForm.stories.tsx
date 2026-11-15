@@ -6,6 +6,7 @@ import {
   longRuntime,
   runtime,
 } from "../../storybook/fixtures/settings";
+import { chooseOption } from "../../storybook/select";
 import { RuntimeForm } from "./RuntimeForm";
 
 const meta = {
@@ -27,9 +28,9 @@ export const LongValues: Story = { args: { snapshot: longRuntime } };
 export const StagesOnlyWhatChanged: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.selectOptions(
+    await chooseOption(
       canvas.getByLabelText("Content capture"),
-      "full",
+      "Full content",
     );
     await userEvent.clear(canvas.getByLabelText("Taxonomy extensions"));
     await userEvent.type(

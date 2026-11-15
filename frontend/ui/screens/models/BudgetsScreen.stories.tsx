@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 
+import { chooseOption } from "../../storybook/select";
 import { ShellStory } from "../../storybook/ShellStory";
 import {
   emptyShowback,
@@ -74,9 +75,9 @@ export const Narrow: Story = { ...NARROW };
 export const GroupsByTeam: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.selectOptions(
+    await chooseOption(
       canvas.getByRole("combobox", { name: "Group by" }),
-      "team",
+      "Team",
     );
     await expect(args.onGroupChange).toHaveBeenCalledWith("team");
   },

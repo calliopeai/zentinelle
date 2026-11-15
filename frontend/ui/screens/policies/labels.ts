@@ -4,10 +4,10 @@
  * policy_change.py), each state's StatusTone, and `usePolicyLabels()` for
  * how people read them, from the `policies.labels` messages.
  */
-import type { StatusTone } from "@calliopelabs/ui";
+import type { SelectOption, StatusTone } from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
 
-import type { SelectOption } from "../../shared/Select";
+import { ANY } from "../../shared/select-any";
 
 /** Policy.PolicyType; named by `policies.labels.types`. */
 export const POLICY_TYPES = [
@@ -228,7 +228,7 @@ export function usePolicyLabels() {
     /** Every type as a filter option: the quick views first, then the rest by name. */
     typeOptions: (): SelectOption[] => [
       ...TYPE_VIEWS.map((value) => ({
-        value,
+        value: value || ANY,
         label: t(`typeViews.${value || "all"}`),
       })),
       ...POLICY_TYPES.filter((value) => !quick.has(value))
@@ -236,20 +236,20 @@ export function usePolicyLabels() {
         .sort((a, b) => a.label.localeCompare(b.label)),
     ],
     SCOPE_OPTIONS: [
-      { value: "", label: t("allScopes") },
+      { value: ANY, label: t("allScopes") },
       ...options("scopes", SCOPE_ORDER),
     ],
     ACTION_OPTIONS: options("actions", ACTIONS),
     BLOCK_LEVEL_OPTIONS: options("blockLevels", BLOCK_LEVELS),
     SEVERITY_OPTIONS: [
-      { value: "", label: t("allSeverities") },
+      { value: ANY, label: t("allSeverities") },
       ...options("severities", SEVERITIES),
     ],
     RULE_TYPE_OPTIONS: options("ruleTypes", RULE_TYPES),
     RULE_ACTION_OPTIONS: options("ruleActions", RULE_ACTIONS),
     SCAN_MODE_OPTIONS: options("scanModes", SCAN_MODES),
     CHANGE_STATUS_OPTIONS: [
-      { value: "", label: t("allStatuses") },
+      { value: ANY, label: t("allStatuses") },
       ...options("changeStatuses", Object.keys(CHANGE_STATUS_TONE)),
     ],
     PROMPT_TYPE_OPTIONS: options("promptTypes", PROMPT_TYPES),

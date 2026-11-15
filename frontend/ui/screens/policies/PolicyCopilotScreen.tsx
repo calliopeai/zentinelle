@@ -2,20 +2,21 @@ import {
   Button,
   EmptyState,
   ErrorState,
+  Field,
   LoadingState,
   PageFrame,
   Section,
+  Select,
   StatusBadge,
+  Textarea,
   useUI,
 } from "@calliopelabs/ui";
 import { SparklesIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type * as React from "react";
 
+import { ANY, fromSelectValue, toSelectValue } from "../../shared/select-any";
 import { CodeBlock } from "../../shared/CodeBlock";
-import { Field } from "../../shared/Field";
-import { Select } from "../../shared/Select";
-import { Textarea } from "../../shared/Textarea";
 import { accessOf } from "./access";
 import { StatTile } from "./components/StatTile";
 import { areaCrumb } from "./frame";
@@ -131,28 +132,24 @@ export function PolicyCopilotScreen({
             }}
           >
             <Field label={t("ask.request")} hint={t("ask.requestHint")}>
-              {(control) => (
-                <Textarea
-                  {...control}
-                  rows={3}
-                  value={request}
-                  placeholder={t("ask.placeholder")}
-                  onChange={(e) => onRequestChange(e.target.value)}
-                />
-              )}
+              <Textarea
+                className="min-h-24 py-2"
+                rows={3}
+                value={request}
+                placeholder={t("ask.placeholder")}
+                onChange={(e) => onRequestChange(e.target.value)}
+              />
             </Field>
             <Field label={t("ask.policy")} hint={t("ask.policyHint")}>
-              {(control) => (
-                <Select
-                  {...control}
-                  value={policyId}
-                  onValueChange={onPolicyIdChange}
-                  options={[
-                    { value: "", label: t("ask.newPolicy") },
-                    ...policies.map((p) => ({ value: p.id, label: p.name })),
-                  ]}
-                />
-              )}
+              <Select
+                className="w-full"
+                value={toSelectValue(policyId)}
+                onValueChange={(v) => onPolicyIdChange(fromSelectValue(v))}
+                options={[
+                  { value: ANY, label: t("ask.newPolicy") },
+                  ...policies.map((p) => ({ value: p.id, label: p.name })),
+                ]}
+              />
             </Field>
             <div>
               <Button type="submit" disabled={busy || !request.trim()}>

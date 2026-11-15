@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, screen, userEvent, within } from "storybook/test";
+import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 
+import { chooseOption } from "../../storybook/select";
 import {
   agentMutationMocks,
   agentsMocks,
@@ -139,9 +140,9 @@ export const Register: Story = {
       screen.getByRole("textbox", { name: /Agent id/ }),
       "research-bot",
     );
-    await userEvent.selectOptions(
+    await chooseOption(
       screen.getByRole("combobox", { name: /Type/ }),
-      "langgraph",
+      "LangGraph",
     );
     await userEvent.click(
       screen.getByRole("button", { name: "Register agent" }),
@@ -167,6 +168,9 @@ export const AssignGroup: Story = {
     await userEvent.click(
       await screen.findByRole("menuitem", { name: "Assign to a group" }),
     );
+    const group = await screen.findByRole("combobox", { name: /Group/ });
+    await waitFor(() => expect(group).toBeEnabled());
+    await userEvent.click(group);
     await expect(
       await screen.findByRole("option", { name: "Finance" }),
     ).toBeInTheDocument();

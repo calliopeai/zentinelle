@@ -7,7 +7,10 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
+  Field,
   Input,
+  Select,
+  Textarea,
 } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
@@ -17,11 +20,9 @@ import type {
   CreateContentRuleInput,
 } from "@/graphql/content-rules/types";
 
+import { ANY } from "../../../shared/select-any";
 import { CodeBlock } from "../../../shared/CodeBlock";
 import { DefinitionList } from "../components/DefinitionList";
-import { Field } from "../../../shared/Field";
-import { Select } from "../../../shared/Select";
-import { Textarea } from "../../../shared/Textarea";
 import { usePolicyLabels } from "../labels";
 
 export interface ContentRuleDrawerProps {
@@ -191,64 +192,51 @@ function RuleBody({
               </p>
             )}
             <Field label={t("name")} error={errors.name}>
-              {(c) => (
-                <Input
-                  {...c}
-                  value={form.name}
-                  onChange={(e) => set("name", e.target.value)}
-                />
-              )}
+              <Input
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+              />
             </Field>
             <Field label={t("description")}>
-              {(c) => (
-                <Textarea
-                  {...c}
-                  rows={2}
-                  value={form.description ?? ""}
-                  onChange={(e) => set("description", e.target.value)}
-                />
-              )}
+              <Textarea
+                className="min-h-24 py-2"
+                rows={2}
+                value={form.description ?? ""}
+                onChange={(e) => set("description", e.target.value)}
+              />
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label={t("type")}>
-                {(c) => (
-                  <Select
-                    {...c}
-                    options={RULE_TYPE_OPTIONS}
-                    value={form.ruleType}
-                    onValueChange={(v) => set("ruleType", v)}
-                  />
-                )}
+                <Select
+                  className="w-full"
+                  options={RULE_TYPE_OPTIONS}
+                  value={form.ruleType}
+                  onValueChange={(v) => set("ruleType", v)}
+                />
               </Field>
               <Field label={t("severity")}>
-                {(c) => (
-                  <Select
-                    {...c}
-                    options={SEVERITY_OPTIONS.filter((o) => o.value)}
-                    value={form.severity ?? "high"}
-                    onValueChange={(v) => set("severity", v)}
-                  />
-                )}
+                <Select
+                  className="w-full"
+                  options={SEVERITY_OPTIONS.filter((o) => o.value !== ANY)}
+                  value={form.severity ?? "high"}
+                  onValueChange={(v) => set("severity", v)}
+                />
               </Field>
               <Field label={t("onMatch")}>
-                {(c) => (
-                  <Select
-                    {...c}
-                    options={RULE_ACTION_OPTIONS}
-                    value={form.action ?? "block"}
-                    onValueChange={(v) => set("action", v)}
-                  />
-                )}
+                <Select
+                  className="w-full"
+                  options={RULE_ACTION_OPTIONS}
+                  value={form.action ?? "block"}
+                  onValueChange={(v) => set("action", v)}
+                />
               </Field>
               <Field label={t("when")}>
-                {(c) => (
-                  <Select
-                    {...c}
-                    options={SCAN_MODE_OPTIONS}
-                    value={form.scanMode ?? "realtime"}
-                    onValueChange={(v) => set("scanMode", v)}
-                  />
-                )}
+                <Select
+                  className="w-full"
+                  options={SCAN_MODE_OPTIONS}
+                  value={form.scanMode ?? "realtime"}
+                  onValueChange={(v) => set("scanMode", v)}
+                />
               </Field>
             </div>
             <fieldset
@@ -295,15 +283,12 @@ function RuleBody({
               hint={t("jsonPatternsKeywordsOrThresholds")}
               error={errors.config}
             >
-              {(c) => (
-                <Textarea
-                  {...c}
-                  mono
-                  rows={5}
-                  value={config}
-                  onChange={(e) => setConfig(e.target.value)}
-                />
-              )}
+              <Textarea
+                className="min-h-24 py-2 font-mono text-xs md:text-xs"
+                rows={5}
+                value={config}
+                onChange={(e) => setConfig(e.target.value)}
+              />
             </Field>
             <Toggle
               label={t("on")}

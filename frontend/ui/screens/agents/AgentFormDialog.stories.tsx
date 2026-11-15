@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, screen, userEvent, waitFor } from "storybook/test";
 
+import { chooseOption } from "../../storybook/select";
 import { AgentFormDialog, type AgentFormDialogProps } from "./AgentFormDialog";
 
 const registered: AgentFormDialogProps["onSubmit"] = async () => ({
@@ -67,9 +68,9 @@ export const KeyRevealed: Story = {
       screen.getByRole("textbox", { name: /Agent id/ }),
       "research-bot",
     );
-    await userEvent.selectOptions(
+    await chooseOption(
       screen.getByRole("combobox", { name: /Type/ }),
-      "langgraph",
+      "LangGraph",
     );
     await userEvent.type(
       screen.getByRole("textbox", { name: /Capabilities/ }),
@@ -109,9 +110,9 @@ export const Refused: Story = {
       screen.getByRole("textbox", { name: /Agent id/ }),
       "support-bot",
     );
-    await userEvent.selectOptions(
+    await chooseOption(
       screen.getByRole("combobox", { name: /Type/ }),
-      "chat",
+      "Chat Agent",
     );
     await userEvent.click(
       screen.getByRole("button", { name: "Register agent" }),

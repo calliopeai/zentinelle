@@ -9,13 +9,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Field,
   Input,
+  Select,
+  type SelectOption,
+  Switch,
 } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
-import { FormField, Select, type SelectOption } from "./components/FormField";
-import { SwitchField } from "../../shared/SwitchField";
 import { type LegalHoldInput, useSettingsLabels } from "./model";
 
 export interface LegalHoldDialogProps {
@@ -97,82 +99,70 @@ function LegalHoldBody({
             <DialogDescription>{t("coveredDataIsKeptPast")}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
+            <Field
               label={t("name")}
               error={values.name ? null : nameError}
               className="sm:col-span-2"
             >
-              {(control) => (
-                <Input
-                  {...control}
-                  value={values.name}
-                  onChange={(e) => set("name", e.target.value)}
-                />
-              )}
-            </FormField>
-            <FormField label={t("type")}>
-              {(control) => (
-                <Select
-                  {...control}
-                  options={holdTypes}
-                  value={values.holdType}
-                  onChange={(e) => set("holdType", e.target.value)}
-                />
-              )}
-            </FormField>
-            <FormField label={t("reference")}>
-              {(control) => (
-                <Input
-                  {...control}
-                  placeholder={t("caseOrMatterNumber")}
-                  value={values.referenceNumber}
-                  onChange={(e) => set("referenceNumber", e.target.value)}
-                />
-              )}
-            </FormField>
-            <FormField label={t("effectiveFrom")} hint={t("emptyFromNow")}>
-              {(control) => (
-                <Input
-                  {...control}
-                  type="date"
-                  value={values.effectiveDate}
-                  onChange={(e) => set("effectiveDate", e.target.value)}
-                />
-              )}
-            </FormField>
-            <FormField
+              <Input
+                value={values.name}
+                onChange={(e) => set("name", e.target.value)}
+              />
+            </Field>
+            <Field label={t("type")}>
+              <Select
+                options={holdTypes}
+                value={values.holdType}
+                onValueChange={(holdType) => set("holdType", holdType)}
+                className="w-full"
+              />
+            </Field>
+            <Field label={t("reference")}>
+              <Input
+                placeholder={t("caseOrMatterNumber")}
+                value={values.referenceNumber}
+                onChange={(e) => set("referenceNumber", e.target.value)}
+              />
+            </Field>
+            <Field label={t("effectiveFrom")} hint={t("emptyFromNow")}>
+              <Input
+                type="date"
+                value={values.effectiveDate}
+                onChange={(e) => set("effectiveDate", e.target.value)}
+              />
+            </Field>
+            <Field
               label={t("endsOn")}
               hint={t("emptyUntilReleased")}
               error={dateError}
             >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="date"
-                  value={values.expirationDate}
-                  onChange={(e) => set("expirationDate", e.target.value)}
-                />
-              )}
-            </FormField>
-            <FormField label={t("custodianEmail")} className="sm:col-span-2">
-              {(control) => (
-                <Input
-                  {...control}
-                  type="email"
-                  value={values.custodianEmail}
-                  onChange={(e) => set("custodianEmail", e.target.value)}
-                />
-              )}
-            </FormField>
+              <Input
+                type="date"
+                value={values.expirationDate}
+                onChange={(e) => set("expirationDate", e.target.value)}
+              />
+            </Field>
+            <Field label={t("custodianEmail")} className="sm:col-span-2">
+              <Input
+                type="email"
+                value={values.custodianEmail}
+                onChange={(e) => set("custodianEmail", e.target.value)}
+              />
+            </Field>
           </div>
-          <SwitchField
+          <Field
             label={t("allData")}
-            description={t("holdEveryKindOfData")}
-            checked={values.appliesToAll}
-            onCheckedChange={(appliesToAll) =>
-              set("appliesToAll", appliesToAll)
-            }
-          />
+            hint={t("holdEveryKindOfData")}
+            orientation="horizontal"
+            className="py-2"
+          >
+            <Switch
+              checked={values.appliesToAll}
+              onCheckedChange={(appliesToAll) =>
+                set("appliesToAll", appliesToAll)
+              }
+            />
+          </Field>
           {!values.appliesToAll && (
             <fieldset className="grid gap-2 sm:grid-cols-2">
               <legend className="mb-1 text-sm font-medium">Data held</legend>

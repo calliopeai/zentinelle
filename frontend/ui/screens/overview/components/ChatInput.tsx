@@ -1,11 +1,9 @@
 "use client";
 
-import { Button } from "@calliopelabs/ui";
+import { Button, Textarea } from "@calliopelabs/ui";
 import { SendIcon, SquareIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import * as React from "react";
-
-import { Textarea } from "../../../shared/Textarea";
 
 export interface ChatInputProps {
   onSend: (content: string) => void;

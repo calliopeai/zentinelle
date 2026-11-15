@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import { retentionPolicies } from "../../storybook/fixtures/settings";
+import { chooseOption } from "../../storybook/select";
 import { RetentionPolicyDialog } from "./RetentionPolicyDialog";
 
 const meta = {
@@ -26,7 +27,7 @@ export const Creates: Story = {
   play: async ({ args, canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
     await userEvent.type(body.getByLabelText("Name"), "Sessions, 30 days");
-    await userEvent.selectOptions(body.getByLabelText("Data"), "sessions");
+    await chooseOption(body.getByLabelText("Data"), "User sessions");
     const days = body.getByLabelText("Keep for (days)");
     await userEvent.clear(days);
     await userEvent.type(days, "30");

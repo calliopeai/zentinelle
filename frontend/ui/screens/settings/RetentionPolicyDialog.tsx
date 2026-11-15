@@ -8,13 +8,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Field,
   Input,
+  Select,
+  Switch,
 } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
-import { FormField, Select } from "./components/FormField";
-import { SwitchField } from "../../shared/SwitchField";
 import {
   type RetentionPolicy,
   type RetentionPolicyInput,
@@ -101,101 +102,78 @@ function RetentionPolicyBody({
             </DialogTitle>
             <DialogDescription>{t("anActiveLegalHoldKeeps")}</DialogDescription>
           </DialogHeader>
-          <FormField label={t("name")} error={values.name ? null : nameError}>
-            {(control) => (
-              <Input
-                {...control}
-                value={values.name}
-                onChange={(e) => set("name", e.target.value)}
-              />
-            )}
-          </FormField>
-          <FormField label={t("description")}>
-            {(control) => (
-              <Input
-                {...control}
-                value={values.description}
-                onChange={(e) => set("description", e.target.value)}
-              />
-            )}
-          </FormField>
+          <Field label={t("name")} error={values.name ? null : nameError}>
+            <Input
+              value={values.name}
+              onChange={(e) => set("name", e.target.value)}
+            />
+          </Field>
+          <Field label={t("description")}>
+            <Input
+              value={values.description}
+              onChange={(e) => set("description", e.target.value)}
+            />
+          </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label={t("data")}>
-              {(control) => (
-                <Select
-                  {...control}
-                  options={RETENTION_ENTITY_TYPES}
-                  value={values.entityType}
-                  onChange={(e) => set("entityType", e.target.value)}
-                />
-              )}
-            </FormField>
-            <FormField label={t("afterItExpires")}>
-              {(control) => (
-                <Select
-                  {...control}
-                  options={EXPIRATION_ACTIONS}
-                  value={values.expirationAction}
-                  onChange={(e) => set("expirationAction", e.target.value)}
-                />
-              )}
-            </FormField>
-            <FormField label={t("keepForDays")} error={daysError}>
-              {(control) => (
-                <Input
-                  {...control}
-                  type="number"
-                  min={1}
-                  value={values.retentionDays}
-                  onChange={(e) => set("retentionDays", Number(e.target.value))}
-                />
-              )}
-            </FormField>
-            <FormField label={t("minimumDays")} hint={t("aFloorNoOneCan")}>
-              {(control) => (
-                <Input
-                  {...control}
-                  type="number"
-                  min={0}
-                  value={values.minimumRetentionDays ?? ""}
-                  onChange={(e) =>
-                    set(
-                      "minimumRetentionDays",
-                      e.target.value === "" ? null : Number(e.target.value),
-                    )
-                  }
-                />
-              )}
-            </FormField>
-            <FormField label={t("requirement")}>
-              {(control) => (
-                <Select
-                  {...control}
-                  options={COMPLIANCE_REQUIREMENTS}
-                  value={values.complianceRequirement}
-                  onChange={(e) => set("complianceRequirement", e.target.value)}
-                />
-              )}
-            </FormField>
-            <FormField
-              label={t("priority")}
-              hint={t("theHigherNumberWinsWhen")}
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="number"
-                  value={values.priority}
-                  onChange={(e) => set("priority", Number(e.target.value))}
-                />
-              )}
-            </FormField>
+            <Field label={t("data")}>
+              <Select
+                options={RETENTION_ENTITY_TYPES}
+                value={values.entityType}
+                onValueChange={(v) => set("entityType", v)}
+                className="w-full"
+              />
+            </Field>
+            <Field label={t("afterItExpires")}>
+              <Select
+                options={EXPIRATION_ACTIONS}
+                value={values.expirationAction}
+                onValueChange={(v) => set("expirationAction", v)}
+                className="w-full"
+              />
+            </Field>
+            <Field label={t("keepForDays")} error={daysError}>
+              <Input
+                type="number"
+                min={1}
+                value={values.retentionDays}
+                onChange={(e) => set("retentionDays", Number(e.target.value))}
+              />
+            </Field>
+            <Field label={t("minimumDays")} hint={t("aFloorNoOneCan")}>
+              <Input
+                type="number"
+                min={0}
+                value={values.minimumRetentionDays ?? ""}
+                onChange={(e) =>
+                  set(
+                    "minimumRetentionDays",
+                    e.target.value === "" ? null : Number(e.target.value),
+                  )
+                }
+              />
+            </Field>
+            <Field label={t("requirement")}>
+              <Select
+                options={COMPLIANCE_REQUIREMENTS}
+                value={values.complianceRequirement}
+                onValueChange={(v) => set("complianceRequirement", v)}
+                className="w-full"
+              />
+            </Field>
+            <Field label={t("priority")} hint={t("theHigherNumberWinsWhen")}>
+              <Input
+                type="number"
+                value={values.priority}
+                onChange={(e) => set("priority", Number(e.target.value))}
+              />
+            </Field>
           </div>
-          <SwitchField
-            label={t("enabled")}
-            checked={values.enabled}
-            onCheckedChange={(enabled) => set("enabled", enabled)}
-          />
+          <Field label={t("enabled")} orientation="horizontal" className="py-2">
+            <Switch
+              checked={values.enabled}
+              onCheckedChange={(enabled) => set("enabled", enabled)}
+            />
+          </Field>
           {error && (
             <p role="alert" className="text-xs text-danger">
               {error}
