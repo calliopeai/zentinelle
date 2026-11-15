@@ -8,6 +8,7 @@ import {
   StatusBadge,
 } from "@calliopelabs/ui";
 import { LockIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import { Card } from "../../shared/Card";
@@ -55,36 +56,11 @@ export interface AgentControlsTabProps {
   onAction: (action: ControlAction) => Promise<void>;
 }
 
-const ACTIONS: Record<
-  ControlAction,
-  {
-    label: string;
-    title: (name: string) => string;
-    description: string;
-    destructive: boolean;
-  }
-> = {
-  suspend: {
-    label: "Suspend",
-    title: (n) => `Suspend ${n}?`,
-    description:
-      "The agent's calls are refused until an operator activates it again. Astrolift AI cannot undo an administrator's suspension.",
-    destructive: false,
-  },
-  revoke: {
-    label: "Revoke key",
-    title: (n) => `Revoke ${n}'s API key?`,
-    description:
-      "The agent is terminated and its key stops working now. It must be registered again, with a new key, to return.",
-    destructive: true,
-  },
-  emergency_stop: {
-    label: "Emergency stop",
-    title: (n) => `Emergency stop ${n}?`,
-    description:
-      "Terminates the agent and revokes its key at once, and records the stop as an emergency in the audit log.",
-    destructive: true,
-  },
+/** The stop actions, named under `agents.controls.actions`; destructive ones are red. */
+const ACTIONS: Record<ControlAction, { destructive: boolean }> = {
+  suspend: { destructive: false },
+  revoke: { destructive: true },
+  emergency_stop: { destructive: true },
 };
 
 function show(value: unknown) {
@@ -126,35 +102,30 @@ export function AgentControlsTab({
   onRetry,
   onAction,
 }: AgentControlsTabProps) {
+  const t = useTranslations("agents.controls");
   const [pending, setPending] = React.useState<ControlAction | null>(null);
   if (state === "loading")
-    return <LoadingState label="Loading controls" variant="page" />;
+    return <LoadingState label={t("loading")} variant="page" />;
   if (state === "denied")
     return (
       <EmptyState
         icon={<LockIcon />}
-        title="Controls need an administrator"
-        description="Your role can see this agent's activity but not inspect or change its operating authority."
+        title={t("denied.title")}
+        description={t("denied.description")}
       />
     );
   if (state === "error" || !data)
-    return (
-      <ErrorState
-        title="Could not load controls"
-        error={error}
-        onRetry={onRetry}
-      />
-    );
+    return <ErrorState title={t("error")} error={error} onRetry={onRetry} />;
 
   const agent = data.agent;
   const budget =
     agent.budget && Object.keys(agent.budget).length ? agent.budget : null;
-  const action = pending ? ACTIONS[pending] : null;
+  const none = t("noneRegistered");
   return (
     <>
       <Section
-        title="Authority"
-        description="What the agent registered it may do. Policies below can narrow it."
+        title={t("authority.title")}
+        description={t("authority.description")}
         action={
           <>
             {(Object.keys(ACTIONS) as ControlAction[]).map((key) => (
@@ -164,32 +135,32 @@ export function AgentControlsTab({
                 variant={ACTIONS[key].destructive ? "destructive" : "outline"}
                 onClick={() => setPending(key)}
               >
-                {ACTIONS[key].label}
+                {t(`actions.${key}.label`)}
               </Button>
             ))}
           </>
         }
       >
         <div className="grid gap-4 md:grid-cols-2">
-          <Card title="Tools">
-            <Values values={agent.tools} none="None registered" />
+          <Card title={t("cards.tools")}>
+            <Values values={agent.tools} none={none} />
           </Card>
-          <Card title="Model routes">
-            <Values values={agent.model_routes} none="None registered" />
+          <Card title={t("cards.modelRoutes")}>
+            <Values values={agent.model_routes} none={none} />
           </Card>
-          <Card title="Data access">
-            <Values values={agent.data_access} none="None registered" />
+          <Card title={t("cards.dataAccess")}>
+            <Values values={agent.data_access} none={none} />
           </Card>
-          <Card title="Authority tags">
-            <Values values={agent.authority} none="None registered" />
+          <Card title={t("cards.authorityTags")}>
+            <Values values={agent.authority} none={none} />
           </Card>
-          <Card title="Contained tools">
+          <Card title={t("cards.contained")}>
             <Values
               values={agent.containment?.denied_tools}
-              none="Nothing contained"
+              none={t("nothingContained")}
             />
           </Card>
-          <Card title="Budget">
+          <Card title={t("cards.budget")}>
             {budget ? (
               <DefinitionList
                 items={Object.entries(budget).map(([term, value]) => ({
@@ -199,14 +170,12 @@ export function AgentControlsTab({
                 }))}
               />
             ) : (
-              <p className="text-muted-foreground text-sm">
-                No budget registered
-              </p>
+              <p className="text-muted-foreground text-sm">{t("noBudget")}</p>
             )}
           </Card>
         </div>
       </Section>
-      <Section title="Recent incidents">
+      <Section title={t("incidents.title")}>
         {data.incidents?.length ? (
           <ul className="divide-y rounded-lg border">
             {data.incidents.map((incident) => (
@@ -230,14 +199,11 @@ export function AgentControlsTab({
           </ul>
         ) : (
           <p className="text-muted-foreground text-sm">
-            No incidents for this agent.
+            {t("incidents.empty")}
           </p>
         )}
       </Section>
-      <Section
-        title="Decision traces"
-        description="The last control and policy decisions recorded with a trace id."
-      >
+      <Section title={t("traces.title")} description={t("traces.description")}>
         {data.decision_traces?.length ? (
           <ul className="divide-y rounded-lg border">
             {data.decision_traces.map((trace) => (
@@ -249,24 +215,27 @@ export function AgentControlsTab({
                   {trace.trace_id}
                 </span>
                 <span className="text-muted-foreground">
-                  {words(trace.action)}, {formatTime(trace.timestamp)}
+                  {t("traces.row", {
+                    action: words(trace.action),
+                    time: formatTime(trace.timestamp),
+                  })}
                 </span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-muted-foreground text-sm">
-            No traced decisions yet.
-          </p>
+          <p className="text-muted-foreground text-sm">{t("traces.empty")}</p>
         )}
       </Section>
       <ConfirmDialog
         open={pending !== null}
         onOpenChange={(open) => !open && setPending(null)}
-        title={action?.title(agentName) ?? ""}
-        description={action?.description}
-        confirmLabel={action?.label}
-        destructive={action?.destructive}
+        title={
+          pending ? t(`actions.${pending}.title`, { name: agentName }) : ""
+        }
+        description={pending ? t(`actions.${pending}.description`) : undefined}
+        confirmLabel={pending ? t(`actions.${pending}.label`) : undefined}
+        destructive={pending ? ACTIONS[pending].destructive : undefined}
         onConfirm={async () => {
           if (pending) await onAction(pending);
         }}

@@ -3,6 +3,7 @@
  * package's five status tones, and the formatting every screen shares.
  */
 import type { StatusTone } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import type { EndpointData } from "@/graphql/agents/types";
 
@@ -47,7 +48,11 @@ export function words(value: string | null | undefined) {
   return value ? value.replace(/_/g, " ") : "";
 }
 
-/** The agent types, as AgentEndpoint.AgentType names them (backend/zentinelle/models/endpoint.py). */
+/**
+ * The agent types, as AgentEndpoint.AgentType names them
+ * (backend/zentinelle/models/endpoint.py). Product names stay as they are;
+ * the generic ones are translated under `agents.types`.
+ */
 export const AGENT_TYPES = [
   { value: "claude_code", label: "Claude Code" },
   { value: "gemini", label: "Gemini" },
@@ -82,32 +87,17 @@ export function agentTypeLabel(value: string) {
   return AGENT_TYPES.find((t) => t.value === value)?.label ?? words(value);
 }
 
-/** AgentEndpoint.Status, in the order an agent moves through them. */
+/** AgentEndpoint.Status, in the order an agent moves through them; named by `agents.statuses`. */
 export const AGENT_STATUSES = [
-  { value: "provisioning", label: "Provisioning" },
-  { value: "active", label: "Active" },
-  { value: "suspended", label: "Suspended" },
-  { value: "offline", label: "Offline" },
-  { value: "terminated", label: "Terminated" },
+  "provisioning",
+  "active",
+  "suspended",
+  "offline",
+  "terminated",
 ] as const;
 
-export const GROUP_TIERS = [
-  {
-    value: "standard",
-    label: "Standard",
-    description: "The default enforcement profile.",
-  },
-  {
-    value: "restricted",
-    label: "Restricted",
-    description: "A stricter posture: block-mode defaults.",
-  },
-  {
-    value: "trusted",
-    label: "Trusted",
-    description: "A relaxed posture: audit-mode defaults.",
-  },
-] as const;
+/** AgentGroup.Tier; named and described by `agents.tiers`. */
+export const GROUP_TIERS = ["standard", "restricted", "trusted"] as const;
 
 /**
  * A timestamp as UTC, to the minute: "2026-10-16 14:05 UTC". Absolute and
@@ -191,13 +181,13 @@ export function toAgentSummary(endpoint: EndpointData) {
 
 /** AgentGroup.color holds a preset key (default "brand"); each key's swatch. */
 export const GROUP_COLORS = [
-  { value: "brand", label: "Teal", swatch: "#37efed" },
-  { value: "indigo", label: "Indigo", swatch: "#6366f1" },
-  { value: "emerald", label: "Emerald", swatch: "#10b981" },
-  { value: "amber", label: "Amber", swatch: "#f59e0b" },
-  { value: "rose", label: "Rose", swatch: "#f43f5e" },
-  { value: "violet", label: "Violet", swatch: "#8b5cf6" },
-  { value: "slate", label: "Slate", swatch: "#64748b" },
+  { value: "brand", swatch: "#37efed" },
+  { value: "indigo", swatch: "#6366f1" },
+  { value: "emerald", swatch: "#10b981" },
+  { value: "amber", swatch: "#f59e0b" },
+  { value: "rose", swatch: "#f43f5e" },
+  { value: "violet", swatch: "#8b5cf6" },
+  { value: "slate", swatch: "#64748b" },
 ] as const;
 
 /** A group's swatch: its preset's, or the value itself when an older group stored a hex. */
@@ -205,4 +195,43 @@ export function groupSwatch(color: string) {
   const preset = GROUP_COLORS.find((c) => c.value === color);
   if (preset) return preset.swatch;
   return /^#[0-9a-f]{6}$/i.test(color) ? color : undefined;
+}
+
+/**
+ * The area's value names in the reader's language: statuses, health,
+ * agent types, group tiers and colours, and the options their selects offer.
+ * A value the catalog does not name reads as its words.
+ */
+export function useAgentLabels() {
+  const t = useTranslations("agents");
+  const named = (group: string, value: string | null | undefined) =>
+    value && t.has(`${group}.${value}`) ? t(`${group}.${value}`) : words(value);
+  return {
+    status: (value: string | null | undefined) => named("statuses", value),
+    health: (value: string | null | undefined) => named("health", value),
+    type: (value: string) =>
+      t.has(`types.${value}`) ? t(`types.${value}`) : agentTypeLabel(value),
+    tier: (value: string) =>
+      t.has(`tiers.${value}.label`) ? t(`tiers.${value}.label`) : words(value),
+    tierDescription: (value: string) =>
+      t.has(`tiers.${value}.description`)
+        ? t(`tiers.${value}.description`)
+        : undefined,
+    statusOptions: AGENT_STATUSES.map((value) => ({
+      value,
+      label: t(`statuses.${value}`),
+    })),
+    typeOptions: AGENT_TYPES.map(({ value, label }) => ({
+      value,
+      label: t.has(`types.${value}`) ? t(`types.${value}`) : label,
+    })),
+    tierOptions: GROUP_TIERS.map((value) => ({
+      value,
+      label: t(`tiers.${value}.label`),
+    })),
+    colorOptions: GROUP_COLORS.map(({ value }) => ({
+      value,
+      label: t(`colors.${value}`),
+    })),
+  };
 }

@@ -89,9 +89,11 @@ describe("the agents list", () => {
     renderPage();
 
     for (const agent of agents) {
-      const link = screen.getByRole("link", { name: agent.name });
-      expect(link.getAttribute("href")).toBe(`/agents/${agent.agentId}`);
-      expect(link.closest("tr")?.textContent).toContain(agent.agentId);
+      const link = screen
+        .getAllByRole("link")
+        .find((l) => l.getAttribute("href") === `/agents/${agent.agentId}`);
+      expect(link?.textContent).toContain(agent.name);
+      expect(link?.closest("tr")?.textContent).toContain(agent.agentId);
     }
   });
 });

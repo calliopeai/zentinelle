@@ -19,6 +19,11 @@ export function CapabilityProvider({
   );
 }
 
+/** The signed-in person's capabilities (`view`, `mutate`, `admin`). */
+export function useCapabilities(): readonly string[] {
+  return useContext(Capabilities);
+}
+
 export function useCapability(permission: string): boolean {
   return useContext(Capabilities).includes(permission);
 }

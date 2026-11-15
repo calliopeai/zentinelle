@@ -1,4 +1,5 @@
 import { cn } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import type { SelectOption } from "./FormField";
@@ -9,7 +10,7 @@ export interface FilterSelectProps {
   value: string;
   onChange: (value: string) => void;
   options: readonly SelectOption[];
-  /** The option that clears the filter. Defaults to "All". */
+  /** The option that clears the filter. Defaults to `common.all`. */
   allLabel?: string;
   className?: string;
 }
@@ -24,9 +25,10 @@ export function FilterSelect({
   value,
   onChange,
   options,
-  allLabel = "All",
+  allLabel,
   className,
 }: FilterSelectProps) {
+  const t = useTranslations("common");
   const id = React.useId();
   return (
     <div className={cn("flex items-center gap-2", className)}>
@@ -39,7 +41,7 @@ export function FilterSelect({
         onChange={(event) => onChange(event.target.value)}
         className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 rounded-lg border px-2 text-sm outline-none focus-visible:ring-3"
       >
-        <option value="">{allLabel}</option>
+        <option value="">{allLabel ?? t("all")}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
