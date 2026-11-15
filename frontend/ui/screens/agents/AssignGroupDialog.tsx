@@ -58,7 +58,7 @@ function AssignGroupDialogContent({
   const none = groups !== null && groups.length === 0;
   return (
     <DialogContent
-      className="max-w-md"
+      className="max-w-md sm:max-w-md"
       hideCloseButton={pending}
       onEscapeKeyDown={(e) => pending && e.preventDefault()}
       onInteractOutside={(e) => pending && e.preventDefault()}

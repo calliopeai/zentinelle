@@ -76,7 +76,7 @@ function GroupFormDialogContent({
   const tier = GROUP_TIERS.find((t) => t.value === form.tier);
   return (
     <DialogContent
-      className="max-w-md"
+      className="max-w-md sm:max-w-md"
       hideCloseButton={pending}
       onEscapeKeyDown={(e) => pending && e.preventDefault()}
       onInteractOutside={(e) => pending && e.preventDefault()}

@@ -320,7 +320,7 @@ export function AgentsRoute({ capabilities }: AgentsRouteProps) {
         open={pending?.kind === "key"}
         onOpenChange={(open) => !open && close()}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Copy the new API key</DialogTitle>
             <DialogDescription>

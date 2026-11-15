@@ -2,7 +2,7 @@ import { cn } from "@calliopelabs/ui";
 import * as React from "react";
 
 const CONTROL =
-  "w-full min-w-0 rounded-lg border border-input bg-transparent px-3 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-danger";
+  "w-full min-w-0 rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-danger";
 
 export interface FieldProps {
   label: string;

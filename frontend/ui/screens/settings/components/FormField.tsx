@@ -75,7 +75,7 @@ export function Select({
     <select
       data-slot="select"
       className={cn(
-        "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent dark:bg-input/30 px-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
         className,
       )}
       {...props}
