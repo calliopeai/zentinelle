@@ -10,11 +10,12 @@ import {
   StatusBadge,
 } from "@calliopelabs/ui";
 import { GitForkIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { FilterBar } from "../../shared/FilterBar";
 import { Select } from "../../shared/Select";
 import { areaCrumb, workspaceTabs } from "./frame";
-import { scopeLabel, typeLabel, typeOptions } from "./labels";
+import { usePolicyLabels } from "./labels";
 import type { HierarchyTier } from "./map";
 import { PolicyStatus } from "./PolicyStatus";
 
@@ -43,37 +44,39 @@ export function PolicyHierarchyScreen({
   type,
   onTypeChange,
 }: PolicyHierarchyScreenProps) {
+  const t = useTranslations("policies.policyHierarchyScreen");
+  const { scopeLabel, typeLabel, typeOptions, tabs } = usePolicyLabels();
   let body: React.ReactNode;
   if (error) {
     body = (
       <ErrorState
-        title="Could not load the hierarchy"
+        title={t("couldNotLoadTheHierarchy")}
         error={error}
         onRetry={onRetry}
       />
     );
   } else if (loading && tiers.length === 0) {
-    body = <LoadingState label="Loading the hierarchy" />;
+    body = <LoadingState label={t("loadingTheHierarchy")} />;
   } else if (tiers.length === 0) {
     body = type ? (
       <EmptyState
-        title={`No ${typeLabel(type).toLowerCase()} policies`}
-        description="No tier sets this type. Choose another type, or all types."
+        title={t("noTypePolicies", { type: typeLabel(type).toLowerCase() })}
+        description={t("noTierSetsThisType")}
         secondary={
           <button
             type="button"
             className="text-sm underline underline-offset-2"
             onClick={() => onTypeChange("")}
           >
-            Show all types
+            {t("showAllTypes")}
           </button>
         }
       />
     ) : (
       <EmptyState
         icon={<GitForkIcon />}
-        title="Nothing to inherit yet"
-        description="Once policies exist, this shows which tier sets each one and where a narrower tier overrides it."
+        title={t("nothingToInheritYet")}
+        description={t("oncePoliciesExistThisShows")}
       />
     );
   } else {
@@ -84,13 +87,13 @@ export function PolicyHierarchyScreen({
             <Section
               headingLevel="h2"
               title={`${index + 1}. ${scopeLabel(tier.scope)}`}
-              description={`${tier.policies.length} ${tier.policies.length === 1 ? "policy" : "policies"}`}
+              description={t("count", { count: tier.policies.length })}
             >
               <List
-                label={`${scopeLabel(tier.scope)} policies`}
+                label={t("tierLabel", { scope: scopeLabel(tier.scope) })}
                 items={tier.policies}
                 getKey={(entry) => entry.policy.id}
-                empty={{ title: "No policies at this tier" }}
+                empty={{ title: t("noPoliciesAtThisTier") }}
                 renderItem={({ policy, overrides }) => (
                   <ListItem
                     title={policy.name}
@@ -115,7 +118,9 @@ export function PolicyHierarchyScreen({
                       <span className="flex flex-wrap items-center gap-1.5">
                         {overrides && (
                           <StatusBadge tone="info">
-                            overrides {scopeLabel(overrides).toLowerCase()}
+                            {t("overrides", {
+                              scope: scopeLabel(overrides).toLowerCase(),
+                            })}
                           </StatusBadge>
                         )}
                         <PolicyStatus
@@ -136,13 +141,13 @@ export function PolicyHierarchyScreen({
   return (
     <PageFrame
       crumbs={[areaCrumb(capabilities, "policies")]}
-      title="Policies"
-      tabs={workspaceTabs("hierarchy")}
-      tabsLabel="Policies"
+      title={t("policies")}
+      tabs={workspaceTabs("hierarchy", tabs.workspace)}
+      tabsLabel={t("policies")}
       filters={
-        <FilterBar label="Hierarchy filters">
+        <FilterBar label={t("hierarchyFilters")}>
           <Select
-            aria-label="Policy type"
+            aria-label={t("policyType")}
             options={typeOptions()}
             value={type}
             onValueChange={onTypeChange}

@@ -104,7 +104,6 @@ export const ZENTINELLE_NAV: NavModel = [
             label: "Policies",
             href: "/policies",
             icon: ShieldCheckIcon,
-            also: ["/network"],
           },
           {
             key: "content-rules",
@@ -306,30 +305,6 @@ interface InterimPage {
  * An area deletes its entries as its screens bring their own tabs.
  */
 export const INTERIM_PAGES: Readonly<Record<string, readonly InterimPage[]>> = {
-  policies: [
-    { key: "hierarchy", label: "Hierarchy", href: "/policies/hierarchy" },
-    { key: "effective", label: "Effective", href: "/policies/effective" },
-    { key: "simulator", label: "Simulator", href: "/policies/simulator" },
-    { key: "analyzer", label: "Analyzer", href: "/policies/analyzer" },
-    { key: "import", label: "Import", href: "/policies/import" },
-    { key: "copilot", label: "Copilot", href: "/policies/copilot" },
-    { key: "network", label: "Network", href: "/network" },
-  ],
-  "content-rules": [
-    {
-      key: "detections",
-      label: "Detections",
-      href: "/content-rules/detections",
-    },
-  ],
-  prompts: [
-    { key: "builder", label: "Builder", href: "/system-prompts/builder" },
-    {
-      key: "generator",
-      label: "Generator",
-      href: "/system-prompts/generator",
-    },
-  ],
   risks: [
     { key: "overview", label: "Overview", href: "/risks/overview" },
     { key: "fmea", label: "FMEA", href: "/risks/fmea" },

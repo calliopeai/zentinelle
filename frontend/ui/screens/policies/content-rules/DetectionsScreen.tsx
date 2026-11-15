@@ -6,6 +6,7 @@ import {
   type Column,
 } from "@calliopelabs/ui";
 import { DownloadIcon, RadarIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type {
   ContentScanData,
@@ -17,12 +18,7 @@ import { useListController } from "../../../shared/list-controller";
 import { Select } from "../../../shared/Select";
 import { StatTile } from "../components/StatTile";
 import { areaCrumb, rulesTabs } from "../frame";
-import {
-  RULE_TYPE_OPTIONS,
-  SEVERITY_OPTIONS,
-  SEVERITY_TONE,
-  formatDateTime,
-} from "../labels";
+import { SEVERITY_TONE, usePolicyLabels } from "../labels";
 
 export type DetectionWindow = "1" | "7" | "30";
 
@@ -45,10 +41,10 @@ export interface DetectionsScreenProps {
   exportHref: string;
 }
 
-const WINDOWS = [
-  { value: "1", label: "Last 24 hours" },
-  { value: "7", label: "Last 7 days" },
-  { value: "30", label: "Last 30 days" },
+const windows = (t: (key: string) => string) => [
+  { value: "1", label: t("last24Hours") },
+  { value: "7", label: t("last7Days") },
+  { value: "30", label: t("last30Days") },
 ];
 
 function outcome(v: ContentViolationData) {
@@ -73,6 +69,9 @@ export function DetectionsScreen({
   onRuleTypeChange,
   exportHref,
 }: DetectionsScreenProps) {
+  const t = useTranslations("policies.detectionsScreen");
+  const { SEVERITY_OPTIONS, RULE_TYPE_OPTIONS, formatDateTime, tabs } =
+    usePolicyLabels();
   const filtered = Boolean(severity || ruleType);
   const controller = useListController({
     rows: violations,
@@ -89,13 +88,13 @@ export function DetectionsScreen({
   const columns: Column<ContentViolationData>[] = [
     {
       id: "when",
-      header: "When",
+      header: t("when"),
       width: "w-40",
       cell: (v) => formatDateTime(v.createdAt),
     },
     {
       id: "rule",
-      header: "Rule",
+      header: t("rule"),
       cell: (v) => (
         <div className="min-w-0 max-w-xs">
           <div className="font-medium [overflow-wrap:anywhere]">
@@ -111,16 +110,16 @@ export function DetectionsScreen({
     },
     {
       id: "match",
-      header: "Matched",
+      header: t("matched"),
       cell: (v) => (
         <code className="line-clamp-2 block max-w-xs font-mono text-xs [overflow-wrap:anywhere]">
-          {v.matchedText ?? "Not kept"}
+          {v.matchedText ?? t("notKept")}
         </code>
       ),
     },
     {
       id: "severity",
-      header: "Severity",
+      header: t("severity"),
       width: "w-28",
       cell: (v) => (
         <StatusBadge tone={SEVERITY_TONE[v.severity] ?? "muted"}>
@@ -128,15 +127,15 @@ export function DetectionsScreen({
         </StatusBadge>
       ),
     },
-    { id: "outcome", header: "Outcome", width: "w-28", cell: outcome },
+    { id: "outcome", header: t("outcome"), width: "w-28", cell: outcome },
   ];
   const ready = !loading && !error;
   return (
     <PageFrame
       crumbs={[areaCrumb(capabilities, "content-rules")]}
-      title="Content rules"
-      tabs={rulesTabs("detections")}
-      tabsLabel="Content rules"
+      title={t("contentRules")}
+      tabs={rulesTabs("detections", tabs.rules)}
+      tabsLabel={t("contentRules")}
       primaryAction={
         <Button asChild size="sm" variant="outline">
           <a href={exportHref} download>
@@ -148,53 +147,53 @@ export function DetectionsScreen({
       {ready && (
         <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
           <StatTile
-            label="Detections"
+            label={t("detections")}
             value={violations.length.toLocaleString()}
           />
           <StatTile
-            label="Blocked"
+            label={t("blocked")}
             value={violations
               .filter((v) => v.wasBlocked)
               .length.toLocaleString()}
           />
           <StatTile
-            label="Redacted"
+            label={t("redacted")}
             value={violations
               .filter((v) => v.wasRedacted)
               .length.toLocaleString()}
           />
           <StatTile
-            label="Scans flagged"
+            label={t("scansFlagged")}
             value={flagged.toLocaleString()}
             hint={`of ${scans.length.toLocaleString()} scanned`}
           />
         </div>
       )}
       <DataTable
-        label="Detections"
+        label={t("detections")}
         controller={controller}
         columns={columns}
         getRowId={(v) => v.id}
         toolbar={
-          <FilterBar label="Detection filters">
+          <FilterBar label={t("detectionFilters")}>
             <Select
-              aria-label="Window"
-              options={WINDOWS}
+              aria-label={t("window")}
+              options={windows(t)}
               value={window}
               onValueChange={(v) => onWindowChange(v as DetectionWindow)}
               className="w-36"
             />
             <Select
-              aria-label="Severity"
+              aria-label={t("severity")}
               options={SEVERITY_OPTIONS}
               value={severity}
               onValueChange={onSeverityChange}
               className="w-36"
             />
             <Select
-              aria-label="Rule type"
+              aria-label={t("ruleType")}
               options={[
-                { value: "", label: "All types" },
+                { value: "", label: t("allTypes") },
                 ...RULE_TYPE_OPTIONS,
               ]}
               value={ruleType}
@@ -205,15 +204,14 @@ export function DetectionsScreen({
         }
         empty={{
           icon: <RadarIcon />,
-          title: "Nothing detected in this window",
-          description:
-            "The rules ran and matched nothing. Widen the window, or check that the rules you expect are on.",
+          title: t("nothingDetectedInThisWindow"),
+          description: t("theRulesRanAndMatched"),
           actionHref: "/content-rules",
-          actionLabel: "Review the rules",
+          actionLabel: t("reviewTheRules"),
         }}
         emptyFiltered={{
-          title: "No detections match",
-          description: "Try another severity or type, or a wider window.",
+          title: t("noDetectionsMatch"),
+          description: t("tryAnotherSeverityOrType"),
         }}
       />
     </PageFrame>

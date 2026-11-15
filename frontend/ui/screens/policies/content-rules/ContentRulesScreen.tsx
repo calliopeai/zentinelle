@@ -10,6 +10,7 @@ import {
 } from "@calliopelabs/ui";
 import { FileCheckIcon, PlusIcon } from "lucide-react";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type { ContentRuleData } from "@/graphql/content-rules/types";
 
@@ -18,7 +19,7 @@ import { useListController } from "../../../shared/list-controller";
 import { Select } from "../../../shared/Select";
 import { accessOf } from "../access";
 import { areaCrumb, rulesTabs } from "../frame";
-import { RULE_TYPE_OPTIONS, SEVERITY_OPTIONS, SEVERITY_TONE } from "../labels";
+import { SEVERITY_TONE, usePolicyLabels } from "../labels";
 import { PolicyStatus } from "../PolicyStatus";
 
 export interface ContentRulesScreenProps {
@@ -73,6 +74,8 @@ export function ContentRulesScreen({
   onDuplicate,
   onDelete,
 }: ContentRulesScreenProps) {
+  const t = useTranslations("policies.contentRulesScreen");
+  const { SEVERITY_OPTIONS, RULE_TYPE_OPTIONS, tabs } = usePolicyLabels();
   const { canEdit } = accessOf(capabilities);
   const [deleting, setDeleting] = React.useState<ContentRuleData | null>(null);
   const controller = useListController({
@@ -93,7 +96,7 @@ export function ContentRulesScreen({
   const columns: Column<ContentRuleData>[] = [
     {
       id: "name",
-      header: "Rule",
+      header: t("rule"),
       cell: (r) => (
         <div className="min-w-0 max-w-md">
           <div className="font-medium [overflow-wrap:anywhere]">{r.name}</div>
@@ -105,7 +108,7 @@ export function ContentRulesScreen({
     },
     {
       id: "severity",
-      header: "Severity",
+      header: t("severity"),
       width: "w-28",
       cell: (r) => (
         <StatusBadge tone={SEVERITY_TONE[r.severity] ?? "muted"}>
@@ -115,14 +118,14 @@ export function ContentRulesScreen({
     },
     {
       id: "action",
-      header: "On match",
+      header: t("onMatch"),
       width: "w-28",
       cell: (r) => r.actionDisplay ?? r.action,
     },
-    { id: "where", header: "Scans", width: "w-36", cell: where },
+    { id: "where", header: t("scans"), width: "w-36", cell: where },
     {
       id: "status",
-      header: "Status",
+      header: t("status"),
       width: "w-32",
       cell: (r) => (
         <PolicyStatus enabled={r.enabled} enforcement={r.enforcement} />
@@ -130,13 +133,13 @@ export function ContentRulesScreen({
     },
     {
       id: "hits",
-      header: "Detections",
+      header: t("detections"),
       width: "w-28",
       align: "right",
       cell: (r) => (
         <span className="font-mono tabular-nums">
           {r.violationCount == null
-            ? "None"
+            ? t("none")
             : r.violationCount.toLocaleString()}
         </span>
       ),
@@ -146,10 +149,10 @@ export function ContentRulesScreen({
   return (
     <PageFrame
       crumbs={[areaCrumb(capabilities, "content-rules")]}
-      title="Content rules"
-      description="Patterns the scanner checks in prompts, answers and context: secrets, personal data, injection attempts."
-      tabs={rulesTabs("rules")}
-      tabsLabel="Content rules"
+      title={t("contentRules")}
+      description={t("patternsTheScannerChecksIn")}
+      tabs={rulesTabs("rules", tabs.rules)}
+      tabsLabel={t("contentRules")}
       primaryAction={
         canEdit ? (
           <Button size="sm" onClick={() => onOpenRule(null)}>
@@ -159,19 +162,19 @@ export function ContentRulesScreen({
       }
     >
       <DataTable
-        label="Content rules"
+        label={t("contentRules")}
         controller={controller}
         columns={columns}
         getRowId={(r) => r.id}
         onRowActivate={(r) => onOpenRule(r)}
         rowLabel={(r) => r.name}
-        searchPlaceholder="Search rules"
+        searchPlaceholder={t("searchRules")}
         toolbar={
-          <FilterBar label="Rule filters">
+          <FilterBar label={t("ruleFilters")}>
             <Select
-              aria-label="Rule type"
+              aria-label={t("ruleType")}
               options={[
-                { value: "", label: "All types" },
+                { value: "", label: t("allTypes") },
                 ...RULE_TYPE_OPTIONS,
               ]}
               value={ruleType}
@@ -179,7 +182,7 @@ export function ContentRulesScreen({
               className="w-48"
             />
             <Select
-              aria-label="Severity"
+              aria-label={t("severity")}
               options={SEVERITY_OPTIONS}
               value={severity}
               onValueChange={onSeverityChange}
@@ -189,34 +192,34 @@ export function ContentRulesScreen({
         }
         empty={{
           icon: <FileCheckIcon />,
-          title: "No content rules yet",
+          title: t("noContentRulesYet"),
           description: canEdit
-            ? "Start with secrets and personal data: the two leaks that cost the most."
-            : "An operator or administrator adds content rules. They show here once they exist.",
+            ? t("startWithSecretsAndPersonal")
+            : t("anOperatorOrAdministratorAdds"),
         }}
         emptyFiltered={{
-          title: "No rules match",
-          description: "Try another type or severity, or clear the search.",
+          title: t("noRulesMatch"),
+          description: t("tryAnotherTypeOrSeverity"),
         }}
         rowActions={(r) => (
           <>
             <DropdownMenuItem onSelect={() => onTest(r)}>
-              Test on sample text
+              {t("testOnSampleText")}
             </DropdownMenuItem>
             {canEdit && (
               <>
                 <DropdownMenuItem onSelect={() => void onToggleEnabled(r)}>
-                  {r.enabled ? "Turn off" : "Turn on"}
+                  {r.enabled ? t("turnOff") : t("turnOn")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => void onDuplicate(r)}>
-                  Duplicate
+                  {t("duplicate")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"
                   onSelect={() => setDeleting(r)}
                 >
-                  Delete
+                  {t("delete")}
                 </DropdownMenuItem>
               </>
             )}
@@ -227,8 +230,8 @@ export function ContentRulesScreen({
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.name ?? "this rule"}?`}
-        description="The scanner stops checking for it at once. Detections it already made stay in Detections and the audit log."
-        confirmLabel="Delete rule"
+        description={t("theScannerStopsCheckingFor")}
+        confirmLabel={t("deleteRule")}
         destructive
         onConfirm={() => (deleting ? onDelete(deleting) : undefined)}
       />

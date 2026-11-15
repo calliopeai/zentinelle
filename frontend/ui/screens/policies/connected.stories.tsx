@@ -9,6 +9,11 @@ import {
 } from "../../storybook/fixtures/content-rules";
 import {
   analyzerMocks,
+  changeSets,
+  copilotPreview,
+  effectivePolicy,
+  policyDiff,
+  policyVersions,
   policiesMocks,
   policyMocks,
   policyOptionsMocks,
@@ -25,7 +30,11 @@ import { ShellStory } from "../../storybook/ShellStory";
 import {
   ContentRulesConnected,
   DetectionsConnected,
+  EffectivePolicyConnected,
   PoliciesConnected,
+  PolicyChangesConnected,
+  PolicyCopilotConnected,
+  PolicyHierarchyConnected,
   PolicyDetailConnected,
   PolicyEditorConnected,
   PromptEditorConnected,
@@ -33,6 +42,21 @@ import {
   type Panel,
 } from "./connected";
 import { resolved } from "./story-helpers";
+import type { PoliciesRestClient } from "./writes";
+
+/** The area's REST calls, answered from fixtures. */
+const rest: PoliciesRestClient = {
+  history: async () => policyVersions,
+  diff: async () => policyDiff,
+  effective: async () => effectivePolicy,
+  changes: async (status) =>
+    changeSets.filter((c) => !status || c.status === status),
+  transition: async (_id, to) => ({ status: to }),
+  copilotStatus: async () => ({ enabled: true, reason: null }),
+  copilotDraft: async () => copilotPreview.after,
+  copilotDiff: async () => copilotPreview,
+  copilotStage: async () => ({ change_id: "chg-7", status: "draft" }),
+};
 
 /**
  * The containers on the app's own hooks and documents, answered by the
@@ -309,5 +333,101 @@ export const PromptFromGetSystemPrompt: S = {
     await expect(
       await within(canvasElement).findByDisplayValue("Support agent"),
     ).toBeInTheDocument();
+  },
+};
+
+export const HierarchyFromGetPolicies: S = {
+  parameters: mocks(policiesMocks.full),
+  render: () => (
+    <ShellStory
+      path="/policies/hierarchy"
+      role="operator"
+      defaultAssistantHidden
+    >
+      <PolicyHierarchyConnected capabilities={operator} />
+    </ShellStory>
+  ),
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByText("Monthly spend cap");
+  },
+};
+
+export const EffectiveFromAgentLink: S = {
+  parameters: mocks(agentsMocks.full),
+  render: () => (
+    <ShellStory
+      path="/policies/effective"
+      role="operator"
+      defaultAssistantHidden
+    >
+      <EffectivePolicyConnected
+        capabilities={operator}
+        initialAgent="support-bot"
+        client={rest}
+      />
+    </ShellStory>
+  ),
+};
+
+export const ChangesFromRest: S = {
+  render: () => {
+    function Changes() {
+      const [open, setOpen] = React.useState<string | null>(null);
+      return (
+        <PolicyChangesConnected
+          capabilities={capabilitiesOf("admin")}
+          openId={open}
+          onOpenChange={setOpen}
+          client={rest}
+        />
+      );
+    }
+    return (
+      <ShellStory path="/policies/changes" role="admin" defaultAssistantHidden>
+        <Changes />
+      </ShellStory>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByText(changeSets[0].title);
+  },
+};
+
+export const CopilotFromRest: S = {
+  parameters: mocks(policiesMocks.full),
+  render: () => (
+    <ShellStory path="/policies/copilot" role="operator" defaultAssistantHidden>
+      <PolicyCopilotConnected
+        capabilities={operator}
+        initialPolicyId="pol-budget-org"
+        client={rest}
+      />
+    </ShellStory>
+  ),
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole("button", {
+      name: "Preview the draft",
+    });
+  },
+};
+
+export const CopilotOff: S = {
+  parameters: mocks(policiesMocks.full),
+  render: () => (
+    <ShellStory path="/policies/copilot" role="operator" defaultAssistantHidden>
+      <PolicyCopilotConnected
+        capabilities={operator}
+        client={{
+          ...rest,
+          copilotStatus: async () => ({
+            enabled: false,
+            reason: "Disabled by tenant policy",
+          }),
+        }}
+      />
+    </ShellStory>
+  ),
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByText("Disabled by tenant policy");
   },
 };

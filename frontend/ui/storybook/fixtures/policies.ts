@@ -610,3 +610,25 @@ export const analyzerMocks = {
   loading: [mockLoading(GET_POLICY_ANALYZER)],
   error: [mockError(GET_POLICY_ANALYZER)],
 };
+
+/** REST `policy-copilot/diff`, for "stop support agents from using gpt-5" against the model policy. */
+export const copilotPreview = {
+  policy_id: "pol-budget-org",
+  before: {
+    name: "Monthly spend cap",
+    policy_type: "budget_limit",
+    scope_type: "organization",
+    enforcement: "enforce",
+    config: { monthly_limit_usd: 5000 },
+  },
+  after: {
+    name: "Monthly spend cap",
+    policy_type: "budget_limit",
+    scope_type: "organization",
+    enforcement: "enforce",
+    config: { monthly_limit_usd: 2500 },
+  },
+  changed_fields: ["config"],
+  impacted_agent_count: 12,
+  simulation: { total_events: 4210, would_block: 37, inconclusive: 4 },
+};

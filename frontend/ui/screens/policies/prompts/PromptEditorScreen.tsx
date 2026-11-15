@@ -11,6 +11,7 @@ import {
 } from "@calliopelabs/ui";
 import { LockIcon, SearchXIcon } from "lucide-react";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type {
   AnalyzeSystemPromptResult,
@@ -24,7 +25,7 @@ import { Select } from "../../../shared/Select";
 import { Textarea } from "../../../shared/Textarea";
 import { accessOf } from "../access";
 import { areaCrumb } from "../frame";
-import { PROMPT_TYPE_OPTIONS } from "../labels";
+import { usePolicyLabels } from "../labels";
 import {
   composeGuidedPrompt,
   promptVariables,
@@ -64,49 +65,52 @@ export interface PromptEditorScreenProps {
   cancelHref: string;
 }
 
-const GUIDED: readonly {
+const guided = (
+  t: (key: string) => string,
+): readonly {
   key: keyof GuidedAnswers;
   label: string;
   hint: string;
   rows: number;
-}[] = [
+}[] => [
   {
     key: "role",
-    label: "Who the agent is",
-    hint: "the Example Co support assistant",
+    label: t("whoTheAgentIs"),
+    hint: t("theExampleCoSupportAssistant"),
     rows: 1,
   },
   {
     key: "audience",
-    label: "Who it helps",
-    hint: "customers with questions about their orders",
+    label: t("whoItHelps"),
+    hint: t("customersWithQuestionsAboutTheir"),
     rows: 1,
   },
   {
     key: "task",
-    label: "What it does",
-    hint: "Answers from the knowledge base and opens a ticket when it cannot.",
+    label: t("whatItDoes"),
+    hint: t("answersFromTheKnowledgeBase"),
     rows: 2,
   },
   {
     key: "constraints",
-    label: "Rules, one per line",
-    hint: "Never promise a refund.",
+    label: t("rulesOnePerLine"),
+    hint: t("neverPromiseARefund"),
     rows: 3,
   },
   {
     key: "format",
-    label: "Answer format",
-    hint: "at most three short paragraphs",
+    label: t("answerFormat"),
+    hint: t("atMostThreeShortParagraphs"),
     rows: 1,
   },
 ];
 
 function Analysis({ result }: { result: AnalyzeSystemPromptResult }) {
+  const t = useTranslations("policies.promptEditorScreen");
   if (!result.success)
     return (
       <p className="text-sm text-danger">
-        {result.error ?? "The prompt could not be analyzed."}
+        {result.error ?? t("thePromptCouldNotBe")}
       </p>
     );
   return (
@@ -128,7 +132,7 @@ function Analysis({ result }: { result: AnalyzeSystemPromptResult }) {
           <p className="font-medium">{i.explanation}</p>
           {i.suggestedText && (
             <CodeBlock
-              label="Suggested text"
+              label={t("suggestedText")}
               value={i.suggestedText}
               maxHeight="sm"
               className="mt-1"
@@ -155,6 +159,8 @@ export function PromptEditorScreen({
   onAnalyze,
   cancelHref,
 }: PromptEditorScreenProps) {
+  const t = useTranslations("policies.promptEditorScreen");
+  const { PROMPT_TYPE_OPTIONS } = usePolicyLabels();
   const { Link } = useUI();
   const { canEdit } = accessOf(capabilities);
   const editing = mode === "edit";
@@ -182,14 +188,14 @@ export function PromptEditorScreen({
   const [analyzing, setAnalyzing] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
 
-  const title = editing ? (prompt?.name ?? "Prompt") : "New prompt";
+  const title = editing ? (prompt?.name ?? t("prompt")) : t("newPrompt");
   const crumbs = [areaCrumb(capabilities, "prompts", "/system-prompts")];
 
   if (editing && error) {
     return (
-      <PageFrame crumbs={crumbs} title="Prompt">
+      <PageFrame crumbs={crumbs} title={t("prompt")}>
         <ErrorState
-          title="Could not load the prompt"
+          title={t("couldNotLoadThePrompt")}
           error={error}
           onRetry={onRetry}
         />
@@ -198,20 +204,20 @@ export function PromptEditorScreen({
   }
   if (editing && loading && !prompt) {
     return (
-      <PageFrame crumbs={crumbs} title="Prompt">
-        <LoadingState label="Loading the prompt" variant="page" />
+      <PageFrame crumbs={crumbs} title={t("prompt")}>
+        <LoadingState label={t("loadingThePrompt")} variant="page" />
       </PageFrame>
     );
   }
   if (editing && !prompt) {
     return (
-      <PageFrame crumbs={crumbs} title="Prompt not found">
+      <PageFrame crumbs={crumbs} title={t("promptNotFound")}>
         <EmptyState
           icon={<SearchXIcon />}
-          title="This prompt does not exist"
-          description="It may have been deleted."
+          title={t("thisPromptDoesNotExist")}
+          description={t("itMayHaveBeenDeleted")}
           actionHref="/system-prompts"
-          actionLabel="Back to the library"
+          actionLabel={t("backToTheLibrary")}
         />
       </PageFrame>
     );
@@ -221,10 +227,10 @@ export function PromptEditorScreen({
       <PageFrame crumbs={crumbs} title={title}>
         <EmptyState
           icon={<LockIcon />}
-          title="Your role can read prompts but not write them"
-          description="An operator or administrator adds prompts to the library."
+          title={t("yourRoleCanReadPrompts")}
+          description={t("anOperatorOrAdministratorAdds")}
           actionHref={cancelHref}
-          actionLabel="Back to the library"
+          actionLabel={t("backToTheLibrary")}
         />
       </PageFrame>
     );
@@ -237,11 +243,11 @@ export function PromptEditorScreen({
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const n = draft.name.trim() ? null : "A name is required.";
-    const t = text.trim() ? null : "The prompt has no text.";
+    const n = draft.name.trim() ? null : t("aNameIsRequired");
+    const missing = text.trim() ? null : t("thePromptHasNoText");
     setNameError(n);
-    setTextError(t);
-    if (n || t) return;
+    setTextError(missing);
+    if (n || missing) return;
     setFailure(null);
     setSaved(false);
     setSaving(true);
@@ -282,7 +288,7 @@ export function PromptEditorScreen({
         ...d,
         promptType: chosen.promptType ?? d.promptType,
         promptText: chosen.promptText ?? "",
-        name: d.name || `${chosen.name ?? "Template"} (copy)`,
+        name: d.name || t("copyName", { name: chosen.name ?? t("template") }),
       }));
     }
   };
@@ -300,9 +306,9 @@ export function PromptEditorScreen({
         editing
           ? (prompt?.promptTypeDisplay ?? undefined)
           : {
-              blank: "Blank",
-              template: "From a template",
-              guided: "Guided",
+              blank: t("blank"),
+              template: t("fromATemplate"),
+              guided: t("guided"),
               edit: "",
             }[mode]
       }
@@ -310,10 +316,10 @@ export function PromptEditorScreen({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         {readOnly ? (
           <Section
-            title="Prompt text"
-            description="Your role can read prompts but not change them."
+            title={t("promptText")}
+            description={t("yourRoleCanReadPrompts2")}
           >
-            <CodeBlock label="Prompt text" value={draft.promptText} />
+            <CodeBlock label={t("promptText")} value={draft.promptText} />
           </Section>
         ) : (
           <form
@@ -331,11 +337,11 @@ export function PromptEditorScreen({
             )}
             {saved && (
               <p role="status" className="text-sm text-success">
-                Saved.
+                {t("saved")}
               </p>
             )}
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Name" error={nameError}>
+              <Field label={t("name")} error={nameError}>
                 {(c) => (
                   <Input
                     {...c}
@@ -346,7 +352,7 @@ export function PromptEditorScreen({
                   />
                 )}
               </Field>
-              <Field label="Type">
+              <Field label={t("type")}>
                 {(c) => (
                   <Select
                     {...c}
@@ -358,10 +364,7 @@ export function PromptEditorScreen({
               </Field>
             </div>
             {!editing && (
-              <Field
-                label="Description"
-                hint="What the prompt is for, for the next person who picks it."
-              >
+              <Field label={t("description")} hint={t("whatThePromptIsFor")}>
                 {(c) => (
                   <Input
                     {...c}
@@ -375,8 +378,8 @@ export function PromptEditorScreen({
             )}
             {mode === "template" && (
               <Field
-                label="Template"
-                hint="Featured prompts in your library. The text is copied; the template is not changed."
+                label={t("template")}
+                hint={t("featuredPromptsInYourLibrary")}
               >
                 {(c) => (
                   <Select
@@ -386,10 +389,10 @@ export function PromptEditorScreen({
                       {
                         value: "",
                         label: templatesLoading
-                          ? "Loading templates"
+                          ? t("loadingTemplates")
                           : templates.length
-                            ? "Choose a template"
-                            : "No featured prompts yet",
+                            ? t("chooseATemplate")
+                            : t("noFeaturedPromptsYet"),
                       },
                       ...templates.map((t) => ({
                         value: t.id,
@@ -404,11 +407,11 @@ export function PromptEditorScreen({
             )}
             {mode === "guided" ? (
               <>
-                {GUIDED.map((q) => (
+                {guided(t).map((q) => (
                   <Field
                     key={q.key}
                     label={q.label}
-                    hint={`For example: ${q.hint}`}
+                    hint={t("forExample", { hint: q.hint })}
                   >
                     {(c) =>
                       q.rows > 1 ? (
@@ -432,16 +435,16 @@ export function PromptEditorScreen({
                     }
                   </Field>
                 ))}
-                <Section title="Draft" headingLevel="h3">
+                <Section title={t("draft")} headingLevel="h3">
                   {text ? (
                     <CodeBlock
-                      label="Draft prompt"
+                      label={t("draftPrompt")}
                       value={text}
                       maxHeight="sm"
                     />
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Answer a question to start the draft.
+                      {t("answerAQuestionToStart")}
                     </p>
                   )}
                   {textError && (
@@ -451,8 +454,8 @@ export function PromptEditorScreen({
               </>
             ) : (
               <Field
-                label="Prompt text"
-                hint="Use {{name}} for a value filled in at run time."
+                label={t("promptText")}
+                hint={t("variableHint")}
                 error={textError}
               >
                 {(c) => (
@@ -471,22 +474,22 @@ export function PromptEditorScreen({
             <div className="flex flex-wrap gap-2">
               <Button type="submit" size="sm" disabled={saving}>
                 {saving
-                  ? "Saving"
+                  ? t("saving")
                   : editing
-                    ? "Save changes"
-                    : "Save to the library"}
+                    ? t("saveChanges")
+                    : t("saveToTheLibrary")}
               </Button>
               <Button asChild variant="ghost" size="sm">
-                <Link href={cancelHref}>Cancel</Link>
+                <Link href={cancelHref}>{t("cancel")}</Link>
               </Button>
             </div>
           </form>
         )}
         <aside
           className="flex min-w-0 flex-col gap-4"
-          aria-label="Prompt checks"
+          aria-label={t("promptChecks")}
         >
-          <Card title="Variables">
+          <Card title={t("variables")}>
             {variables.length ? (
               <ul className="flex flex-wrap gap-1">
                 {variables.map((v) => (
@@ -499,12 +502,12 @@ export function PromptEditorScreen({
               </ul>
             ) : (
               <p className="text-sm text-muted-foreground">
-                None. The prompt is the same for every run.
+                {t("noneThePromptIsThe")}
               </p>
             )}
           </Card>
           <Card
-            title="Analysis"
+            title={t("analysis")}
             action={
               canEdit ? (
                 <Button
@@ -513,7 +516,7 @@ export function PromptEditorScreen({
                   disabled={analyzing || !text.trim()}
                   onClick={() => void analyze()}
                 >
-                  {analyzing ? "Analyzing" : "Analyze"}
+                  {analyzing ? t("analyzing") : t("analyze")}
                 </Button>
               ) : undefined
             }
@@ -524,8 +527,8 @@ export function PromptEditorScreen({
               ) : (
                 <p className="text-sm text-muted-foreground">
                   {canEdit
-                    ? "Checks clarity, safety and length. The text is sent to the configured model."
-                    : "An operator or administrator can run the analysis."}
+                    ? t("checksClaritySafetyAndLength")
+                    : t("anOperatorOrAdministratorCan")}
                 </p>
               )}
             </div>

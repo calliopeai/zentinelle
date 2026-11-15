@@ -9,6 +9,7 @@ import {
   LoadingState,
 } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type { SimulatePolicyResult } from "@/graphql/policies/simulate";
 
@@ -40,15 +41,19 @@ export interface SimulatePanelProps {
   error?: { message: string } | null;
 }
 
-const LOOKBACK: readonly SelectOption[] = [
-  { value: "1", label: "Last 24 hours" },
-  { value: "7", label: "Last 7 days" },
-  { value: "30", label: "Last 30 days" },
+const lookbackOptions = (
+  t: (key: string) => string,
+): readonly SelectOption[] => [
+  { value: "1", label: t("last24Hours") },
+  { value: "7", label: t("last7Days") },
+  { value: "30", label: t("last30Days") },
 ];
 
-const ENFORCEMENT: readonly SelectOption[] = [
-  { value: "enforce", label: "Enforce" },
-  { value: "audit", label: "Audit only" },
+const enforcementOptions = (
+  t: (key: string) => string,
+): readonly SelectOption[] => [
+  { value: "enforce", label: t("enforce") },
+  { value: "audit", label: t("auditOnly") },
 ];
 
 function percent(part: number, total: number) {
@@ -66,6 +71,7 @@ export function SimulatePanel({
   running,
   error,
 }: SimulatePanelProps) {
+  const t = useTranslations("policies.simulatePanel");
   const [policyType, setPolicyType] = React.useState(
     initial?.policyType ?? types[0]?.value ?? "",
   );
@@ -86,11 +92,11 @@ export function SimulatePanel({
     try {
       parsed = JSON.parse(config || "{}");
     } catch {
-      setConfigError("The configuration is not valid JSON.");
+      setConfigError(t("theConfigurationIsNotValid"));
       return;
     }
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      setConfigError("The configuration must be a JSON object.");
+      setConfigError(t("theConfigurationMustBeA"));
       return;
     }
     setConfigError(null);
@@ -106,15 +112,14 @@ export function SimulatePanel({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="sm:max-w-lg">
         <DrawerHeader>
-          <DrawerTitle>Simulate a policy</DrawerTitle>
+          <DrawerTitle>{t("simulateAPolicy")}</DrawerTitle>
           <DrawerDescription>
-            Replays recent events against the policy. Nothing is enforced and no
-            agent is affected.
+            {t("replaysRecentEventsAgainstThe")}
           </DrawerDescription>
         </DrawerHeader>
         <div className="flex flex-col gap-5 overflow-y-auto px-4 pb-4">
           <form onSubmit={submit} className="flex flex-col gap-3">
-            <Field label="Policy type">
+            <Field label={t("policyType")}>
               {(c) => (
                 <Select
                   {...c}
@@ -125,8 +130,8 @@ export function SimulatePanel({
               )}
             </Field>
             <Field
-              label="Configuration"
-              hint="JSON, as the policy stores it."
+              label={t("configuration")}
+              hint={t("jsonAsThePolicyStores")}
               error={configError}
             >
               {(c) => (
@@ -140,21 +145,21 @@ export function SimulatePanel({
               )}
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Mode">
+              <Field label={t("mode")}>
                 {(c) => (
                   <Select
                     {...c}
-                    options={ENFORCEMENT}
+                    options={enforcementOptions(t)}
                     value={enforcement}
                     onValueChange={setEnforcement}
                   />
                 )}
               </Field>
-              <Field label="Window">
+              <Field label={t("window")}>
                 {(c) => (
                   <Select
                     {...c}
-                    options={LOOKBACK}
+                    options={lookbackOptions(t)}
                     value={lookback}
                     onValueChange={setLookback}
                   />
@@ -167,60 +172,61 @@ export function SimulatePanel({
               disabled={running || !policyType}
               className="self-start"
             >
-              {running ? "Simulating" : "Run simulation"}
+              {running ? t("simulating") : t("runSimulation")}
             </Button>
           </form>
           <section
-            aria-label="Simulation result"
+            aria-label={t("simulationResult")}
             aria-live="polite"
             className="flex flex-col gap-3"
           >
             {error ? (
-              <ErrorState title="The simulation failed" error={error} />
+              <ErrorState title={t("theSimulationFailed")} error={error} />
             ) : running ? (
-              <LoadingState label="Simulating" rows={3} />
+              <LoadingState label={t("simulating")} rows={3} />
             ) : result ? (
               result.totalEvents === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No events in the last {result.lookbackDays} days to replay.
-                  Widen the window, or simulate again once agents have run.
+                  {t("noEvents", { days: result.lookbackDays })}
                 </p>
               ) : (
                 <>
                   <p className="text-sm">
-                    Over {result.totalEvents.toLocaleString()} events in the
-                    last {result.lookbackDays} days, this policy would have
-                    changed the outcome of{" "}
-                    <strong>{result.impactPercent}%</strong>.
+                    {t.rich("outcome", {
+                      events: result.totalEvents.toLocaleString(),
+                      days: result.lookbackDays,
+                      percent: result.impactPercent,
+                      strong: (chunks) => <strong>{chunks}</strong>,
+                    })}
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     <StatTile
-                      label="Would block"
+                      label={t("wouldBlock")}
                       value={result.wouldBlock.toLocaleString()}
                       hint={percent(result.wouldBlock, result.totalEvents)}
                       tone={result.wouldBlock ? "error" : undefined}
                     />
                     <StatTile
-                      label="Would warn"
+                      label={t("wouldWarn")}
                       value={result.wouldWarn.toLocaleString()}
                       hint={percent(result.wouldWarn, result.totalEvents)}
                       tone={result.wouldWarn ? "warn" : undefined}
                     />
                     <StatTile
-                      label="Would pass"
+                      label={t("wouldPass")}
                       value={result.wouldPass.toLocaleString()}
                       hint={percent(result.wouldPass, result.totalEvents)}
                     />
                     <StatTile
-                      label="Inconclusive"
+                      label={t("inconclusive")}
                       value={result.inconclusive.toLocaleString()}
-                      hint="the event lacked the fields to decide"
+                      hint={t("theEventLackedTheFields")}
                     />
                   </div>
                   {result.blockedSamples.length > 0 && (
                     <div>
                       <h3 className="mb-1 text-sm font-semibold">
-                        Sample of blocked events
+                        {t("sampleOfBlockedEvents")}
                       </h3>
                       <ul className="flex flex-col gap-1">
                         {result.blockedSamples.map((s) => (

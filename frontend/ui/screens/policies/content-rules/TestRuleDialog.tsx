@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type { TestContentRulePayload } from "@/graphql/content-rules/types";
 
@@ -29,6 +30,7 @@ export function TestRuleDialog({
   ruleName,
   onTest,
 }: TestRuleDialogProps) {
+  const t = useTranslations("policies.testRuleDialog");
   const [content, setContent] = React.useState("");
   const [result, setResult] = React.useState<TestContentRulePayload | null>(
     null,
@@ -43,7 +45,7 @@ export function TestRuleDialog({
     try {
       const r = await onTest(content);
       if (r.success === false)
-        setFailure(r.errors.join(" ") || "The rule could not be tested.");
+        setFailure(r.errors.join(" ") || t("theRuleCouldNotBe"));
       else setResult(r);
     } catch (e) {
       setFailure(e instanceof Error ? e.message : String(e));
@@ -59,13 +61,10 @@ export function TestRuleDialog({
           <DialogTitle className="[overflow-wrap:anywhere]">
             Test {ruleName}
           </DialogTitle>
-          <DialogDescription>
-            The text is checked and discarded. Nothing is recorded as a
-            detection.
-          </DialogDescription>
+          <DialogDescription>{t("theTextIsCheckedAnd")}</DialogDescription>
         </DialogHeader>
         <form onSubmit={run} className="flex flex-col gap-3">
-          <Field label="Sample text">
+          <Field label={t("sampleText")}>
             {(c) => (
               <Textarea
                 {...c}
@@ -81,7 +80,7 @@ export function TestRuleDialog({
             className="self-start"
             disabled={running || !content.trim()}
           >
-            {running ? "Testing" : "Test"}
+            {running ? t("testing") : t("test")}
           </Button>
         </form>
         <div aria-live="polite" className="flex flex-col gap-2">
@@ -95,13 +94,13 @@ export function TestRuleDialog({
               <p className="text-sm font-medium">
                 {result.matched
                   ? `Matched ${result.matches?.length ?? 0} time(s).`
-                  : "No match."}
+                  : t("noMatch")}
               </p>
               {result.matched &&
                 result.matches &&
                 result.matches.length > 0 && (
                   <CodeBlock
-                    label="Matches"
+                    label={t("matches")}
                     value={result.matches}
                     maxHeight="sm"
                   />

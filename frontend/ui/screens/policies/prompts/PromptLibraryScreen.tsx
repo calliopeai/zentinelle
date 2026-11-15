@@ -14,6 +14,7 @@ import {
 } from "@calliopelabs/ui";
 import { LibraryIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type { SystemPromptData } from "@/graphql/prompts/types";
 
@@ -22,7 +23,7 @@ import { useListController } from "../../../shared/list-controller";
 import { Select } from "../../../shared/Select";
 import { accessOf } from "../access";
 import { areaCrumb } from "../frame";
-import { PROMPT_STATUS_TONE, PROMPT_TYPE_OPTIONS, formatDate } from "../labels";
+import { PROMPT_STATUS_TONE, usePolicyLabels } from "../labels";
 
 export interface PromptLibraryScreenProps {
   capabilities: readonly string[];
@@ -60,6 +61,8 @@ export function PromptLibraryScreen({
   onFork,
   onDelete,
 }: PromptLibraryScreenProps) {
+  const t = useTranslations("policies.promptLibraryScreen");
+  const { formatDate, PROMPT_TYPE_OPTIONS } = usePolicyLabels();
   const { Link } = useUI();
   const { canEdit } = accessOf(capabilities);
   const [deleting, setDeleting] = React.useState<SystemPromptData | null>(null);
@@ -80,11 +83,11 @@ export function PromptLibraryScreen({
   const columns: Column<SystemPromptData>[] = [
     {
       id: "name",
-      header: "Prompt",
+      header: t("prompt"),
       cell: (p) => (
         <div className="min-w-0 max-w-md">
           <div className="font-medium [overflow-wrap:anywhere]">
-            {p.name ?? "Untitled"}
+            {p.name ?? t("untitled")}
             {p.isFeatured && (
               <span className="ml-2 text-xs font-normal text-muted-foreground">
                 featured
@@ -101,23 +104,23 @@ export function PromptLibraryScreen({
     },
     {
       id: "type",
-      header: "Type",
+      header: t("type"),
       width: "w-36",
       cell: (p) => p.promptTypeDisplay ?? p.promptType ?? "",
     },
     {
       id: "vars",
-      header: "Variables",
+      header: t("variables"),
       width: "w-40",
       cell: (p) => (
         <span className="line-clamp-1 block max-w-40 font-mono text-xs [overflow-wrap:anywhere]">
-          {(p.templateVariables ?? []).join(", ") || "None"}
+          {(p.templateVariables ?? []).join(", ") || t("none")}
         </span>
       ),
     },
     {
       id: "status",
-      header: "Status",
+      header: t("status"),
       width: "w-28",
       cell: (p) => (
         <StatusBadge tone={PROMPT_STATUS_TONE[p.status ?? ""] ?? "muted"}>
@@ -127,14 +130,14 @@ export function PromptLibraryScreen({
     },
     {
       id: "version",
-      header: "Version",
+      header: t("version"),
       width: "w-20",
       align: "right",
       cell: (p) => <span className="font-mono">v{p.version ?? 1}</span>,
     },
     {
       id: "used",
-      header: "Used",
+      header: t("used"),
       width: "w-20",
       align: "right",
       cell: (p) => (
@@ -145,7 +148,7 @@ export function PromptLibraryScreen({
     },
     {
       id: "updated",
-      header: "Updated",
+      header: t("updated"),
       width: "w-28",
       cell: (p) => formatDate(p.updatedAt),
     },
@@ -153,8 +156,8 @@ export function PromptLibraryScreen({
   return (
     <PageFrame
       crumbs={[areaCrumb(capabilities, "prompts")]}
-      title="Prompt library"
-      description="System prompts, personas and templates that policies and agents reuse."
+      title={t("promptLibrary")}
+      description={t("systemPromptsPersonasAndTemplates")}
       primaryAction={
         canEdit ? (
           <Button asChild size="sm">
@@ -171,7 +174,7 @@ export function PromptLibraryScreen({
               <Button
                 variant="outline"
                 size="icon-sm"
-                aria-label="More ways to start a prompt"
+                aria-label={t("moreWaysToStartA")}
               >
                 <MoreHorizontalIcon aria-hidden />
               </Button>
@@ -179,11 +182,13 @@ export function PromptLibraryScreen({
             <DropdownMenuContent align="end">
               <DropdownMenuItem asChild>
                 <Link href="/system-prompts/new?mode=template">
-                  From a template
+                  {t("fromATemplate")}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/system-prompts/new?mode=guided">Guided</Link>
+                <Link href="/system-prompts/new?mode=guided">
+                  {t("guided")}
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -191,19 +196,19 @@ export function PromptLibraryScreen({
       }
     >
       <DataTable
-        label="Prompts"
+        label={t("prompts")}
         controller={controller}
         columns={columns}
         getRowId={(p) => p.id}
         rowHref={(p) => `/system-prompts/${encodeURIComponent(p.id)}`}
         rowLabel={(p) => p.name ?? p.id}
-        searchPlaceholder="Search prompts"
+        searchPlaceholder={t("searchPrompts")}
         toolbar={
-          <FilterBar label="Prompt filters">
+          <FilterBar label={t("promptFilters")}>
             <Select
-              aria-label="Prompt type"
+              aria-label={t("promptType")}
               options={[
-                { value: "", label: "All types" },
+                { value: "", label: t("allTypes") },
                 ...PROMPT_TYPE_OPTIONS,
               ]}
               value={type}
@@ -211,10 +216,10 @@ export function PromptLibraryScreen({
               className="w-44"
             />
             <Select
-              aria-label="Featured"
+              aria-label={t("featured")}
               options={[
-                { value: "all", label: "All prompts" },
-                { value: "featured", label: "Featured only" },
+                { value: "all", label: t("allPrompts") },
+                { value: "featured", label: t("featuredOnly") },
               ]}
               value={featuredOnly ? "featured" : "all"}
               onValueChange={(v) => onFeaturedOnlyChange(v === "featured")}
@@ -224,31 +229,31 @@ export function PromptLibraryScreen({
         }
         empty={{
           icon: <LibraryIcon />,
-          title: "The library is empty",
+          title: t("theLibraryIsEmpty"),
           description: canEdit
-            ? "Save the prompts your agents share, so a change reaches every agent that uses them."
-            : "An operator or administrator adds prompts. They show here once they exist.",
+            ? t("saveThePromptsYourAgents")
+            : t("anOperatorOrAdministratorAdds"),
           ...(canEdit
-            ? { actionHref: "/system-prompts/new", actionLabel: "New prompt" }
+            ? { actionHref: "/system-prompts/new", actionLabel: t("newPrompt") }
             : {}),
         }}
         emptyFiltered={{
-          title: "No prompts match",
-          description: "Try another type, or clear the search.",
+          title: t("noPromptsMatch"),
+          description: t("tryAnotherTypeOrClear"),
         }}
         rowActions={
           canEdit
             ? (p) => (
                 <>
                   <DropdownMenuItem onSelect={() => void onFork(p)}>
-                    Make a copy
+                    {t("makeACopy")}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     variant="destructive"
                     onSelect={() => setDeleting(p)}
                   >
-                    Delete
+                    {t("delete")}
                   </DropdownMenuItem>
                 </>
               )
@@ -259,8 +264,8 @@ export function PromptLibraryScreen({
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.name ?? "this prompt"}?`}
-        description="It leaves the library for everyone in the organization, and cannot be restored."
-        confirmLabel="Delete prompt"
+        description={t("itLeavesTheLibraryFor")}
+        confirmLabel={t("deletePrompt")}
         destructive
         onConfirm={() => (deleting ? onDelete(deleting) : undefined)}
       />

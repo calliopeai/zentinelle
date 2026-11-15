@@ -14,6 +14,7 @@ import {
 } from "@calliopelabs/ui";
 import { GitPullRequestArrowIcon } from "lucide-react";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { CodeBlock } from "../../shared/CodeBlock";
 import { DefinitionList } from "./components/DefinitionList";
@@ -23,11 +24,9 @@ import { Select } from "../../shared/Select";
 import { accessOf } from "./access";
 import { areaCrumb, workspaceTabs } from "./frame";
 import {
-  CHANGE_STATUS_LABEL,
-  CHANGE_STATUS_OPTIONS,
   CHANGE_STATUS_TONE,
   CHANGE_TRANSITIONS,
-  formatDateTime,
+  usePolicyLabels,
 } from "./labels";
 import type { PolicyChangeSet } from "./rest-types";
 
@@ -48,12 +47,13 @@ export interface PolicyChangesScreenProps {
 }
 
 function StatusPill({ status }: { status: string }) {
+  const { changeStatusLabel } = usePolicyLabels();
   return (
     <StatusBadge
       tone={CHANGE_STATUS_TONE[status] ?? "muted"}
       struck={status === "rolled_back"}
     >
-      {CHANGE_STATUS_LABEL[status] ?? status}
+      {changeStatusLabel(status)}
     </StatusBadge>
   );
 }
@@ -75,6 +75,9 @@ export function PolicyChangesScreen({
   onOpenChange,
   onTransition,
 }: PolicyChangesScreenProps) {
+  const t = useTranslations("policies.policyChangesScreen");
+  const { CHANGE_STATUS_OPTIONS, formatDateTime, tabs, transitionLabel } =
+    usePolicyLabels();
   const { canEdit, canAdmin } = accessOf(capabilities);
   const [confirming, setConfirming] = React.useState<{
     change: PolicyChangeSet;
@@ -108,7 +111,7 @@ export function PolicyChangesScreen({
   const columns: Column<PolicyChangeSet>[] = [
     {
       id: "title",
-      header: "Change",
+      header: t("change"),
       cell: (c) => (
         <div className="min-w-0 max-w-md">
           <div className="font-medium [overflow-wrap:anywhere]">{c.title}</div>
@@ -120,13 +123,13 @@ export function PolicyChangesScreen({
     },
     {
       id: "status",
-      header: "Status",
+      header: t("status"),
       width: "w-32",
       cell: (c) => <StatusPill status={c.status} />,
     },
     {
       id: "by",
-      header: "Proposed by",
+      header: t("proposedBy"),
       width: "w-48",
       cell: (c) => (
         <span className="[overflow-wrap:anywhere]">{c.created_by}</span>
@@ -134,7 +137,7 @@ export function PolicyChangesScreen({
     },
     {
       id: "updated",
-      header: "Updated",
+      header: t("updated"),
       width: "w-40",
       cell: (c) => formatDateTime(c.updated_at),
     },
@@ -147,12 +150,12 @@ export function PolicyChangesScreen({
   return (
     <PageFrame
       crumbs={[areaCrumb(capabilities, "policies")]}
-      title="Policies"
-      tabs={workspaceTabs("changes")}
-      tabsLabel="Policies"
+      title={t("policies")}
+      tabs={workspaceTabs("changes", tabs.workspace)}
+      tabsLabel={t("policies")}
     >
       <DataTable
-        label="Policy changes"
+        label={t("policyChanges")}
         controller={controller}
         columns={columns}
         getRowId={(c) => c.id}
@@ -162,9 +165,9 @@ export function PolicyChangesScreen({
         }}
         rowLabel={(c) => `change ${c.title}`}
         toolbar={
-          <FilterBar label="Change filters">
+          <FilterBar label={t("changeFilters")}>
             <Select
-              aria-label="Status"
+              aria-label={t("status")}
               options={CHANGE_STATUS_OPTIONS}
               value={status}
               onValueChange={onStatusChange}
@@ -174,13 +177,12 @@ export function PolicyChangesScreen({
         }
         empty={{
           icon: <GitPullRequestArrowIcon />,
-          title: "No policy changes",
-          description:
-            "A change set bundles edits to several policies for review before they reach agents. The assistant drafts them; they show here once staged.",
+          title: t("noPolicyChanges"),
+          description: t("aChangeSetBundlesEdits"),
         }}
         emptyFiltered={{
-          title: "No changes in this status",
-          description: "Choose another status, or all statuses.",
+          title: t("noChangesInThisStatus"),
+          description: t("chooseAnotherStatusOrAll"),
         }}
       />
       <Drawer
@@ -195,38 +197,38 @@ export function PolicyChangesScreen({
                   {open.title}
                 </DrawerTitle>
                 <DrawerDescription>
-                  {open.description || "No description."}
+                  {open.description || t("noDescription")}
                 </DrawerDescription>
               </DrawerHeader>
               <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-4">
                 <DefinitionList
                   items={[
                     {
-                      term: "Status",
+                      term: t("status"),
                       description: <StatusPill status={open.status} />,
                     },
-                    { term: "Proposed by", description: open.created_by },
+                    { term: t("proposedBy"), description: open.created_by },
                     {
-                      term: "Reviewed by",
-                      description: open.reviewed_by || "Not yet",
+                      term: t("reviewedBy"),
+                      description: open.reviewed_by || t("notYet"),
                     },
                     {
-                      term: "Approved by",
-                      description: open.approved_by || "Not yet",
+                      term: t("approvedBy"),
+                      description: open.approved_by || t("notYet"),
                     },
                     {
-                      term: "Staged",
+                      term: t("staged"),
                       description: formatDateTime(open.staged_at),
                     },
                     {
-                      term: "Promoted",
+                      term: t("promoted"),
                       description: formatDateTime(open.promoted_at),
                     },
                   ]}
                 />
                 {(
                   [
-                    ["Edits in this change", open.changes, true],
+                    [t("editsInThisChange"), open.changes, true],
                     [
                       "Validation",
                       open.validation,
@@ -256,8 +258,9 @@ export function PolicyChangesScreen({
                 )}
                 {held.length > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    {held.map((s) => s.label).join(" and ")} needs an
-                    administrator.
+                    {t("needsAdmin", {
+                      steps: held.map((s) => transitionLabel(s.to)).join(", "),
+                    })}
                   </p>
                 )}
               </div>
@@ -274,12 +277,12 @@ export function PolicyChangesScreen({
                           ? setConfirming({
                               change: open,
                               to: step.to,
-                              label: step.label,
+                              label: transitionLabel(step.to),
                             })
                           : void run(open, step.to)
                       }
                     >
-                      {step.label}
+                      {transitionLabel(step.to)}
                     </Button>
                   ))}
                 </DrawerFooter>
@@ -291,11 +294,14 @@ export function PolicyChangesScreen({
       <ConfirmDialog
         open={confirming !== null}
         onOpenChange={(o) => !o && setConfirming(null)}
-        title={`${confirming?.label ?? "Reject"} ${confirming?.change.title ?? "this change"}?`}
+        title={t("confirmTitle", {
+          step: confirming?.label ?? t("reject"),
+          title: confirming?.change.title ?? t("thisChange"),
+        })}
         description={
           confirming?.to === "rolled_back"
-            ? "Every policy in the change returns to the version it had before promotion. Agents pick that up at their next refresh."
-            : "The change closes and cannot be reopened. Its edits never reach agents."
+            ? t("everyPolicyInTheChange")
+            : t("theChangeClosesAndCannot")
         }
         confirmLabel={confirming?.label}
         destructive

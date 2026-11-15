@@ -57,13 +57,13 @@ export const MAIN_TOUR: TourStep[] = [
   },
   {
     route: "/policies",
-    element: "[data-tour='policies-heatmap']",
+    element: "[data-tour='policies-table']",
     popover: {
-      title: "Policy coverage at a glance",
+      title: "Every policy, by type and scope",
       description:
-        "24 policy types × 5 inheritance scopes (Org → Team → Deployment → " +
-        "Endpoint → User). Green cells = enforced, amber = audit-only, dashed " +
-        "= no policy. Hover any cell to see what's defined.",
+        "Policies inherit from the organization down to a single user. " +
+        "Filter by type or scope, and open Analyze coverage from the menu " +
+        "to see which types nothing enforces yet.",
       side: "top",
     },
   },

@@ -70,7 +70,7 @@ describe("analyzePolicies", () => {
   });
 
   it("lists the types nothing live covers", () => {
-    expect(analysis.missingTypes).toEqual(["Data access"]);
+    expect(analysis.missingTypes).toEqual(["data_access"]);
   });
 
   it("flags an empty or turned-off policy", () => {

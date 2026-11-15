@@ -10,6 +10,7 @@ import {
   Input,
 } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type {
   ContentRuleData,
@@ -21,13 +22,7 @@ import { DefinitionList } from "../components/DefinitionList";
 import { Field } from "../../../shared/Field";
 import { Select } from "../../../shared/Select";
 import { Textarea } from "../../../shared/Textarea";
-import {
-  RULE_ACTION_OPTIONS,
-  RULE_TYPE_OPTIONS,
-  SCAN_MODE_OPTIONS,
-  SEVERITY_OPTIONS,
-  formatDateTime,
-} from "../labels";
+import { usePolicyLabels } from "../labels";
 
 export interface ContentRuleDrawerProps {
   open: boolean;
@@ -88,6 +83,14 @@ function RuleBody({
   canEdit,
   onSubmit,
 }: Omit<ContentRuleDrawerProps, "open">) {
+  const t = useTranslations("policies.contentRuleDrawer");
+  const {
+    RULE_ACTION_OPTIONS,
+    RULE_TYPE_OPTIONS,
+    SCAN_MODE_OPTIONS,
+    SEVERITY_OPTIONS,
+    formatDateTime,
+  } = usePolicyLabels();
   const [form, setForm] = React.useState(() => toInput(rule));
   const [config, setConfig] = React.useState(() =>
     JSON.stringify(rule?.config ?? {}, null, 2),
@@ -108,10 +111,10 @@ function RuleBody({
     try {
       parsed = JSON.parse(config || "{}");
     } catch {
-      next.config = "The configuration is not valid JSON.";
+      next.config = t("configNotJson");
     }
     if (!form.scanInput && !form.scanOutput && !form.scanContext)
-      next.scan = "Scan at least one of prompts, answers or context.";
+      next.scan = t("scanOne");
     setErrors(next);
     if (Object.keys(next).length) return;
     setSaving(true);
@@ -129,7 +132,7 @@ function RuleBody({
     }
   };
 
-  const title = rule ? rule.name : "New content rule";
+  const title = rule ? rule.name : t("newContentRule");
   return (
     <>
       <DrawerHeader>
@@ -137,7 +140,7 @@ function RuleBody({
         <DrawerDescription>
           {rule
             ? `Updated ${formatDateTime(rule.updatedAt)}`
-            : "What the scanner looks for, where, and what it does on a match."}
+            : t("whatTheScannerLooksFor")}
         </DrawerDescription>
       </DrawerHeader>
       {!canEdit && rule ? (
@@ -146,30 +149,30 @@ function RuleBody({
             layout="stacked"
             items={[
               {
-                term: "Type",
+                term: t("type"),
                 description: rule.ruleTypeDisplay ?? rule.ruleType,
               },
               {
-                term: "Severity",
+                term: t("severity"),
                 description: rule.severityDisplay ?? rule.severity,
               },
               {
-                term: "On match",
+                term: t("onMatch"),
                 description: rule.actionDisplay ?? rule.action,
               },
               {
-                term: "Description",
-                description: rule.description || "None",
+                term: t("description"),
+                description: rule.description || t("none"),
               },
             ]}
           />
           <CodeBlock
-            label="Rule configuration"
+            label={t("ruleConfiguration")}
             value={rule.config ?? {}}
             maxHeight="sm"
           />
           <p className="text-sm text-muted-foreground">
-            Your role can read content rules but not change them.
+            {t("yourRoleCanReadContent")}
           </p>
         </div>
       ) : (
@@ -187,7 +190,7 @@ function RuleBody({
                 {failure}
               </p>
             )}
-            <Field label="Name" error={errors.name}>
+            <Field label={t("name")} error={errors.name}>
               {(c) => (
                 <Input
                   {...c}
@@ -196,7 +199,7 @@ function RuleBody({
                 />
               )}
             </Field>
-            <Field label="Description">
+            <Field label={t("description")}>
               {(c) => (
                 <Textarea
                   {...c}
@@ -207,7 +210,7 @@ function RuleBody({
               )}
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Type">
+              <Field label={t("type")}>
                 {(c) => (
                   <Select
                     {...c}
@@ -217,7 +220,7 @@ function RuleBody({
                   />
                 )}
               </Field>
-              <Field label="Severity">
+              <Field label={t("severity")}>
                 {(c) => (
                   <Select
                     {...c}
@@ -227,7 +230,7 @@ function RuleBody({
                   />
                 )}
               </Field>
-              <Field label="On match">
+              <Field label={t("onMatch")}>
                 {(c) => (
                   <Select
                     {...c}
@@ -237,7 +240,7 @@ function RuleBody({
                   />
                 )}
               </Field>
-              <Field label="When">
+              <Field label={t("when")}>
                 {(c) => (
                   <Select
                     {...c}
@@ -254,17 +257,17 @@ function RuleBody({
             >
               <legend className="mb-1 text-sm font-medium">Scan</legend>
               <Toggle
-                label="Prompts"
+                label={t("prompts")}
                 checked={form.scanInput ?? false}
                 onChange={(v) => set("scanInput", v)}
               />
               <Toggle
-                label="Answers"
+                label={t("answers")}
                 checked={form.scanOutput ?? false}
                 onChange={(v) => set("scanOutput", v)}
               />
               <Toggle
-                label="Conversation context"
+                label={t("conversationContext")}
                 checked={form.scanContext ?? false}
                 onChange={(v) => set("scanContext", v)}
               />
@@ -277,19 +280,19 @@ function RuleBody({
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-1 text-sm font-medium">Notify</legend>
               <Toggle
-                label="Administrators"
+                label={t("administrators")}
                 checked={form.notifyAdmins ?? false}
                 onChange={(v) => set("notifyAdmins", v)}
               />
               <Toggle
-                label="The person who sent it"
+                label={t("thePersonWhoSentIt")}
                 checked={form.notifyUser ?? false}
                 onChange={(v) => set("notifyUser", v)}
               />
             </fieldset>
             <Field
-              label="Configuration"
-              hint="JSON: patterns, keywords or thresholds, by type."
+              label={t("configuration")}
+              hint={t("jsonPatternsKeywordsOrThresholds")}
               error={errors.config}
             >
               {(c) => (
@@ -303,7 +306,7 @@ function RuleBody({
               )}
             </Field>
             <Toggle
-              label="On"
+              label={t("on")}
               checked={form.enabled ?? true}
               onChange={(v) => set("enabled", v)}
             />
@@ -315,10 +318,10 @@ function RuleBody({
               size="sm"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button type="submit" size="sm" disabled={saving}>
-              {saving ? "Saving" : rule ? "Save rule" : "Create rule"}
+              {saving ? t("saving") : rule ? t("saveRule") : t("createRule")}
             </Button>
           </DrawerFooter>
         </form>

@@ -1,5 +1,6 @@
 import { Checkbox, Input } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { Field } from "../../shared/Field";
 import { Textarea } from "../../shared/Textarea";
@@ -59,6 +60,9 @@ export function PolicyConfigFields({
   errors = {},
   disabled,
 }: PolicyConfigFieldsProps) {
+  const t = useTranslations("policies.policyConfigFields");
+  const tField = (key?: "wholeNumber" | "number") =>
+    key ? t(`fieldErrors.${key}`) : undefined;
   const fields = configFieldsOf(schema);
   const [text, setText] = React.useState<Record<string, string>>(() =>
     Object.fromEntries(
@@ -68,7 +72,7 @@ export function PolicyConfigFields({
   if (fields.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        This policy type takes no configuration.
+        {t("thisPolicyTypeTakesNo")}
       </p>
     );
   }
@@ -95,10 +99,10 @@ export function PolicyConfigFields({
           <Field
             key={field.key}
             label={field.label}
-            hint={field.kind === "list" ? "One per line." : undefined}
+            hint={field.kind === "list" ? t("onePerLine") : undefined}
             error={
               errors[field.key] ??
-              fromFieldText(text[field.key] ?? "", field.kind).error
+              tField(fromFieldText(text[field.key] ?? "", field.kind).error)
             }
             className={field.kind === "list" ? "sm:col-span-2" : undefined}
           >
