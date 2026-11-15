@@ -34,7 +34,11 @@ export function Select({
       data-slot="select"
       value={value}
       onChange={(event) => onValueChange(event.target.value)}
-      className={cn(CONTROL_CLASS, "h-8 bg-background pr-7", className)}
+      className={cn(
+        CONTROL_CLASS,
+        "h-8 bg-background pr-7 dark:bg-background",
+        className,
+      )}
       {...props}
     >
       {options.map((option) => (

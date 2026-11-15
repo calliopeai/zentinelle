@@ -139,7 +139,7 @@ function AgentFormDialogContent({
 
   return (
     <DialogContent
-      className="max-w-lg"
+      className="sm:max-w-lg"
       hideCloseButton={pending}
       onEscapeKeyDown={(e) => pending && e.preventDefault()}
       onInteractOutside={(e) => pending && e.preventDefault()}
