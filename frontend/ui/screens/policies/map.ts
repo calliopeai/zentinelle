@@ -4,7 +4,7 @@
  */
 import type { PolicyData } from "@/graphql/policies/types";
 
-import { SCOPE_ORDER, scopeRank, typeLabel } from "./labels";
+import { SCOPE_ORDER, scopeRank } from "./labels";
 
 /* ── Hierarchy ─────────────────────────────────────────────────── */
 
@@ -84,7 +84,8 @@ export interface PolicyAnalyzerData {
 export interface PolicyIssue {
   id: string;
   name: string;
-  issues: string[];
+  /** Message keys under `policies.analyzePanel.issues`. */
+  issues: ("emptyConfig" | "turnedOff" | "enforcementDisabled")[];
 }
 
 export interface PolicyConflict {
@@ -101,7 +102,7 @@ export interface PolicyAnalysis {
   disabled: number;
   agents: number;
   coveredTypes: string[];
-  /** Types with no enabled policy, by label. */
+  /** Types with no enabled policy, as values (`usePolicyLabels().typeLabel` names them). */
   missingTypes: string[];
   issues: PolicyIssue[];
   conflicts: PolicyConflict[];
@@ -135,12 +136,10 @@ export function analyzePolicies(
   const covered = new Set(live.map((p) => p.policyType));
   const issues: PolicyIssue[] = [];
   for (const p of policies) {
-    const list: string[] = [];
-    if (isEmptyConfig(p.config))
-      list.push("The configuration is empty, so the policy checks nothing.");
-    if (!p.enabled) list.push("The policy is turned off.");
-    else if (p.enforcement === "disabled")
-      list.push("Enforcement is disabled, so the policy has no effect.");
+    const list: PolicyIssue["issues"] = [];
+    if (isEmptyConfig(p.config)) list.push("emptyConfig");
+    if (!p.enabled) list.push("turnedOff");
+    else if (p.enforcement === "disabled") list.push("enforcementDisabled");
     if (list.length) issues.push({ id: p.id, name: p.name, issues: list });
   }
   const groups = new Map<string, AnalyzerPolicy[]>();
@@ -163,10 +162,7 @@ export function analyzePolicies(
     disabled: policies.length - live.length,
     agents: data.endpoints.length,
     coveredTypes: [...covered].sort(),
-    missingTypes: allTypes
-      .filter((t) => !covered.has(t))
-      .map(typeLabel)
-      .sort(),
+    missingTypes: allTypes.filter((t) => !covered.has(t)),
     issues,
     conflicts,
   };
@@ -218,7 +214,7 @@ export function toFieldText(value: unknown, kind: ConfigFieldKind): string {
 export function fromFieldText(
   text: string,
   kind: ConfigFieldKind,
-): { value?: unknown; error?: string } {
+): { value?: unknown; error?: "wholeNumber" | "number" } {
   const trimmed = text.trim();
   if (kind === "list") {
     const items = trimmed
@@ -231,11 +227,11 @@ export function fromFieldText(
   if (kind === "int") {
     return /^-?\d+$/.test(trimmed)
       ? { value: Number(trimmed) }
-      : { error: "Enter a whole number." };
+      : { error: "wholeNumber" };
   }
   if (kind === "float") {
     const n = Number(trimmed);
-    return Number.isFinite(n) ? { value: n } : { error: "Enter a number." };
+    return Number.isFinite(n) ? { value: n } : { error: "number" };
   }
   return { value: trimmed };
 }

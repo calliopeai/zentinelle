@@ -148,12 +148,12 @@ export const Translated: Story = {
 export const Console: Story = {
   render: () => (
     <ShellStory
-      path="/policies/hierarchy"
+      path="/usage/budgets"
       defaultAssistantHidden
       hiddenRoutes={UNBUILT_ROUTES}
-      tabs={interimTabs("/policies/hierarchy", ["view", "mutate", "admin"])}
+      tabs={interimTabs("/usage/budgets", ["view", "mutate", "admin"])}
     >
-      <PageFrame title="Policy hierarchy">
+      <PageFrame title="Budgets">
         <EmptyState title="The old page renders here" />
       </PageFrame>
     </ShellStory>
@@ -164,13 +164,13 @@ export const Console: Story = {
       canvas.queryByRole("link", { name: "Reports" }),
     ).not.toBeInTheDocument();
     const tabs = within(canvas.getByRole("navigation", { name: "Pages" }));
-    await expect(tabs.getByRole("link", { name: "Hierarchy" })).toHaveAttribute(
+    await expect(tabs.getByRole("link", { name: "Budgets" })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    await expect(tabs.getByRole("link", { name: "Policies" })).toHaveAttribute(
+    await expect(tabs.getByRole("link", { name: "Usage" })).toHaveAttribute(
       "href",
-      "/policies",
+      "/usage",
     );
   },
 };

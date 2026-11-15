@@ -1,12 +1,16 @@
+"use client";
+
 /**
  * The Policies area wired to the operations the app already sends: each
  * container reads through the app's own hooks and documents, maps the result
- * with ./map, and renders the pure screen. The routes under app/ will render
- * these. Writes stay with the route (the `on…` props), until the shared
- * mutation helper lands: a container never sends a mutation of its own.
+ * with ./map, and renders the pure screen; the routes under app/ render
+ * these. Writes go through ./writes unless a story passes its own `on…`
+ * props. Navigation after a write is the route's (`onNavigate`).
  */
 import { skipToken, useLazyQuery, useQuery } from "@apollo/client/react";
+import { useTranslations } from "next-intl";
 import * as React from "react";
+import { toast } from "sonner";
 
 import { useEndpoints } from "@/graphql/agents/hooks";
 import { useContentRules } from "@/graphql/content-rules/hooks";
@@ -47,8 +51,28 @@ import {
   type DetectionWindow,
 } from "./content-rules/DetectionsScreen";
 import type { PolicyTab } from "./frame";
-import { POLICY_TYPE_LABEL, typeLabel } from "./labels";
-import { analyzePolicies, type PolicyAnalyzerData } from "./map";
+import { POLICY_TYPES, usePolicyLabels } from "./labels";
+import { analyzePolicies, hierarchyOf, type PolicyAnalyzerData } from "./map";
+import { EffectivePolicyScreen } from "./EffectivePolicyScreen";
+import { PolicyChangesScreen } from "./PolicyChangesScreen";
+import { PolicyCopilotScreen } from "./PolicyCopilotScreen";
+import { PolicyHierarchyScreen } from "./PolicyHierarchyScreen";
+import type {
+  EffectivePolicyResponse,
+  PolicyChangeSet,
+  PolicyDiff,
+  PolicyVersion,
+} from "./rest-types";
+import { TestRuleDialog } from "./content-rules/TestRuleDialog";
+import {
+  draftToPolicyInput,
+  policiesRest,
+  useContentRuleWrites,
+  usePolicyWrites,
+  usePromptWrites,
+  type CopilotPreview,
+  type PoliciesRestClient,
+} from "./writes";
 import { PoliciesScreen } from "./PoliciesScreen";
 import {
   PolicyDetailScreen,
@@ -67,7 +91,7 @@ import {
   type Simulation,
 } from "./SimulatePanel";
 
-const ALL_TYPES = Object.keys(POLICY_TYPE_LABEL);
+const ALL_TYPES: readonly string[] = POLICY_TYPES;
 
 function useSimulation() {
   const [run, { data, loading, error }] = useLazyQuery<
@@ -82,6 +106,67 @@ function useSimulation() {
   };
 }
 
+/** A REST read keyed by what it reads, with retry; `null` key skips it. */
+function useRest<T>(load: () => Promise<T>, key: string | null) {
+  const [result, setResult] = React.useState<{
+    key: string;
+    value?: T;
+    error?: Error;
+  } | null>(null);
+  const [attempt, setAttempt] = React.useState(0);
+  React.useEffect(() => {
+    if (key === null) return;
+    let live = true;
+    load().then(
+      (value) => live && setResult({ key, value }),
+      (error: unknown) =>
+        live &&
+        setResult({
+          key,
+          error: error instanceof Error ? error : new Error(String(error)),
+        }),
+    );
+    return () => {
+      live = false;
+    };
+    // `load` is rebuilt every render; `key` names what it loads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, attempt]);
+  const current = key !== null && result?.key === key ? result : null;
+  return {
+    loading: key !== null && !current,
+    value: current?.value,
+    error: current?.error ?? null,
+    retry: () => {
+      setResult(null);
+      setAttempt((n) => n + 1);
+    },
+  };
+}
+
+/** The error, worded by `fallback` when the server said nothing. */
+function worded(error: Error | null, fallback: string) {
+  return error && !error.message ? new Error(fallback) : error;
+}
+
+/** Runs a row action, and says so in a toast when it fails. */
+function reported<A extends unknown[]>(
+  act: (...args: A) => Promise<unknown>,
+  fallback: string,
+) {
+  return async (...args: A) => {
+    try {
+      await act(...args);
+    } catch (failure) {
+      toast.error(
+        failure instanceof Error && failure.message
+          ? failure.message
+          : fallback,
+      );
+    }
+  };
+}
+
 export type Panel = "simulate" | "analyze" | null;
 
 export interface PoliciesConnectedProps {
@@ -89,10 +174,11 @@ export interface PoliciesConnectedProps {
   /** `?panel=`, held by the route so the panel can be linked to. */
   panel: Panel;
   onPanelChange: (panel: Panel) => void;
+  /** `?type=`: a view by type, such as `network_policy`. */
   initialType?: string;
-  onToggleEnabled: (policy: PolicyData) => Promise<unknown> | void;
-  onDuplicate: (policy: PolicyData) => Promise<unknown> | void;
-  onDelete: (policy: PolicyData) => Promise<unknown>;
+  onToggleEnabled?: (policy: PolicyData) => Promise<unknown> | void;
+  onDuplicate?: (policy: PolicyData) => Promise<unknown> | void;
+  onDelete?: (policy: PolicyData) => Promise<unknown>;
 }
 
 /** `/policies`: `GetPolicies` with server search and filters; Simulate on `SimulatePolicy`, Analyze on `PolicyAnalyzer` (fetched only while open). */
@@ -101,8 +187,13 @@ export function PoliciesConnected({
   panel,
   onPanelChange,
   initialType = "",
-  ...writes
+  onToggleEnabled,
+  onDuplicate,
+  onDelete,
 }: PoliciesConnectedProps) {
+  const tw = useTranslations("policies.writes");
+  const { typeLabel } = usePolicyLabels();
+  const writes = usePolicyWrites();
   const [search, setSearch] = React.useState("");
   const [type, setType] = React.useState(initialType);
   const [scope, setScope] = React.useState("");
@@ -119,8 +210,8 @@ export function PoliciesConnected({
   );
   const simulation = useSimulation();
   const types = (options.options?.policyTypes ?? [])
-    .filter((t) => t.value)
-    .map((t) => ({ value: t.value!, label: typeLabel(t.value!) }));
+    .filter((o) => o.value)
+    .map((o) => ({ value: o.value!, label: typeLabel(o.value!) }));
   return (
     <>
       <PoliciesScreen
@@ -137,7 +228,13 @@ export function PoliciesConnected({
         onScopeChange={setScope}
         onSimulate={() => onPanelChange("simulate")}
         onAnalyze={() => onPanelChange("analyze")}
-        {...writes}
+        onToggleEnabled={
+          onToggleEnabled ?? reported(writes.toggle, tw("notToggled"))
+        }
+        onDuplicate={
+          onDuplicate ?? reported(writes.duplicate, tw("notDuplicated"))
+        }
+        onDelete={onDelete ?? writes.remove}
       />
       <SimulatePanel
         key={types.length}
@@ -163,28 +260,38 @@ export function PoliciesConnected({
   );
 }
 
-export interface PolicyDetailConnectedProps extends Pick<
-  PolicyDetailScreenProps,
-  | "history"
-  | "diff"
-  | "onCompare"
-  | "onAskAssistant"
-  | "onToggleEnabled"
-  | "onDuplicate"
-  | "onDelete"
+export interface PolicyDetailConnectedProps extends Partial<
+  Pick<
+    PolicyDetailScreenProps,
+    | "history"
+    | "diff"
+    | "onCompare"
+    | "onAskAssistant"
+    | "onToggleEnabled"
+    | "onDuplicate"
+    | "onDelete"
+  >
 > {
   capabilities: readonly string[];
   id: string;
   tab: PolicyTab;
+  /** Where the route goes after a write: the list after Delete, the copy after Duplicate. */
+  onNavigate?: (href: string) => void;
+  client?: PoliciesRestClient;
 }
 
-/** `/policies/{id}`: `GetPolicy`; Scope and effect runs `SimulatePolicy` on the policy as configured, when that tab opens. History is REST, passed in. */
+/** `/policies/{id}`: `GetPolicy`; Scope and effect runs `SimulatePolicy` on the policy as configured, when that tab opens; History is REST, read when that tab opens. */
 export function PolicyDetailConnected({
   capabilities,
   id,
   tab,
-  ...rest
+  onNavigate,
+  client = policiesRest,
+  ...overrides
 }: PolicyDetailConnectedProps) {
+  const tw = useTranslations("policies.writes");
+  const { typeLabel } = usePolicyLabels();
+  const writes = usePolicyWrites();
   const { policy, loading, error, refetch } = usePolicy(id);
   const [simulateOpen, setSimulateOpen] = React.useState(false);
   const effect = useQuery<SimulatePolicyResult, SimulateInput>(
@@ -201,6 +308,15 @@ export function PolicyDetailConnected({
       : skipToken,
   );
   const simulation = useSimulation();
+  const history = useRest<PolicyVersion[]>(
+    () => client.history(id),
+    tab === "history" && !overrides.history ? id : null,
+  );
+  const [pair, setPair] = React.useState<[number, number] | null>(null);
+  const diff = useRest<PolicyDiff>(
+    () => client.diff(id, pair![0], pair![1]),
+    pair && !overrides.diff ? `${id}:${pair[0]}:${pair[1]}` : null,
+  );
   return (
     <>
       <PolicyDetailScreen
@@ -217,7 +333,48 @@ export function PolicyDetailConnected({
           onRetry: () => void effect.refetch(),
         }}
         onSimulate={() => setSimulateOpen(true)}
-        {...rest}
+        history={
+          overrides.history ?? {
+            data: history.value ?? [],
+            loading: history.loading,
+            error: worded(history.error, tw("historyFailed")),
+            onRetry: history.retry,
+          }
+        }
+        diff={
+          overrides.diff ??
+          (pair
+            ? {
+                data: diff.value ?? null,
+                loading: diff.loading,
+                error: worded(diff.error, tw("diffFailed")),
+              }
+            : undefined)
+        }
+        onCompare={overrides.onCompare ?? ((from, to) => setPair([from, to]))}
+        onAskAssistant={
+          overrides.onAskAssistant ??
+          (() =>
+            onNavigate?.(`/policies/copilot?policy=${encodeURIComponent(id)}`))
+        }
+        onToggleEnabled={
+          overrides.onToggleEnabled ??
+          reported(() => writes.toggle({ id }), tw("notToggled"))
+        }
+        onDuplicate={
+          overrides.onDuplicate ??
+          reported(async () => {
+            const copy = await writes.duplicate({ id });
+            if (copy) onNavigate?.(`/policies/${encodeURIComponent(copy.id)}`);
+          }, tw("notDuplicated"))
+        }
+        onDelete={
+          overrides.onDelete ??
+          (async () => {
+            await writes.remove({ id });
+            onNavigate?.("/policies");
+          })
+        }
       />
       {policy && (
         <SimulatePanel
@@ -247,21 +404,40 @@ export interface PolicyEditorConnectedProps {
   id?: string;
   source: PolicySource;
   onSourceChange: (source: PolicySource) => void;
-  onDraftFromDocument: (
+  onDraftFromDocument?: (
     text: string,
   ) => Promise<Partial<CreatePolicyInput> | null>;
-  onSubmit: (input: CreatePolicyInput) => Promise<unknown>;
+  onSubmit?: (input: CreatePolicyInput) => Promise<unknown>;
+  /** The saved policy's page, after a save. */
+  onNavigate?: (href: string) => void;
+  client?: PoliciesRestClient;
 }
 
-/** `/policies/create` and `/policies/{id}/edit`: `GetPolicyOptions`, `GetEndpoints` for agent scope, and `GetPolicy` when editing. */
+/** `/policies/create` and `/policies/{id}/edit`: `GetPolicyOptions`, `GetEndpoints` for agent scope, and `GetPolicy` when editing; a document is drafted by the policy copilot. */
 export function PolicyEditorConnected({
   capabilities,
   id,
+  onDraftFromDocument,
+  onSubmit,
+  onNavigate,
+  client = policiesRest,
   ...rest
 }: PolicyEditorConnectedProps) {
+  const writes = usePolicyWrites();
   const options = usePolicyOptions();
   const { endpoints } = useEndpoints();
   const existing = usePolicy(id ?? "");
+  const draft =
+    onDraftFromDocument ??
+    (async (text: string) =>
+      draftToPolicyInput(await client.copilotDraft(text)));
+  const submit =
+    onSubmit ??
+    (async (input: CreatePolicyInput) => {
+      const saved = await writes.save(input, id);
+      const target = saved?.id ?? id;
+      if (target) onNavigate?.(`/policies/${encodeURIComponent(target)}`);
+    });
   if (id && existing.loading && !existing.policy) {
     return (
       <PolicyEditorScreen
@@ -271,6 +447,8 @@ export function PolicyEditorConnected({
         optionsError={null}
         onRetry={() => {}}
         cancelHref="/policies"
+        onDraftFromDocument={draft}
+        onSubmit={submit}
         {...rest}
       />
     );
@@ -286,35 +464,249 @@ export function PolicyEditorConnected({
       policy={id ? existing.policy : undefined}
       agents={endpoints.map((e) => ({ id: e.id, name: e.name }))}
       cancelHref={id ? `/policies/${encodeURIComponent(id)}` : "/policies"}
+      onDraftFromDocument={draft}
+      onSubmit={submit}
       {...rest}
+    />
+  );
+}
+
+/** `/policies/hierarchy`: `GetPolicies` by type, as the tiers inheritance resolves through. */
+export function PolicyHierarchyConnected({
+  capabilities,
+}: {
+  capabilities: readonly string[];
+}) {
+  const [type, setType] = React.useState("");
+  const { policies, loading, error, refetch } = usePolicies({
+    policyType: type || null,
+  });
+  return (
+    <PolicyHierarchyScreen
+      capabilities={capabilities}
+      tiers={hierarchyOf(policies)}
+      loading={loading}
+      error={error}
+      onRetry={() => void refetch()}
+      type={type}
+      onTypeChange={setType}
+    />
+  );
+}
+
+export interface EffectivePolicyConnectedProps {
+  capabilities: readonly string[];
+  /** `?endpoint=` (an endpoint id) or `?agent=` (an agent's slug, as the agent page links). */
+  initialAgent?: string;
+  client?: PoliciesRestClient;
+}
+
+/** `/policies/effective`: `GetEndpoints` for the picker, REST `effective-policy` for the chosen agent. */
+export function EffectivePolicyConnected({
+  capabilities,
+  initialAgent = "",
+  client = policiesRest,
+}: EffectivePolicyConnectedProps) {
+  const tw = useTranslations("policies.writes");
+  const { endpoints, loading: agentsLoading } = useEndpoints();
+  const [chosen, setChosen] = React.useState<string | null>(null);
+  const fromLink =
+    endpoints.find((e) => e.id === initialAgent || e.agentId === initialAgent)
+      ?.id ?? "";
+  const agentId = chosen ?? fromLink;
+  const effective = useRest<EffectivePolicyResponse>(
+    () => client.effective(agentId),
+    agentId || null,
+  );
+  return (
+    <EffectivePolicyScreen
+      capabilities={capabilities}
+      agents={endpoints.map((e) => ({ id: e.id, name: e.name }))}
+      agentsLoading={agentsLoading}
+      agentId={agentId}
+      onAgentChange={setChosen}
+      effective={effective.value ?? null}
+      loading={effective.loading}
+      error={worded(effective.error, tw("effectiveFailed"))}
+      onRetry={effective.retry}
+    />
+  );
+}
+
+export interface PolicyChangesConnectedProps {
+  capabilities: readonly string[];
+  /** `?change=`: the change set open in the drawer. */
+  openId: string | null;
+  onOpenChange: (id: string | null) => void;
+  client?: PoliciesRestClient;
+}
+
+/** `/policies/changes`: REST `policy-changes` by status, and each change set's reviewed transitions. */
+export function PolicyChangesConnected({
+  capabilities,
+  openId,
+  onOpenChange,
+  client = policiesRest,
+}: PolicyChangesConnectedProps) {
+  const tw = useTranslations("policies.writes");
+  const [status, setStatus] = React.useState("");
+  const changes = useRest<PolicyChangeSet[]>(
+    () => client.changes(status),
+    `changes:${status}`,
+  );
+  return (
+    <PolicyChangesScreen
+      capabilities={capabilities}
+      changes={changes.value ?? []}
+      loading={changes.loading}
+      error={worded(changes.error, tw("changesFailed"))}
+      onRetry={changes.retry}
+      status={status}
+      onStatusChange={setStatus}
+      openId={openId}
+      onOpenChange={onOpenChange}
+      onTransition={async (change, to) => {
+        try {
+          await client.transition(change.id, to);
+        } catch (failure) {
+          throw worded(
+            failure instanceof Error ? failure : new Error(),
+            tw("transitionFailed"),
+          );
+        }
+        changes.retry();
+      }}
+    />
+  );
+}
+
+export interface PolicyCopilotConnectedProps {
+  capabilities: readonly string[];
+  /** `?policy=`: the live policy to compare against, as a policy page links it. */
+  initialPolicyId?: string;
+  client?: PoliciesRestClient;
+}
+
+/** `/policies/copilot`: REST `policy-copilot/status`, `draft`, `diff` and `stage`, then `policy-changes/{id}/transition`. */
+export function PolicyCopilotConnected({
+  capabilities,
+  initialPolicyId = "",
+  client = policiesRest,
+}: PolicyCopilotConnectedProps) {
+  const t = useTranslations("policies.copilot");
+  const status = useRest(() => client.copilotStatus(), "status");
+  const { policies } = usePolicies();
+  const [request, setRequest] = React.useState("");
+  const [policyId, setPolicyId] = React.useState(initialPolicyId);
+  const [preview, setPreview] = React.useState<CopilotPreview | null>(null);
+  const [staged, setStaged] = React.useState<{
+    id: string;
+    status: string;
+  } | null>(null);
+  const [busy, setBusy] = React.useState<"preview" | "stage" | null>(null);
+  const [error, setError] = React.useState<Error | null>(null);
+
+  async function step(
+    kind: "preview" | "stage" | null,
+    fallback: string,
+    act: () => Promise<void>,
+  ) {
+    setBusy(kind);
+    setError(null);
+    try {
+      await act();
+    } catch (failure) {
+      setError(
+        worded(failure instanceof Error ? failure : new Error(), fallback),
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <PolicyCopilotScreen
+      capabilities={capabilities}
+      status={
+        status.error
+          ? "error"
+          : status.loading || !status.value
+            ? "loading"
+            : status.value.enabled
+              ? "enabled"
+              : "disabled"
+      }
+      statusReason={status.value?.reason}
+      onRetryStatus={status.retry}
+      request={request}
+      onRequestChange={setRequest}
+      policyId={policyId}
+      onPolicyIdChange={(id) => {
+        setPolicyId(id);
+        setPreview(null);
+        setStaged(null);
+      }}
+      policies={policies.map((p) => ({ id: p.id, name: p.name }))}
+      onPreview={() =>
+        void step("preview", t("errors.draft"), async () => {
+          setStaged(null);
+          const draft = await client.copilotDraft(request.trim());
+          setPreview(await client.copilotDiff(policyId, draft));
+        })
+      }
+      previewing={busy === "preview"}
+      preview={preview}
+      error={status.error ?? error}
+      onStage={() =>
+        void step("stage", t("errors.stage"), async () => {
+          if (!preview) return;
+          const result = await client.copilotStage(policyId, preview.after);
+          setStaged({ id: result.change_id, status: result.status });
+        })
+      }
+      staging={busy === "stage"}
+      staged={staged}
+      onTransition={(to) =>
+        void step(null, t("errors.transition"), async () => {
+          if (!staged) return;
+          const result = await client.transition(staged.id, to);
+          setStaged({ id: staged.id, status: result.status || to });
+        })
+      }
     />
   );
 }
 
 export interface ContentRulesConnectedProps {
   capabilities: readonly string[];
-  onTest: (rule: ContentRuleData) => void;
-  onToggleEnabled: (rule: ContentRuleData) => Promise<unknown> | void;
-  onDuplicate: (rule: ContentRuleData) => Promise<unknown> | void;
-  onDelete: (rule: ContentRuleData) => Promise<unknown>;
-  onSubmit: (
+  onTest?: (rule: ContentRuleData) => void;
+  onToggleEnabled?: (rule: ContentRuleData) => Promise<unknown> | void;
+  onDuplicate?: (rule: ContentRuleData) => Promise<unknown> | void;
+  onDelete?: (rule: ContentRuleData) => Promise<unknown>;
+  onSubmit?: (
     input: CreateContentRuleInput,
     rule: ContentRuleData | null,
   ) => Promise<unknown>;
 }
 
-/** `/content-rules`: `GetContentRules` with server search and filters, and the rule drawer. */
+/** `/content-rules`: `GetContentRules` with server search and filters, the rule drawer, and the rule test. */
 export function ContentRulesConnected({
   capabilities,
   onSubmit,
-  ...writes
+  onTest,
+  onToggleEnabled,
+  onDuplicate,
+  onDelete,
 }: ContentRulesConnectedProps) {
+  const tw = useTranslations("policies.writes");
+  const writes = useContentRuleWrites();
   const [search, setSearch] = React.useState("");
   const [ruleType, setRuleType] = React.useState("");
   const [severity, setSeverity] = React.useState("");
   const [open, setOpen] = React.useState<{
     rule: ContentRuleData | null;
   } | null>(null);
+  const [testing, setTesting] = React.useState<ContentRuleData | null>(null);
   const query = useDebounced(search);
   const {
     contentRules: rules,
@@ -341,15 +733,32 @@ export function ContentRulesConnected({
         severity={severity}
         onSeverityChange={setSeverity}
         onOpenRule={(rule) => setOpen({ rule })}
-        {...writes}
+        onTest={onTest ?? setTesting}
+        onToggleEnabled={
+          onToggleEnabled ?? reported(writes.toggle, tw("ruleNotToggled"))
+        }
+        onDuplicate={
+          onDuplicate ?? reported(writes.duplicate, tw("ruleNotDuplicated"))
+        }
+        onDelete={onDelete ?? writes.remove}
       />
       <ContentRuleDrawer
         open={open !== null}
         onOpenChange={(o) => !o && setOpen(null)}
         rule={open?.rule ?? null}
         canEdit={capabilities.includes("mutate")}
-        onSubmit={(input) => onSubmit(input, open?.rule ?? null)}
+        onSubmit={(input) =>
+          (onSubmit ?? writes.save)(input, open?.rule ?? null)
+        }
       />
+      {testing && (
+        <TestRuleDialog
+          open
+          onOpenChange={(o) => !o && setTesting(null)}
+          ruleName={testing.name}
+          onTest={(content) => writes.test(testing, content)}
+        />
+      )}
     </>
   );
 }
@@ -408,15 +817,21 @@ export function DetectionsConnected({
 
 export interface PromptLibraryConnectedProps {
   capabilities: readonly string[];
-  onFork: (prompt: SystemPromptData) => Promise<unknown> | void;
-  onDelete: (prompt: SystemPromptData) => Promise<unknown>;
+  onFork?: (prompt: SystemPromptData) => Promise<unknown> | void;
+  onDelete?: (prompt: SystemPromptData) => Promise<unknown>;
+  /** The copy's page, after a fork. */
+  onNavigate?: (href: string) => void;
 }
 
 /** `/system-prompts`: `GetSystemPrompts` with server search and filters. */
 export function PromptLibraryConnected({
   capabilities,
-  ...writes
+  onFork,
+  onDelete,
+  onNavigate,
 }: PromptLibraryConnectedProps) {
+  const tw = useTranslations("policies.writes");
+  const writes = usePromptWrites();
   const [search, setSearch] = React.useState("");
   const [type, setType] = React.useState("");
   const [featuredOnly, setFeaturedOnly] = React.useState(false);
@@ -439,7 +854,15 @@ export function PromptLibraryConnected({
       onTypeChange={setType}
       featuredOnly={featuredOnly}
       onFeaturedOnlyChange={setFeaturedOnly}
-      {...writes}
+      onFork={
+        onFork ??
+        reported(async (prompt: SystemPromptData) => {
+          const copy = await writes.fork(prompt);
+          if (copy)
+            onNavigate?.(`/system-prompts/${encodeURIComponent(copy.id)}`);
+        }, tw("promptNotForked"))
+      }
+      onDelete={onDelete ?? writes.remove}
     />
   );
 }
@@ -449,12 +872,14 @@ export interface PromptEditorConnectedProps {
   mode: PromptEditorMode;
   /** Edit mode. */
   id?: string;
-  onPickTemplate: (id: string) => Promise<SystemPromptData | null>;
-  onSave: (draft: PromptDraft) => Promise<unknown>;
-  onAnalyze: (
+  onPickTemplate?: (id: string) => Promise<SystemPromptData | null>;
+  onSave?: (draft: PromptDraft) => Promise<unknown>;
+  onAnalyze?: (
     promptText: string,
     promptType: string,
   ) => Promise<AnalyzeSystemPromptResult>;
+  /** The prompt's page, after a new one is saved. */
+  onNavigate?: (href: string) => void;
 }
 
 /** `/system-prompts/new` and `/system-prompts/{id}`: `GetSystemPrompt` when editing, featured `GetSystemPrompts` as templates. */
@@ -462,8 +887,12 @@ export function PromptEditorConnected({
   capabilities,
   mode,
   id,
-  ...rest
+  onPickTemplate,
+  onSave,
+  onAnalyze,
+  onNavigate,
 }: PromptEditorConnectedProps) {
+  const writes = usePromptWrites();
   const detail = useSystemPrompt({ id: id ?? null });
   // Templates are fetched only in template mode: the hook has no skip.
   const templates = useQuery<SystemPromptListData, SystemPromptListVariables>(
@@ -484,7 +913,15 @@ export function PromptEditorConnected({
       }
       templatesLoading={templates.loading}
       cancelHref="/system-prompts"
-      {...rest}
+      onPickTemplate={onPickTemplate ?? writes.template}
+      onSave={
+        onSave ??
+        (async (draft) => {
+          const saved = await writes.save(draft, id);
+          if (!id) onNavigate?.(`/system-prompts/${encodeURIComponent(saved)}`);
+        })
+      }
+      onAnalyze={onAnalyze ?? writes.analyze}
     />
   );
 }

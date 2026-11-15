@@ -1,62 +1,49 @@
 /**
  * The Policies area's words and tones, once: the backend's enums
  * (backend/zentinelle/models/policy.py, actions.py, compliance.py,
- * policy_change.py) as people read them, and each state's StatusTone.
+ * policy_change.py), each state's StatusTone, and `usePolicyLabels()` for
+ * how people read them, from the `policies.labels` messages.
  */
 import type { StatusTone } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import type { SelectOption } from "../../shared/Select";
 
-export const POLICY_TYPE_LABEL: Record<string, string> = {
-  system_prompt: "System prompt",
-  ai_guardrail: "AI guardrail",
-  prompt_injection: "Prompt injection",
-  model_restriction: "Model restriction",
-  context_limit: "Context limit",
-  output_filter: "Output filter",
-  agent_capability: "Agent capability",
-  agent_memory: "Agent memory",
-  agent_delegation: "Agent delegation",
-  human_oversight: "Human oversight",
-  resource_quota: "Resource quota",
-  budget_limit: "Budget limit",
-  rate_limit: "Rate limit",
-  behavioral_baseline: "Behavioral baseline",
-  tool_permission: "Tool permission",
-  network_policy: "Network policy",
-  secret_access: "Secret access",
-  data_access: "Data access",
-  audit_policy: "Audit policy",
-  session_policy: "Session policy",
-  session_quota: "Session quota",
-  data_retention: "Data retention",
-  safety_settings: "Safety settings (Gemini)",
-  multimodal_policy: "Multimodal content",
-};
+/** Policy.PolicyType; named by `policies.labels.types`. */
+export const POLICY_TYPES = [
+  "system_prompt",
+  "ai_guardrail",
+  "prompt_injection",
+  "model_restriction",
+  "context_limit",
+  "output_filter",
+  "agent_capability",
+  "agent_memory",
+  "agent_delegation",
+  "human_oversight",
+  "resource_quota",
+  "budget_limit",
+  "rate_limit",
+  "behavioral_baseline",
+  "tool_permission",
+  "network_policy",
+  "secret_access",
+  "data_access",
+  "audit_policy",
+  "session_policy",
+  "session_quota",
+  "data_retention",
+  "safety_settings",
+  "multimodal_policy",
+] as const;
 
 /** The views by type the IA names first (§4.1): Network, Budgets, Oversight. */
-export const TYPE_VIEWS: readonly SelectOption[] = [
-  { value: "", label: "All types" },
-  { value: "network_policy", label: "Network" },
-  { value: "budget_limit", label: "Budgets" },
-  { value: "human_oversight", label: "Oversight" },
-];
-
-export function typeLabel(type: string): string {
-  return POLICY_TYPE_LABEL[type] ?? type.replaceAll("_", " ");
-}
-
-/** Every type as a filter option: the quick views first, then the rest by name. */
-export function typeOptions(): SelectOption[] {
-  const quick = new Set(TYPE_VIEWS.map((v) => v.value));
-  return [
-    ...TYPE_VIEWS,
-    ...Object.entries(POLICY_TYPE_LABEL)
-      .filter(([value]) => !quick.has(value))
-      .map(([value, label]) => ({ value, label }))
-      .sort((a, b) => a.label.localeCompare(b.label)),
-  ];
-}
+export const TYPE_VIEWS = [
+  "",
+  "network_policy",
+  "budget_limit",
+  "human_oversight",
+] as const;
 
 /** Scope tiers from broadest to narrowest: the order inheritance resolves in. */
 export const SCOPE_ORDER = [
@@ -67,27 +54,10 @@ export const SCOPE_ORDER = [
   "user",
 ] as const;
 
-export const SCOPE_LABEL: Record<string, string> = {
-  organization: "Organization",
-  sub_organization: "Team or division",
-  deployment: "Deployment",
-  endpoint: "Agent",
-  user: "User",
-};
-
-export function scopeLabel(scope: string): string {
-  return SCOPE_LABEL[scope] ?? scope.replaceAll("_", " ");
-}
-
 export function scopeRank(scope: string): number {
   const index = (SCOPE_ORDER as readonly string[]).indexOf(scope);
   return index === -1 ? SCOPE_ORDER.length : index;
 }
-
-export const SCOPE_OPTIONS: readonly SelectOption[] = [
-  { value: "", label: "All scopes" },
-  ...SCOPE_ORDER.map((value) => ({ value, label: SCOPE_LABEL[value] })),
-];
 
 /** The mode is the ceiling on the action (#396). */
 export const ENFORCEMENT_TONE: Record<string, StatusTone> = {
@@ -96,32 +66,18 @@ export const ENFORCEMENT_TONE: Record<string, StatusTone> = {
   disabled: "muted",
 };
 
-export const ENFORCEMENT_LABEL: Record<string, string> = {
-  enforce: "Enforce",
-  audit: "Audit only",
-  disabled: "Disabled",
-};
-
 /** actions.py, the policy's response when it matches. */
-export const ACTION_OPTIONS: readonly SelectOption[] = [
-  { value: "log", label: "Log" },
-  { value: "alert", label: "Alert" },
-  { value: "warn", label: "Warn" },
-  { value: "steer", label: "Steer" },
-  { value: "redact", label: "Redact" },
-  { value: "require_approval", label: "Require approval" },
-  { value: "block", label: "Block" },
-];
+export const ACTIONS = [
+  "log",
+  "alert",
+  "warn",
+  "steer",
+  "redact",
+  "require_approval",
+  "block",
+] as const;
 
-export const BLOCK_LEVEL_OPTIONS: readonly SelectOption[] = [
-  { value: "tool_call", label: "Block the tool call" },
-  { value: "turn", label: "Cancel the turn" },
-  { value: "revoke_key", label: "Revoke the gateway key" },
-];
-
-export function actionLabel(action: string): string {
-  return ACTION_OPTIONS.find((o) => o.value === action)?.label ?? action;
-}
+export const BLOCK_LEVELS = ["tool_call", "turn", "revoke_key"] as const;
 
 export const SEVERITY_TONE: Record<string, StatusTone> = {
   info: "muted",
@@ -131,45 +87,40 @@ export const SEVERITY_TONE: Record<string, StatusTone> = {
   critical: "error",
 };
 
-export const SEVERITY_OPTIONS: readonly SelectOption[] = [
-  { value: "", label: "All severities" },
-  { value: "critical", label: "Critical" },
-  { value: "high", label: "High" },
-  { value: "medium", label: "Medium" },
-  { value: "low", label: "Low" },
-  { value: "info", label: "Info" },
-];
+export const SEVERITIES = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+  "info",
+] as const;
 
 /** compliance.py ContentRule.RuleType. */
-export const RULE_TYPE_OPTIONS: readonly SelectOption[] = [
-  { value: "secret_detection", label: "Secrets and credentials" },
-  { value: "pii_detection", label: "PII" },
-  { value: "phi_detection", label: "PHI" },
-  { value: "profanity_filter", label: "Profanity" },
-  { value: "custom_pattern", label: "Custom pattern (regex)" },
-  { value: "keyword_block", label: "Keyword blocklist" },
-  { value: "prompt_injection", label: "Prompt injection" },
-  { value: "jailbreak_attempt", label: "Jailbreak attempt" },
-  { value: "off_topic", label: "Off topic" },
-  { value: "policy_violation", label: "Policy violation" },
-  { value: "cost_threshold", label: "Cost threshold" },
-  { value: "rate_anomaly", label: "Usage rate anomaly" },
-  { value: "token_limit", label: "Token limit" },
-];
+export const RULE_TYPES = [
+  "secret_detection",
+  "pii_detection",
+  "phi_detection",
+  "profanity_filter",
+  "custom_pattern",
+  "keyword_block",
+  "prompt_injection",
+  "jailbreak_attempt",
+  "off_topic",
+  "policy_violation",
+  "cost_threshold",
+  "rate_anomaly",
+  "token_limit",
+] as const;
 
-export const RULE_ACTION_OPTIONS: readonly SelectOption[] = [
-  { value: "block", label: "Block" },
-  { value: "warn", label: "Warn" },
-  { value: "log_only", label: "Log only" },
-  { value: "redact", label: "Redact" },
-  { value: "require_approval", label: "Require approval" },
-];
+export const RULE_ACTIONS = [
+  "block",
+  "warn",
+  "log_only",
+  "redact",
+  "require_approval",
+] as const;
 
-export const SCAN_MODE_OPTIONS: readonly SelectOption[] = [
-  { value: "realtime", label: "Real time (inline)" },
-  { value: "async", label: "In the background" },
-  { value: "both", label: "Both" },
-];
+export const SCAN_MODES = ["realtime", "async", "both"] as const;
 
 /** policy_change.py PolicyChangeSet.Status. */
 export const CHANGE_STATUS_TONE: Record<string, StatusTone> = {
@@ -182,67 +133,45 @@ export const CHANGE_STATUS_TONE: Record<string, StatusTone> = {
   rejected: "error",
 };
 
-export const CHANGE_STATUS_LABEL: Record<string, string> = {
-  draft: "Draft",
-  validated: "Validated",
-  staged: "Staged",
-  approved: "Approved",
-  promoted: "Promoted",
-  rolled_back: "Rolled back",
-  rejected: "Rejected",
-};
-
-/** The reviewed state machine (PolicyChangeSet.transition), and who may take each step. */
+/**
+ * The reviewed state machine (PolicyChangeSet.transition), and who may take
+ * each step; each step is named by `policies.labels.transitions`.
+ */
 export const CHANGE_TRANSITIONS: Record<
   string,
-  readonly {
-    to: string;
-    label: string;
-    admin: boolean;
-    destructive?: boolean;
-  }[]
+  readonly { to: string; admin: boolean; destructive?: boolean }[]
 > = {
   draft: [
-    { to: "validated", label: "Validate", admin: false },
-    { to: "rejected", label: "Reject", admin: false, destructive: true },
+    { to: "validated", admin: false },
+    { to: "rejected", admin: false, destructive: true },
   ],
   validated: [
-    { to: "staged", label: "Stage", admin: false },
-    { to: "rejected", label: "Reject", admin: false, destructive: true },
+    { to: "staged", admin: false },
+    { to: "rejected", admin: false, destructive: true },
   ],
   staged: [
-    { to: "approved", label: "Approve", admin: true },
-    { to: "rejected", label: "Reject", admin: false, destructive: true },
+    { to: "approved", admin: true },
+    { to: "rejected", admin: false, destructive: true },
   ],
   approved: [
-    { to: "promoted", label: "Promote", admin: true },
-    { to: "rejected", label: "Reject", admin: false, destructive: true },
+    { to: "promoted", admin: true },
+    { to: "rejected", admin: false, destructive: true },
   ],
-  promoted: [
-    { to: "rolled_back", label: "Roll back", admin: true, destructive: true },
-  ],
+  promoted: [{ to: "rolled_back", admin: true, destructive: true }],
   rolled_back: [],
   rejected: [],
 };
 
-export const CHANGE_STATUS_OPTIONS: readonly SelectOption[] = [
-  { value: "", label: "All statuses" },
-  ...Object.entries(CHANGE_STATUS_LABEL).map(([value, label]) => ({
-    value,
-    label,
-  })),
-];
-
 /** system_prompt.py SystemPrompt.PromptType. */
-export const PROMPT_TYPE_OPTIONS: readonly SelectOption[] = [
-  { value: "system", label: "System prompt" },
-  { value: "persona", label: "Persona or role" },
-  { value: "task", label: "Task template" },
-  { value: "chain", label: "Prompt chain" },
-  { value: "few_shot", label: "Few-shot examples" },
-  { value: "safety", label: "Safety and guardrails" },
-  { value: "format", label: "Output format" },
-];
+export const PROMPT_TYPES = [
+  "system",
+  "persona",
+  "task",
+  "chain",
+  "few_shot",
+  "safety",
+  "format",
+] as const;
 
 export const PROMPT_STATUS_TONE: Record<string, StatusTone> = {
   draft: "muted",
@@ -250,9 +179,11 @@ export const PROMPT_STATUS_TONE: Record<string, StatusTone> = {
   archived: "muted",
 };
 
-/** Dates as the console shows them: day and time, in the reader's locale. */
-export function formatDateTime(value: string | null | undefined): string {
-  if (!value) return "Never";
+const words = (value: string) => value.replaceAll("_", " ");
+
+/** Dates as the console shows them: day and time, in the reader's locale; `never` when absent. */
+function dateTime(value: string | null | undefined, never: string): string {
+  if (!value) return never;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(undefined, {
@@ -264,13 +195,73 @@ export function formatDateTime(value: string | null | undefined): string {
   });
 }
 
-export function formatDate(value: string | null | undefined): string {
-  if (!value) return "Never";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, {
+function date(value: string | null | undefined, never: string): string {
+  if (!value) return never;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
 }
+
+/** The area's value names, options and tab rows in the reader's language. */
+export function usePolicyLabels() {
+  const t = useTranslations("policies.labels");
+  const named = (group: string, value: string) =>
+    t.has(`${group}.${value}`) ? t(`${group}.${value}`) : words(value);
+  const options = (group: string, values: readonly string[]): SelectOption[] =>
+    values.map((value) => ({ value, label: t(`${group}.${value}`) }));
+  const typeLabel = (type: string) => named("types", type);
+  const quick = new Set<string>(TYPE_VIEWS);
+  return {
+    typeLabel,
+    scopeLabel: (scope: string) => named("scopes", scope),
+    actionLabel: (action: string) => named("actions", action),
+    enforcementLabel: (mode: string) => named("enforcement", mode),
+    blockLevelLabel: (level: string) => named("blockLevels", level),
+    changeStatusLabel: (status: string) => named("changeStatuses", status),
+    transitionLabel: (to: string) => named("transitions", to),
+    promptTypeLabel: (type: string) => named("promptTypes", type),
+    ruleTypeLabel: (type: string) => named("ruleTypes", type),
+    /** Every type as a filter option: the quick views first, then the rest by name. */
+    typeOptions: (): SelectOption[] => [
+      ...TYPE_VIEWS.map((value) => ({
+        value,
+        label: t(`typeViews.${value || "all"}`),
+      })),
+      ...POLICY_TYPES.filter((value) => !quick.has(value))
+        .map((value) => ({ value, label: typeLabel(value) }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    ],
+    SCOPE_OPTIONS: [
+      { value: "", label: t("allScopes") },
+      ...options("scopes", SCOPE_ORDER),
+    ],
+    ACTION_OPTIONS: options("actions", ACTIONS),
+    BLOCK_LEVEL_OPTIONS: options("blockLevels", BLOCK_LEVELS),
+    SEVERITY_OPTIONS: [
+      { value: "", label: t("allSeverities") },
+      ...options("severities", SEVERITIES),
+    ],
+    RULE_TYPE_OPTIONS: options("ruleTypes", RULE_TYPES),
+    RULE_ACTION_OPTIONS: options("ruleActions", RULE_ACTIONS),
+    SCAN_MODE_OPTIONS: options("scanModes", SCAN_MODES),
+    CHANGE_STATUS_OPTIONS: [
+      { value: "", label: t("allStatuses") },
+      ...options("changeStatuses", Object.keys(CHANGE_STATUS_TONE)),
+    ],
+    PROMPT_TYPE_OPTIONS: options("promptTypes", PROMPT_TYPES),
+    formatDateTime: (value: string | null | undefined) =>
+      dateTime(value, t("never")),
+    formatDate: (value: string | null | undefined) => date(value, t("never")),
+    tabs: {
+      workspace: (key: string) => t(`tabs.workspace.${key}`),
+      rules: (key: string) => t(`tabs.rules.${key}`),
+      policy: (key: string) => t(`tabs.policy.${key}`),
+    },
+  };
+}
+
+export type PolicyLabels = ReturnType<typeof usePolicyLabels>;

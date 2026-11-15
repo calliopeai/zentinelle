@@ -13,6 +13,7 @@ import {
 } from "@calliopelabs/ui";
 import { MoreHorizontalIcon, PlusIcon, ShieldCheckIcon } from "lucide-react";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type { PolicyData } from "@/graphql/policies/types";
 
@@ -21,14 +22,7 @@ import { useListController } from "../../shared/list-controller";
 import { Select } from "../../shared/Select";
 import { accessOf } from "./access";
 import { areaCrumb, workspaceTabs } from "./frame";
-import {
-  SCOPE_OPTIONS,
-  actionLabel,
-  formatDate,
-  scopeLabel,
-  typeLabel,
-  typeOptions,
-} from "./labels";
+import { usePolicyLabels } from "./labels";
 import { PolicyStatus } from "./PolicyStatus";
 
 export interface PoliciesScreenProps {
@@ -75,6 +69,16 @@ export function PoliciesScreen({
   onDuplicate,
   onDelete,
 }: PoliciesScreenProps) {
+  const t = useTranslations("policies.policiesScreen");
+  const {
+    SCOPE_OPTIONS,
+    actionLabel,
+    formatDate,
+    scopeLabel,
+    typeLabel,
+    typeOptions,
+    tabs,
+  } = usePolicyLabels();
   const { Link } = useUI();
   const { canEdit } = accessOf(capabilities);
   const [deleting, setDeleting] = React.useState<PolicyData | null>(null);
@@ -97,7 +101,7 @@ export function PoliciesScreen({
   const columns: Column<PolicyData>[] = [
     {
       id: "name",
-      header: "Policy",
+      header: t("policy"),
       cell: (p) => (
         <div className="min-w-0 max-w-md">
           <div className="font-medium [overflow-wrap:anywhere]">{p.name}</div>
@@ -111,13 +115,13 @@ export function PoliciesScreen({
     },
     {
       id: "type",
-      header: "Type",
+      header: t("type"),
       width: "w-40",
       cell: (p) => typeLabel(p.policyType),
     },
     {
       id: "scope",
-      header: "Scope",
+      header: t("scope"),
       width: "w-44",
       cell: (p) => (
         <span className="[overflow-wrap:anywhere]">
@@ -132,13 +136,13 @@ export function PoliciesScreen({
     },
     {
       id: "action",
-      header: "Action",
+      header: t("action"),
       width: "w-32",
       cell: (p) => actionLabel(p.action),
     },
     {
       id: "status",
-      header: "Status",
+      header: t("status"),
       width: "w-32",
       cell: (p) => (
         <PolicyStatus enabled={p.enabled} enforcement={p.enforcement} />
@@ -146,14 +150,14 @@ export function PoliciesScreen({
     },
     {
       id: "priority",
-      header: "Priority",
+      header: t("priority"),
       width: "w-20",
       align: "right",
       cell: (p) => <span className="font-mono tabular-nums">{p.priority}</span>,
     },
     {
       id: "updated",
-      header: "Updated",
+      header: t("updated"),
       width: "w-28",
       cell: (p) => formatDate(p.updatedAt),
     },
@@ -162,10 +166,10 @@ export function PoliciesScreen({
   return (
     <PageFrame
       crumbs={[areaCrumb(capabilities, "policies")]}
-      title="Policies"
-      description="The rules every agent runs under, from the organization down to a single user."
-      tabs={workspaceTabs("all")}
-      tabsLabel="Policies"
+      title={t("policies")}
+      description={t("theRulesEveryAgentRuns")}
+      tabs={workspaceTabs("all", tabs.workspace)}
+      tabsLabel={t("policies")}
       primaryAction={
         canEdit ? (
           <Button asChild size="sm">
@@ -181,25 +185,28 @@ export function PoliciesScreen({
             <Button
               variant="outline"
               size="icon-sm"
-              aria-label="More policy actions"
+              aria-label={t("morePolicyActions")}
             >
               <MoreHorizontalIcon aria-hidden />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={onSimulate}>
-              Simulate a policy
+              {t("simulateAPolicy")}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={onAnalyze}>
-              Analyze coverage
+              {t("analyzeCoverage")}
             </DropdownMenuItem>
             {canEdit && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/policies/create?source=document">
-                    New from a document
+                    {t("newFromADocument")}
                   </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/policies/copilot">{t("draftWithCopilot")}</Link>
                 </DropdownMenuItem>
               </>
             )}
@@ -207,74 +214,77 @@ export function PoliciesScreen({
         </DropdownMenu>
       }
     >
-      <DataTable
-        label="Policies"
-        controller={controller}
-        columns={columns}
-        getRowId={(p) => p.id}
-        rowHref={(p) => `/policies/${encodeURIComponent(p.id)}`}
-        rowLabel={(p) => p.name}
-        searchPlaceholder="Search policies"
-        toolbar={
-          <FilterBar label="Policy filters">
-            <Select
-              aria-label="Policy type"
-              options={typeOptions()}
-              value={type}
-              onValueChange={onTypeChange}
-              className="w-44"
-            />
-            <Select
-              aria-label="Scope"
-              options={SCOPE_OPTIONS}
-              value={scope}
-              onValueChange={onScopeChange}
-              className="w-40"
-            />
-          </FilterBar>
-        }
-        empty={{
-          icon: <ShieldCheckIcon />,
-          title: "No policies yet",
-          description: canEdit
-            ? "A policy sets what agents may do: budgets, tools, networks, oversight. Start with one for the whole organization."
-            : "An operator or administrator adds policies. They show here once they exist.",
-          ...(canEdit
-            ? { actionHref: "/policies/create", actionLabel: "New policy" }
-            : {}),
-        }}
-        emptyFiltered={{
-          title: "No policies match",
-          description: "Try another type or scope, or clear the search.",
-        }}
-        rowActions={
-          canEdit
-            ? (p) => (
-                <>
-                  <DropdownMenuItem onSelect={() => void onToggleEnabled(p)}>
-                    {p.enabled ? "Turn off" : "Turn on"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => void onDuplicate(p)}>
-                    Duplicate
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onSelect={() => setDeleting(p)}
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              )
-            : undefined
-        }
-      />
+      {/* The demo tour's "policies-table" steps point here. */}
+      <div data-tour="policies-table" className="min-w-0">
+        <DataTable
+          label={t("policies")}
+          controller={controller}
+          columns={columns}
+          getRowId={(p) => p.id}
+          rowHref={(p) => `/policies/${encodeURIComponent(p.id)}`}
+          rowLabel={(p) => p.name}
+          searchPlaceholder={t("searchPolicies")}
+          toolbar={
+            <FilterBar label={t("policyFilters")}>
+              <Select
+                aria-label={t("policyType")}
+                options={typeOptions()}
+                value={type}
+                onValueChange={onTypeChange}
+                className="w-44"
+              />
+              <Select
+                aria-label={t("scope")}
+                options={SCOPE_OPTIONS}
+                value={scope}
+                onValueChange={onScopeChange}
+                className="w-40"
+              />
+            </FilterBar>
+          }
+          empty={{
+            icon: <ShieldCheckIcon />,
+            title: t("noPoliciesYet"),
+            description: canEdit
+              ? t("aPolicySetsWhatAgents")
+              : t("anOperatorOrAdministratorAdds"),
+            ...(canEdit
+              ? { actionHref: "/policies/create", actionLabel: t("newPolicy") }
+              : {}),
+          }}
+          emptyFiltered={{
+            title: t("noPoliciesMatch"),
+            description: t("tryAnotherTypeOrScope"),
+          }}
+          rowActions={
+            canEdit
+              ? (p) => (
+                  <>
+                    <DropdownMenuItem onSelect={() => void onToggleEnabled(p)}>
+                      {p.enabled ? t("turnOff") : t("turnOn")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => void onDuplicate(p)}>
+                      {t("duplicate")}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => setDeleting(p)}
+                    >
+                      {t("delete")}
+                    </DropdownMenuItem>
+                  </>
+                )
+              : undefined
+          }
+        />
+      </div>
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.name ?? "this policy"}?`}
-        description="Agents stop applying it at their next policy refresh. Its history stays in the audit log; the policy itself cannot be restored."
-        confirmLabel="Delete policy"
+        description={t("agentsStopApplyingItAt")}
+        confirmLabel={t("deletePolicy")}
         destructive
         onConfirm={() => (deleting ? onDelete(deleting) : undefined)}
       />

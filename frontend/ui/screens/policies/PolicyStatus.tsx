@@ -1,6 +1,7 @@
 import { StatusBadge } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
-import { ENFORCEMENT_LABEL, ENFORCEMENT_TONE } from "./labels";
+import { ENFORCEMENT_TONE, usePolicyLabels } from "./labels";
 
 /**
  * A policy's state in one badge: off, or its enforcement mode. A policy
@@ -13,10 +14,12 @@ export function PolicyStatus({
   enabled: boolean;
   enforcement: string;
 }) {
-  if (!enabled) return <StatusBadge tone="muted">Off</StatusBadge>;
+  const t = useTranslations("policies.policyStatus");
+  const { enforcementLabel } = usePolicyLabels();
+  if (!enabled) return <StatusBadge tone="muted">{t("off")}</StatusBadge>;
   return (
     <StatusBadge tone={ENFORCEMENT_TONE[enforcement] ?? "muted"}>
-      {ENFORCEMENT_LABEL[enforcement] ?? enforcement}
+      {enforcementLabel(enforcement)}
     </StatusBadge>
   );
 }

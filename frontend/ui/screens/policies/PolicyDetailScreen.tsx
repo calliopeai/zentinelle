@@ -17,6 +17,7 @@ import {
 } from "@calliopelabs/ui";
 import { MoreHorizontalIcon, SearchXIcon } from "lucide-react";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type { PolicyData } from "@/graphql/policies/types";
 
@@ -27,13 +28,7 @@ import { useListController } from "../../shared/list-controller";
 import { StatTile } from "./components/StatTile";
 import { accessOf } from "./access";
 import { areaCrumb, policyTabs, type PolicyTab } from "./frame";
-import {
-  actionLabel,
-  BLOCK_LEVEL_OPTIONS,
-  formatDateTime,
-  scopeLabel,
-  typeLabel,
-} from "./labels";
+import { usePolicyLabels } from "./labels";
 import { PolicyStatus } from "./PolicyStatus";
 import type { PolicyDiff, PolicyVersion } from "./rest-types";
 import type { Simulation } from "./SimulatePanel";
@@ -72,23 +67,24 @@ export interface PolicyDetailScreenProps {
 }
 
 function DiffView({ diff }: { diff: PolicyDiff }) {
+  const t = useTranslations("policies.policyDetailScreen");
   const rows = [
-    ...Object.entries(diff.added).map(([k, v]) => ({ k, kind: "Added", v })),
+    ...Object.entries(diff.added).map(([k, v]) => ({ k, kind: t("added"), v })),
     ...Object.entries(diff.removed).map(([k, v]) => ({
       k,
-      kind: "Removed",
+      kind: t("removed"),
       v,
     })),
     ...Object.entries(diff.changed).map(([k, v]) => ({
       k,
-      kind: "Changed",
+      kind: t("changed"),
       v,
     })),
   ];
   if (rows.length === 0)
     return (
       <p className="text-sm text-muted-foreground">
-        The two versions are the same.
+        {t("theTwoVersionsAreThe")}
       </p>
     );
   return (
@@ -121,6 +117,8 @@ function History({
   diff,
   onCompare,
 }: Pick<PolicyDetailScreenProps, "history" | "diff" | "onCompare">) {
+  const t = useTranslations("policies.policyDetailScreen");
+  const { formatDateTime } = usePolicyLabels();
   const controller = useListController({
     rows: history?.data ?? [],
     loading: history?.loading ?? true,
@@ -132,39 +130,39 @@ function History({
   const columns: Column<PolicyVersion>[] = [
     {
       id: "version",
-      header: "Version",
+      header: t("version"),
       width: "w-20",
       cell: (v) => <span className="font-mono">v{v.version}</span>,
     },
     {
       id: "summary",
-      header: "Change",
+      header: t("change"),
       cell: (v) => (
         <span className="[overflow-wrap:anywhere]">
-          {v.change_summary || "No summary"}
+          {v.change_summary || t("noSummary")}
         </span>
       ),
     },
     {
       id: "by",
-      header: "By",
+      header: t("by"),
       width: "w-48",
       cell: (v) => (
         <span className="[overflow-wrap:anywhere]">
-          {v.changed_by ?? "System"}
+          {v.changed_by ?? t("system")}
         </span>
       ),
     },
     {
       id: "at",
-      header: "When",
+      header: t("when"),
       width: "w-40",
       cell: (v) => formatDateTime(v.changed_at),
     },
     {
       id: "compare",
-      header: <span className="sr-only">Compare</span>,
-      label: "Compare",
+      header: <span className="sr-only">{t("compare")}</span>,
+      label: t("compare"),
       width: "w-36",
       align: "right",
       cell: (v) =>
@@ -174,7 +172,7 @@ function History({
             variant="outline"
             onClick={() => onCompare(v.version - 1, v.version)}
           >
-            Compare with v{v.version - 1}
+            {t("compareWith", { version: v.version - 1 })}
           </Button>
         ) : null,
     },
@@ -182,27 +180,30 @@ function History({
   return (
     <div className="flex flex-col gap-6">
       <DataTable
-        label="Versions"
+        label={t("versions")}
         controller={controller}
         columns={columns}
         getRowId={(v) => String(v.id)}
         empty={{
-          title: "No earlier versions",
-          description: "A version is recorded each time the policy is saved.",
+          title: t("noEarlierVersions"),
+          description: t("aVersionIsRecordedEach"),
         }}
       />
       {diff && (
-        <Section title="Comparison" aria-live="polite">
+        <Section title={t("comparison")} aria-live="polite">
           {diff.error ? (
             <ErrorState
-              title="Could not compare the versions"
+              title={t("couldNotCompareTheVersions")}
               error={diff.error}
             />
           ) : diff.loading || !diff.data ? (
-            <LoadingState label="Comparing" rows={2} />
+            <LoadingState label={t("comparing")} rows={2} />
           ) : (
             <Card
-              title={`v${diff.data.from_version} to v${diff.data.to_version}`}
+              title={t("versionPair", {
+                from: diff.data.from_version,
+                to: diff.data.to_version,
+              })}
             >
               <DiffView diff={diff.data} />
             </Card>
@@ -231,6 +232,15 @@ export function PolicyDetailScreen({
   onDuplicate,
   onDelete,
 }: PolicyDetailScreenProps) {
+  const t = useTranslations("policies.policyDetailScreen");
+  const {
+    actionLabel,
+    blockLevelLabel,
+    formatDateTime,
+    scopeLabel,
+    typeLabel,
+    tabs,
+  } = usePolicyLabels();
   const { Link } = useUI();
   const { canEdit } = accessOf(capabilities);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
@@ -238,9 +248,9 @@ export function PolicyDetailScreen({
 
   if (error) {
     return (
-      <PageFrame crumbs={crumbs} title="Policy">
+      <PageFrame crumbs={crumbs} title={t("policy")}>
         <ErrorState
-          title="Could not load the policy"
+          title={t("couldNotLoadThePolicy")}
           error={error}
           onRetry={onRetry}
         />
@@ -249,42 +259,40 @@ export function PolicyDetailScreen({
   }
   if (loading && !policy) {
     return (
-      <PageFrame crumbs={crumbs} title="Policy">
-        <LoadingState label="Loading the policy" variant="page" />
+      <PageFrame crumbs={crumbs} title={t("policy")}>
+        <LoadingState label={t("loadingThePolicy")} variant="page" />
       </PageFrame>
     );
   }
   if (!policy) {
     return (
-      <PageFrame crumbs={crumbs} title="Policy not found">
+      <PageFrame crumbs={crumbs} title={t("policyNotFound")}>
         <EmptyState
           icon={<SearchXIcon />}
-          title="This policy does not exist"
-          description="It may have been deleted, or the link belongs to another organization."
+          title={t("thisPolicyDoesNotExist")}
+          description={t("itMayHaveBeenDeleted")}
           actionHref="/policies"
-          actionLabel="Back to policies"
+          actionLabel={t("backToPolicies")}
         />
       </PageFrame>
     );
   }
 
-  const blockLevel =
-    BLOCK_LEVEL_OPTIONS.find((o) => o.value === policy.blockLevel)?.label ??
-    policy.blockLevel;
+  const blockLevel = blockLevelLabel(policy.blockLevel);
   let body: React.ReactNode;
   if (tab === "overview") {
     body = (
-      <Section title="Overview">
+      <Section title={t("overview")}>
         <Card>
           <DefinitionList
             items={[
-              { term: "Type", description: typeLabel(policy.policyType) },
+              { term: t("type"), description: typeLabel(policy.policyType) },
               {
-                term: "Applies to",
+                term: t("appliesTo"),
                 description: `${scopeLabel(policy.scopeType)}${policy.scopeName ? `: ${policy.scopeName}` : ""}`,
               },
               {
-                term: "Status",
+                term: t("status"),
                 description: (
                   <PolicyStatus
                     enabled={policy.enabled}
@@ -293,31 +301,41 @@ export function PolicyDetailScreen({
                 ),
               },
               {
-                term: "On match",
+                term: t("onMatch"),
                 description:
                   policy.action === "block"
                     ? `${actionLabel(policy.action)}: ${blockLevel}`
                     : actionLabel(policy.action),
               },
               ...(policy.action === "steer" && policy.steerMessage
-                ? [{ term: "Steer message", description: policy.steerMessage }]
+                ? [
+                    {
+                      term: t("steerMessage"),
+                      description: policy.steerMessage,
+                    },
+                  ]
                 : []),
               {
-                term: "Priority",
+                term: t("priority"),
                 description: (
                   <span className="font-mono">{policy.priority}</span>
                 ),
               },
               {
-                term: "Description",
-                description: policy.description || "None",
+                term: t("description"),
+                description: policy.description || t("none"),
               },
               {
-                term: "Created",
-                description: `${formatDateTime(policy.createdAt)}${policy.createdByUsername ? ` by ${policy.createdByUsername}` : ""}`,
+                term: t("created"),
+                description: policy.createdByUsername
+                  ? t("createdBy", {
+                      time: formatDateTime(policy.createdAt),
+                      name: policy.createdByUsername,
+                    })
+                  : formatDateTime(policy.createdAt),
               },
               {
-                term: "Updated",
+                term: t("updated"),
                 description: formatDateTime(policy.updatedAt),
               },
             ]}
@@ -329,23 +347,26 @@ export function PolicyDetailScreen({
     body = (
       <div className="flex flex-col gap-6">
         <Section
-          title="Configuration"
+          title={t("configuration")}
           action={
             canEdit ? (
               <Button asChild size="sm" variant="outline">
                 <Link href={`/policies/${encodeURIComponent(policy.id)}/edit`}>
-                  Edit
+                  {t("edit")}
                 </Link>
               </Button>
             ) : undefined
           }
         >
-          <CodeBlock label="Policy configuration" value={policy.config ?? {}} />
+          <CodeBlock
+            label={t("policyConfiguration")}
+            value={policy.config ?? {}}
+          />
         </Section>
         {policy.escalation && Object.keys(policy.escalation).length > 0 && (
-          <Section title="Escalation">
+          <Section title={t("escalation")}>
             <CodeBlock
-              label="Escalation"
+              label={t("escalation")}
               value={policy.escalation}
               maxHeight="sm"
             />
@@ -357,58 +378,61 @@ export function PolicyDetailScreen({
     const sim = effect?.data;
     body = (
       <div className="flex flex-col gap-6">
-        <Section title="Scope">
+        <Section title={t("scope")}>
           <p className="text-sm">
             {policy.scopeType === "organization"
-              ? "Every agent in the organization, unless a narrower policy of the same type overrides it."
-              : `Only ${scopeLabel(policy.scopeType).toLowerCase()} ${policy.scopeName ?? ""}, over any broader policy of the same type.`}{" "}
+              ? t("everyAgentInTheOrganization")
+              : t("onlyScope", {
+                  scope: scopeLabel(policy.scopeType).toLowerCase(),
+                  name: policy.scopeName ?? "",
+                })}{" "}
             <Link
               href="/policies/hierarchy"
               className="underline underline-offset-2"
             >
-              See the hierarchy
+              {t("seeTheHierarchy")}
             </Link>
           </p>
         </Section>
         <Section
-          title="Effect over the last 7 days"
-          description="Recent events replayed against this policy as it is configured now."
+          title={t("effectOverTheLast7")}
+          description={t("recentEventsReplayedAgainstThis")}
           action={
             <Button size="sm" variant="outline" onClick={onSimulate}>
-              Simulate a change
+              {t("simulateAChange")}
             </Button>
           }
         >
           {effect?.error ? (
             <ErrorState
-              title="Could not simulate the policy"
+              title={t("couldNotSimulateThePolicy")}
               error={effect.error}
               onRetry={effect.onRetry}
             />
           ) : !effect || effect.loading || !sim ? (
-            <LoadingState label="Simulating" rows={2} />
+            <LoadingState label={t("simulating")} rows={2} />
           ) : sim.totalEvents === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No events in the window to replay.
+              {t("noEventsInTheWindow")}
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <StatTile
-                label="Events"
+                label={t("events")}
                 value={sim.totalEvents.toLocaleString()}
               />
               <StatTile
-                label="Would block"
+                label={t("wouldBlock")}
                 value={sim.wouldBlock.toLocaleString()}
                 tone={sim.wouldBlock ? "error" : undefined}
               />
               <StatTile
-                label="Would warn"
+                label={t("wouldWarn")}
                 value={sim.wouldWarn.toLocaleString()}
                 tone={sim.wouldWarn ? "warn" : undefined}
               />
               <StatTile
-                label="Outcome changed"
+                label={t("outcomeChanged")}
                 value={`${sim.impactPercent}%`}
               />
             </div>
@@ -431,15 +455,15 @@ export function PolicyDetailScreen({
         />
       }
       context={typeLabel(policy.policyType)}
-      tabs={policyTabs(policy.id, tab)}
-      tabsLabel="Policy"
+      tabs={policyTabs(policy.id, tab, tabs.policy)}
+      tabsLabel={t("policy")}
       primaryAction={
         <Button
           size="sm"
           variant={canEdit ? "outline" : "default"}
           onClick={onSimulate}
         >
-          Simulate
+          {t("simulate")}
         </Button>
       }
       menu={
@@ -448,14 +472,14 @@ export function PolicyDetailScreen({
             <Button
               variant="outline"
               size="icon-sm"
-              aria-label="More actions for this policy"
+              aria-label={t("moreActionsForThisPolicy")}
             >
               <MoreHorizontalIcon aria-hidden />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={onAskAssistant}>
-              Ask the assistant
+              {t("askTheAssistant")}
             </DropdownMenuItem>
             {canEdit && (
               <>
@@ -463,21 +487,21 @@ export function PolicyDetailScreen({
                   <Link
                     href={`/policies/${encodeURIComponent(policy.id)}/edit`}
                   >
-                    Edit
+                    {t("edit")}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => void onDuplicate()}>
-                  Duplicate
+                  {t("duplicate")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => void onToggleEnabled()}>
-                  {policy.enabled ? "Turn off" : "Turn on"}
+                  {policy.enabled ? t("turnOff") : t("turnOn")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"
                   onSelect={() => setConfirmDelete(true)}
                 >
-                  Delete
+                  {t("delete")}
                 </DropdownMenuItem>
               </>
             )}
@@ -490,8 +514,8 @@ export function PolicyDetailScreen({
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title={`Delete ${policy.name}?`}
-        description="Agents stop applying it at their next policy refresh. Its history stays in the audit log; the policy itself cannot be restored."
-        confirmLabel="Delete policy"
+        description={t("agentsStopApplyingItAt")}
+        confirmLabel={t("deletePolicy")}
         destructive
         onConfirm={onDelete}
       />

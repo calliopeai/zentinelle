@@ -2,7 +2,9 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import { simulation, simulationQuiet } from "../../storybook/fixtures/policies";
-import { typeOptions } from "./labels";
+import en from "@/messages/en.json";
+
+import { POLICY_TYPES } from "./labels";
 import { SimulatePanel } from "./SimulatePanel";
 import { NARROW } from "./story-helpers";
 
@@ -12,7 +14,10 @@ const meta = {
   args: {
     open: true,
     onOpenChange: fn(),
-    types: typeOptions().filter((o) => o.value),
+    types: POLICY_TYPES.map((value) => ({
+      value,
+      label: en.policies.labels.types[value],
+    })),
     initial: {
       policyType: "network_policy",
       config: { allowed_outbound_domains: ["api.openai.com"] },

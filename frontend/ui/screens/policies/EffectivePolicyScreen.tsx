@@ -9,6 +9,7 @@ import {
   useUI,
 } from "@calliopelabs/ui";
 import { BotIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Card } from "./components/Card";
 import { CodeBlock } from "../../shared/CodeBlock";
@@ -16,13 +17,7 @@ import { DefinitionList } from "./components/DefinitionList";
 import { Field } from "../../shared/Field";
 import { Select } from "../../shared/Select";
 import { areaCrumb, workspaceTabs } from "./frame";
-import {
-  ENFORCEMENT_LABEL,
-  ENFORCEMENT_TONE,
-  scopeLabel,
-  scopeRank,
-  typeLabel,
-} from "./labels";
+import { ENFORCEMENT_TONE, scopeRank, usePolicyLabels } from "./labels";
 import type { EffectivePolicyResponse } from "./rest-types";
 
 export interface EffectiveAgent {
@@ -78,11 +73,13 @@ export function EffectivePolicyScreen({
   error,
   onRetry,
 }: EffectivePolicyScreenProps) {
+  const t = useTranslations("policies.effectivePolicyScreen");
+  const { enforcementLabel, scopeLabel, typeLabel, tabs } = usePolicyLabels();
   const { Link } = useUI();
   const picker = (
     <Field
-      label="Agent"
-      hint="Effective policy is resolved for one agent at a time."
+      label={t("agent")}
+      hint={t("effectivePolicyIsResolvedFor")}
       className="max-w-sm"
     >
       {(control) => (
@@ -92,7 +89,7 @@ export function EffectivePolicyScreen({
           options={[
             {
               value: "",
-              label: agentsLoading ? "Loading agents" : "Choose an agent",
+              label: agentsLoading ? t("loadingAgents") : t("chooseAnAgent"),
             },
             ...agents.map((a) => ({ value: a.id, label: a.name })),
           ]}
@@ -108,30 +105,30 @@ export function EffectivePolicyScreen({
     body = (
       <EmptyState
         icon={<BotIcon />}
-        title="No agents registered"
-        description="Effective policy is computed per agent. Register an agent, then come back."
+        title={t("noAgentsRegistered")}
+        description={t("effectivePolicyIsComputedPer")}
         actionHref="/agents"
-        actionLabel="Go to Agents"
+        actionLabel={t("goToAgents")}
       />
     );
   } else if (!agentId) {
     body = (
       <EmptyState
-        title="Choose an agent"
-        description="Pick an agent above to see the policies that reach it and the configuration they resolve to."
+        title={t("chooseAnAgent")}
+        description={t("pickAnAgentAboveTo")}
       />
     );
   } else if (error) {
     body = (
       <ErrorState
-        title="Could not resolve the effective policy"
+        title={t("couldNotResolveTheEffective")}
         error={error}
         onRetry={onRetry}
       />
     );
   } else if (loading || !effective) {
     body = (
-      <LoadingState label="Resolving the effective policy" variant="page" />
+      <LoadingState label={t("resolvingTheEffectivePolicy")} variant="page" />
     );
   } else {
     const ordered = [...effective.policies].sort(
@@ -141,22 +138,22 @@ export function EffectivePolicyScreen({
     const r = effective.resolved;
     const other: [string, Record<string, unknown>][] = (
       [
-        ["Guardrails", r.ai_guardrails],
-        ["Rate limits", r.rate_limits],
-        ["Budget", r.budget_limits],
-        ["Resource quotas", r.resource_quotas],
+        [t("guardrails"), r.ai_guardrails],
+        [t("rateLimits"), r.rate_limits],
+        [t("budget"), r.budget_limits],
+        [t("resourceQuotas"), r.resource_quotas],
       ] as [string, Record<string, unknown>][]
     ).filter(([, v]) => hasKeys(v));
     body = (
       <div className="flex flex-col gap-6">
         <Section
-          title="Policies in effect"
-          description="Broadest first. A narrower tier, or a higher priority within a tier, wins."
+          title={t("policiesInEffect")}
+          description={t("broadestFirstANarrowerTier")}
         >
           {ordered.length === 0 ? (
             <EmptyState
-              title="No policy reaches this agent"
-              description="It runs with the platform defaults. Add an organization policy to cover every agent."
+              title={t("noPolicyReachesThisAgent")}
+              description={t("itRunsWithThePlatform")}
             />
           ) : (
             <ol className="divide-y divide-border rounded-lg border border-border">
@@ -183,28 +180,28 @@ export function EffectivePolicyScreen({
                   <StatusBadge
                     tone={ENFORCEMENT_TONE[p.enforcement] ?? "muted"}
                   >
-                    {ENFORCEMENT_LABEL[p.enforcement] ?? p.enforcement}
+                    {enforcementLabel(p.enforcement)}
                   </StatusBadge>
                 </li>
               ))}
             </ol>
           )}
         </Section>
-        <Section title="Resolved configuration">
+        <Section title={t("resolvedConfiguration")}>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card title="Tools">
+            <Card title={t("tools")}>
               <DefinitionList
                 items={[
                   {
-                    term: "Allowed",
+                    term: t("allowed"),
                     description: <Values values={r.tool_permissions.allowed} />,
                   },
                   {
-                    term: "Denied",
+                    term: t("denied"),
                     description: <Values values={r.tool_permissions.denied} />,
                   },
                   {
-                    term: "Needs approval",
+                    term: t("needsApproval"),
                     description: (
                       <Values values={r.tool_permissions.requires_approval} />
                     ),
@@ -212,17 +209,17 @@ export function EffectivePolicyScreen({
                 ]}
               />
             </Card>
-            <Card title="Secrets">
+            <Card title={t("secrets")}>
               <DefinitionList
                 items={[
                   {
-                    term: "Bundles",
+                    term: t("bundles"),
                     description: (
                       <Values values={r.secret_access.allowed_bundles} />
                     ),
                   },
                   {
-                    term: "Denied providers",
+                    term: t("deniedProviders"),
                     description: (
                       <Values values={r.secret_access.denied_providers} />
                     ),
@@ -235,16 +232,16 @@ export function EffectivePolicyScreen({
                 <CodeBlock label={title} value={value} maxHeight="sm" />
               </Card>
             ))}
-            <Card title="System prompt" className="lg:col-span-2">
+            <Card title={t("systemPrompt")} className="lg:col-span-2">
               {r.system_prompt ? (
                 <CodeBlock
-                  label="System prompt"
+                  label={t("systemPrompt")}
                   value={r.system_prompt}
                   maxHeight="sm"
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No system prompt policy applies.
+                  {t("noSystemPromptPolicyApplies")}
                 </p>
               )}
             </Card>
@@ -257,9 +254,9 @@ export function EffectivePolicyScreen({
   return (
     <PageFrame
       crumbs={[areaCrumb(capabilities, "policies")]}
-      title="Policies"
-      tabs={workspaceTabs("effective")}
-      tabsLabel="Policies"
+      title={t("policies")}
+      tabs={workspaceTabs("effective", tabs.workspace)}
+      tabsLabel={t("policies")}
       filters={picker}
     >
       {body}

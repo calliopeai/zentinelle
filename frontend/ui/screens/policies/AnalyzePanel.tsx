@@ -10,9 +10,10 @@ import {
   LoadingState,
   useUI,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import { StatTile } from "./components/StatTile";
-import { scopeLabel, typeLabel } from "./labels";
+import { usePolicyLabels } from "./labels";
 import type { PolicyAnalysis } from "./map";
 
 export interface AnalyzePanelProps {
@@ -34,23 +35,25 @@ export function AnalyzePanel({
   error,
   onRetry,
 }: AnalyzePanelProps) {
+  const t = useTranslations("policies.analyzePanel");
+  const { scopeLabel, typeLabel } = usePolicyLabels();
   const { Link } = useUI();
   let body: React.ReactNode;
   if (error)
     body = (
       <ErrorState
-        title="Could not analyze the policies"
+        title={t("couldNotAnalyzeThePolicies")}
         error={error}
         onRetry={onRetry}
       />
     );
   else if (loading || !analysis)
-    body = <LoadingState label="Analyzing the policies" rows={4} />;
+    body = <LoadingState label={t("analyzingThePolicies")} rows={4} />;
   else if (analysis.total === 0)
     body = (
       <EmptyState
-        title="Nothing to analyze"
-        description="Coverage is measured over the policies that exist. Add a policy first."
+        title={t("nothingToAnalyze")}
+        description={t("coverageIsMeasuredOverThe")}
       />
     );
   else
@@ -58,29 +61,29 @@ export function AnalyzePanel({
       <div className="flex flex-col gap-5">
         <div className="grid grid-cols-2 gap-2">
           <StatTile
-            label="Enforced"
+            label={t("enforced")}
             value={analysis.enforced}
-            hint={`of ${analysis.total} policies`}
+            hint={t("ofTotal", { total: analysis.total })}
           />
-          <StatTile label="Audit only" value={analysis.auditOnly} />
+          <StatTile label={t("auditOnly")} value={analysis.auditOnly} />
           <StatTile
-            label="Off or disabled"
+            label={t("offOrDisabled")}
             value={analysis.disabled}
             tone={analysis.disabled ? "warn" : undefined}
           />
           <StatTile
-            label="Types covered"
+            label={t("typesCovered")}
             value={analysis.coveredTypes.length}
-            hint={`${analysis.missingTypes.length} with no live policy`}
+            hint={t("missingHint", { count: analysis.missingTypes.length })}
           />
         </div>
         <section>
           <h3 className="mb-1 text-sm font-semibold">
-            Conflicts ({analysis.conflicts.length})
+            {t("conflicts", { count: analysis.conflicts.length })}
           </h3>
           {analysis.conflicts.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No two live policies share a type, tier and priority.
+              {t("noTwoLivePoliciesShare")}
             </p>
           ) : (
             <ul className="flex flex-col gap-2 text-sm">
@@ -90,9 +93,11 @@ export function AnalyzePanel({
                   className="rounded-lg border border-warning-border bg-warning-bg p-2 text-warning-fg"
                 >
                   <span className="font-medium">{c.names.join(", ")}</span>:{" "}
-                  {typeLabel(c.type)} at {scopeLabel(c.scope).toLowerCase()}{" "}
-                  with priority {c.priority}, so the order they apply in is
-                  undefined.
+                  {t("conflict", {
+                    type: typeLabel(c.type),
+                    scope: scopeLabel(c.scope).toLowerCase(),
+                    priority: c.priority,
+                  })}
                 </li>
               ))}
             </ul>
@@ -100,11 +105,11 @@ export function AnalyzePanel({
         </section>
         <section>
           <h3 className="mb-1 text-sm font-semibold">
-            Policies that do nothing ({analysis.issues.length})
+            {t("doNothing", { count: analysis.issues.length })}
           </h3>
           {analysis.issues.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Every policy is on and configured.
+              {t("everyPolicyIsOnAnd")}
             </p>
           ) : (
             <ul className="flex flex-col gap-1 text-sm">
@@ -118,7 +123,7 @@ export function AnalyzePanel({
                   </Link>
                   <span className="text-muted-foreground">
                     {" "}
-                    {i.issues.join(" ")}
+                    {i.issues.map((key) => t(`issues.${key}`)).join(" ")}
                   </span>
                 </li>
               ))}
@@ -127,10 +132,11 @@ export function AnalyzePanel({
         </section>
         <section>
           <h3 className="mb-1 text-sm font-semibold">
-            Types with no live policy
+            {t("typesWithNoLivePolicy")}
           </h3>
           <p className="text-sm text-muted-foreground">
-            {analysis.missingTypes.join(", ") || "None."}
+            {analysis.missingTypes.map(typeLabel).sort().join(", ") ||
+              t("none")}
           </p>
         </section>
       </div>
@@ -139,11 +145,11 @@ export function AnalyzePanel({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="sm:max-w-lg">
         <DrawerHeader>
-          <DrawerTitle>Analyze coverage</DrawerTitle>
+          <DrawerTitle>{t("analyzeCoverage")}</DrawerTitle>
           <DrawerDescription>
             {analysis && analysis.total > 0
-              ? `${analysis.total} policies across ${analysis.agents} agents.`
-              : "Gaps, conflicts and policies with no effect."}
+              ? t("across", { total: analysis.total, agents: analysis.agents })
+              : t("gapsConflictsAndPoliciesWith")}
           </DrawerDescription>
         </DrawerHeader>
         <div className="overflow-y-auto px-4 pb-4">{body}</div>

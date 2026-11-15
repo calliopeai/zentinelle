@@ -15,6 +15,7 @@ import {
 } from "@calliopelabs/ui";
 import { LockIcon } from "lucide-react";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type {
   CreatePolicyInput,
@@ -29,12 +30,7 @@ import { Select } from "../../shared/Select";
 import { Textarea } from "../../shared/Textarea";
 import { accessOf } from "./access";
 import { areaCrumb } from "./frame";
-import {
-  ACTION_OPTIONS,
-  BLOCK_LEVEL_OPTIONS,
-  scopeLabel,
-  typeLabel,
-} from "./labels";
+import { usePolicyLabels } from "./labels";
 import { PolicyConfigFields } from "./PolicyConfigFields";
 
 export type PolicySource = "blank" | "document";
@@ -101,6 +97,9 @@ export function PolicyEditorScreen({
   onSubmit,
   cancelHref,
 }: PolicyEditorScreenProps) {
+  const t = useTranslations("policies.policyEditorScreen");
+  const { ACTION_OPTIONS, BLOCK_LEVEL_OPTIONS, scopeLabel, typeLabel } =
+    usePolicyLabels();
   const { Link } = useUI();
   const { canEdit } = accessOf(capabilities);
   const editing = Boolean(policy);
@@ -115,7 +114,7 @@ export function PolicyEditorScreen({
   const [docNote, setDocNote] = React.useState<string | null>(null);
   const [formKey, setFormKey] = React.useState(0);
 
-  const title = editing ? `Edit ${policy?.name}` : "New policy";
+  const title = editing ? `Edit ${policy?.name}` : t("newPolicy");
   const crumbs = [
     areaCrumb(capabilities, "policies", "/policies"),
     ...(editing && policy
@@ -133,10 +132,10 @@ export function PolicyEditorScreen({
       <PageFrame crumbs={crumbs} title={title}>
         <EmptyState
           icon={<LockIcon />}
-          title="Your role can read policies but not change them"
-          description="An operator or administrator creates and edits policies. Ask one, or use Simulate to try a change without saving it."
+          title={t("yourRoleCanReadPolicies")}
+          description={t("anOperatorOrAdministratorCreates")}
           actionHref={cancelHref}
-          actionLabel="Back to policies"
+          actionLabel={t("backToPolicies")}
         />
       </PageFrame>
     );
@@ -145,7 +144,7 @@ export function PolicyEditorScreen({
     return (
       <PageFrame crumbs={crumbs} title={title}>
         <ErrorState
-          title="Could not load the policy types"
+          title={t("couldNotLoadThePolicy")}
           error={optionsError}
           onRetry={onRetry}
         />
@@ -155,7 +154,7 @@ export function PolicyEditorScreen({
   if (optionsLoading || !options) {
     return (
       <PageFrame crumbs={crumbs} title={title}>
-        <LoadingState label="Loading the policy types" variant="page" />
+        <LoadingState label={t("loadingThePolicyTypes")} variant="page" />
       </PageFrame>
     );
   }
@@ -172,13 +171,12 @@ export function PolicyEditorScreen({
     event.preventDefault();
     const next: Record<string, string> = {};
     if (!form.name.trim()) next.name = "A name is required.";
-    if (!policyType) next.policyType = "Choose a policy type.";
+    if (!policyType) next.policyType = t("choosePolicyType");
     if (form.scopeType === "endpoint" && !form.scopeEndpointId && !editing)
-      next.scopeEndpointId = "Choose the agent this policy applies to.";
+      next.scopeEndpointId = t("chooseAgent");
     if (form.action === "steer" && !form.steerMessage?.trim())
       next.steerMessage = "A steer needs the message it sends the agent.";
-    if (!Number.isInteger(form.priority))
-      next.priority = "Enter a whole number.";
+    if (!Number.isInteger(form.priority)) next.priority = t("wholeNumber");
     setErrors(next);
     if (Object.keys(next).length) return;
     setFailure(null);
@@ -198,9 +196,7 @@ export function PolicyEditorScreen({
     try {
       const result = await onDraftFromDocument(doc);
       if (!result) {
-        setDocNote(
-          "Nothing in the document reads as a policy. Edit it, or start blank.",
-        );
+        setDocNote(t("nothingInTheDocumentReads"));
         return;
       }
       setForm((f) => ({ ...f, ...result }));
@@ -235,15 +231,15 @@ export function PolicyEditorScreen({
           {failure}
         </p>
       )}
-      <Section title="What it is">
+      <Section title={t("whatItIs")}>
         <div className="grid gap-4 sm:grid-cols-2">
           {editing ? (
             <DefinitionList
               className="sm:col-span-2"
               items={[
-                { term: "Type", description: typeLabel(policyType) },
+                { term: t("type"), description: typeLabel(policyType) },
                 {
-                  term: "Scope",
+                  term: t("scope"),
                   description: `${scopeLabel(form.scopeType ?? "")}${policy?.scopeName ? `: ${policy.scopeName}` : ""}`,
                 },
               ]}
@@ -251,7 +247,7 @@ export function PolicyEditorScreen({
           ) : (
             <>
               <Field
-                label="Type"
+                label={t("type")}
                 hint={typeOption?.description ?? undefined}
                 error={errors.policyType}
               >
@@ -276,7 +272,7 @@ export function PolicyEditorScreen({
                   />
                 )}
               </Field>
-              <Field label="Applies to">
+              <Field label={t("appliesTo")}>
                 {(c) => (
                   <Select
                     {...c}
@@ -292,12 +288,12 @@ export function PolicyEditorScreen({
                 )}
               </Field>
               {form.scopeType === "endpoint" && (
-                <Field label="Agent" error={errors.scopeEndpointId}>
+                <Field label={t("agent")} error={errors.scopeEndpointId}>
                   {(c) => (
                     <Select
                       {...c}
                       options={[
-                        { value: "", label: "Choose an agent" },
+                        { value: "", label: t("chooseAnAgent") },
                         ...agents.map((a) => ({ value: a.id, label: a.name })),
                       ]}
                       value={form.scopeEndpointId ?? ""}
@@ -308,7 +304,11 @@ export function PolicyEditorScreen({
               )}
             </>
           )}
-          <Field label="Name" error={errors.name} className="sm:col-span-2">
+          <Field
+            label={t("name")}
+            error={errors.name}
+            className="sm:col-span-2"
+          >
             {(c) => (
               <Input
                 {...c}
@@ -318,8 +318,8 @@ export function PolicyEditorScreen({
             )}
           </Field>
           <Field
-            label="Description"
-            hint="Why the policy exists; reviewers read this."
+            label={t("description")}
+            hint={t("whyThePolicyExistsReviewers")}
             className="sm:col-span-2"
           >
             {(c) => (
@@ -334,7 +334,7 @@ export function PolicyEditorScreen({
         </div>
       </Section>
       <Section
-        title="Configuration"
+        title={t("configuration")}
         description={typeOption ? typeLabel(policyType) : undefined}
       >
         <Card>
@@ -346,9 +346,9 @@ export function PolicyEditorScreen({
           />
         </Card>
       </Section>
-      <Section title="When it matches">
+      <Section title={t("whenItMatches")}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Mode" hint={enforcementHint ?? undefined}>
+          <Field label={t("mode")} hint={enforcementHint ?? undefined}>
             {(c) => (
               <Select
                 {...c}
@@ -358,7 +358,7 @@ export function PolicyEditorScreen({
               />
             )}
           </Field>
-          <Field label="Action">
+          <Field label={t("action")}>
             {(c) => (
               <Select
                 {...c}
@@ -369,7 +369,7 @@ export function PolicyEditorScreen({
             )}
           </Field>
           {form.action === "block" && (
-            <Field label="What a block stops">
+            <Field label={t("whatABlockStops")}>
               {(c) => (
                 <Select
                   {...c}
@@ -382,8 +382,8 @@ export function PolicyEditorScreen({
           )}
           {form.action === "steer" && (
             <Field
-              label="Steer message"
-              hint="Injected into the conversation to correct the agent."
+              label={t("steerMessage")}
+              hint={t("injectedIntoTheConversationTo")}
               error={errors.steerMessage}
               className="sm:col-span-2"
             >
@@ -398,8 +398,8 @@ export function PolicyEditorScreen({
             </Field>
           )}
           <Field
-            label="Priority"
-            hint="Higher wins within a tier."
+            label={t("priority")}
+            hint={t("higherWinsWithinATier")}
             error={errors.priority}
           >
             {(c) => (
@@ -423,17 +423,21 @@ export function PolicyEditorScreen({
               onCheckedChange={(v) => set("enabled", v === true)}
             />
             <label htmlFor="policy-enabled" className="text-sm">
-              On
+              {t("on")}
             </label>
           </div>
         </div>
       </Section>
       <div className="flex flex-wrap gap-2">
         <Button type="submit" size="sm" disabled={saving}>
-          {saving ? "Saving" : editing ? "Save changes" : "Create policy"}
+          {saving
+            ? t("saving")
+            : editing
+              ? t("saveChanges")
+              : t("createPolicy")}
         </Button>
         <Button asChild variant="ghost" size="sm">
-          <Link href={cancelHref}>Cancel</Link>
+          <Link href={cancelHref}>{t("cancel")}</Link>
         </Button>
       </div>
     </form>
@@ -448,17 +452,17 @@ export function PolicyEditorScreen({
           value={source}
           onValueChange={(v) => onSourceChange(v as PolicySource)}
         >
-          <TabsList aria-label="Start from">
-            <TabsTrigger value="blank">Blank</TabsTrigger>
-            <TabsTrigger value="document">From a document</TabsTrigger>
+          <TabsList aria-label={t("startFrom")}>
+            <TabsTrigger value="blank">{t("blank")}</TabsTrigger>
+            <TabsTrigger value="document">{t("fromADocument")}</TabsTrigger>
           </TabsList>
           <TabsContent value="blank" className="pt-4">
             {formBody}
           </TabsContent>
           <TabsContent value="document" className="flex flex-col gap-3 pt-4">
             <Field
-              label="Policy document"
-              hint="Paste the policy as written: an acceptable use policy, a security standard, a runbook. The draft opens in the form for review; nothing is saved until you create it."
+              label={t("policyDocument")}
+              hint={t("pasteThePolicyAsWritten")}
             >
               {(c) => (
                 <Textarea
@@ -480,7 +484,7 @@ export function PolicyEditorScreen({
               disabled={drafting || !doc.trim()}
               onClick={() => void draft()}
             >
-              {drafting ? "Reading the document" : "Draft the policy"}
+              {drafting ? t("readingTheDocument") : t("draftThePolicy")}
             </Button>
           </TabsContent>
         </Tabs>
