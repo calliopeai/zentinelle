@@ -128,6 +128,8 @@ def main():
                         page.goto(origin + '/approvals')
                         expect(page.get_by_role('heading', name='Approvals', exact=True)).to_be_visible()
                         cards = page.locator('[aria-label^="Request "]')
+                        # The page header's Refresh; an error state offers its own.
+                        refresh = page.locator('header').get_by_role('button', name='Refresh', exact=True)
                         expect(cards).to_have_count(2)
                         expect(cards.first).to_have_attribute('aria-label', f'Request {FIRST}')
                         cards.first.get_by_text('Action details', exact=True).click()
@@ -150,7 +152,7 @@ def main():
                             assert state['posts'][-1] == (SECOND, {'decision': 'deny', 'reason': ''})
 
                             state['rows'] = [row(arguments=True)]
-                            page.get_by_role('button', name='Refresh', exact=True).click()
+                            refresh.click()
                             expect(cards).to_have_count(1)
                             cards.first.get_by_text('Action details', exact=True).click()
                             expect(cards.first.locator('pre')).to_contain_text('<script>')
@@ -162,11 +164,11 @@ def main():
                             page.set_viewport_size({'width': 1280, 'height': 1000})
 
                             state['failure'] = True
-                            page.get_by_role('button', name='Refresh', exact=True).click()
+                            refresh.click()
                             expect(page.locator('main').get_by_role('alert')).to_contain_text('could not be refreshed')
                             expect(cards).to_have_count(0)
                             state['failure'] = False
-                            page.get_by_role('button', name='Refresh', exact=True).click()
+                            refresh.click()
                             expect(cards).to_have_count(1)
                             state['decision_status'] = 409
                             cards.first.get_by_role('button', name='Approve', exact=True).click()
@@ -175,7 +177,7 @@ def main():
                             assert len(state['posts']) == 3, 'Failed decision retried automatically'
 
                             state['rows'] = [row(expires=2)]
-                            page.get_by_role('button', name='Refresh', exact=True).click()
+                            refresh.click()
                             expect(cards).to_have_count(1)
                             expect(cards.first.get_by_role('button', name='Approve', exact=True)).to_be_disabled(timeout=5000)
                             expect(cards.first.get_by_text('Expired', exact=True)).to_be_visible()
@@ -184,7 +186,7 @@ def main():
                             expect(page.get_by_text('No pending approvals', exact=True)).to_be_visible(timeout=20000)
                             assert state['reads'] > reads, 'Inbox did not refresh automatically'
                             state['rows'] = [{**row(), 'request_id': '../wrong-request'}]
-                            page.get_by_role('button', name='Refresh', exact=True).click()
+                            refresh.click()
                             expect(page.locator('main').get_by_role('alert')).to_contain_text('response was invalid')
                             expect(cards).to_have_count(0)
                         assert not errors, errors

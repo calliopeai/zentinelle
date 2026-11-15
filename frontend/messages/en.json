@@ -791,7 +791,7 @@
       },
       "card": {
         "label": "Request {id}",
-        "expired": "expired",
+        "expired": "Expired",
         "left": "{minutes}m {seconds}s left",
         "defaultReason": "Policy requires a human decision.",
         "unknownAgent": "Unknown agent",
