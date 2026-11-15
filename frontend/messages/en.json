@@ -345,11 +345,6 @@
         "assistant": "Assistant"
       },
       "tabs": {
-        "budgets": "Budgets",
-        "anomalies": "Anomalies",
-        "compare": "Compare",
-        "routes": "Route check",
-        "estimate": "Estimate cost",
         "legal-holds": "Legal holds"
       }
     },
@@ -1484,7 +1479,8 @@
       "reviewTheRules": "Review the rules",
       "noDetectionsMatch": "No detections match",
       "tryAnotherSeverityOrType": "Try another severity or type, or a wider window.",
-      "notKept": "Not kept"
+      "notKept": "Not kept",
+      "ofScanned": "of {count} scanned"
     },
     "testRuleDialog": {
       "sampleText": "Sample text",
@@ -1493,7 +1489,8 @@
       "testing": "Testing",
       "test": "Test",
       "noMatch": "No match.",
-      "theTextIsCheckedAnd": "The text is checked and discarded. Nothing is recorded as a detection."
+      "theTextIsCheckedAnd": "The text is checked and discarded. Nothing is recorded as a detection.",
+      "matched": "{count, plural, one {Matched # time.} other {Matched # times.}}"
     },
     "effectivePolicyScreen": {
       "agent": "Agent",
@@ -1581,7 +1578,8 @@
       "editsInThisChange": "Edits in this change",
       "needsAdmin": "{steps} needs an administrator.",
       "confirmTitle": "{step} {title}?",
-      "thisChange": "this change"
+      "thisChange": "this change",
+      "rowLabel": "change {title}"
     },
     "policyConfigFields": {
       "onePerLine": "One per line.",
@@ -1992,7 +1990,9 @@
       "theAtlasMappingFileIn": "The ATLAS mapping file in this installation is empty.",
       "mappingPending": "Mapping pending",
       "none": "None",
-      "unassigned": "Unassigned"
+      "unassigned": "Unassigned",
+      "sourceRetrieved": "{source}, revision {revision}, retrieved {date}.",
+      "source": "{source}, revision {revision}."
     },
     "brocsScreen": {
       "brocsDomains": "BROCS domains",
@@ -2046,7 +2046,10 @@
       "applyACompliancePack": "Apply a compliance pack",
       "configuredBy": "Configured by {policies}",
       "requiredConfigured": "Required configured",
-      "caveat": "Coverage counts the capabilities your policies and rules configure. It does not prove they operate: <evidence></evidence> holds what was measured."
+      "caveat": "Coverage counts the capabilities your policies and rules configure. It does not prove they operate: <evidence></evidence> holds what was measured.",
+      "requiredOf": "{name}: required capabilities configured",
+      "capabilitiesOf": "{title} capabilities",
+      "noCapabilities": "No {title} capabilities"
     },
     "compliancePacksDialog": {
       "couldNotApplyThePack": "Could not apply the pack",
@@ -2056,7 +2059,8 @@
       "applying": "Applying",
       "apply": "Apply",
       "aPackCreatesOrUpdates": "A pack creates or updates the policies a framework expects. Review them in Policies before they enforce.",
-      "applyPack": "Apply a compliance pack"
+      "applyPack": "Apply a compliance pack",
+      "policies": "{count, plural, one {# policy} other {# policies}}"
     },
     "evidenceFrame": {
       "evidence": "Evidence",
@@ -2088,7 +2092,8 @@
       "unscored": "Unscored"
     },
     "riskMatrix": {
-      "risksByLikelihoodRowsAnd": "Risks by likelihood (rows) and impact (columns)"
+      "risksByLikelihoodRowsAnd": "Risks by likelihood (rows) and impact (columns)",
+      "cell": "{count, plural, one {# risk} other {# risks}}, likelihood {likelihood}, impact {impact}"
     },
     "evidenceCoverageScreen": {
       "registeredWorkloads": "Registered workloads",
@@ -2142,7 +2147,8 @@
       "recommended": "Recommended",
       "generateReport": "Generate report",
       "configuredBy": "Configured by {policies}",
-      "notTracked": "Zentinelle AI does not track {id}"
+      "notTracked": "Zentinelle AI does not track {id}",
+      "requiredMissing": "{count} required missing"
     },
     "reportsScreen": {
       "reports": "Reports",
@@ -2263,7 +2269,9 @@
       "couldNotLoadTheTrend": "Could not load the trend",
       "loadingTheTrend": "Loading the trend",
       "noIncidentsWithAnSla": "No incidents with an SLA",
-      "uncategorized": "Uncategorized"
+      "uncategorized": "Uncategorized",
+      "ofRegister": "of {total} in the register",
+      "pastSla": "{count} of {total} past their SLA"
     },
     "risksScreen": {
       "risks": "Risks",
@@ -2314,6 +2322,286 @@
       "packFailed": "The pack was not applied.",
       "evidenceFailed": "The evidence could not be loaded.",
       "reportFailed": "The report was not started."
+    }
+  },
+  "models": {
+    "labels": {
+      "kinds": {
+        "tokens": "Daily tokens",
+        "cost": "Daily cost",
+        "agent_tokens": "Agent tokens",
+        "latency": "Endpoint latency"
+      },
+      "subjects": {
+        "all": "All agents",
+        "agent": "Unknown agent",
+        "endpoint": "Unknown endpoint"
+      },
+      "groups": {
+        "endpoint": "Agent",
+        "team": "Team",
+        "app": "App",
+        "session": "Session",
+        "task": "Task"
+      },
+      "categories": {
+        "direct": "Direct API",
+        "cloud": "Cloud and managed",
+        "inference": "Inference platforms",
+        "routing": "Routing",
+        "local": "Local and self-hosted"
+      },
+      "tabs": {
+        "overview": "Overview",
+        "budgets": "Budgets",
+        "anomalies": "Anomalies",
+        "models": "Models",
+        "routes": "Route check"
+      }
+    },
+    "anomaliesScreen": {
+      "usage": "Usage",
+      "daysAgentsAndEndpointsWell": "Days, agents and endpoints well outside their usual range over the last 30 days.",
+      "usageTabs": "Usage tabs",
+      "kind": "Kind",
+      "couldNotLoadUsage": "Could not load usage",
+      "baseline": "Baseline",
+      "tokensPerDayAgainstThe": "Tokens per day against the baseline",
+      "loadingTheBaseline": "Loading the baseline",
+      "notEnoughHistoryYetTo": "Not enough history yet to draw a baseline.",
+      "detections": "Detections",
+      "anomalies": "Anomalies",
+      "allKinds": "All kinds",
+      "subject": "Subject",
+      "observed": "Observed",
+      "expected": "Expected",
+      "deviation": "Deviation",
+      "severity": "Severity",
+      "day": "Day",
+      "noAnomaliesInTheLast": "No anomalies in the last 30 days",
+      "everyDayAgentAndEndpoint": "Every day, agent and endpoint stayed within two standard deviations of its baseline.",
+      "noAnomaliesOfThisKind": "No anomalies of this kind",
+      "chooseAllKindsToSee": "Choose All kinds to see every detection.",
+      "computedFromTheDailyUsage": "Computed from the daily usage totals each time the page opens: more than two standard deviations above the trailing seven days, or above peers. Nothing is stored, so there is nothing to acknowledge yet."
+    },
+    "budgetsScreen": {
+      "usage": "Usage",
+      "spendAdmittedAgainstBudgetPolicies": "Spend admitted against budget policies, reconciled with what each provider reports.",
+      "usageTabs": "Usage tabs",
+      "groupBy": "Group by",
+      "budgetTotals": "Budget totals",
+      "committed": "Committed",
+      "admittedByBudgetPolicies": "Admitted by budget policies",
+      "providerReported": "Provider reported",
+      "fromTheProvidersUsageApis": "From the providers' usage APIs",
+      "pendingReconciliation": "Pending reconciliation",
+      "anomalies": "Anomalies",
+      "reportedSpendDiffersFromCommitted": "Reported spend differs from committed",
+      "requests": "Requests",
+      "status": "Status",
+      "noBudgetChargesYet": "No budget charges yet",
+      "chargesAppearOnceAnAgent": "Charges appear once an agent's traffic is admitted under a budget policy.",
+      "openBudgetPolicies": "Open budget policies",
+      "notYet": "Not yet",
+      "requestsTheProviderHasNot": "Requests the provider has not reported",
+      "allCurrent": "All current",
+      "refresh": "Refresh",
+      "budgetPolicies": "Budget policies",
+      "spendBy": "Spend by {group}"
+    },
+    "compareModelsScreen": {
+      "compareModels": "Compare models",
+      "addAModel": "Add a model",
+      "couldNotLoadModels": "Could not load models",
+      "loadingModels": "Loading models",
+      "chooseModelsToCompare": "Choose models to compare",
+      "openModels": "Open models",
+      "provider": "Provider",
+      "modelId": "Model id",
+      "type": "Type",
+      "contextWindow": "Context window",
+      "maxOutput": "Max output",
+      "inputPrice": "Input price",
+      "outputPrice": "Output price",
+      "n1mIn100kOut": "1M in, 100K out",
+      "risk": "Risk",
+      "capabilities": "Capabilities",
+      "status": "Status",
+      "models": "Models",
+      "unknown": "Unknown",
+      "notRated": "Not rated",
+      "noneListed": "None listed",
+      "deprecated": "Deprecated",
+      "available": "Available",
+      "chooseAModel": "Choose a model",
+      "upTo": "Up to {max} models side by side, at registry prices.",
+      "addUpTo": "Add up to {max} models above, or select rows on Models.",
+      "full": "{max} chosen, the most"
+    },
+    "estimateCostDrawer": {
+      "model": "Model",
+      "pasteAPromptADocument": "Paste a prompt, a document or a conversation.",
+      "replyLength": "Reply length",
+      "estimate": "Estimate",
+      "contextWindow": "Context window",
+      "halfTheInputShortReply": "Half the input (short reply)",
+      "sameAsTheInput": "Same as the input",
+      "twiceTheInputLongReply": "Twice the input (long reply)",
+      "fourTimesTheInput": "Four times the input",
+      "input": "Input",
+      "reply": "Reply",
+      "inputPrice": "Input price",
+      "outputPrice": "Output price",
+      "atRegistryPricesThePrices": "At registry prices, the prices metering and budgets charge. Tokens are estimated as characters / 4.",
+      "noModelInTheRegistry": "No model in the registry has prices yet. Sync models from a provider to estimate costs.",
+      "prompt": "Prompt",
+      "theRegistryHasNoContext": "The registry has no context window for this model.",
+      "estimateCost": "Estimate cost",
+      "tokensCost": "{tokens} tokens, {cost}"
+    },
+    "modelsScreen": {
+      "models": "Models",
+      "theModelsAgentsMayUse": "The models agents may use, with the registry prices metering charges.",
+      "modelsTabs": "Models tabs",
+      "searchModels": "Search models",
+      "provider": "Provider",
+      "model": "Model",
+      "type": "Type",
+      "context": "Context",
+      "input": "Input",
+      "output": "Output",
+      "risk": "Risk",
+      "allProviders": "All providers",
+      "noModelsInTheRegistry": "No models in the registry",
+      "openProviders": "Open providers",
+      "noModelsMatch": "No models match",
+      "clearTheSearchOrChoose": "Clear the search or choose All providers.",
+      "unknown": "Unknown",
+      "addAProviderKeyThen": "Add a provider key, then sync its models into the registry.",
+      "anAdminAddsProviderKeys": "An admin adds provider keys and syncs their models.",
+      "estimateCost": "Estimate cost",
+      "compare": "Compare",
+      "compareUpTo": "Compare up to {max} models"
+    },
+    "providerKeyDialog": {
+      "rotate": "Rotate",
+      "add": "Add",
+      "couldNotSaveTheKey": "Could not save the key.",
+      "saving": "Saving",
+      "saveKey": "Save key",
+      "storedEncryptedAtRestZentinelle": "Stored encrypted at rest. Zentinelle AI shows only its first eight characters afterwards.",
+      "apiKey": "API key",
+      "cancel": "Cancel"
+    },
+    "providerModelsDialog": {
+      "couldNotLoadModels": "Could not load models",
+      "loadingModels": "Loading models",
+      "filterModels": "Filter models",
+      "couldNotSave": "Could not save.",
+      "saving": "Saving",
+      "save": "Save",
+      "chooseWhichModelsTheAssistant": "Choose which models the assistant offers. Hidden models keep their policies and history.",
+      "noModelsMatchTheFilter": "No models match the filter.",
+      "cancel": "Cancel",
+      "noModels": "The registry has no {provider} models yet."
+    },
+    "providersScreen": {
+      "couldNotLoadProviders": "Could not load providers",
+      "loadingProviders": "Loading providers",
+      "addAKeyToAny": "Add a key to any provider below, or set its environment variable on the server.",
+      "providers": "Providers",
+      "keysForTheModelProviders": "Keys for the model providers agents and the assistant call. Keys stored here take priority over environment keys.",
+      "show": "Show",
+      "providerKeys": "Provider keys",
+      "configured": "Configured",
+      "withAUsableKeyStored": "With a usable key, stored or from the environment",
+      "keysStoredHere": "Keys stored here",
+      "encryptedAtRest": "Encrypted at rest",
+      "theStoredKeyIsDeleted": "The stored key is deleted. Agents and the assistant fall back to the environment key, if the server has one.",
+      "removeKey": "Remove key",
+      "allProviders": "All providers",
+      "noProviders": "No providers",
+      "noProviderIsConfiguredYet": "No provider is configured yet",
+      "noProvidersInThisGroup": "No providers in this group",
+      "addAKeyToUse": "Add a key to use it",
+      "showAllProviders": "Show all providers",
+      "models": "Models",
+      "rotate": "Rotate",
+      "remove": "Remove",
+      "addKey": "Add a {provider} key",
+      "inAssistant": "Available in the assistant for {provider}",
+      "modelsFor": "Models for {provider}",
+      "rotateKey": "Rotate the {provider} key",
+      "removeKeyLabel": "Remove the {provider} key",
+      "backToModels": "Back to Models",
+      "removeKeyTitle": "Remove the {provider} key?",
+      "keyStarting": "Key starting {prefix}, updated {day}",
+      "setEnv": "Set {env} on the server",
+      "orSetEnv": "Or set {env} on the server"
+    },
+    "routeCheckScreen": {
+      "models": "Models",
+      "checkThatPolicyAllowsA": "Check that policy allows a provider and model before any traffic is sent. A check has no side effects at the provider.",
+      "modelsTabs": "Models tabs",
+      "runACheck": "Run a check",
+      "recentChecks": "Recent checks",
+      "recentRouteChecks": "Recent route checks",
+      "rolledBack": "rolled back",
+      "providerAndModel": "Provider and model",
+      "result": "Result",
+      "reason": "Reason",
+      "when": "When",
+      "control": "Control",
+      "noRouteChecksYet": "No route checks yet",
+      "runOneAboveBeforeRouting": "Run one above before routing an agent to a new provider or model.",
+      "checking": "Checking",
+      "runCheck": "Run check",
+      "rollBack": "Roll back",
+      "provider": "Provider",
+      "modelId": "Model id",
+      "rollBackRoute": "Roll back {route}",
+      "routeCheck": "Route check",
+      "backToModels": "Back to Models"
+    },
+    "usageOverviewScreen": {
+      "usage": "Usage",
+      "tokensCostAndLatencyAcross": "Tokens, cost and latency across every agent, from the metering records.",
+      "usageTabs": "Usage tabs",
+      "period": "Period",
+      "couldNotLoadUsage": "Could not load usage",
+      "loadingUsage": "Loading usage",
+      "noUsageInThisPeriod": "No usage in this period",
+      "usageAppearsOnceARegistered": "Usage appears once a registered agent sends traffic through Zentinelle AI. Try a longer period, or register an agent.",
+      "openAgents": "Open agents",
+      "tokens": "Tokens",
+      "cost": "Cost",
+      "meteredAtRegistryPrices": "Metered at registry prices",
+      "requests": "Requests",
+      "averageLatency": "Average latency",
+      "byDay": "By day",
+      "tokensPerDay": "Tokens per day",
+      "costPerDay": "Cost per day",
+      "whereItGoes": "Where it goes",
+      "topAgentsByCost": "Top agents by cost",
+      "noAgentReportedACost": "No agent reported a cost in this period.",
+      "slowestEndpoints": "Slowest endpoints",
+      "noEndpointMeasuredLatencyIn": "No endpoint measured latency in this period.",
+      "noEndpointMeasuredLatency": "No endpoint measured latency",
+      "activeAgents": "{count} active agents",
+      "acrossEndpoints": "Across {count, plural, one {# endpoint} other {# endpoints}}, weighted by calls",
+      "lastPeriod": "{days, plural, one {Last day} other {Last # days}}"
+    },
+    "connected": {
+      "showbackFailed": "The showback could not be loaded.",
+      "canariesFailed": "The route checks could not be loaded.",
+      "runFailed": "The route check did not run.",
+      "rollbackFailed": "The route was not rolled back.",
+      "providersFailed": "The providers could not be loaded.",
+      "keyNotSaved": "The key was not saved.",
+      "keyNotRemoved": "The key was not removed.",
+      "assistantNotChanged": "The assistant setting did not change.",
+      "modelsFailed": "The provider's models could not be loaded.",
+      "modelsNotSaved": "The models were not saved."
     }
   }
 }

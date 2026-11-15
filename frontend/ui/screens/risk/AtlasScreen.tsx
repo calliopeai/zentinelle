@@ -116,11 +116,16 @@ export function AtlasScreen({
       />
       {atlas && (
         <p className="text-xs text-muted-foreground">
-          {atlas.source}, revision {atlas.source_revision}
           {atlas.retrieved_at
-            ? `, retrieved ${formatDate(atlas.retrieved_at)}`
-            : ""}
-          .
+            ? t("sourceRetrieved", {
+                source: atlas.source,
+                revision: atlas.source_revision,
+                date: formatDate(atlas.retrieved_at) ?? "",
+              })
+            : t("source", {
+                source: atlas.source,
+                revision: atlas.source_revision,
+              })}
         </p>
       )}
     </EvidenceFrame>

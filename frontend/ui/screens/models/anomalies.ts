@@ -9,6 +9,8 @@
  * never over raw events. Nothing is stored: there is no anomaly record to
  * acknowledge or resolve until the backend keeps one.
  */
+import { useTranslations } from "next-intl";
+
 import type { TrendPoint } from "../../shared/TrendChart";
 import { formatDay } from "../../shared/figures";
 import type { Metrics } from "./usage";
@@ -20,8 +22,10 @@ export interface Anomaly {
   id: string;
   kind: AnomalyKind;
   severity: AnomalySeverity;
-  /** What it is about: a day's total, an agent, an endpoint. */
-  subject: string;
+  /** What it is about: a day's total (`all`), an agent, an endpoint. */
+  scope: "all" | "agent" | "endpoint";
+  /** The agent's or endpoint's name; null for `all`, or when unnamed. */
+  subject: string | null;
   /** The agent's id, when the subject is one, for a link to its usage. */
   agentId?: string;
   observed: number;
@@ -31,12 +35,20 @@ export interface Anomaly {
   at: string;
 }
 
-export const KIND_LABEL: Record<AnomalyKind, string> = {
-  tokens: "Daily tokens",
-  cost: "Daily cost",
-  agent_tokens: "Agent tokens",
-  latency: "Endpoint latency",
-};
+/** The anomaly kinds and scopes, named under `models.labels`. */
+export function useAnomalyLabels() {
+  const t = useTranslations("models.labels");
+  return {
+    KIND_LABEL: {
+      tokens: t("kinds.tokens"),
+      cost: t("kinds.cost"),
+      agent_tokens: t("kinds.agent_tokens"),
+      latency: t("kinds.latency"),
+    } as Record<AnomalyKind, string>,
+    subjectOf: (a: Pick<Anomaly, "scope" | "subject">) =>
+      a.subject ?? t(`subjects.${a.scope}`),
+  };
+}
 
 const TRAILING = 7;
 const MIN_HISTORY = 3;
@@ -84,7 +96,8 @@ export function detectAnomalies(metrics: Metrics | null, periodEnd: string) {
             id: `${kind}-${day.date}`,
             kind,
             severity: severityOf(hit.sigma),
-            subject: "All agents",
+            scope: "all",
+            subject: null,
             observed: value,
             ...hit,
             at: day.date,
@@ -103,7 +116,8 @@ export function detectAnomalies(metrics: Metrics | null, periodEnd: string) {
           id: `agent-${a.agentId ?? a.agentName}`,
           kind: "agent_tokens",
           severity: severityOf(hit.sigma),
-          subject: a.agentName ?? a.agentId ?? "Unknown agent",
+          scope: "agent",
+          subject: a.agentName ?? a.agentId ?? null,
           agentId: a.agentId ?? undefined,
           observed: a.tokens ?? 0,
           ...hit,
@@ -124,7 +138,8 @@ export function detectAnomalies(metrics: Metrics | null, periodEnd: string) {
           id: `latency-${e.endpoint}`,
           kind: "latency",
           severity: severityOf(hit.sigma),
-          subject: e.endpoint ?? "Unknown endpoint",
+          scope: "endpoint",
+          subject: e.endpoint ?? null,
           observed: e.avgLatencyMs ?? 0,
           ...hit,
           at: periodEnd,

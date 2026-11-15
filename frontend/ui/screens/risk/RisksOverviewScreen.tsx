@@ -93,7 +93,7 @@ export function RisksOverviewScreen({
           href="/risks"
           loading={loading}
           value={stats?.openRisks ?? null}
-          hint={`of ${total} in the register`}
+          hint={t("ofRegister", { total })}
         />
         <StatTile
           label={t("critical")}
@@ -119,7 +119,10 @@ export function RisksOverviewScreen({
           tone={stats?.slaBreachedCount ? "error" : undefined}
           hint={
             sla
-              ? `${stats?.slaBreachedCount ?? 0} of ${sla} past their SLA`
+              ? t("pastSla", {
+                  count: stats?.slaBreachedCount ?? 0,
+                  total: sla,
+                })
               : t("noIncidentsWithAnSla")
           }
         />

@@ -1,65 +1,4 @@
 {
-  "app/(app)/usage/budgets/page.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "app/(app)/compliance/gaps/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "app/(app)/compliance/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    },
-    "react-hooks/set-state-in-render": {
-      "count": 1
-    }
-  },
-  "app/(app)/content-rules/create-content-rule-dialog.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "app/(app)/evidence/page.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "app/(app)/incidents/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
-  "app/(app)/models/routes/page.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "app/(app)/policies/edit-policy-dialog.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "app/(app)/risks/fmea/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "app/(app)/risks/overview/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 10
-    }
-  },
-  "app/(app)/risks/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    }
-  },
   "app/(app)/settings/api-keys/page.tsx": {
     "@typescript-eslint/no-explicit-any": {
       "count": 6
@@ -70,33 +9,10 @@
       "count": 1
     }
   },
-  "app/(app)/models/providers/manage-models-dialog.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "app/(app)/models/providers/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    },
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "components/AppSidebar.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
   "components/DemoTour.tsx": {
     "react-hooks/immutability": {
       "count": 1
     },
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "components/notes-dialog.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
     }

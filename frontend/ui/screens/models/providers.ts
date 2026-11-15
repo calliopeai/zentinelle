@@ -8,6 +8,7 @@
  * - `GET /assistant/models?provider=`: a provider's models for the assistant picker.
  * - `GET /models/route-canary`: recent route checks.
  */
+import { useTranslations } from "next-intl";
 
 export interface StoredProviderKey {
   provider: string;
@@ -39,7 +40,6 @@ export interface CanaryResult {
 export const PROVIDER_CATEGORIES = [
   {
     key: "direct",
-    label: "Direct API",
     providers: [
       "anthropic",
       "openai",
@@ -52,12 +52,10 @@ export const PROVIDER_CATEGORIES = [
   },
   {
     key: "cloud",
-    label: "Cloud and managed",
     providers: ["bedrock", "azure", "vertex"],
   },
   {
     key: "inference",
-    label: "Inference platforms",
     providers: [
       "fireworks",
       "together",
@@ -69,10 +67,9 @@ export const PROVIDER_CATEGORIES = [
       "xai",
     ],
   },
-  { key: "routing", label: "Routing", providers: ["openrouter", "litellm"] },
+  { key: "routing", providers: ["openrouter", "litellm"] },
   {
     key: "local",
-    label: "Local and self-hosted",
     providers: ["ollama", "lmstudio", "anythingllm", "huggingface"],
   },
 ] as const;
@@ -163,4 +160,15 @@ export function toProviderRows(
       urlOnly: URL_ONLY.has(id),
     })),
   );
+}
+
+/** The provider categories, named under `models.labels.categories`. */
+export function useProviderLabels() {
+  const t = useTranslations("models.labels");
+  return {
+    PROVIDER_CATEGORIES: PROVIDER_CATEGORIES.map((c) => ({
+      ...c,
+      label: t(`categories.${c.key}`),
+    })),
+  };
 }

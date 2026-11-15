@@ -13,6 +13,7 @@ import {
   LoadingState,
 } from "@calliopelabs/ui";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { formatTokens } from "../../shared/figures";
 import type { ProviderModel } from "./providers";
@@ -45,6 +46,7 @@ export function ProviderModelsDialog({
   onSave,
   locale = "en",
 }: ProviderModelsDialogProps) {
+  const t = useTranslations("models.providerModelsDialog");
   const [enabled, setEnabled] = React.useState<Set<string> | null>(null);
   const [filter, setFilter] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -77,34 +79,33 @@ export function ProviderModelsDialog({
         <DialogHeader>
           <DialogTitle>{providerLabel} models in the assistant</DialogTitle>
           <DialogDescription>
-            Choose which models the assistant offers. Hidden models keep their
-            policies and history.
+            {t("chooseWhichModelsTheAssistant")}
           </DialogDescription>
         </DialogHeader>
         {error ? (
           <ErrorState
-            title="Could not load models"
+            title={t("couldNotLoadModels")}
             error={error}
             onRetry={onRetry}
           />
         ) : !models ? (
-          <LoadingState label="Loading models" rows={4} />
+          <LoadingState label={t("loadingModels")} rows={4} />
         ) : models.length === 0 ? (
           <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-            The registry has no {providerLabel} models yet.
+            {t("noModels", { provider: providerLabel })}
           </p>
         ) : (
           <div className="grid gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <label htmlFor={searchId} className="sr-only">
-                Filter models
+                {t("filterModels")}
               </label>
               <Input
                 id={searchId}
                 type="search"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                placeholder="Filter models"
+                placeholder={t("filterModels")}
                 className="min-w-48 flex-1"
               />
               <span className="font-mono text-xs text-muted-foreground tabular-nums">
@@ -115,7 +116,7 @@ export function ProviderModelsDialog({
               <legend className="sr-only">Models</legend>
               {shown.length === 0 ? (
                 <p className="px-3 py-4 text-center text-sm text-muted-foreground">
-                  No models match the filter.
+                  {t("noModelsMatchTheFilter")}
                 </p>
               ) : (
                 shown.map((m) => (
@@ -162,7 +163,7 @@ export function ProviderModelsDialog({
             disabled={saving}
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             disabled={saving || !models || models.length === 0}
@@ -174,14 +175,14 @@ export function ProviderModelsDialog({
                 onOpenChange(false);
               } catch (err) {
                 setSaveError(
-                  err instanceof Error ? err.message : "Could not save.",
+                  err instanceof Error ? err.message : t("couldNotSave"),
                 );
               } finally {
                 setSaving(false);
               }
             }}
           >
-            {saving ? "Saving" : "Save"}
+            {saving ? t("saving") : t("save")}
           </Button>
         </DialogFooter>
       </DialogContent>

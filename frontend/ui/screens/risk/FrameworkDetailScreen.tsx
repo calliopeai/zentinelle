@@ -133,7 +133,7 @@ export function FrameworkDetailScreen({
           )}
         >
           {framework.missingRequired.length
-            ? `${framework.missingRequired.length} required missing`
+            ? t("requiredMissing", { count: framework.missingRequired.length })
             : t("requiredConfigured")}
         </StatusBadge>
       }

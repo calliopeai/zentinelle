@@ -8,6 +8,7 @@ import {
   Section,
 } from "@calliopelabs/ui";
 import { BarChart3Icon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { BarList } from "../../shared/BarList";
 import { Panel } from "../../shared/Panel";
@@ -21,7 +22,7 @@ import {
   formatMs,
   formatUsd,
 } from "../../shared/figures";
-import { areaCrumbs, usageTabs } from "./frame";
+import { areaCrumbs, useModelsFrame } from "./frame";
 import {
   PERIODS,
   isEmptyUsage,
@@ -57,17 +58,19 @@ export function UsageOverviewScreen({
   onRetry,
   locale = "en",
 }: UsageOverviewScreenProps) {
-  const periodLabel = `Last ${PERIODS.find((p) => p.value === period)?.label ?? period}`;
+  const t = useTranslations("models.usageOverviewScreen");
+  const { usageTabs } = useModelsFrame();
+  const periodLabel = t("lastPeriod", { days: Number(period) });
   return (
     <PageFrame
       crumbs={areaCrumbs(capabilities, "usage")}
-      title="Usage"
-      description="Tokens, cost and latency across every agent, from the metering records."
+      title={t("usage")}
+      description={t("tokensCostAndLatencyAcross")}
       tabs={usageTabs("overview")}
-      tabsLabel="Usage tabs"
+      tabsLabel={t("usageTabs")}
       filters={
         <Segmented
-          label="Period"
+          label={t("period")}
           value={period}
           options={PERIODS}
           onChange={onPeriodChange}
@@ -76,19 +79,19 @@ export function UsageOverviewScreen({
     >
       {error ? (
         <ErrorState
-          title="Could not load usage"
+          title={t("couldNotLoadUsage")}
           error={error}
           onRetry={onRetry}
         />
       ) : loading || !overview ? (
-        <LoadingState label="Loading usage" variant="page" />
+        <LoadingState label={t("loadingUsage")} variant="page" />
       ) : isEmptyUsage(overview) ? (
         <EmptyState
           icon={<BarChart3Icon />}
-          title="No usage in this period"
-          description="Usage appears once a registered agent sends traffic through Zentinelle AI. Try a longer period, or register an agent."
+          title={t("noUsageInThisPeriod")}
+          description={t("usageAppearsOnceARegistered")}
           actionHref="/agents"
-          actionLabel="Open agents"
+          actionLabel={t("openAgents")}
         />
       ) : (
         <UsageBody
@@ -110,44 +113,47 @@ function UsageBody({
   periodLabel: string;
   locale: string;
 }) {
+  const t = useTranslations("models.usageOverviewScreen");
   const { totals } = overview;
   return (
     <>
       <KpiRow label={`Usage, ${periodLabel.toLowerCase()}`}>
         <KpiTile
-          label="Tokens"
+          label={t("tokens")}
           value={formatCompact(totals.tokens, locale)}
           hint={periodLabel}
         />
         <KpiTile
-          label="Cost"
+          label={t("cost")}
           value={formatUsd(totals.cost, locale)}
-          hint="Metered at registry prices"
+          hint={t("meteredAtRegistryPrices")}
           estimated
           href="/usage/budgets"
         />
         <KpiTile
-          label="Requests"
+          label={t("requests")}
           value={formatCount(totals.requests, locale)}
-          hint={`${formatCount(totals.activeAgents, locale)} active agents`}
+          hint={t("activeAgents", {
+            count: formatCount(totals.activeAgents, locale),
+          })}
           href="/agents"
         />
         <KpiTile
-          label="Average latency"
+          label={t("averageLatency")}
           value={formatMs(overview.avgLatencyMs, locale)}
           hint={
             overview.endpointsMeasured
-              ? `Across ${overview.endpointsMeasured} endpoints, weighted by calls`
-              : "No endpoint measured latency"
+              ? t("acrossEndpoints", { count: overview.endpointsMeasured })
+              : t("noEndpointMeasuredLatency")
           }
         />
       </KpiRow>
 
-      <Section title="By day">
+      <Section title={t("byDay")}>
         <div className="grid min-w-0 gap-3 lg:grid-cols-2">
           <Panel>
             <TrendChart
-              label="Tokens per day"
+              label={t("tokensPerDay")}
               points={overview.days.map((d) => ({
                 label: formatDay(d.date, locale),
                 value: d.tokens,
@@ -158,7 +164,7 @@ function UsageBody({
           <Panel>
             <TrendChart
               kind="bar"
-              label="Cost per day"
+              label={t("costPerDay")}
               points={overview.days.map((d) => ({
                 label: formatDay(d.date, locale),
                 value: d.cost,
@@ -169,12 +175,12 @@ function UsageBody({
         </div>
       </Section>
 
-      <Section title="Where it goes">
+      <Section title={t("whereItGoes")}>
         <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-          <Panel title="Top agents by cost">
+          <Panel title={t("topAgentsByCost")}>
             <BarList
-              label="Top agents by cost"
-              emptyLabel="No agent reported a cost in this period."
+              label={t("topAgentsByCost")}
+              emptyLabel={t("noAgentReportedACost")}
               items={overview.topAgents.map((a) => ({
                 key: a.id,
                 label: a.name,
@@ -184,10 +190,10 @@ function UsageBody({
               }))}
             />
           </Panel>
-          <Panel title="Slowest endpoints">
+          <Panel title={t("slowestEndpoints")}>
             <BarList
-              label="Slowest endpoints"
-              emptyLabel="No endpoint measured latency in this period."
+              label={t("slowestEndpoints")}
+              emptyLabel={t("noEndpointMeasuredLatencyIn")}
               items={overview.slowEndpoints.map((e) => ({
                 key: e.endpoint,
                 label: e.endpoint,

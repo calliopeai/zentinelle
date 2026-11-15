@@ -34,9 +34,7 @@ export const Ready: S = {};
 export const Matched: S = {
   play: async () => {
     const body = await typeAndTest();
-    await expect(
-      await body.findByText("Matched 1 time(s)."),
-    ).toBeInTheDocument();
+    await expect(await body.findByText("Matched 1 time.")).toBeInTheDocument();
   },
 };
 export const NoMatch: S = {

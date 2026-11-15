@@ -165,7 +165,7 @@ export function DetectionsScreen({
           <StatTile
             label={t("scansFlagged")}
             value={flagged.toLocaleString()}
-            hint={`of ${scans.length.toLocaleString()} scanned`}
+            hint={t("ofScanned", { count: scans.length.toLocaleString() })}
           />
         </div>
       )}
