@@ -12,6 +12,9 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
 RUN npm run build-storybook
+# Compress once here; nginx serves the .gz files (gzip_static) instead of
+# compressing multi-MB bundles on every request under a small CPU limit.
+RUN find storybook-static -type f \( -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.svg' -o -name '*.html' \) -exec gzip -9 -k {} +
 
 # Serve: static files only, nginx as an unprivileged user on 8080.
 FROM nginx:1.29-alpine
