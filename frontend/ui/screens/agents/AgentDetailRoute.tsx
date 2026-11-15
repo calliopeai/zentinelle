@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import { useEndpoints } from "@/graphql/agents/hooks";
@@ -30,7 +31,11 @@ import { toAgentSummary } from "./format";
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "/api/zentinelle/v1";
 
-/** The two REST reads the agent page makes, injectable so stories and tests answer them. */
+/**
+ * The two REST reads the agent page makes, injectable so stories and tests
+ * answer them. A failure carries the server's message, or none; the panel
+ * puts its own in words.
+ */
 export interface AgentRestClient {
   /** GET /agents/{agent_id}/control. `denied` for 401 and 403. */
   control: (
@@ -44,13 +49,18 @@ export interface AgentRestClient {
   ) => Promise<{ policies: EffectivePolicyRow[]; tools: ToolPermissions }>;
 }
 
-async function messageOf(response: Response, fallback: string) {
+async function messageOf(response: Response) {
   try {
     const body = (await response.json()) as { error?: string; detail?: string };
-    return body.error || body.detail || fallback;
+    return body.error || body.detail || "";
   } catch {
-    return fallback;
+    return "";
   }
+}
+
+/** The error, with `fallback` when it says nothing itself. */
+function described(error: Error | null, fallback: string) {
+  return error && !error.message ? new Error(fallback) : error;
 }
 
 export const restClient: AgentRestClient = {
@@ -60,10 +70,7 @@ export const restClient: AgentRestClient = {
     );
     if (response.status === 401 || response.status === 403)
       return { denied: true };
-    if (!response.ok)
-      throw new Error(
-        await messageOf(response, "Controls could not be loaded."),
-      );
+    if (!response.ok) throw new Error(await messageOf(response));
     return { denied: false, data: (await response.json()) as AgentControlData };
   },
   async act(agentId, action) {
@@ -75,20 +82,14 @@ export const restClient: AgentRestClient = {
         body: JSON.stringify({ action }),
       },
     );
-    if (!response.ok)
-      throw new Error(
-        await messageOf(response, "The control action was not applied."),
-      );
+    if (!response.ok) throw new Error(await messageOf(response));
   },
   async effective(endpointId) {
     const response = await authenticatedFetch(
       `${API_URL}/effective-policy?endpoint=${encodeURIComponent(endpointId)}`,
       { headers: { Accept: "application/json" } },
     );
-    if (!response.ok)
-      throw new Error(
-        await messageOf(response, "Policies could not be loaded."),
-      );
+    if (!response.ok) throw new Error(await messageOf(response));
     const body = (await response.json()) as {
       policies: EffectivePolicyRow[];
       resolved: { tool_permissions: ToolPermissions };
@@ -171,6 +172,7 @@ function UsagePanel({
   endpointId: string;
   agentId: string;
 }) {
+  const tUsage = useTranslations("agents.usage");
   const { data, loading, error, refetch } = useUsageMetrics({ endpointId });
   return (
     <AgentUsageTab
@@ -178,7 +180,7 @@ function UsagePanel({
       loading={loading}
       error={error}
       onRetry={() => void refetch()}
-      window="Last 30 days"
+      window={tUsage("window")}
       usageHref={`/usage?agent=${encodeURIComponent(agentId)}`}
     />
   );
@@ -218,6 +220,7 @@ function ControlsPanel({
   agentName: string;
   client: AgentRestClient;
 }) {
+  const t = useTranslations("agents.detail.errors");
   const control = useRest(() => client.control(agentId), agentId);
   const value = control.value;
   return (
@@ -233,10 +236,17 @@ function ControlsPanel({
               : "ready"
       }
       data={value && !value.denied ? value.data : null}
-      error={control.error}
+      error={described(control.error, t("controls"))}
       onRetry={control.retry}
       onAction={async (action) => {
-        await client.act(agentId, action);
+        try {
+          await client.act(agentId, action);
+        } catch (failure) {
+          throw described(
+            failure instanceof Error ? failure : new Error(),
+            t("action"),
+          );
+        }
         control.retry();
       }}
     />
@@ -252,11 +262,12 @@ function PoliciesPanel({
   agentId: string;
   client: AgentRestClient;
 }) {
+  const t = useTranslations("agents.detail.errors");
   const effective = useRest(() => client.effective(endpointId), endpointId);
   const table = useArrayTable({
     rows: effective.value?.policies ?? [],
     loading: effective.loading,
-    error: effective.error,
+    error: described(effective.error, t("policies")),
     retry: effective.retry,
     ...NO_FILTER,
   });

@@ -8,6 +8,7 @@ import {
   type TabNavItem,
 } from "@calliopelabs/ui";
 import { BotIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type * as React from "react";
 
 import { navFor } from "../../product";
@@ -16,20 +17,22 @@ import {
   AGENT_HEALTH_TONE,
   AGENT_STATUS_TONE,
   agentHref,
-  agentTypeLabel,
   formatTime,
   toneOf,
-  words,
+  useAgentLabels,
 } from "./format";
 
-/** The agent tabs, in the IA's order (§4.2). Paths are the Astrolift deeplinks. */
+/**
+ * The agent tabs, in the IA's order (§4.2), named by `agents.detail.tabs`.
+ * Paths are the Astrolift deeplinks.
+ */
 export const AGENT_TABS = [
-  { key: "activity", label: "Activity" },
-  { key: "interactions", label: "Interactions" },
-  { key: "usage", label: "Usage" },
-  { key: "compliance", label: "Compliance" },
-  { key: "controls", label: "Controls", requires: "admin" },
-  { key: "policies", label: "Policies" },
+  { key: "activity" },
+  { key: "interactions" },
+  { key: "usage" },
+  { key: "compliance" },
+  { key: "controls", requires: "admin" },
+  { key: "policies" },
 ] as const;
 
 export type AgentTab = (typeof AGENT_TABS)[number]["key"];
@@ -79,15 +82,18 @@ export function AgentDetailScreen({
   capabilities,
   children,
 }: AgentDetailScreenProps) {
+  const t = useTranslations("agents.detail");
+  const c = useTranslations("common");
+  const labels = useAgentLabels();
   const nav = navFor(capabilities);
   const crumbs = [areaSwitcher(nav, "agents", "agents")];
   const tabs: TabNavItem[] = AGENT_TABS.filter(
-    (t) => !("requires" in t) || capabilities.includes(t.requires),
-  ).map((t) => ({
-    key: t.key,
-    label: t.label,
-    href: agentHref(agentId, t.key),
-    active: t.key === tab,
+    (item) => !("requires" in item) || capabilities.includes(item.requires),
+  ).map((item) => ({
+    key: item.key,
+    label: t(`tabs.${item.key}`),
+    href: agentHref(agentId, item.key),
+    active: item.key === tab,
   }));
 
   if (state === "notFound")
@@ -95,21 +101,17 @@ export function AgentDetailScreen({
       <PageFrame crumbs={crumbs} title={agentId}>
         <EmptyState
           icon={<BotIcon />}
-          title="Agent not found"
-          description={`No agent with the id ${agentId} is registered in this organization. An agent deployed from Astrolift AI uses its deployment slug as its id.`}
+          title={t("notFound.title")}
+          description={t("notFound.description", { agentId })}
           actionHref="/agents"
-          actionLabel="All agents"
+          actionLabel={t("notFound.action")}
         />
       </PageFrame>
     );
   if (state === "error")
     return (
       <PageFrame crumbs={crumbs} title={agentId}>
-        <ErrorState
-          title="Could not load the agent"
-          error={error}
-          onRetry={onRetry}
-        />
+        <ErrorState title={t("error")} error={error} onRetry={onRetry} />
       </PageFrame>
     );
 
@@ -125,10 +127,10 @@ export function AgentDetailScreen({
         agent ? (
           <span className="flex gap-2">
             <StatusBadge tone={toneOf(AGENT_STATUS_TONE, agent.status)}>
-              {words(agent.status)}
+              {labels.status(agent.status)}
             </StatusBadge>
             <StatusBadge tone={toneOf(AGENT_HEALTH_TONE, agent.health)}>
-              {words(agent.health)}
+              {labels.health(agent.health)}
             </StatusBadge>
           </span>
         ) : undefined
@@ -138,44 +140,48 @@ export function AgentDetailScreen({
       }
       description={agent?.description || undefined}
       tabs={tabs}
-      tabsLabel="Agent"
+      tabsLabel={t("tabsLabel")}
     >
       {agent ? (
         <DefinitionList
           columns={3}
-          fallback="None"
+          fallback={c("none")}
           items={[
-            { term: "Type", value: agentTypeLabel(agent.agentType) },
-            { term: "Group", value: agent.groupName },
-            { term: "Deployment", value: agent.deploymentName, mono: true },
+            { term: t("facts.type"), value: labels.type(agent.agentType) },
+            { term: t("facts.group"), value: agent.groupName },
             {
-              term: "Last heartbeat",
-              value: agent.lastHeartbeat
-                ? formatTime(agent.lastHeartbeat)
-                : "Never",
+              term: t("facts.deployment"),
+              value: agent.deploymentName,
               mono: true,
             },
-            { term: "Owner", value: agent.owner },
             {
-              term: "API key",
+              term: t("facts.heartbeat"),
+              value: agent.lastHeartbeat
+                ? formatTime(agent.lastHeartbeat)
+                : c("never"),
+              mono: true,
+            },
+            { term: t("facts.owner"), value: agent.owner },
+            {
+              term: t("facts.apiKey"),
               value: agent.apiKeyPrefix ? `${agent.apiKeyPrefix}…` : null,
               mono: true,
             },
             {
-              term: "Capabilities",
+              term: t("facts.capabilities"),
               value: agent.capabilities.length
                 ? agent.capabilities.join(", ")
                 : null,
             },
             {
-              term: "Registered",
+              term: t("facts.registered"),
               value: formatTime(agent.createdAt),
               mono: true,
             },
           ]}
         />
       ) : (
-        <LoadingState label="Loading the agent" rows={2} />
+        <LoadingState label={t("loading")} rows={2} />
       )}
       {children}
     </PageFrame>

@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import { SelectField } from "../../shared/FormField";
@@ -31,6 +32,8 @@ function AssignGroupDialogContent({
   groups,
   onAssign,
 }: Omit<AssignGroupDialogProps, "open">) {
+  const t = useTranslations("agents.assign");
+  const c = useTranslations("common");
   const [groupId, setGroupId] = React.useState(currentGroupId ?? "");
   const [failure, setFailure] = React.useState("");
   const [pending, setPending] = React.useState(false);
@@ -45,9 +48,7 @@ function AssignGroupDialogContent({
       onOpenChange(false);
     } catch (error) {
       setFailure(
-        error instanceof Error && error.message
-          ? error.message
-          : "The agent was not assigned.",
+        error instanceof Error && error.message ? error.message : t("failed"),
       );
     } finally {
       setPending(false);
@@ -66,20 +67,15 @@ function AssignGroupDialogContent({
       <form onSubmit={submit} className="flex min-w-0 flex-col gap-4">
         <DialogHeader>
           <DialogTitle className="[overflow-wrap:anywhere]">
-            Assign {agentName} to a group
+            {t("title", { name: agentName })}
           </DialogTitle>
-          <DialogDescription>
-            The group&apos;s tier sets the agent&apos;s default enforcement
-            posture.
-          </DialogDescription>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         {none ? (
-          <p className="text-muted-foreground text-sm">
-            There are no groups yet. Create one under Agents, Groups.
-          </p>
+          <p className="text-muted-foreground text-sm">{t("noGroups")}</p>
         ) : (
           <SelectField
-            label="Group"
+            label={t("group")}
             required
             value={groupId}
             onChange={(e) => setGroupId(e.target.value)}
@@ -87,7 +83,7 @@ function AssignGroupDialogContent({
               value: g.id,
               label: g.name,
             }))}
-            placeholder={loading ? "Loading groups" : "Choose a group"}
+            placeholder={loading ? t("loading") : t("placeholder")}
             disabled={loading || pending}
           />
         )}
@@ -106,13 +102,13 @@ function AssignGroupDialogContent({
             onClick={() => onOpenChange(false)}
             disabled={pending}
           >
-            Cancel
+            {c("cancel")}
           </Button>
           <Button
             type="submit"
             disabled={pending || !groupId || groupId === currentGroupId}
           >
-            {pending ? "Assigning" : "Assign"}
+            {pending ? t("pending") : t("submit")}
           </Button>
         </DialogFooter>
       </form>

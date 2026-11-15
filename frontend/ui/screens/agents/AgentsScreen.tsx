@@ -10,20 +10,18 @@ import {
   type TableController,
 } from "@calliopelabs/ui";
 import { BotIcon, PlusIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type * as React from "react";
 
 import { navFor } from "../../product";
 import { FilterSelect } from "../../shared/FilterSelect";
 import {
   AGENT_HEALTH_TONE,
-  AGENT_STATUSES,
   AGENT_STATUS_TONE,
-  AGENT_TYPES,
   agentHref,
-  agentTypeLabel,
   formatTime,
   toneOf,
-  words,
+  useAgentLabels,
   type AgentRow,
 } from "./format";
 
@@ -49,70 +47,83 @@ export interface AgentsScreenProps {
 /** Long names wrap inside a bounded column instead of widening the table. */
 const WRAP = "min-w-40 max-w-md whitespace-normal";
 
-const COLUMNS: Column<AgentRow>[] = [
-  {
-    id: "name",
-    cellClassName: WRAP,
-    header: "Agent",
-    cell: (a) => (
-      <span className="flex min-w-0 flex-col">
-        <span className="font-medium [overflow-wrap:anywhere]">{a.name}</span>
-        <span className="text-muted-foreground font-mono text-xs [overflow-wrap:anywhere]">
-          {a.agentId}
-        </span>
-      </span>
-    ),
-  },
-  {
-    id: "status",
-    header: "Status",
-    width: "w-32",
-    cell: (a) => (
-      <StatusBadge
-        tone={toneOf(AGENT_STATUS_TONE, a.status)}
-        pulse={a.status === "provisioning"}
-      >
-        {words(a.status)}
-      </StatusBadge>
-    ),
-  },
-  {
-    id: "health",
-    header: "Health",
-    width: "w-28",
-    cell: (a) => (
-      <StatusBadge tone={toneOf(AGENT_HEALTH_TONE, a.health)}>
-        {words(a.health)}
-      </StatusBadge>
-    ),
-  },
-  { id: "type", header: "Type", cell: (a) => agentTypeLabel(a.agentType) },
-  {
-    id: "group",
-    cellClassName: WRAP,
-    header: "Group",
-    cell: (a) =>
-      a.group ? (
-        <span className="[overflow-wrap:anywhere]">{a.group.name}</span>
-      ) : (
-        <span className="text-muted-foreground">None</span>
-      ),
-  },
-  {
-    id: "heartbeat",
-    header: "Last heartbeat",
-    cell: (a) =>
-      a.lastHeartbeat ? (
-        <span className="font-mono text-xs whitespace-nowrap">
-          {formatTime(a.lastHeartbeat)}
-        </span>
-      ) : (
-        <span className="text-muted-foreground">Never</span>
-      ),
-  },
-];
+type Labels = ReturnType<typeof useAgentLabels>;
+type Translate = ReturnType<typeof useTranslations>;
 
-function AgentCard(a: AgentRow) {
+function columns(
+  t: Translate,
+  c: Translate,
+  labels: Labels,
+): Column<AgentRow>[] {
+  return [
+    {
+      id: "name",
+      cellClassName: WRAP,
+      header: t("columns.agent"),
+      cell: (a) => (
+        <span className="flex min-w-0 flex-col">
+          <span className="font-medium [overflow-wrap:anywhere]">{a.name}</span>
+          <span className="text-muted-foreground font-mono text-xs [overflow-wrap:anywhere]">
+            {a.agentId}
+          </span>
+        </span>
+      ),
+    },
+    {
+      id: "status",
+      header: t("columns.status"),
+      width: "w-32",
+      cell: (a) => (
+        <StatusBadge
+          tone={toneOf(AGENT_STATUS_TONE, a.status)}
+          pulse={a.status === "provisioning"}
+        >
+          {labels.status(a.status)}
+        </StatusBadge>
+      ),
+    },
+    {
+      id: "health",
+      header: t("columns.health"),
+      width: "w-28",
+      cell: (a) => (
+        <StatusBadge tone={toneOf(AGENT_HEALTH_TONE, a.health)}>
+          {labels.health(a.health)}
+        </StatusBadge>
+      ),
+    },
+    {
+      id: "type",
+      header: t("columns.type"),
+      cell: (a) => labels.type(a.agentType),
+    },
+    {
+      id: "group",
+      cellClassName: WRAP,
+      header: t("columns.group"),
+      cell: (a) =>
+        a.group ? (
+          <span className="[overflow-wrap:anywhere]">{a.group.name}</span>
+        ) : (
+          <span className="text-muted-foreground">{c("none")}</span>
+        ),
+    },
+    {
+      id: "heartbeat",
+      header: t("columns.heartbeat"),
+      cell: (a) =>
+        a.lastHeartbeat ? (
+          <span className="font-mono text-xs whitespace-nowrap">
+            {formatTime(a.lastHeartbeat)}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">{c("never")}</span>
+        ),
+    },
+  ];
+}
+
+function AgentCard({ agent: a, labels }: { agent: AgentRow; labels: Labels }) {
   return (
     <div className="flex h-full min-w-0 flex-col gap-2">
       <div className="flex items-start justify-between gap-2">
@@ -120,14 +131,14 @@ function AgentCard(a: AgentRow) {
           {a.name}
         </span>
         <StatusBadge tone={toneOf(AGENT_STATUS_TONE, a.status)}>
-          {words(a.status)}
+          {labels.status(a.status)}
         </StatusBadge>
       </div>
       <span className="text-muted-foreground font-mono text-xs [overflow-wrap:anywhere]">
         {a.agentId}
       </span>
       <span className="text-muted-foreground text-xs">
-        {agentTypeLabel(a.agentType)}
+        {labels.type(a.agentType)}
         {a.group ? `, ${a.group.name}` : ""}
       </span>
     </div>
@@ -154,95 +165,99 @@ export function AgentsScreen({
   onDelete,
   notice,
 }: AgentsScreenProps) {
+  const t = useTranslations("agents.list");
+  const c = useTranslations("common");
+  const labels = useAgentLabels();
   const canMutate = capabilities.includes("mutate");
   const nav = navFor(capabilities);
   return (
     <PageFrame
       crumbs={[areaSwitcher(nav, "agents", "agents")]}
-      title="Agents"
+      title={t("title")}
       notice={notice}
-      description="Every agent that reports to Zentinelle AI. Open one for its activity, usage and the policies in effect."
+      description={t("description")}
       primaryAction={
         canMutate ? (
           <Button size="sm" onClick={onRegister}>
             <PlusIcon aria-hidden />
-            Register agent
+            {t("register")}
           </Button>
         ) : undefined
       }
     >
-      <DataTable
-        label="Agents"
-        controller={table}
-        columns={COLUMNS}
-        getRowId={(a) => a.id}
-        rowHref={(a) => agentHref(a.agentId)}
-        rowLabel={(a) => `agent ${a.name}`}
-        renderCard={AgentCard}
-        searchPlaceholder="Search agents by name or id"
-        toolbar={
-          <>
-            <FilterSelect
-              label="Status"
-              value={filters.status}
-              options={AGENT_STATUSES}
-              onChange={(status) => onFiltersChange({ ...filters, status })}
-            />
-            <FilterSelect
-              label="Type"
-              value={filters.agentType}
-              options={AGENT_TYPES}
-              onChange={(agentType) =>
-                onFiltersChange({ ...filters, agentType })
-              }
-            />
-          </>
-        }
-        rowActions={
-          canMutate
-            ? (a) => (
-                <>
-                  <DropdownMenuItem onSelect={() => onEdit(a)}>
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => onAssignGroup(a)}>
-                    Assign to a group
-                  </DropdownMenuItem>
-                  {a.status === "suspended" ? (
-                    <DropdownMenuItem onSelect={() => onActivate(a)}>
-                      Activate
+      {/* The demo tour's "agents-table" step points here. */}
+      <div data-tour="agents-table" className="min-w-0">
+        <DataTable
+          label={t("tableLabel")}
+          controller={table}
+          columns={columns(t, c, labels)}
+          getRowId={(a) => a.id}
+          rowHref={(a) => agentHref(a.agentId)}
+          rowLabel={(a) => t("rowLabel", { name: a.name })}
+          renderCard={(a) => <AgentCard agent={a} labels={labels} />}
+          searchPlaceholder={t("search")}
+          toolbar={
+            <>
+              <FilterSelect
+                label={t("filters.status")}
+                value={filters.status}
+                options={labels.statusOptions}
+                onChange={(status) => onFiltersChange({ ...filters, status })}
+              />
+              <FilterSelect
+                label={t("filters.type")}
+                value={filters.agentType}
+                options={labels.typeOptions}
+                onChange={(agentType) =>
+                  onFiltersChange({ ...filters, agentType })
+                }
+              />
+            </>
+          }
+          rowActions={
+            canMutate
+              ? (a) => (
+                  <>
+                    <DropdownMenuItem onSelect={() => onEdit(a)}>
+                      {c("edit")}
                     </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem onSelect={() => onSuspend(a)}>
-                      Suspend
+                    <DropdownMenuItem onSelect={() => onAssignGroup(a)}>
+                      {t("actions.assignGroup")}
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onSelect={() => onRegenerateKey(a)}>
-                    Regenerate API key
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onSelect={() => onDelete(a)}
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              )
-            : undefined
-        }
-        empty={{
-          icon: <BotIcon />,
-          title: "No agents yet",
-          description: canMutate
-            ? "Register an agent to issue its API key, or deploy one from Astrolift AI and it registers itself."
-            : "Agents appear here once an operator registers them or Astrolift AI deploys them.",
-        }}
-        emptyFiltered={{
-          title: "No agents match",
-          description: "Clear the search or the filters to see every agent.",
-        }}
-      />
+                    {a.status === "suspended" ? (
+                      <DropdownMenuItem onSelect={() => onActivate(a)}>
+                        {t("actions.activate")}
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem onSelect={() => onSuspend(a)}>
+                        {t("actions.suspend")}
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onSelect={() => onRegenerateKey(a)}>
+                      {t("actions.regenerateKey")}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => onDelete(a)}
+                    >
+                      {c("delete")}
+                    </DropdownMenuItem>
+                  </>
+                )
+              : undefined
+          }
+          empty={{
+            icon: <BotIcon />,
+            title: t("empty.title"),
+            description: canMutate ? t("empty.canMutate") : t("empty.readOnly"),
+          }}
+          emptyFiltered={{
+            title: t("emptyFiltered.title"),
+            description: t("emptyFiltered.description"),
+          }}
+        />
+      </div>
     </PageFrame>
   );
 }

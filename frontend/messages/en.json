@@ -382,5 +382,447 @@
       "title": "The assistant docks here",
       "description": "Ask about policies, agents and spend, and act on the page in view. Coming with the Zentinelle AI assistant."
     }
+  },
+  "common": {
+    "all": "All",
+    "none": "None",
+    "never": "Never",
+    "cancel": "Cancel",
+    "done": "Done",
+    "saving": "Saving",
+    "saveChanges": "Save changes",
+    "edit": "Edit",
+    "delete": "Delete",
+    "oneTimeSecret": {
+      "copy": "Copy {label}",
+      "copied": "Copied",
+      "copiedStatus": "Copied to the clipboard.",
+      "failed": "Copy failed. Select the key and copy it by hand."
+    }
+  },
+  "agents": {
+    "statuses": {
+      "provisioning": "Provisioning",
+      "active": "Active",
+      "suspended": "Suspended",
+      "offline": "Offline",
+      "terminated": "Terminated"
+    },
+    "health": {
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "unhealthy": "Unhealthy",
+      "unknown": "Unknown"
+    },
+    "types": {
+      "mcp": "MCP Server",
+      "agent_host": "Agent Host",
+      "chat": "Chat Agent",
+      "custom": "Custom"
+    },
+    "tiers": {
+      "standard": {
+        "label": "Standard",
+        "description": "The default enforcement profile."
+      },
+      "restricted": {
+        "label": "Restricted",
+        "description": "A stricter posture: block-mode defaults."
+      },
+      "trusted": {
+        "label": "Trusted",
+        "description": "A relaxed posture: audit-mode defaults."
+      }
+    },
+    "colors": {
+      "brand": "Teal",
+      "indigo": "Indigo",
+      "emerald": "Emerald",
+      "amber": "Amber",
+      "rose": "Rose",
+      "violet": "Violet",
+      "slate": "Slate"
+    },
+    "list": {
+      "title": "Agents",
+      "description": "Every agent that reports to Zentinelle AI. Open one for its activity, usage and the policies in effect.",
+      "register": "Register agent",
+      "tableLabel": "Agents",
+      "rowLabel": "agent {name}",
+      "search": "Search agents by name or id",
+      "columns": {
+        "agent": "Agent",
+        "status": "Status",
+        "health": "Health",
+        "type": "Type",
+        "group": "Group",
+        "heartbeat": "Last heartbeat"
+      },
+      "filters": {
+        "status": "Status",
+        "type": "Type"
+      },
+      "actions": {
+        "assignGroup": "Assign to a group",
+        "activate": "Activate",
+        "suspend": "Suspend",
+        "regenerateKey": "Regenerate API key"
+      },
+      "empty": {
+        "title": "No agents yet",
+        "canMutate": "Register an agent to issue its API key, or deploy one from Astrolift AI and it registers itself.",
+        "readOnly": "Agents appear here once an operator registers them or Astrolift AI deploys them."
+      },
+      "emptyFiltered": {
+        "title": "No agents match",
+        "description": "Clear the search or the filters to see every agent."
+      },
+      "errors": {
+        "notSaved": "The agent was not saved.",
+        "notRegistered": "The agent was not registered.",
+        "notSuspended": "{name} was not suspended.",
+        "notActivated": "{name} was not activated.",
+        "statusUnchanged": "The status did not change.",
+        "notAssigned": "The agent was not assigned.",
+        "notDeleted": "The agent was not deleted.",
+        "notRegenerated": "The key was not regenerated.",
+        "noKey": "The server did not return the new key."
+      },
+      "delete": {
+        "title": "Delete {name}?",
+        "description": "Its API key stops working now and its history stays in the audit log. Registering it again issues a new key.",
+        "confirm": "Delete agent"
+      },
+      "regenerate": {
+        "title": "Regenerate {name}'s API key?",
+        "description": "The current key stops working now. The agent fails its calls until it has the new one.",
+        "confirm": "Regenerate key"
+      },
+      "newKey": {
+        "title": "Copy the new API key",
+        "description": "It is shown once. Give it to the agent now.",
+        "label": "API key for {name}"
+      }
+    },
+    "form": {
+      "registerTitle": "Register an agent",
+      "editTitle": "Edit {name}",
+      "registerDescription": "Registering issues the agent's API key. Agents deployed from Astrolift AI register themselves.",
+      "editDescription": "Changes apply to the next call the agent makes.",
+      "keyTitle": "Copy the API key for {name}",
+      "keyDescription": "It is shown once. The agent sends it with every call; store it where the agent reads its secrets.",
+      "keyLabel": "API key for {name}",
+      "name": "Name",
+      "agentId": "Agent id",
+      "agentIdHint": "The slug the agent and Astrolift AI use, such as support-bot. It cannot change later.",
+      "type": "Type",
+      "typePlaceholder": "Choose a type",
+      "capabilities": "Capabilities",
+      "capabilitiesHint": "Comma separated, such as chat, tools.",
+      "metadata": "Metadata",
+      "metadataHint": "A JSON object. Policy tags such as function:customer_service go under taxonomy.",
+      "submitRegister": "Register agent",
+      "errors": {
+        "name": "A name needs at least 2 characters.",
+        "agentId": "Lowercase letters, digits and hyphens, starting and ending with a letter or digit.",
+        "agentType": "Choose the agent's type.",
+        "metadataObject": "Metadata is a JSON object, such as '{'\"team\": \"support\"'}'.",
+        "metadataJson": "This is not valid JSON."
+      },
+      "notRegistered": "The agent was not registered.",
+      "notSaved": "The agent was not saved."
+    },
+    "assign": {
+      "title": "Assign {name} to a group",
+      "description": "The group's tier sets the agent's default enforcement posture.",
+      "noGroups": "There are no groups yet. Create one under Agents, Groups.",
+      "group": "Group",
+      "loading": "Loading groups",
+      "placeholder": "Choose a group",
+      "submit": "Assign",
+      "pending": "Assigning",
+      "failed": "The agent was not assigned."
+    },
+    "detail": {
+      "tabs": {
+        "activity": "Activity",
+        "interactions": "Interactions",
+        "usage": "Usage",
+        "compliance": "Compliance",
+        "controls": "Controls",
+        "policies": "Policies"
+      },
+      "tabsLabel": "Agent",
+      "notFound": {
+        "title": "Agent not found",
+        "description": "No agent with the id {agentId} is registered in this organization. An agent deployed from Astrolift AI uses its deployment slug as its id.",
+        "action": "All agents"
+      },
+      "error": "Could not load the agent",
+      "loading": "Loading the agent",
+      "facts": {
+        "type": "Type",
+        "group": "Group",
+        "deployment": "Deployment",
+        "heartbeat": "Last heartbeat",
+        "owner": "Owner",
+        "apiKey": "API key",
+        "capabilities": "Capabilities",
+        "registered": "Registered"
+      },
+      "errors": {
+        "controls": "Controls could not be loaded.",
+        "action": "The control action was not applied.",
+        "policies": "Policies could not be loaded."
+      }
+    },
+    "activity": {
+      "label": "Agent events",
+      "columns": {
+        "when": "When",
+        "event": "Event",
+        "category": "Category",
+        "user": "User",
+        "status": "Status"
+      },
+      "empty": {
+        "title": "No events yet",
+        "description": "Events appear here as the agent reports tool calls, policy checks and errors."
+      }
+    },
+    "interactions": {
+      "label": "Agent interactions",
+      "columns": {
+        "when": "When",
+        "model": "Model",
+        "user": "User",
+        "tokens": "Tokens",
+        "cost": "Est. cost",
+        "latency": "Latency",
+        "outcome": "Outcome"
+      },
+      "unknownModel": "Unknown",
+      "latency": "{ms} ms",
+      "blocked": "blocked",
+      "allowed": "allowed",
+      "violations": "{count, plural, one {# violation} other {# violations}}",
+      "empty": {
+        "title": "No interactions logged",
+        "description": "Model calls appear here once the agent sends traffic through Zentinelle AI."
+      }
+    },
+    "usage": {
+      "window": "Last 30 days",
+      "error": "Could not load usage",
+      "loading": "Loading usage",
+      "empty": {
+        "title": "No usage recorded",
+        "description": "The agent made no metered calls in this window ({window}).",
+        "action": "Open Usage"
+      },
+      "apiCalls": "API calls",
+      "tokens": "Tokens",
+      "cost": "Cost",
+      "costHint": "{window}, estimated from registry prices"
+    },
+    "compliance": {
+      "label": "Agent violations",
+      "columns": {
+        "when": "When",
+        "rule": "Rule",
+        "severity": "Severity",
+        "action": "Action"
+      },
+      "unnamedRule": "Unnamed rule",
+      "blocked": "Blocked",
+      "redacted": "Redacted",
+      "logged": "Logged",
+      "empty": {
+        "title": "No violations",
+        "description": "No content rule has flagged this agent's traffic.",
+        "learnMore": "All detections"
+      }
+    },
+    "controls": {
+      "loading": "Loading controls",
+      "denied": {
+        "title": "Controls need an administrator",
+        "description": "Your role can see this agent's activity but not inspect or change its operating authority."
+      },
+      "error": "Could not load controls",
+      "authority": {
+        "title": "Authority",
+        "description": "What the agent registered it may do. Policies below can narrow it."
+      },
+      "cards": {
+        "tools": "Tools",
+        "modelRoutes": "Model routes",
+        "dataAccess": "Data access",
+        "authorityTags": "Authority tags",
+        "contained": "Contained tools",
+        "budget": "Budget"
+      },
+      "noneRegistered": "None registered",
+      "nothingContained": "Nothing contained",
+      "noBudget": "No budget registered",
+      "incidents": {
+        "title": "Recent incidents",
+        "empty": "No incidents for this agent."
+      },
+      "traces": {
+        "title": "Decision traces",
+        "description": "The last control and policy decisions recorded with a trace id.",
+        "empty": "No traced decisions yet.",
+        "row": "{action}, {time}"
+      },
+      "actions": {
+        "suspend": {
+          "label": "Suspend",
+          "title": "Suspend {name}?",
+          "description": "The agent's calls are refused until an operator activates it again. Astrolift AI cannot undo an administrator's suspension."
+        },
+        "revoke": {
+          "label": "Revoke key",
+          "title": "Revoke {name}'s API key?",
+          "description": "The agent is terminated and its key stops working now. It must be registered again, with a new key, to return."
+        },
+        "emergency_stop": {
+          "label": "Emergency stop",
+          "title": "Emergency stop {name}?",
+          "description": "Terminates the agent and revokes its key at once, and records the stop as an emergency in the audit log."
+        }
+      }
+    },
+    "policies": {
+      "label": "Policies in effect",
+      "rowLabel": "policy {name}",
+      "columns": {
+        "policy": "Policy",
+        "scope": "Set at",
+        "priority": "Priority",
+        "enforcement": "Enforcement"
+      },
+      "empty": {
+        "title": "No policies apply",
+        "description": "Nothing at the organization, group, deployment or agent scope targets this agent.",
+        "action": "New policy",
+        "learnMore": "How policies resolve"
+      },
+      "tools": {
+        "title": "Tool permissions",
+        "description": "The result of every policy above, for this agent.",
+        "allowed": "Allowed",
+        "approval": "Need approval",
+        "denied": "Denied"
+      }
+    },
+    "groups": {
+      "title": "Groups",
+      "description": "Group agents by tier or role to apply shared posture defaults.",
+      "create": "New group",
+      "tableLabel": "Agent groups",
+      "rowLabel": "group {name}",
+      "search": "Search groups",
+      "tier": "Tier",
+      "columns": {
+        "group": "Group",
+        "tier": "Tier",
+        "agents": "Agents",
+        "created": "Created"
+      },
+      "empty": {
+        "title": "No groups yet",
+        "canMutate": "Create a group, then assign agents to it from the Agents list.",
+        "readOnly": "An operator creates groups and assigns agents to them."
+      },
+      "emptyFiltered": {
+        "title": "No groups match",
+        "description": "Clear the search or the tier filter to see every group."
+      },
+      "form": {
+        "newTitle": "New group",
+        "editTitle": "Edit {name}",
+        "description": "Agents in a group take its tier's enforcement defaults.",
+        "name": "Name",
+        "nameError": "A name needs at least 2 characters.",
+        "groupDescription": "Description",
+        "tier": "Tier",
+        "color": "Colour",
+        "submitCreate": "Create group",
+        "failed": "The group was not saved."
+      },
+      "delete": {
+        "title": "Delete {name}?",
+        "withAgents": "{count, plural, one {Its # agent leaves the group and falls back to the organization's defaults.} other {Its # agents leave the group and fall back to the organization's defaults.}}",
+        "empty": "No agents are in this group.",
+        "confirm": "Delete group"
+      },
+      "errors": {
+        "notSaved": "The group was not saved.",
+        "notCreated": "The group was not created.",
+        "notDeleted": "The group was not deleted."
+      }
+    },
+    "approvals": {
+      "title": "Approvals",
+      "description": "Held agent actions waiting for a decision, newest first. The inbox refreshes every 15 seconds.",
+      "refresh": "Refresh",
+      "refreshing": "Refreshing",
+      "viewOnly": "You have view-only access. An operator or administrator approves or denies requests.",
+      "error": "The inbox is not current",
+      "loading": "Loading approvals",
+      "empty": {
+        "title": "No pending approvals",
+        "description": "Held requests appear here as agents make them. Decided and expired requests are left out.",
+        "learnMore": "Oversight policies"
+      },
+      "count": "{count, plural, one {# pending request} other {# pending requests}}",
+      "newest": ", the newest 100",
+      "approved": "Request {id} approved. The host may retry under current policy.",
+      "denied": "Request {id} denied.",
+      "errors": {
+        "refresh": "Approvals could not be refreshed.",
+        "decision": "The decision could not be confirmed. Refresh the inbox."
+      },
+      "card": {
+        "label": "Request {id}",
+        "expired": "expired",
+        "left": "{minutes}m {seconds}s left",
+        "defaultReason": "Policy requires a human decision.",
+        "unknownAgent": "Unknown agent",
+        "notProvided": "Not provided",
+        "details": "Action details",
+        "argsTitle": "Retained tool arguments",
+        "argsMissing": "The tool arguments are not in this request. Metadata-only capture leaves them out, and a caller may omit them. See <link>content capture settings</link>.",
+        "reason": "Decision reason (optional)",
+        "reasonPlaceholder": "Why this action should proceed or be denied",
+        "approve": "Approve",
+        "deny": "Deny",
+        "saving": "Saving the decision",
+        "expiredNote": "Expired requests cannot be decided.",
+        "facts": {
+          "agent": "Agent",
+          "user": "User",
+          "action": "Action",
+          "harness": "Harness",
+          "requested": "Requested",
+          "expires": "Expires",
+          "requestId": "Request id",
+          "trace": "Trace",
+          "session": "Session",
+          "run": "Run",
+          "chat": "Chat",
+          "toolCall": "Tool call",
+          "planDigest": "Plan digest",
+          "agents": "Agents",
+          "tools": "Tools",
+          "paths": "Paths",
+          "estimatedTokens": "Estimated tokens",
+          "estimatedCost": "Estimated cost (USD)",
+          "delegationDepth": "Delegation depth",
+          "placement": "Placement"
+        }
+      }
+    }
   }
 }

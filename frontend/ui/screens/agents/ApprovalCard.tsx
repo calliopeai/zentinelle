@@ -1,4 +1,5 @@
 import { Button, StatusBadge, useUI } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import type { HeldApproval } from "@/lib/approvals";
 
@@ -26,10 +27,6 @@ function str(value: unknown) {
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 
-function left(seconds: number) {
-  return `${Math.floor(seconds / 60)}m ${seconds % 60}s left`;
-}
-
 /**
  * One held agent action (#440): what the agent asked to do, why policy held
  * it, when it expires, and, for operators, the approve and deny decision
@@ -45,6 +42,7 @@ export function ApprovalCard({
   onReasonChange,
   onDecide,
 }: ApprovalCardProps) {
+  const t = useTranslations("agents.approvals.card");
   const { Link } = useUI();
   const context = request.context;
   const seconds = Math.max(
@@ -57,22 +55,27 @@ export function ApprovalCard({
     typeof context.tool_name === "string" ? context.tool_name : request.action;
   return (
     <Card
-      aria-label={`Request ${request.request_id}`}
+      aria-label={t("label", { id: request.request_id })}
       title={<span className="font-mono">{title}</span>}
       action={
         <StatusBadge tone={expired ? "muted" : seconds < 60 ? "warn" : "info"}>
-          {expired ? "expired" : left(seconds)}
+          {expired
+            ? t("expired")
+            : t("left", {
+                minutes: Math.floor(seconds / 60),
+                seconds: seconds % 60,
+              })}
         </StatusBadge>
       }
     >
       <p className="text-sm [overflow-wrap:anywhere]">
-        {request.reason || "Policy requires a human decision."}
+        {request.reason || t("defaultReason")}
       </p>
       <DefinitionList
         columns={3}
         items={[
           {
-            term: "Agent",
+            term: t("facts.agent"),
             value: request.agent_id ? (
               <Link
                 href={agentHref(request.agent_id)}
@@ -81,20 +84,20 @@ export function ApprovalCard({
                 {request.agent_id}
               </Link>
             ) : (
-              "Unknown agent"
+              t("unknownAgent")
             ),
             mono: true,
           },
-          { term: "User", value: request.user_id ?? "Not provided" },
-          { term: "Action", value: request.action, mono: true },
-          { term: "Harness", value: str(context.harness) },
+          { term: t("facts.user"), value: request.user_id ?? t("notProvided") },
+          { term: t("facts.action"), value: request.action, mono: true },
+          { term: t("facts.harness"), value: str(context.harness) },
           {
-            term: "Requested",
+            term: t("facts.requested"),
             value: formatTime(request.created_at),
             mono: true,
           },
           {
-            term: "Expires",
+            term: t("facts.expires"),
             value: formatTime(request.expires_at),
             mono: true,
           },
@@ -102,58 +105,71 @@ export function ApprovalCard({
       />
       <details className="rounded-lg border p-3">
         <summary className="cursor-pointer text-sm font-medium">
-          Action details
+          {t("details")}
         </summary>
         <DefinitionList
           className="mt-3"
           items={[
-            { term: "Request id", value: request.request_id, mono: true },
-            { term: "Trace", value: request.trace_id, mono: true },
-            { term: "Session", value: str(context.session_id), mono: true },
-            { term: "Run", value: str(context.run_id), mono: true },
-            { term: "Chat", value: str(context.chat_id), mono: true },
-            { term: "Tool call", value: str(context.tool_call_id), mono: true },
             {
-              term: "Plan digest",
+              term: t("facts.requestId"),
+              value: request.request_id,
+              mono: true,
+            },
+            { term: t("facts.trace"), value: request.trace_id, mono: true },
+            {
+              term: t("facts.session"),
+              value: str(context.session_id),
+              mono: true,
+            },
+            { term: t("facts.run"), value: str(context.run_id), mono: true },
+            { term: t("facts.chat"), value: str(context.chat_id), mono: true },
+            {
+              term: t("facts.toolCall"),
+              value: str(context.tool_call_id),
+              mono: true,
+            },
+            {
+              term: t("facts.planDigest"),
               value: str(context.context_digest),
               mono: true,
             },
-            { term: "Agents", value: str(context.agents) },
-            { term: "Tools", value: str(context.tools) },
-            { term: "Paths", value: str(context.paths), mono: true },
+            { term: t("facts.agents"), value: str(context.agents) },
+            { term: t("facts.tools"), value: str(context.tools) },
+            { term: t("facts.paths"), value: str(context.paths), mono: true },
             {
-              term: "Estimated tokens",
+              term: t("facts.estimatedTokens"),
               value: str(context.estimated_tokens),
               mono: true,
             },
             {
-              term: "Estimated cost (USD)",
+              term: t("facts.estimatedCost"),
               value: str(context.estimated_cost_usd),
               mono: true,
             },
             {
-              term: "Delegation depth",
+              term: t("facts.delegationDepth"),
               value: str(context.delegation_depth),
               mono: true,
             },
-            { term: "Placement", value: str(context.placement) },
+            { term: t("facts.placement"), value: str(context.placement) },
           ]}
         />
         {Object.hasOwn(context, "tool_input") ? (
           <div className="mt-3">
-            <p className="text-sm font-medium">Retained tool arguments</p>
+            <p className="text-sm font-medium">{t("argsTitle")}</p>
             <pre className="bg-muted mt-2 max-h-72 overflow-auto rounded-lg p-3 font-mono text-xs break-all whitespace-pre-wrap">
               {JSON.stringify(context.tool_input, null, 2)}
             </pre>
           </div>
         ) : (
           <p className="text-muted-foreground mt-3 text-sm">
-            The tool arguments are not in this request. Metadata-only capture
-            leaves them out, and a caller may omit them. See{" "}
-            <Link href="/settings" className="underline">
-              content capture settings
-            </Link>
-            .
+            {t.rich("argsMissing", {
+              link: (chunks) => (
+                <Link href="/settings" className="underline">
+                  {chunks}
+                </Link>
+              ),
+            })}
           </p>
         )}
       </details>
@@ -161,12 +177,12 @@ export function ApprovalCard({
         <div className="flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-end">
           <TextField
             className="sm:flex-1"
-            label="Decision reason (optional)"
+            label={t("reason")}
             maxLength={1000}
             value={reason}
             onChange={(e) => onReasonChange(e.target.value)}
             disabled={disabled}
-            placeholder="Why this action should proceed or be denied"
+            placeholder={t("reasonPlaceholder")}
           />
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -174,7 +190,7 @@ export function ApprovalCard({
               onClick={() => onDecide("approve")}
               disabled={disabled}
             >
-              Approve
+              {t("approve")}
             </Button>
             <Button
               size="sm"
@@ -182,14 +198,10 @@ export function ApprovalCard({
               onClick={() => onDecide("deny")}
               disabled={disabled}
             >
-              Deny
+              {t("deny")}
             </Button>
             <span role="status" className="text-muted-foreground text-sm">
-              {saving
-                ? "Saving the decision"
-                : expired
-                  ? "Expired requests cannot be decided."
-                  : ""}
+              {saving ? t("saving") : expired ? t("expiredNote") : ""}
             </span>
           </div>
         </div>

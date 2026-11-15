@@ -2,6 +2,7 @@
 
 import { useMutation } from "@apollo/client/react";
 import { ConfirmDialog } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import { useAgentGroups } from "@/graphql/agent-groups/hooks";
@@ -34,6 +35,7 @@ type Pending =
 
 /** The Groups route: GetAgentGroups with its search and tier, and the group mutations. */
 export function GroupsRoute({ capabilities }: GroupsRouteProps) {
+  const t = useTranslations("agents.groups");
   const [search, setSearch] = React.useState("");
   const [tier, setTier] = React.useState("");
   const query = useDebounced(search.trim());
@@ -84,16 +86,16 @@ export function GroupsRoute({ capabilities }: GroupsRouteProps) {
       });
       const payload = payloadOrThrow(
         data?.updateAgentGroup,
-        "The group was not saved.",
+        t("errors.notSaved"),
       );
-      if (!payload.group) throw new Error("The group was not saved.");
+      if (!payload.group) throw new Error(t("errors.notSaved"));
     } else {
       const { data } = await create({ variables: values });
       const payload = payloadOrThrow(
         data?.createAgentGroup,
-        "The group was not created.",
+        t("errors.notCreated"),
       );
-      if (!payload.group) throw new Error("The group was not created.");
+      if (!payload.group) throw new Error(t("errors.notCreated"));
     }
     void refetch();
   }
@@ -119,21 +121,23 @@ export function GroupsRoute({ capabilities }: GroupsRouteProps) {
         open={pending?.kind === "delete"}
         onOpenChange={(open) => !open && setPending(null)}
         title={
-          pending?.kind === "delete" ? `Delete ${pending.group.name}?` : ""
+          pending?.kind === "delete"
+            ? t("delete.title", { name: pending.group.name })
+            : ""
         }
         description={
           pending?.kind === "delete" && pending.group.agentCount
-            ? `Its ${pending.group.agentCount} agents leave the group and fall back to the organization's defaults.`
-            : "No agents are in this group."
+            ? t("delete.withAgents", { count: pending.group.agentCount })
+            : t("delete.empty")
         }
-        confirmLabel="Delete group"
+        confirmLabel={t("delete.confirm")}
         destructive
         onConfirm={async () => {
           if (pending?.kind !== "delete") return;
           const { data } = await remove({
             variables: { id: pending.group.id },
           });
-          payloadOrThrow(data?.deleteAgentGroup, "The group was not deleted.");
+          payloadOrThrow(data?.deleteAgentGroup, t("errors.notDeleted"));
           void refetch();
         }}
       />

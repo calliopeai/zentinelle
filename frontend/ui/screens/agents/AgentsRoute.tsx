@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import { useAgentGroups } from "@/graphql/agent-groups/hooks";
@@ -81,9 +82,11 @@ export interface AgentsRouteProps {
 /**
  * The Agents route: GetEndpoints with the server's search and filters, and
  * every endpoint mutation, mapped onto AgentsScreen. `app/(app)/agents`
- * renders this once the stories are approved.
+ * renders this.
  */
 export function AgentsRoute({ capabilities }: AgentsRouteProps) {
+  const t = useTranslations("agents.list");
+  const c = useTranslations("common");
   const [search, setSearch] = React.useState("");
   const [filters, setFilters] = React.useState({ status: "", agentType: "" });
   const query = useDebounced(search.trim());
@@ -153,7 +156,7 @@ export function AgentsRoute({ capabilities }: AgentsRouteProps) {
           },
         },
       });
-      payloadOrThrow(data?.updateAgentEndpoint, "The agent was not saved.");
+      payloadOrThrow(data?.updateAgentEndpoint, t("errors.notSaved"));
       void refetch();
       return;
     }
@@ -170,7 +173,7 @@ export function AgentsRoute({ capabilities }: AgentsRouteProps) {
     });
     const payload = payloadOrThrow(
       data?.createAgentEndpoint,
-      "The agent was not registered.",
+      t("errors.notRegistered"),
     );
     void refetch();
     return { apiKey: payload.apiKey };
@@ -183,13 +186,13 @@ export function AgentsRoute({ capabilities }: AgentsRouteProps) {
         const { data } = await suspend({ variables: { id: agent.id } });
         payloadOrThrow(
           data?.suspendAgentEndpoint,
-          `${agent.name} was not suspended.`,
+          t("errors.notSuspended", { name: agent.name }),
         );
       } else {
         const { data } = await activate({ variables: { id: agent.id } });
         payloadOrThrow(
           data?.activateAgentEndpoint,
-          `${agent.name} was not activated.`,
+          t("errors.notActivated", { name: agent.name }),
         );
       }
       void refetch();
@@ -197,7 +200,7 @@ export function AgentsRoute({ capabilities }: AgentsRouteProps) {
       setStatusError(
         failure instanceof Error
           ? failure.message
-          : "The status did not change.",
+          : t("errors.statusUnchanged"),
       );
     }
   }
@@ -255,10 +258,7 @@ export function AgentsRoute({ capabilities }: AgentsRouteProps) {
             const { data } = await assign({
               variables: { agentId: pending.agent.id, groupId },
             });
-            payloadOrThrow(
-              data?.assignAgentToGroup,
-              "The agent was not assigned.",
-            );
+            payloadOrThrow(data?.assignAgentToGroup, t("errors.notAssigned"));
             void refetch();
           }}
         />
@@ -267,20 +267,19 @@ export function AgentsRoute({ capabilities }: AgentsRouteProps) {
         open={pending?.kind === "delete"}
         onOpenChange={(open) => !open && close()}
         title={
-          pending?.kind === "delete" ? `Delete ${pending.agent.name}?` : ""
+          pending?.kind === "delete"
+            ? t("delete.title", { name: pending.agent.name })
+            : ""
         }
-        description="Its API key stops working now and its history stays in the audit log. Registering it again issues a new key."
-        confirmLabel="Delete agent"
+        description={t("delete.description")}
+        confirmLabel={t("delete.confirm")}
         destructive
         onConfirm={async () => {
           if (pending?.kind !== "delete") return;
           const { data } = await remove({
             variables: { id: pending.agent.id },
           });
-          payloadOrThrow(
-            data?.deleteAgentEndpoint,
-            "The agent was not deleted.",
-          );
+          payloadOrThrow(data?.deleteAgentEndpoint, t("errors.notDeleted"));
           void refetch();
         }}
       />
@@ -291,11 +290,11 @@ export function AgentsRoute({ capabilities }: AgentsRouteProps) {
         }
         title={
           pending?.kind === "regenerate"
-            ? `Regenerate ${pending.agent.name}'s API key?`
+            ? t("regenerate.title", { name: pending.agent.name })
             : ""
         }
-        description="The current key stops working now. The agent fails its calls until it has the new one."
-        confirmLabel="Regenerate key"
+        description={t("regenerate.description")}
+        confirmLabel={t("regenerate.confirm")}
         destructive
         onConfirm={async () => {
           if (pending?.kind !== "regenerate") return;
@@ -304,10 +303,9 @@ export function AgentsRoute({ capabilities }: AgentsRouteProps) {
           });
           const payload = payloadOrThrow(
             data?.regenerateEndpointApiKey,
-            "The key was not regenerated.",
+            t("errors.notRegenerated"),
           );
-          if (!payload.apiKey)
-            throw new Error("The server did not return the new key.");
+          if (!payload.apiKey) throw new Error(t("errors.noKey"));
           setPending({
             kind: "key",
             agent: pending.agent,
@@ -322,19 +320,17 @@ export function AgentsRoute({ capabilities }: AgentsRouteProps) {
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Copy the new API key</DialogTitle>
-            <DialogDescription>
-              It is shown once. Give it to the agent now.
-            </DialogDescription>
+            <DialogTitle>{t("newKey.title")}</DialogTitle>
+            <DialogDescription>{t("newKey.description")}</DialogDescription>
           </DialogHeader>
           {pending?.kind === "key" && (
             <OneTimeSecret
-              label={`API key for ${pending.agent.name}`}
+              label={t("newKey.label", { name: pending.agent.name })}
               value={pending.apiKey}
             />
           )}
           <DialogFooter>
-            <Button onClick={close}>Done</Button>
+            <Button onClick={close}>{c("done")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

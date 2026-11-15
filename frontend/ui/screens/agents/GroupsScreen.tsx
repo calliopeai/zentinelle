@@ -10,18 +10,19 @@ import {
   type TableController,
 } from "@calliopelabs/ui";
 import { PlusIcon, UsersIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { AgentGroupData } from "@/graphql/agent-groups/types";
 
 import { navFor } from "../../product";
 import { FilterSelect } from "../../shared/FilterSelect";
 import {
-  GROUP_TIERS,
   GROUP_TIER_TONE,
   formatNumber,
   formatTime,
   groupSwatch,
   toneOf,
+  useAgentLabels,
 } from "./format";
 
 export interface GroupsScreenProps {
@@ -50,57 +51,66 @@ function Swatch({ color }: { color: string }) {
 /** Long names wrap inside a bounded column instead of widening the table. */
 const WRAP = "min-w-40 max-w-md whitespace-normal";
 
-const COLUMNS: Column<AgentGroupData>[] = [
-  {
-    id: "name",
-    cellClassName: WRAP,
-    header: "Group",
-    cell: (g) => (
-      <span className="flex min-w-0 items-start gap-2">
-        <span className="pt-1.5">
-          <Swatch color={g.color} />
-        </span>
-        <span className="flex min-w-0 flex-col">
-          <span className="font-medium [overflow-wrap:anywhere]">{g.name}</span>
-          {g.description && (
-            <span className="text-muted-foreground line-clamp-2 text-xs [overflow-wrap:anywhere]">
-              {g.description}
+function columns(
+  t: ReturnType<typeof useTranslations>,
+  tierLabel: (tier: string) => string,
+): Column<AgentGroupData>[] {
+  return [
+    {
+      id: "name",
+      cellClassName: WRAP,
+      header: t("columns.group"),
+      cell: (g) => (
+        <span className="flex min-w-0 items-start gap-2">
+          <span className="pt-1.5">
+            <Swatch color={g.color} />
+          </span>
+          <span className="flex min-w-0 flex-col">
+            <span className="font-medium [overflow-wrap:anywhere]">
+              {g.name}
             </span>
-          )}
+            {g.description && (
+              <span className="text-muted-foreground line-clamp-2 text-xs [overflow-wrap:anywhere]">
+                {g.description}
+              </span>
+            )}
+          </span>
         </span>
-      </span>
-    ),
-  },
-  {
-    id: "tier",
-    header: "Tier",
-    width: "w-32",
-    cell: (g) => (
-      <StatusBadge tone={toneOf(GROUP_TIER_TONE, g.tier)}>{g.tier}</StatusBadge>
-    ),
-  },
-  {
-    id: "agents",
-    header: "Agents",
-    align: "right",
-    width: "w-24",
-    cell: (g) => (
-      <span className="font-mono tabular-nums">
-        {formatNumber(g.agentCount)}
-      </span>
-    ),
-  },
-  {
-    id: "created",
-    header: "Created",
-    width: "w-44",
-    cell: (g) => (
-      <span className="font-mono text-xs whitespace-nowrap">
-        {formatTime(g.createdAt)}
-      </span>
-    ),
-  },
-];
+      ),
+    },
+    {
+      id: "tier",
+      header: t("columns.tier"),
+      width: "w-32",
+      cell: (g) => (
+        <StatusBadge tone={toneOf(GROUP_TIER_TONE, g.tier)}>
+          {tierLabel(g.tier)}
+        </StatusBadge>
+      ),
+    },
+    {
+      id: "agents",
+      header: t("columns.agents"),
+      align: "right",
+      width: "w-24",
+      cell: (g) => (
+        <span className="font-mono tabular-nums">
+          {formatNumber(g.agentCount)}
+        </span>
+      ),
+    },
+    {
+      id: "created",
+      header: t("columns.created"),
+      width: "w-44",
+      cell: (g) => (
+        <span className="font-mono text-xs whitespace-nowrap">
+          {formatTime(g.createdAt)}
+        </span>
+      ),
+    },
+  ];
+}
 
 /**
  * Groups (ui-overhaul-ia §4.1): agents grouped by tier or role, so one
@@ -116,33 +126,36 @@ export function GroupsScreen({
   onEdit,
   onDelete,
 }: GroupsScreenProps) {
+  const t = useTranslations("agents.groups");
+  const c = useTranslations("common");
+  const labels = useAgentLabels();
   const canMutate = capabilities.includes("mutate");
   return (
     <PageFrame
       crumbs={[areaSwitcher(navFor(capabilities), "agents", "groups")]}
-      title="Groups"
-      description="Group agents by tier or role to apply shared posture defaults."
+      title={t("title")}
+      description={t("description")}
       primaryAction={
         canMutate ? (
           <Button size="sm" onClick={onCreate}>
             <PlusIcon aria-hidden />
-            New group
+            {t("create")}
           </Button>
         ) : undefined
       }
     >
       <DataTable
-        label="Agent groups"
+        label={t("tableLabel")}
         controller={table}
-        columns={COLUMNS}
+        columns={columns(t, labels.tier)}
         getRowId={(g) => g.id}
-        rowLabel={(g) => `group ${g.name}`}
-        searchPlaceholder="Search groups"
+        rowLabel={(g) => t("rowLabel", { name: g.name })}
+        searchPlaceholder={t("search")}
         toolbar={
           <FilterSelect
-            label="Tier"
+            label={t("tier")}
             value={tier}
-            options={GROUP_TIERS}
+            options={labels.tierOptions}
             onChange={onTierChange}
           />
         }
@@ -151,14 +164,14 @@ export function GroupsScreen({
             ? (g) => (
                 <>
                   <DropdownMenuItem onSelect={() => onEdit(g)}>
-                    Edit
+                    {c("edit")}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     variant="destructive"
                     onSelect={() => onDelete(g)}
                   >
-                    Delete
+                    {c("delete")}
                   </DropdownMenuItem>
                 </>
               )
@@ -166,15 +179,12 @@ export function GroupsScreen({
         }
         empty={{
           icon: <UsersIcon />,
-          title: "No groups yet",
-          description: canMutate
-            ? "Create a group, then assign agents to it from the Agents list."
-            : "An operator creates groups and assigns agents to them.",
+          title: t("empty.title"),
+          description: canMutate ? t("empty.canMutate") : t("empty.readOnly"),
         }}
         emptyFiltered={{
-          title: "No groups match",
-          description:
-            "Clear the search or the tier filter to see every group.",
+          title: t("emptyFiltered.title"),
+          description: t("emptyFiltered.description"),
         }}
       />
     </PageFrame>

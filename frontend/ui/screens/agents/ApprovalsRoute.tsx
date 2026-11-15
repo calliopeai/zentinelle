@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import {
@@ -43,6 +44,7 @@ export function ApprovalsRoute({
   client = defaultClient,
   refreshEvery = 15000,
 }: ApprovalsRouteProps) {
+  const t = useTranslations("agents.approvals");
   const canDecide = capabilities.includes("mutate");
   const [requests, setRequests] = React.useState<HeldApproval[]>([]);
   const [reasons, setReasons] = React.useState<Record<string, string>>({});
@@ -75,14 +77,14 @@ export function ApprovalsRoute({
       if (controller.signal.aborted) return;
       setRequests([]);
       setError(
-        failure instanceof Error
+        failure instanceof Error && failure.message
           ? failure.message
-          : "Approvals could not be refreshed.",
+          : t("errors.refresh"),
       );
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, [client]);
+  }, [client, t]);
 
   React.useEffect(() => {
     const initial = window.setTimeout(() => void refresh(), 0);
@@ -119,16 +121,16 @@ export function ApprovalsRoute({
       );
       setNotice(
         decision === "approve"
-          ? `Request ${row.request_id} approved. The host may retry under current policy.`
-          : `Request ${row.request_id} denied.`,
+          ? t("approved", { id: row.request_id })
+          : t("denied", { id: row.request_id }),
       );
       await refresh();
     } catch (failure) {
       setRequests([]);
       setError(
-        failure instanceof Error
+        failure instanceof Error && failure.message
           ? failure.message
-          : "The decision could not be confirmed. Refresh the inbox.",
+          : t("errors.decision"),
       );
     } finally {
       deciding.current = false;

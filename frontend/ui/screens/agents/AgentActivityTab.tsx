@@ -6,6 +6,7 @@ import {
   type TableController,
 } from "@calliopelabs/ui";
 import { ActivityIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { EventData } from "@/graphql/events/types";
 
@@ -20,50 +21,59 @@ const EVENT_STATUS_TONE: Record<string, StatusTone> = {
   failed: "error",
 };
 
-const COLUMNS: Column<EventData>[] = [
-  {
-    id: "when",
-    header: "When",
-    width: "w-44",
-    cell: (e) => (
-      <span className="font-mono text-xs whitespace-nowrap">
-        {formatTime(e.occurredAt)}
-      </span>
-    ),
-  },
-  {
-    id: "type",
-    cellClassName: WRAP,
-    header: "Event",
-    cell: (e) => (
-      <span className="font-medium [overflow-wrap:anywhere]">
-        {words(e.eventType)}
-      </span>
-    ),
-  },
-  { id: "category", header: "Category", cell: (e) => words(e.eventCategory) },
-  {
-    id: "user",
-    cellClassName: WRAP,
-    header: "User",
-    cell: (e) =>
-      e.userIdentifier ? (
-        <span className="[overflow-wrap:anywhere]">{e.userIdentifier}</span>
-      ) : (
-        <span className="text-muted-foreground">None</span>
+function columns(
+  t: ReturnType<typeof useTranslations>,
+  none: string,
+): Column<EventData>[] {
+  return [
+    {
+      id: "when",
+      header: t("columns.when"),
+      width: "w-44",
+      cell: (e) => (
+        <span className="font-mono text-xs whitespace-nowrap">
+          {formatTime(e.occurredAt)}
+        </span>
       ),
-  },
-  {
-    id: "status",
-    header: "Status",
-    width: "w-28",
-    cell: (e) => (
-      <StatusBadge tone={toneOf(EVENT_STATUS_TONE, e.status)}>
-        {words(e.status)}
-      </StatusBadge>
-    ),
-  },
-];
+    },
+    {
+      id: "type",
+      cellClassName: WRAP,
+      header: t("columns.event"),
+      cell: (e) => (
+        <span className="font-medium [overflow-wrap:anywhere]">
+          {words(e.eventType)}
+        </span>
+      ),
+    },
+    {
+      id: "category",
+      header: t("columns.category"),
+      cell: (e) => words(e.eventCategory),
+    },
+    {
+      id: "user",
+      cellClassName: WRAP,
+      header: t("columns.user"),
+      cell: (e) =>
+        e.userIdentifier ? (
+          <span className="[overflow-wrap:anywhere]">{e.userIdentifier}</span>
+        ) : (
+          <span className="text-muted-foreground">{none}</span>
+        ),
+    },
+    {
+      id: "status",
+      header: t("columns.status"),
+      width: "w-28",
+      cell: (e) => (
+        <StatusBadge tone={toneOf(EVENT_STATUS_TONE, e.status)}>
+          {words(e.status)}
+        </StatusBadge>
+      ),
+    },
+  ];
+}
 
 export interface AgentActivityTabProps {
   /** GetEvents with this agent's endpointId, newest first. */
@@ -72,17 +82,18 @@ export interface AgentActivityTabProps {
 
 /** Activity: the events this agent reported, refreshed as they arrive. */
 export function AgentActivityTab({ table }: AgentActivityTabProps) {
+  const t = useTranslations("agents.activity");
+  const c = useTranslations("common");
   return (
     <DataTable
-      label="Agent events"
+      label={t("label")}
       controller={table}
-      columns={COLUMNS}
+      columns={columns(t, c("none"))}
       getRowId={(e) => e.id}
       empty={{
         icon: <ActivityIcon />,
-        title: "No events yet",
-        description:
-          "Events appear here as the agent reports tool calls, policy checks and errors.",
+        title: t("empty.title"),
+        description: t("empty.description"),
       }}
     />
   );

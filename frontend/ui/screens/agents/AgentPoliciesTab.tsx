@@ -7,6 +7,7 @@ import {
   type TableController,
 } from "@calliopelabs/ui";
 import { ShieldCheckIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Card } from "../../shared/Card";
 import { toneOf, words } from "./format";
@@ -27,49 +28,54 @@ export interface ToolPermissions {
   requires_approval: string[];
 }
 
-/** Policy.Enforcement. */
 /** Long names wrap inside a bounded column instead of widening the table. */
 const WRAP = "min-w-40 max-w-md whitespace-normal";
 
+/** Policy.Enforcement. */
 const ENFORCEMENT_TONE: Record<string, StatusTone> = {
   enforce: "ok",
   audit: "info",
   disabled: "muted",
 };
 
-const COLUMNS: Column<EffectivePolicyRow>[] = [
-  {
-    id: "name",
-    cellClassName: WRAP,
-    header: "Policy",
-    cell: (p) => (
-      <span className="flex min-w-0 flex-col">
-        <span className="font-medium [overflow-wrap:anywhere]">{p.name}</span>
-        <span className="text-muted-foreground text-xs">{words(p.type)}</span>
-      </span>
-    ),
-  },
-  { id: "scope", header: "Set at", cell: (p) => words(p.scope) },
-  {
-    id: "priority",
-    header: "Priority",
-    align: "right",
-    width: "w-24",
-    cell: (p) => <span className="font-mono tabular-nums">{p.priority}</span>,
-  },
-  {
-    id: "enforcement",
-    header: "Enforcement",
-    width: "w-32",
-    cell: (p) => (
-      <StatusBadge tone={toneOf(ENFORCEMENT_TONE, p.enforcement)}>
-        {words(p.enforcement)}
-      </StatusBadge>
-    ),
-  },
-];
+function columns(
+  t: ReturnType<typeof useTranslations>,
+): Column<EffectivePolicyRow>[] {
+  return [
+    {
+      id: "name",
+      cellClassName: WRAP,
+      header: t("columns.policy"),
+      cell: (p) => (
+        <span className="flex min-w-0 flex-col">
+          <span className="font-medium [overflow-wrap:anywhere]">{p.name}</span>
+          <span className="text-muted-foreground text-xs">{words(p.type)}</span>
+        </span>
+      ),
+    },
+    { id: "scope", header: t("columns.scope"), cell: (p) => words(p.scope) },
+    {
+      id: "priority",
+      header: t("columns.priority"),
+      align: "right",
+      width: "w-24",
+      cell: (p) => <span className="font-mono tabular-nums">{p.priority}</span>,
+    },
+    {
+      id: "enforcement",
+      header: t("columns.enforcement"),
+      width: "w-32",
+      cell: (p) => (
+        <StatusBadge tone={toneOf(ENFORCEMENT_TONE, p.enforcement)}>
+          {words(p.enforcement)}
+        </StatusBadge>
+      ),
+    },
+  ];
+}
 
 function Tools({ title, tools }: { title: string; tools: string[] }) {
+  const c = useTranslations("common");
   return (
     <Card title={title}>
       {tools.length ? (
@@ -84,7 +90,7 @@ function Tools({ title, tools }: { title: string; tools: string[] }) {
           ))}
         </ul>
       ) : (
-        <p className="text-muted-foreground text-sm">None</p>
+        <p className="text-muted-foreground text-sm">{c("none")}</p>
       )}
     </Card>
   );
@@ -105,35 +111,35 @@ export function AgentPoliciesTab({
   tools,
   effectiveHref,
 }: AgentPoliciesTabProps) {
+  const t = useTranslations("agents.policies");
   return (
     <>
       <DataTable
-        label="Policies in effect"
+        label={t("label")}
         controller={table}
-        columns={COLUMNS}
+        columns={columns(t)}
         getRowId={(p) => p.id}
         rowHref={(p) => `/policies/${encodeURIComponent(p.id)}`}
-        rowLabel={(p) => `policy ${p.name}`}
+        rowLabel={(p) => t("rowLabel", { name: p.name })}
         empty={{
           icon: <ShieldCheckIcon />,
-          title: "No policies apply",
-          description:
-            "Nothing at the organization, group, deployment or agent scope targets this agent.",
+          title: t("empty.title"),
+          description: t("empty.description"),
           actionHref: "/policies/create",
-          actionLabel: "New policy",
+          actionLabel: t("empty.action"),
           learnMoreHref: effectiveHref,
-          learnMoreLabel: "How policies resolve",
+          learnMoreLabel: t("empty.learnMore"),
         }}
       />
       {tools && (
-        <Section
-          title="Tool permissions"
-          description="The result of every policy above, for this agent."
-        >
+        <Section title={t("tools.title")} description={t("tools.description")}>
           <div className="grid gap-4 md:grid-cols-3">
-            <Tools title="Allowed" tools={tools.allowed} />
-            <Tools title="Need approval" tools={tools.requires_approval} />
-            <Tools title="Denied" tools={tools.denied} />
+            <Tools title={t("tools.allowed")} tools={tools.allowed} />
+            <Tools
+              title={t("tools.approval")}
+              tools={tools.requires_approval}
+            />
+            <Tools title={t("tools.denied")} tools={tools.denied} />
           </div>
         </Section>
       )}

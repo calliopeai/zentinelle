@@ -7,11 +7,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import { SelectField, TextField, TextareaField } from "../../shared/FormField";
 import { OneTimeSecret } from "../../shared/OneTimeSecret";
-import { AGENT_TYPES } from "./format";
+import { useAgentLabels } from "./format";
 
 export interface AgentFormValues {
   name: string;
@@ -42,6 +43,7 @@ export interface AgentFormDialogProps {
 
 const SLUG = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 
+/** Each value names its message under `agents.form.errors`. */
 type Errors = Partial<
   Record<"name" | "agentId" | "agentType" | "metadata", string>
 >;
@@ -51,20 +53,17 @@ function validate(
   form: { name: string; agentId: string; agentType: string; metadata: string },
 ): Errors {
   const errors: Errors = {};
-  if (form.name.trim().length < 2)
-    errors.name = "A name needs at least 2 characters.";
+  if (form.name.trim().length < 2) errors.name = "name";
   if (mode === "register" && !SLUG.test(form.agentId))
-    errors.agentId =
-      "Lowercase letters, digits and hyphens, starting and ending with a letter or digit.";
-  if (!form.agentType) errors.agentType = "Choose the agent's type.";
+    errors.agentId = "agentId";
+  if (!form.agentType) errors.agentType = "agentType";
   if (form.metadata.trim()) {
     try {
       const parsed: unknown = JSON.parse(form.metadata);
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-        errors.metadata =
-          'Metadata is a JSON object, such as {"team": "support"}.';
+        errors.metadata = "metadataObject";
     } catch {
-      errors.metadata = "This is not valid JSON.";
+      errors.metadata = "metadataJson";
     }
   }
   return errors;
@@ -81,6 +80,10 @@ function AgentFormDialogContent({
   onSubmit,
   onCopy,
 }: Omit<AgentFormDialogProps, "open">) {
+  const t = useTranslations("agents.form");
+  const c = useTranslations("common");
+  const errorText = (key?: string) => (key ? t(`errors.${key}`) : undefined);
+  const { typeOptions } = useAgentLabels();
   const blank = React.useMemo(
     () => ({
       name: initial?.name ?? "",
@@ -129,8 +132,8 @@ function AgentFormDialogContent({
         error instanceof Error && error.message
           ? error.message
           : mode === "register"
-            ? "The agent was not registered."
-            : "The agent was not saved.",
+            ? t("notRegistered")
+            : t("notSaved"),
       );
     } finally {
       setPending(false);
@@ -147,19 +150,16 @@ function AgentFormDialogContent({
       {apiKey ? (
         <>
           <DialogHeader>
-            <DialogTitle>Copy the API key for {form.name}</DialogTitle>
-            <DialogDescription>
-              It is shown once. The agent sends it with every call; store it
-              where the agent reads its secrets.
-            </DialogDescription>
+            <DialogTitle>{t("keyTitle", { name: form.name })}</DialogTitle>
+            <DialogDescription>{t("keyDescription")}</DialogDescription>
           </DialogHeader>
           <OneTimeSecret
-            label={`API key for ${form.name}`}
+            label={t("keyLabel", { name: form.name })}
             value={apiKey}
             onCopy={onCopy}
           />
           <DialogFooter>
-            <Button onClick={() => onOpenChange(false)}>Done</Button>
+            <Button onClick={() => onOpenChange(false)}>{c("done")}</Button>
           </DialogFooter>
         </>
       ) : (
@@ -170,65 +170,67 @@ function AgentFormDialogContent({
         >
           <DialogHeader>
             <DialogTitle>
-              {mode === "register" ? "Register an agent" : `Edit ${blank.name}`}
+              {mode === "register"
+                ? t("registerTitle")
+                : t("editTitle", { name: blank.name })}
             </DialogTitle>
             <DialogDescription>
               {mode === "register"
-                ? "Registering issues the agent's API key. Agents deployed from Astrolift AI register themselves."
-                : "Changes apply to the next call the agent makes."}
+                ? t("registerDescription")
+                : t("editDescription")}
             </DialogDescription>
           </DialogHeader>
           <TextField
-            label="Name"
+            label={t("name")}
             required
             value={form.name}
             onChange={(e) => set("name")(e.target.value)}
-            error={errors.name}
+            error={errorText(errors.name)}
             maxLength={255}
             autoComplete="off"
           />
           {mode === "register" ? (
             <TextField
-              label="Agent id"
+              label={t("agentId")}
               required
               value={form.agentId}
               onChange={(e) => set("agentId")(e.target.value)}
-              error={errors.agentId}
-              hint="The slug the agent and Astrolift AI use, such as support-bot. It cannot change later."
+              error={errorText(errors.agentId)}
+              hint={t("agentIdHint")}
               maxLength={100}
               autoComplete="off"
               spellCheck={false}
             />
           ) : (
             <TextField
-              label="Agent id"
+              label={t("agentId")}
               value={form.agentId}
               readOnly
               disabled
             />
           )}
           <SelectField
-            label="Type"
+            label={t("type")}
             required
             value={form.agentType}
             onChange={(e) => set("agentType")(e.target.value)}
-            options={AGENT_TYPES}
-            placeholder="Choose a type"
-            error={errors.agentType}
+            options={typeOptions}
+            placeholder={t("typePlaceholder")}
+            error={errorText(errors.agentType)}
           />
           <TextField
-            label="Capabilities"
+            label={t("capabilities")}
             value={form.capabilities}
             onChange={(e) => set("capabilities")(e.target.value)}
-            hint="Comma separated, such as chat, tools."
+            hint={t("capabilitiesHint")}
             autoComplete="off"
           />
           <TextareaField
-            label="Metadata"
+            label={t("metadata")}
             value={form.metadata}
             onChange={(e) => set("metadata")(e.target.value)}
-            error={errors.metadata}
-            hint="A JSON object. Policy tags such as function:customer_service go under taxonomy."
+            error={errorText(errors.metadata)}
+            hint={t("metadataHint")}
             spellCheck={false}
             rows={4}
           />
@@ -247,14 +249,14 @@ function AgentFormDialogContent({
               onClick={() => onOpenChange(false)}
               disabled={pending}
             >
-              Cancel
+              {c("cancel")}
             </Button>
             <Button type="submit" disabled={pending}>
               {pending
-                ? "Saving"
+                ? c("saving")
                 : mode === "register"
-                  ? "Register agent"
-                  : "Save changes"}
+                  ? t("submitRegister")
+                  : c("saveChanges")}
             </Button>
           </DialogFooter>
         </form>

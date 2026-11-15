@@ -1,5 +1,6 @@
 import { Button } from "@calliopelabs/ui";
 import { CheckIcon, CopyIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 export interface OneTimeSecretProps {
@@ -16,6 +17,7 @@ export interface OneTimeSecretProps {
  * Zentinelle AI both reveal keys this way.
  */
 export function OneTimeSecret({ label, value, onCopy }: OneTimeSecretProps) {
+  const t = useTranslations("common.oneTimeSecret");
   const [copied, setCopied] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
   React.useEffect(() => {
@@ -47,17 +49,13 @@ export function OneTimeSecret({ label, value, onCopy }: OneTimeSecretProps) {
           variant="ghost"
           size="icon-sm"
           onClick={() => void copy()}
-          aria-label={copied ? "Copied" : `Copy ${label}`}
+          aria-label={copied ? t("copied") : t("copy", { label })}
         >
           {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
         </Button>
       </div>
       <p role="status" className="text-muted-foreground text-xs">
-        {failed
-          ? "Copy failed. Select the key and copy it by hand."
-          : copied
-            ? "Copied to the clipboard."
-            : ""}
+        {failed ? t("failed") : copied ? t("copiedStatus") : ""}
       </p>
     </div>
   );

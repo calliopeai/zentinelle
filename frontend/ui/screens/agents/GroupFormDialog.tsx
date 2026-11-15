@@ -7,10 +7,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import { SelectField, TextField, TextareaField } from "../../shared/FormField";
-import { GROUP_COLORS, GROUP_TIERS } from "./format";
+import { useAgentLabels } from "./format";
 
 export interface GroupFormValues {
   name: string;
@@ -41,6 +42,9 @@ function GroupFormDialogContent({
   initial,
   onSubmit,
 }: Omit<GroupFormDialogProps, "open">) {
+  const t = useTranslations("agents.groups.form");
+  const c = useTranslations("common");
+  const labels = useAgentLabels();
   const [form, setForm] = React.useState<GroupFormValues>(initial ?? BLANK);
   const [nameError, setNameError] = React.useState("");
   const [failure, setFailure] = React.useState("");
@@ -49,7 +53,7 @@ function GroupFormDialogContent({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (form.name.trim().length < 2) {
-      setNameError("A name needs at least 2 characters.");
+      setNameError(t("nameError"));
       return;
     }
     setNameError("");
@@ -64,16 +68,13 @@ function GroupFormDialogContent({
       onOpenChange(false);
     } catch (error) {
       setFailure(
-        error instanceof Error && error.message
-          ? error.message
-          : "The group was not saved.",
+        error instanceof Error && error.message ? error.message : t("failed"),
       );
     } finally {
       setPending(false);
     }
   }
 
-  const tier = GROUP_TIERS.find((t) => t.value === form.tier);
   return (
     <DialogContent
       className="max-w-md sm:max-w-md"
@@ -88,14 +89,12 @@ function GroupFormDialogContent({
       >
         <DialogHeader>
           <DialogTitle className="[overflow-wrap:anywhere]">
-            {initial ? `Edit ${initial.name}` : "New group"}
+            {initial ? t("editTitle", { name: initial.name }) : t("newTitle")}
           </DialogTitle>
-          <DialogDescription>
-            Agents in a group take its tier&apos;s enforcement defaults.
-          </DialogDescription>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         <TextField
-          label="Name"
+          label={t("name")}
           required
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -104,24 +103,24 @@ function GroupFormDialogContent({
           autoComplete="off"
         />
         <TextareaField
-          label="Description"
+          label={t("groupDescription")}
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
           rows={2}
         />
         <SelectField
-          label="Tier"
+          label={t("tier")}
           required
           value={form.tier}
           onChange={(e) => setForm({ ...form, tier: e.target.value })}
-          options={GROUP_TIERS}
-          hint={tier?.description}
+          options={labels.tierOptions}
+          hint={labels.tierDescription(form.tier)}
         />
         <SelectField
-          label="Colour"
+          label={t("color")}
           value={form.color}
           onChange={(e) => setForm({ ...form, color: e.target.value })}
-          options={GROUP_COLORS}
+          options={labels.colorOptions}
         />
         {failure && (
           <p
@@ -138,10 +137,14 @@ function GroupFormDialogContent({
             onClick={() => onOpenChange(false)}
             disabled={pending}
           >
-            Cancel
+            {c("cancel")}
           </Button>
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving" : initial ? "Save changes" : "Create group"}
+            {pending
+              ? c("saving")
+              : initial
+                ? c("saveChanges")
+                : t("submitCreate")}
           </Button>
         </DialogFooter>
       </form>

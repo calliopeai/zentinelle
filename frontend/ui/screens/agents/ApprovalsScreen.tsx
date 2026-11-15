@@ -7,6 +7,7 @@ import {
   areaSwitcher,
 } from "@calliopelabs/ui";
 import { ClipboardCheckIcon, RefreshCwIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { HeldApproval } from "@/lib/approvals";
 
@@ -51,13 +52,14 @@ export function ApprovalsScreen({
   onDecide,
   onRefresh,
 }: ApprovalsScreenProps) {
+  const t = useTranslations("agents.approvals");
   const canDecide = capabilities.includes("mutate");
   const first = loading && requests.length === 0 && !error;
   return (
     <PageFrame
       crumbs={[areaSwitcher(navFor(capabilities), "agents", "approvals")]}
-      title="Approvals"
-      description="Held agent actions waiting for a decision, newest first. The inbox refreshes every 15 seconds."
+      title={t("title")}
+      description={t("description")}
       primaryAction={
         <Button
           size="sm"
@@ -66,15 +68,12 @@ export function ApprovalsScreen({
           disabled={loading || busyId !== null}
         >
           <RefreshCwIcon aria-hidden />
-          {loading ? "Refreshing" : "Refresh"}
+          {loading ? t("refreshing") : t("refresh")}
         </Button>
       }
       notice={
         !canDecide ? (
-          <p className="rounded-lg border p-3 text-sm">
-            You have view-only access. An operator or administrator approves or
-            denies requests.
-          </p>
+          <p className="rounded-lg border p-3 text-sm">{t("viewOnly")}</p>
         ) : notice ? (
           <p
             role="status"
@@ -87,27 +86,26 @@ export function ApprovalsScreen({
     >
       {error ? (
         <ErrorState
-          title="The inbox is not current"
+          title={t("error")}
           error={error}
           onRetry={onRefresh}
-          retryLabel="Refresh"
+          retryLabel={t("refresh")}
         />
       ) : first ? (
-        <LoadingState label="Loading approvals" rows={3} />
+        <LoadingState label={t("loading")} rows={3} />
       ) : requests.length === 0 ? (
         <EmptyState
           icon={<ClipboardCheckIcon />}
-          title="No pending approvals"
-          description="Held requests appear here as agents make them. Decided and expired requests are left out."
+          title={t("empty.title")}
+          description={t("empty.description")}
           learnMoreHref="/policies?type=human_oversight"
-          learnMoreLabel="Oversight policies"
+          learnMoreLabel={t("empty.learnMore")}
         />
       ) : (
         <>
           <p className="text-muted-foreground text-sm">
-            {requests.length} pending{" "}
-            {requests.length === 1 ? "request" : "requests"}
-            {requests.length === 100 ? ", the newest 100" : ""}
+            {t("count", { count: requests.length })}
+            {requests.length === 100 ? t("newest") : ""}
           </p>
           <div
             className="flex flex-col gap-4"
