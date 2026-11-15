@@ -39,8 +39,8 @@ export default function DemoLandingPage() {
         sessionStorage.setItem("zentinelle:embed", "1");
       }
       startDemoTour();
-      // Hard navigate so the (app) layout remounts and EmbedModeStyles
-      // applies the body class on first render.
+      // Hard navigate so the (app) layout remounts and ConsoleFrame
+      // reads embed mode on first render.
       window.location.href = isEmbed ? "/dashboard?embed=1" : "/dashboard";
     }
   }, [router]);

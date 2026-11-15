@@ -1,13 +1,8 @@
 import { CapabilityProvider } from "@/components/PermissionGuard";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
-import { PageHeader } from "@/components/PageHeader";
-import { ChatBubble } from "@/components/ChatBubble";
+import { ConsoleFrame } from "@/components/ConsoleFrame";
 import { DemoTour } from "@/components/DemoTour";
-import { EmbedModeStyles } from "@/components/EmbedModeStyles";
-import { Suspense } from "react";
 import type { SessionUser } from "@/lib/auth/session";
 
 const INTERNAL_API_URL =
@@ -42,18 +37,10 @@ export default async function AppLayout({
   if (AUTH_MODE === "open") {
     return (
       <CapabilityProvider user={OPEN_MODE_USER}>
-        <SidebarProvider>
-          <AppSidebar ssrUser={OPEN_MODE_USER} />
-          <SidebarInset>
-            <PageHeader />
-            {children}
-          </SidebarInset>
-          <ChatBubble />
-          {DEMO_DATA_ENABLED && <DemoTour />}
-          <Suspense fallback={null}>
-            <EmbedModeStyles />
-          </Suspense>
-        </SidebarProvider>
+        <ConsoleFrame user={OPEN_MODE_USER} embeddable>
+          {children}
+        </ConsoleFrame>
+        {DEMO_DATA_ENABLED && <DemoTour />}
       </CapabilityProvider>
     );
   }
@@ -92,14 +79,9 @@ export default async function AppLayout({
 
   return (
     <CapabilityProvider user={ssrUser}>
-      <SidebarProvider>
-        <AppSidebar ssrUser={ssrUser} />
-        <SidebarInset>
-          <PageHeader />
-          {children}
-        </SidebarInset>
-        <ChatBubble />
-      </SidebarProvider>
+      <ConsoleFrame user={ssrUser} embeddable={false}>
+        {children}
+      </ConsoleFrame>
     </CapabilityProvider>
   );
 }

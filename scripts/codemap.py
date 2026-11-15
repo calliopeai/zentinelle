@@ -284,7 +284,7 @@ def index_frontend_pages(conn: sqlite3.Connection):
     if not FRONTEND_ROOT.exists():
         return
 
-    for page_file in FRONTEND_ROOT.rglob("page.tsx"):
+    for page_file in (FRONTEND_ROOT / "app").rglob("page.tsx"):
         rel_path = str(page_file.relative_to(BACKEND_ROOT.parent))
         # Derive route from file path: src/app/agents/page.tsx → /agents
         route = "/" + str(page_file.parent.relative_to(FRONTEND_ROOT / "app")).replace("\\", "/")

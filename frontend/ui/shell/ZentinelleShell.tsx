@@ -6,11 +6,13 @@ import {
   Button,
   RailPanel,
   Sidebar,
+  TabNav,
   UserMenu,
   activeFor,
   localizeNav,
   useRailState,
   useRailWidth,
+  type TabNavItem,
 } from "@calliopelabs/ui";
 import {
   BookOpenIcon,
@@ -61,6 +63,11 @@ export interface ZentinelleShellProps {
   documentationHref?: string;
   /** Before anything is stored: whether the dock starts hidden. Stored state wins. */
   defaultAssistantHidden?: boolean;
+  /** Row hrefs to leave out of the sidebar, such as functions whose screens are not built yet. */
+  hiddenRoutes?: readonly string[];
+  /** A tab row in the header, for pages that do not draw their own yet. */
+  tabs?: readonly TabNavItem[];
+  tabsLabel?: string;
   children: React.ReactNode;
 }
 
@@ -89,13 +96,31 @@ export function ZentinelleShell({
   assistant,
   documentationHref = "https://zentinelle.dev",
   defaultAssistantHidden = false,
+  hiddenRoutes,
+  tabs,
+  tabsLabel = "Pages",
   children,
 }: ZentinelleShellProps) {
   const labels = { ...DEFAULT_LABELS, ...labelOverrides };
   const nav = React.useMemo(() => {
-    const visible = navFor(capabilities);
+    let visible = navFor(capabilities);
+    if (hiddenRoutes?.length) {
+      visible = visible
+        .map((area) => ({
+          ...area,
+          groups: area.groups
+            .map((g) => ({
+              ...g,
+              functions: g.functions.filter(
+                (f) => !hiddenRoutes.includes(f.href),
+              ),
+            }))
+            .filter((g) => g.functions.length > 0),
+        }))
+        .filter((area) => area.groups.length > 0);
+    }
     return translate ? localizeNav(visible, translate) : visible;
-  }, [capabilities, translate]);
+  }, [capabilities, translate, hiddenRoutes]);
   const active = activeFor(nav, pathname);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useRailState(
@@ -121,7 +146,14 @@ export function ZentinelleShell({
         onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
         onToggleRightRail={() => setDockHidden(!dockHidden)}
         header={
-          <div className="flex w-full items-center justify-end">
+          <div className="flex w-full min-w-0 items-center justify-end gap-2">
+            {tabs && tabs.length > 0 && (
+              <TabNav
+                tabs={tabs}
+                label={tabsLabel}
+                className="mr-auto -my-2 border-b-0 px-0 md:px-0"
+              />
+            )}
             {/* Beside the content only: below md the shell's top bar opens the dock as a drawer. */}
             <Button
               size="sm"

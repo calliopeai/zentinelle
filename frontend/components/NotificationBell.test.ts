@@ -14,7 +14,7 @@ describe("where a notification leads", () => {
 
   it("sends a budget warning to the budget showback page", () => {
     expect(relatedUrlFor({ type: "budget_warning", metadata: {} })).toBe(
-      "/budgets/showback",
+      "/usage/budgets",
     );
   });
 

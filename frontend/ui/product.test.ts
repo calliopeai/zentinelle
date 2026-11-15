@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   ROLE_CAPABILITIES,
   ZENTINELLE_NAV,
+  interimTabs,
   navFor,
   zentinelle,
 } from "./product";
@@ -48,5 +49,36 @@ describe("Zentinelle navigation (ui-overhaul-ia §4)", () => {
       fn: "overview",
     });
     expect(activeFor(nav, "/agents/approvals")?.fn).toBe("approvals");
+  });
+});
+
+describe("interim tabs", () => {
+  const admin = ROLE_CAPABILITIES.admin;
+
+  it("put the function first and mark the page in view", () => {
+    const tabs = interimTabs("/policies/simulator", admin);
+    expect(tabs[0]).toMatchObject({ key: "policies", href: "/policies" });
+    expect(tabs.filter((t) => t.active).map((t) => t.key)).toEqual([
+      "simulator",
+    ]);
+    expect(interimTabs("/policies/p-1", admin).find((t) => t.active)?.key).toBe(
+      "policies",
+    );
+  });
+
+  it("cover pages outside the function's prefix", () => {
+    expect(
+      interimTabs("/notifications", admin).find((t) => t.active)?.key,
+    ).toBe("notifications");
+    expect(
+      interimTabs("/tools/token-calculator", admin).find((t) => t.active)?.key,
+    ).toBe("estimate");
+  });
+
+  it("are empty for functions without interim pages, and respect roles", () => {
+    expect(interimTabs("/agents", admin)).toEqual([]);
+    expect(
+      interimTabs("/models", ROLE_CAPABILITIES.viewer).map((t) => t.key),
+    ).not.toContain("routes");
   });
 });
