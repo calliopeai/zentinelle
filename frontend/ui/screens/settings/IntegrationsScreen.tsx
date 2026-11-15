@@ -17,7 +17,7 @@ import { ServerIcon } from "lucide-react";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
-import { listController } from "./components/list-controller";
+import { useListController } from "../../shared/list-controller";
 import { EnrollmentCodeDialog } from "./EnrollmentCodeDialog";
 import {
   ASTROLIFT_TONE,
@@ -107,6 +107,39 @@ const clusterColumns = (t: Translate): Column<AstroliftCluster>[] => [
   },
 ];
 
+/** One install's clusters; the install read returns them whole. */
+function ClustersTable({
+  install,
+  onRevoke,
+}: {
+  install: AstroliftInstall;
+  onRevoke: (cluster: AstroliftCluster) => void;
+}) {
+  const t = useTranslations("settings.integrationsScreen");
+  const controller = useListController({ rows: install.clusters });
+  return (
+    <DataTable
+      label={t("clustersOf", { name: install.name })}
+      chrome="table"
+      controller={controller}
+      columns={clusterColumns(t)}
+      getRowId={(c) => c.id}
+      rowLabel={(c) => t("clusterRow", { id: c.cluster_id })}
+      empty={{
+        title: t("noClustersRegisteredYet"),
+        description: t("aClusterAppearsOnceIts"),
+      }}
+      rowActions={(c) =>
+        c.status === "revoked" ? undefined : (
+          <DropdownMenuItem variant="destructive" onSelect={() => onRevoke(c)}>
+            {t("revoke")}
+          </DropdownMenuItem>
+        )
+      }
+    />
+  );
+}
+
 /**
  * Settings > Integrations (`/settings/astrolift`): the Astrolift AI
  * installs connected to this Zentinelle AI, and the clusters whose gateways
@@ -182,28 +215,7 @@ export function IntegrationsScreen({
           ) : undefined
         }
       >
-        <DataTable
-          label={t("clustersOf", { name: install.name })}
-          chrome="table"
-          controller={listController({ rows: install.clusters })}
-          columns={clusterColumns(t)}
-          getRowId={(c) => c.id}
-          rowLabel={(c) => t("clusterRow", { id: c.cluster_id })}
-          empty={{
-            title: t("noClustersRegisteredYet"),
-            description: t("aClusterAppearsOnceIts"),
-          }}
-          rowActions={(c) =>
-            c.status === "revoked" ? undefined : (
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={() => setRevoking(c)}
-              >
-                {t("revoke")}
-              </DropdownMenuItem>
-            )
-          }
-        />
+        <ClustersTable install={install} onRevoke={setRevoking} />
       </Section>
     ))
   );

@@ -12,6 +12,8 @@ import {
   Section,
   StatusBadge,
   useUI,
+  DefinitionList,
+  Panel,
 } from "@calliopelabs/ui";
 import { MoreHorizontalIcon } from "lucide-react";
 import * as React from "react";
@@ -19,8 +21,6 @@ import { useTranslations } from "next-intl";
 
 import type { RiskData } from "@/graphql/risks/types";
 
-import { Card } from "../../patterns/Card";
-import { DefinitionList } from "../../patterns/DefinitionList";
 import { RiskLevelBadge } from "./components/RiskLevelBadge";
 import {
   RISK_STATUS_TONE,
@@ -105,6 +105,9 @@ export function RiskDetailScreen({
 
   const residualSet =
     risk.residualLikelihood != null && risk.residualImpact != null;
+  const notAssessed = (
+    <span className="text-muted-foreground">{t("notAssessed")}</span>
+  );
   return (
     <PageFrame
       crumbs={crumbs}
@@ -156,9 +159,9 @@ export function RiskDetailScreen({
       )}
       <Section title={t("assessment")}>
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card
+          <Panel
             title={t("inherent")}
-            action={
+            actions={
               <RiskLevelBadge level={risk.riskLevel} score={risk.riskScore} />
             }
           >
@@ -175,28 +178,30 @@ export function RiskDetailScreen({
                 { term: "RPN", description: risk.riskScore },
               ]}
             />
-          </Card>
-          <Card title={t("residualAfterMitigation")}>
+          </Panel>
+          <Panel title={t("residualAfterMitigation")}>
             <DefinitionList
-              emptyLabel={t("notAssessed")}
               items={[
                 {
                   term: t("likelihood"),
-                  description: scaleText(LIKELIHOOD, risk.residualLikelihood),
+                  description:
+                    scaleText(LIKELIHOOD, risk.residualLikelihood) ??
+                    notAssessed,
                 },
                 {
                   term: t("impact"),
-                  description: scaleText(IMPACT, risk.residualImpact),
+                  description:
+                    scaleText(IMPACT, risk.residualImpact) ?? notAssessed,
                 },
                 {
                   term: t("score"),
                   description: residualSet
                     ? t("residual", { score: risk.residualRiskScore ?? "" })
-                    : null,
+                    : notAssessed,
                 },
               ]}
             />
-          </Card>
+          </Panel>
         </div>
       </Section>
       <Section title={t("mitigationAndReview")}>

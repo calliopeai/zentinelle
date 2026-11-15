@@ -12,6 +12,8 @@ import {
   Section,
   StatusBadge,
   useUI,
+  Stat,
+  StatGrid,
 } from "@calliopelabs/ui";
 import { MoreHorizontalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -21,8 +23,7 @@ import type {
   ComplianceOverview,
 } from "@/graphql/compliance/types";
 
-import { Meter } from "../../patterns/Meter";
-import { StatGrid, StatTile } from "../../patterns/StatTile";
+import { Meter } from "../../shared/Meter";
 import {
   areaCrumb,
   canMutate,
@@ -158,7 +159,7 @@ export function ComplianceScreen({
       ) : (
         <>
           <StatGrid>
-            <StatTile
+            <Stat
               label={t("capabilitiesConfigured")}
               loading={loading}
               value={
@@ -167,7 +168,7 @@ export function ComplianceScreen({
                   : null
               }
             />
-            <StatTile
+            <Stat
               label={t("frameworksConfigured")}
               hint={t("everyRequiredCapabilityConfigured")}
               loading={loading}
@@ -180,7 +181,7 @@ export function ComplianceScreen({
                   : undefined
               }
             />
-            <StatTile
+            <Stat
               label={t("requiredCapabilitiesMissing")}
               href="/compliance/gaps"
               loading={loading}

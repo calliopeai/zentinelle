@@ -14,7 +14,7 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 
 import { CopyField } from "../../shared/CopyField";
-import { listController } from "./components/list-controller";
+import { useListController } from "../../shared/list-controller";
 import { CreateApiKeyDialog } from "./CreateApiKeyDialog";
 import {
   API_KEY_TONE,
@@ -127,14 +127,13 @@ export function ApiKeysScreen({
     key: ApiKey;
     action: "revoke" | "delete";
   } | null>(null);
-  const controller = listController({
-    rows: keys.data,
+  const controller = useListController({
+    rows: keys.data ?? [],
     loading: keys.loading,
     error: keys.error,
-    retry: keys.retry,
-    isFiltered: search.trim() !== "",
-    clearFilters: () => onSearchChange(""),
-    search: { value: search, onChange: onSearchChange },
+    onRetry: keys.retry,
+    search,
+    onSearchChange,
   });
   return (
     <PageFrame

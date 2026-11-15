@@ -2,6 +2,7 @@
 
 import {
   DataTable,
+  useLocalTable,
   ErrorState,
   PageFrame,
   Section,
@@ -9,11 +10,11 @@ import {
   useUI,
   type Column,
   type StatusTone,
+  Panel,
 } from "@calliopelabs/ui";
 import { ActivityIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { Panel } from "../../shared/Panel";
 import { SelectField } from "../../shared/SelectField";
 import { TrendChart, type TrendPoint } from "../../shared/TrendChart";
 import {
@@ -22,7 +23,6 @@ import {
   formatMs,
   formatUsd,
 } from "../../shared/figures";
-import { fixedList } from "../../shared/table";
 import {
   type Anomaly,
   type AnomalyKind,
@@ -97,8 +97,11 @@ export function AnomaliesScreen({
   const t = useTranslations("models.anomaliesScreen");
   const { usageTabs } = useModelsFrame();
   const { Link } = useUI();
-  const rows =
-    filter === "all" ? anomalies : anomalies.filter((a) => a.kind === filter);
+  const controller = useLocalTable(anomalies, {
+    filter: filter === "all" ? undefined : (a) => a.kind === filter,
+    onClearFilters: () => onFilterChange("all"),
+    loading,
+  });
 
   const columns: Column<Anomaly>[] = [
     {
@@ -228,12 +231,7 @@ export function AnomaliesScreen({
             <DataTable
               label={t("anomalies")}
               chrome="table"
-              controller={fixedList({
-                rows,
-                loading,
-                filtered: filter !== "all",
-                onClearFilters: () => onFilterChange("all"),
-              })}
+              controller={controller}
               columns={columns}
               getRowId={(a) => a.id}
               empty={{

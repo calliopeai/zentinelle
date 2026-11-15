@@ -1,10 +1,18 @@
-import { Button, Field, Input, StatusBadge, useUI } from "@calliopelabs/ui";
+import {
+  Button,
+  Field,
+  Input,
+  StatusBadge,
+  useUI,
+  DefinitionList,
+  Panel,
+  type Definition,
+} from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
+import type * as React from "react";
 
 import type { HeldApproval } from "@/lib/approvals";
 
-import { Card } from "../../shared/Card";
-import { DefinitionList } from "../../shared/DefinitionList";
 import { agentHref, formatTime } from "./format";
 
 export interface ApprovalCardProps {
@@ -19,6 +27,22 @@ export interface ApprovalCardProps {
   reason: string;
   onReasonChange: (reason: string) => void;
   onDecide: (decision: "approve" | "deny") => void;
+}
+
+/** Rows with a value (empty ones are left out), technical values set in mono. */
+function facts(
+  rows: readonly { term: string; value: React.ReactNode; mono?: boolean }[],
+): Definition[] {
+  return rows
+    .filter((row) => row.value != null && row.value !== "")
+    .map((row) => ({
+      term: row.term,
+      description: row.mono ? (
+        <span className="font-mono text-xs">{row.value}</span>
+      ) : (
+        row.value
+      ),
+    }));
 }
 
 function str(value: unknown) {
@@ -53,10 +77,10 @@ export function ApprovalCard({
   const title =
     typeof context.tool_name === "string" ? context.tool_name : request.action;
   return (
-    <Card
+    <Panel
       aria-label={t("label", { id: request.request_id })}
       title={<span className="font-mono">{title}</span>}
-      action={
+      actions={
         <StatusBadge tone={expired ? "muted" : seconds < 60 ? "warn" : "info"}>
           {expired
             ? t("expired")
@@ -71,8 +95,8 @@ export function ApprovalCard({
         {request.reason || t("defaultReason")}
       </p>
       <DefinitionList
-        columns={3}
-        items={[
+        columns={2}
+        items={facts([
           {
             term: t("facts.agent"),
             value: request.agent_id ? (
@@ -100,7 +124,7 @@ export function ApprovalCard({
             value: formatTime(request.expires_at),
             mono: true,
           },
-        ]}
+        ])}
       />
       <details className="rounded-lg border p-3">
         <summary className="cursor-pointer text-sm font-medium">
@@ -108,7 +132,7 @@ export function ApprovalCard({
         </summary>
         <DefinitionList
           className="mt-3"
-          items={[
+          items={facts([
             {
               term: t("facts.requestId"),
               value: request.request_id,
@@ -151,7 +175,7 @@ export function ApprovalCard({
               mono: true,
             },
             { term: t("facts.placement"), value: str(context.placement) },
-          ]}
+          ])}
         />
         {Object.hasOwn(context, "tool_input") ? (
           <div className="mt-3">
@@ -205,6 +229,6 @@ export function ApprovalCard({
           </div>
         </div>
       )}
-    </Card>
+    </Panel>
   );
 }

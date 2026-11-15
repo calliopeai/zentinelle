@@ -91,8 +91,8 @@ export function PoliciesScreen({
     onRetry,
     search,
     onSearchChange,
-    filtered,
-    onClearFilters: () => {
+    isFiltered: filtered,
+    clearFilters: () => {
       onSearchChange("");
       onTypeChange("");
       onScopeChange("");

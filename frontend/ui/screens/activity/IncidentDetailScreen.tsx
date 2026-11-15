@@ -1,6 +1,7 @@
 import {
   Button,
   ConfirmDialog,
+  DefinitionList,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -11,6 +12,7 @@ import {
   LoadingState,
   PageFrame,
   Section,
+  Stat,
   StatusBadge,
   type TabNavItem,
   Textarea,
@@ -21,10 +23,8 @@ import * as React from "react";
 
 import type { IncidentData } from "@/graphql/risks/types";
 
-import { DefinitionList } from "./components/DefinitionList";
 import { formatDuration, humanize } from "../../shared/format";
-import type { ListSource } from "./components/list-controller";
-import { StatTile } from "./components/StatTile";
+import type { ListSource } from "../../shared/list-controller";
 import { Timeline, type TimelineEntry } from "../../shared/Timeline";
 import { incidentHref } from "./IncidentsScreen";
 import { activityCrumb } from "./nav";
@@ -354,17 +354,17 @@ export function IncidentDetailScreen({
     >
       <Section title={t("summary")} headingLevel="h2">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <StatTile
+          <Stat
             label={t("tta")}
             value={formatDuration(incident.timeToAcknowledgeSeconds)}
             hint={incident.acknowledgedAt ? undefined : t("notAcknowledged")}
           />
-          <StatTile
+          <Stat
             label={t("ttr")}
             value={formatDuration(incident.timeToResolveSeconds)}
             hint={incident.resolvedAt ? undefined : t("stillOpen")}
           />
-          <StatTile
+          <Stat
             label={t("sla")}
             value={
               incident.slaStatus
@@ -379,37 +379,53 @@ export function IncidentDetailScreen({
           />
         </div>
         <DefinitionList
+          columns={2}
           className="mt-3"
           items={[
             {
               term: t("facts.type"),
-              value:
-                incident.incidentTypeDisplay ?? humanize(incident.incidentType),
+              description:
+                (incident.incidentTypeDisplay ??
+                  humanize(incident.incidentType)) ||
+                null,
             },
-            { term: t("facts.agent"), value: incident.endpointName },
+            {
+              term: t("facts.agent"),
+              description: incident.endpointName || null,
+            },
             {
               term: t("facts.policy"),
-              value: incident.triggeringPolicyName,
+              description: incident.triggeringPolicyName || null,
             },
-            { term: t("facts.risk"), value: incident.relatedRiskName },
+            {
+              term: t("facts.risk"),
+              description: incident.relatedRiskName || null,
+            },
             {
               term: t("facts.assignee"),
-              value: incident.assignedToName ?? tIncidents("unassigned"),
+              description:
+                (incident.assignedToName ?? tIncidents("unassigned")) || null,
             },
-            { term: t("facts.reportedBy"), value: incident.reportedByName },
+            {
+              term: t("facts.reportedBy"),
+              description: incident.reportedByName || null,
+            },
             {
               term: t("facts.affected"),
-              value:
-                incident.affectedUser ??
-                (incident.affectedUserCount !== null
-                  ? t("facts.affectedUsers", {
-                      count: incident.affectedUserCount,
-                    })
-                  : null),
+              description:
+                (incident.affectedUser ??
+                  (incident.affectedUserCount !== null
+                    ? t("facts.affectedUsers", {
+                        count: incident.affectedUserCount,
+                      })
+                    : null)) ||
+                null,
             },
             {
               term: t("facts.tags"),
-              value: incident.tags.length ? incident.tags.join(", ") : null,
+              description: incident.tags.length
+                ? incident.tags.join(", ")
+                : null,
             },
           ]}
         />
@@ -440,9 +456,18 @@ export function IncidentDetailScreen({
           <DefinitionList
             columns={1}
             items={[
-              { term: t("facts.rootCause"), value: incident.rootCause },
-              { term: t("facts.impact"), value: incident.impactAssessment },
-              { term: t("facts.resolution"), value: incident.resolution },
+              {
+                term: t("facts.rootCause"),
+                description: incident.rootCause || null,
+              },
+              {
+                term: t("facts.impact"),
+                description: incident.impactAssessment || null,
+              },
+              {
+                term: t("facts.resolution"),
+                description: incident.resolution || null,
+              },
             ]}
           />
         </Section>

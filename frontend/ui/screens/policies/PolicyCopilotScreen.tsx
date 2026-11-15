@@ -7,6 +7,7 @@ import {
   PageFrame,
   Section,
   Select,
+  Stat,
   StatusBadge,
   Textarea,
   useUI,
@@ -18,7 +19,6 @@ import type * as React from "react";
 import { ANY, fromSelectValue, toSelectValue } from "../../shared/select-any";
 import { CodeBlock } from "../../shared/CodeBlock";
 import { accessOf } from "./access";
-import { StatTile } from "./components/StatTile";
 import { areaCrumb } from "./frame";
 import { CHANGE_STATUS_TONE, usePolicyLabels } from "./labels";
 import type { CopilotPreview } from "./writes";
@@ -179,20 +179,20 @@ export function PolicyCopilotScreen({
             }
           >
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <StatTile
+              <Stat
                 label={t("review.agents")}
                 value={preview.impacted_agent_count.toLocaleString()}
               />
-              <StatTile
+              <Stat
                 label={t("review.events")}
                 value={(sim?.total_events ?? 0).toLocaleString()}
               />
-              <StatTile
+              <Stat
                 label={t("review.wouldBlock")}
                 value={(sim?.would_block ?? 0).toLocaleString()}
                 tone={sim?.would_block ? "error" : undefined}
               />
-              <StatTile
+              <Stat
                 label={t("review.inconclusive")}
                 value={(sim?.inconclusive ?? 0).toLocaleString()}
               />

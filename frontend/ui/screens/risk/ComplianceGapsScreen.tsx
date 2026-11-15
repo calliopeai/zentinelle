@@ -1,5 +1,6 @@
 import {
   DataTable,
+  useLocalTable,
   PageFrame,
   StatusBadge,
   useUI,
@@ -13,7 +14,6 @@ import type {
   ComplianceOverview,
 } from "@/graphql/compliance/types";
 
-import { useListController } from "../../patterns/list-controller";
 import { ConfigurationNote } from "./ComplianceScreen";
 import {
   areaCrumb,
@@ -109,7 +109,7 @@ export function ComplianceGapsScreen({
   const t = useTranslations("risk.complianceGapsScreen");
   const { COMPLIANCE_TABS } = useRiskLabels();
   const gaps = gapsOf(overview);
-  const controller = useListController(gaps, {
+  const controller = useLocalTable(gaps, {
     loading,
     error,
     retry: onRetry,

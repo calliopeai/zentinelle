@@ -2,6 +2,7 @@ import {
   Button,
   ConfirmDialog,
   DataTable,
+  DefinitionList,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -11,7 +12,9 @@ import {
   ErrorState,
   LoadingState,
   PageFrame,
+  Panel,
   Section,
+  Stat,
   useUI,
   type Column,
 } from "@calliopelabs/ui";
@@ -21,11 +24,8 @@ import { useTranslations } from "next-intl";
 
 import type { PolicyData } from "@/graphql/policies/types";
 
-import { Card } from "./components/Card";
 import { CodeBlock } from "../../shared/CodeBlock";
-import { DefinitionList } from "./components/DefinitionList";
 import { useListController } from "../../shared/list-controller";
-import { StatTile } from "./components/StatTile";
 import { accessOf } from "./access";
 import { areaCrumb, policyTabs, type PolicyTab } from "./frame";
 import { usePolicyLabels } from "./labels";
@@ -124,8 +124,6 @@ function History({
     loading: history?.loading ?? true,
     error: history?.error,
     onRetry: history?.onRetry ?? (() => {}),
-    filtered: false,
-    onClearFilters: () => {},
   });
   const columns: Column<PolicyVersion>[] = [
     {
@@ -199,14 +197,14 @@ function History({
           ) : diff.loading || !diff.data ? (
             <LoadingState label={t("comparing")} rows={2} />
           ) : (
-            <Card
+            <Panel
               title={t("versionPair", {
                 from: diff.data.from_version,
                 to: diff.data.to_version,
               })}
             >
               <DiffView diff={diff.data} />
-            </Card>
+            </Panel>
           )}
         </Section>
       )}
@@ -283,7 +281,7 @@ export function PolicyDetailScreen({
   if (tab === "overview") {
     body = (
       <Section title={t("overview")}>
-        <Card>
+        <Panel>
           <DefinitionList
             items={[
               { term: t("type"), description: typeLabel(policy.policyType) },
@@ -340,7 +338,7 @@ export function PolicyDetailScreen({
               },
             ]}
           />
-        </Card>
+        </Panel>
       </Section>
     );
   } else if (tab === "configuration") {
@@ -417,21 +415,21 @@ export function PolicyDetailScreen({
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <StatTile
+              <Stat
                 label={t("events")}
                 value={sim.totalEvents.toLocaleString()}
               />
-              <StatTile
+              <Stat
                 label={t("wouldBlock")}
                 value={sim.wouldBlock.toLocaleString()}
                 tone={sim.wouldBlock ? "error" : undefined}
               />
-              <StatTile
+              <Stat
                 label={t("wouldWarn")}
                 value={sim.wouldWarn.toLocaleString()}
                 tone={sim.wouldWarn ? "warn" : undefined}
               />
-              <StatTile
+              <Stat
                 label={t("outcomeChanged")}
                 value={`${sim.impactPercent}%`}
               />

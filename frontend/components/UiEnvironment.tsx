@@ -95,6 +95,11 @@ export function UiEnvironment({
         failed: t("confirm.failed"),
         reasonRequired: t("confirm.reasonRequired"),
       },
+      data: {
+        noValue: t("data.noValue"),
+        notSet: t("data.notSet"),
+        removeTag: (label) => t("data.removeTag", { label }),
+      },
       user: {
         accountMenu: (name, initials) =>
           t("user.accountMenu", { name, initials }),

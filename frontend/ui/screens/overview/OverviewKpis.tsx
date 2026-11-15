@@ -1,6 +1,6 @@
+import { Stat, StatGrid } from "@calliopelabs/ui";
 import { useLocale, useTranslations } from "next-intl";
 
-import { StatTile } from "../../components/StatTile";
 import { formatCount } from "../../shared/figures";
 import type { Kpi } from "./overview-model";
 
@@ -14,22 +14,29 @@ export function OverviewKpis({ kpis, loading = false }: OverviewKpisProps) {
   const t = useTranslations("overview.kpis");
   const locale = useLocale();
   return (
-    <div
-      data-tour="dashboard-stats"
-      className="grid grid-cols-2 gap-3 lg:grid-cols-4"
-    >
-      {kpis.map((kpi) => (
-        <StatTile
-          key={kpi.key}
-          label={t(`${kpi.key}.label`)}
-          value={kpi.value === null ? null : formatCount(kpi.value, locale)}
-          detail={kpi.detail ? t(kpi.detail.key, kpi.detail.values) : null}
-          href={kpi.href}
-          tone={kpi.tone}
-          unavailableLabel={t("unavailable")}
-          loading={loading}
-        />
-      ))}
+    <div data-tour="dashboard-stats">
+      <StatGrid>
+        {kpis.map((kpi) => {
+          const detail = kpi.detail
+            ? t(kpi.detail.key, kpi.detail.values)
+            : null;
+          return (
+            <Stat
+              key={kpi.key}
+              label={t(`${kpi.key}.label`)}
+              value={kpi.value === null ? null : formatCount(kpi.value, locale)}
+              hint={
+                kpi.value === null
+                  ? [t("unavailable"), detail].filter(Boolean).join(" · ")
+                  : detail
+              }
+              href={kpi.href}
+              tone={kpi.tone}
+              loading={loading}
+            />
+          );
+        })}
+      </StatGrid>
     </div>
   );
 }

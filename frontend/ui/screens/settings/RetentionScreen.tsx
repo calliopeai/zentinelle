@@ -18,7 +18,7 @@ import { ArchiveIcon, ScaleIcon } from "lucide-react";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
-import { listController } from "./components/list-controller";
+import { useListController } from "../../shared/list-controller";
 import { ANY, fromSelectValue, toSelectValue } from "../../shared/select-any";
 import { LegalHoldDialog } from "./LegalHoldDialog";
 import {
@@ -109,6 +109,12 @@ function PoliciesTab({
   } = useSettingsLabels();
   const [deleting, setDeleting] = React.useState<RetentionPolicy | null>(null);
   const [toggleError, setToggleError] = React.useState<string | null>(null);
+  const controller = useListController({
+    rows: policies.data ?? [],
+    loading: policies.loading,
+    error: policies.error,
+    onRetry: policies.retry,
+  });
   const columns: Column<RetentionPolicy>[] = [
     {
       id: "name",
@@ -202,12 +208,7 @@ function PoliciesTab({
       )}
       <DataTable
         label={t("retentionPolicies")}
-        controller={listController({
-          rows: policies.data,
-          loading: policies.loading,
-          error: policies.error,
-          retry: policies.retry,
-        })}
+        controller={controller}
         columns={columns}
         getRowId={(p) => p.id}
         onRowActivate={(p) => setEditing(p)}
@@ -270,6 +271,14 @@ function HoldsTab({
     action: "release" | "delete";
   } | null>(null);
   const filtered = filters.holdType !== "" || filters.status !== "";
+  const controller = useListController({
+    rows: holds.data ?? [],
+    loading: holds.loading,
+    error: holds.error,
+    onRetry: holds.retry,
+    isFiltered: filtered,
+    clearFilters: () => onFiltersChange({ holdType: "", status: "" }),
+  });
   const columns: Column<LegalHold>[] = [
     {
       id: "name",
@@ -338,14 +347,7 @@ function HoldsTab({
     <>
       <DataTable
         label={t("legalHolds")}
-        controller={listController({
-          rows: holds.data,
-          loading: holds.loading,
-          error: holds.error,
-          retry: holds.retry,
-          isFiltered: filtered,
-          clearFilters: () => onFiltersChange({ holdType: "", status: "" }),
-        })}
+        controller={controller}
         columns={columns}
         getRowId={(h) => h.id}
         rowLabel={(h) => t("holdRow", { name: h.name })}

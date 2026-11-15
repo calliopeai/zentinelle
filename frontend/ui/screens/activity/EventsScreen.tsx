@@ -16,7 +16,7 @@ import { formatDateTime } from "../../shared/format";
 import {
   useListController,
   type ListSource,
-} from "./components/list-controller";
+} from "../../shared/list-controller";
 import { NewRowsPill } from "../../shared/NewRowsPill";
 import { EventDrawer } from "./EventDrawer";
 import { activityCrumb } from "./nav";

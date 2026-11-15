@@ -47,7 +47,7 @@ export const RiskStatsUnavailable: Story = {
   args: { kpis: kpis(dashboardStats, null) },
   play: async ({ canvasElement }) => {
     await expect(
-      within(canvasElement).getByText("Not available"),
+      within(canvasElement).getByText(/Not available/),
     ).toBeInTheDocument();
   },
 };

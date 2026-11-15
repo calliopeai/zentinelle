@@ -35,7 +35,7 @@ import type {
   UpdateAgentEndpointPayload,
 } from "@/graphql/agents/types";
 
-import { useArrayTable } from "../../shared/array-table";
+import { useListController } from "../../shared/list-controller";
 import { payloadOrThrow, useDebounced } from "../../shared/mutation";
 import { OneTimeSecret } from "../../shared/OneTimeSecret";
 import { AgentFormDialog, type AgentFormValues } from "./AgentFormDialog";
@@ -100,12 +100,13 @@ export function AgentsRoute({ capabilities }: AgentsRouteProps) {
     () => new Map(endpoints.map((e) => [e.id, e] as [string, EndpointData])),
     [endpoints],
   );
-  const table = useArrayTable({
+  const table = useListController({
     rows,
     loading,
     error,
-    retry: () => void refetch(),
-    search: { value: search, onChange: setSearch },
+    onRetry: () => void refetch(),
+    search,
+    onSearchChange: setSearch,
     isFiltered: Boolean(query || filters.status || filters.agentType),
     clearFilters: () => {
       setSearch("");

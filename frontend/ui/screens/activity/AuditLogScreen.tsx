@@ -17,7 +17,7 @@ import { formatDateTime } from "../../shared/format";
 import {
   useListController,
   type ListSource,
-} from "./components/list-controller";
+} from "../../shared/list-controller";
 import { AuditEntryDrawer, actorLabel } from "./AuditEntryDrawer";
 import { activityCrumb } from "./nav";
 import { AUDIT_STATUS_TONE, toneOf, useActivityLabels } from "./tones";

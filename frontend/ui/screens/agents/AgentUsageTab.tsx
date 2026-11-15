@@ -1,10 +1,9 @@
-import { EmptyState, ErrorState, LoadingState } from "@calliopelabs/ui";
+import { EmptyState, ErrorState, LoadingState, Stat } from "@calliopelabs/ui";
 import { BarChart3Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import type { UsageSummary } from "@/graphql/usage/types";
 
-import { StatTile } from "../../shared/StatTile";
 import { formatNumber, formatUsd } from "./format";
 
 export interface AgentUsageTabProps {
@@ -44,19 +43,19 @@ export function AgentUsageTab({
     );
   return (
     <div className="grid gap-4 sm:grid-cols-3">
-      <StatTile
+      <Stat
         label={t("apiCalls")}
         value={formatNumber(summary.totalApiCalls)}
         hint={window}
         href={usageHref}
       />
-      <StatTile
+      <Stat
         label={t("tokens")}
         value={formatNumber(summary.totalTokens)}
         hint={window}
         href={usageHref}
       />
-      <StatTile
+      <Stat
         label={t("cost")}
         value={formatUsd(summary.totalCost)}
         hint={t("costHint", { window })}

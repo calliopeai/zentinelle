@@ -8,14 +8,14 @@ import {
   useUI,
   type Column,
   type StatusTone,
+  Stat,
 } from "@calliopelabs/ui";
 import { CoinsIcon, RefreshCwIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { SelectField } from "../../shared/SelectField";
-import { KpiTile, KpiRow } from "../../shared/KpiTile";
 import { formatCount, formatUsd } from "../../shared/figures";
-import { fixedList } from "../../shared/table";
+import { useListController } from "../../shared/list-controller";
 import {
   BUDGET_POLICIES_HREF,
   type ShowbackEntry,
@@ -73,6 +73,12 @@ export function BudgetsScreen({
     SHOWBACK_GROUPS.find((g) => g.value === group)?.label ?? group;
   const waiting = loading && !report;
 
+  const controller = useListController({
+    rows: entries,
+    loading,
+    error,
+    onRetry,
+  });
   const columns: Column<ShowbackEntry>[] = [
     {
       id: "dimension",
@@ -169,14 +175,18 @@ export function BudgetsScreen({
       }
     >
       {!error && (
-        <KpiRow label={t("budgetTotals")}>
-          <KpiTile
+        <div
+          role="group"
+          aria-label={t("budgetTotals")}
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        >
+          <Stat
             label={t("committed")}
             value={formatUsd(report?.totals.committed_usd, locale)}
             hint={t("admittedByBudgetPolicies")}
             loading={waiting}
           />
-          <KpiTile
+          <Stat
             label={t("providerReported")}
             value={
               report?.totals.actual_usd == null
@@ -186,28 +196,23 @@ export function BudgetsScreen({
             hint={t("fromTheProvidersUsageApis")}
             loading={waiting}
           />
-          <KpiTile
+          <Stat
             label={t("pendingReconciliation")}
             value={formatCount(pending, locale)}
             hint={pending ? t("requestsTheProviderHasNot") : t("allCurrent")}
             loading={waiting}
           />
-          <KpiTile
+          <Stat
             label={t("anomalies")}
             value={formatCount(anomalies, locale)}
             hint={t("reportedSpendDiffersFromCommitted")}
             loading={waiting}
           />
-        </KpiRow>
+        </div>
       )}
       <DataTable
         label={t("spendBy", { group: groupLabel.toLowerCase() })}
-        controller={fixedList({
-          rows: entries,
-          loading,
-          error,
-          onRetry,
-        })}
+        controller={controller}
         columns={columns}
         getRowId={(e) => `${e.dimension_id}:${e.status}`}
         empty={{

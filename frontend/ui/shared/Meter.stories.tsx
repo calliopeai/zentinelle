@@ -32,3 +32,37 @@ export const Empty: Story = {
 export const Over: Story = {
   args: { value: 260000, valueText: "130% of 200K tokens" },
 };
+
+/** A coverage meter: a tone for the fill, and "value of max" by default. */
+export const Toned: Story = {
+  args: {
+    label: "Required capabilities configured",
+    value: 4,
+    max: 6,
+    valueText: undefined,
+    tone: "warn",
+  },
+  play: async ({ canvasElement }) => {
+    const meter = within(canvasElement).getByRole("meter", {
+      name: "Required capabilities configured",
+    });
+    await expect(meter).toHaveAttribute("aria-valuenow", "4");
+    await expect(meter).toHaveAttribute("aria-valuetext", "4 of 6");
+  },
+};
+
+export const Full: Story = {
+  args: { ...Toned.args, value: 6, tone: "ok" },
+};
+
+export const EmptyToned: Story = {
+  args: { ...Toned.args, value: 0, tone: "error" },
+};
+
+export const NoCeiling: Story = {
+  args: { ...Toned.args, value: 0, max: 0, valueText: "Nothing to count" },
+};
+
+export const Compact: Story = {
+  args: { ...Toned.args, compact: true },
+};

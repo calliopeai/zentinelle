@@ -18,7 +18,7 @@ import type {
   UpdateAgentGroupPayload,
 } from "@/graphql/agent-groups/types";
 
-import { useArrayTable } from "../../shared/array-table";
+import { useListController } from "../../shared/list-controller";
 import { payloadOrThrow, useDebounced } from "../../shared/mutation";
 import { GroupFormDialog, type GroupFormValues } from "./GroupFormDialog";
 import { GroupsScreen } from "./GroupsScreen";
@@ -43,12 +43,13 @@ export function GroupsRoute({ capabilities }: GroupsRouteProps) {
     search: query || null,
     tier: tier || null,
   });
-  const table = useArrayTable({
+  const table = useListController({
     rows: groups,
     loading,
     error,
-    retry: () => void refetch(),
-    search: { value: search, onChange: setSearch },
+    onRetry: () => void refetch(),
+    search,
+    onSearchChange: setSearch,
     isFiltered: Boolean(query || tier),
     clearFilters: () => {
       setSearch("");

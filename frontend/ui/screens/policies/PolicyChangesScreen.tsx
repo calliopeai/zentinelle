@@ -2,6 +2,7 @@ import {
   Button,
   ConfirmDialog,
   DataTable,
+  DefinitionList,
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -19,7 +20,6 @@ import { useTranslations } from "next-intl";
 
 import { fromSelectValue, toSelectValue } from "../../shared/select-any";
 import { CodeBlock } from "../../shared/CodeBlock";
-import { DefinitionList } from "./components/DefinitionList";
 import { FilterBar } from "../../shared/FilterBar";
 import { useListController } from "../../shared/list-controller";
 import { accessOf } from "./access";
@@ -92,8 +92,8 @@ export function PolicyChangesScreen({
     loading,
     error,
     onRetry,
-    filtered: Boolean(status),
-    onClearFilters: () => onStatusChange(""),
+    isFiltered: Boolean(status),
+    clearFilters: () => onStatusChange(""),
   });
   const open = changes.find((c) => c.id === openId) ?? null;
 
