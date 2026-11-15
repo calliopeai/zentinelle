@@ -8,31 +8,5 @@
     "de": "Allemand",
     "it": "Italien",
     "pt": "Portugais"
-  },
-  "dataTable": {
-    "search": "Rechercher…",
-    "filters": "Filtres",
-    "clearAll": "Tout effacer",
-    "noResults": "Aucun résultat.",
-    "panel": {
-      "title": "Filtres",
-      "clearAll": "Tout effacer",
-      "all": "Tous",
-      "cancel": "Annuler",
-      "apply": "Appliquer",
-      "placeholder": "Filtrer par {label}…"
-    },
-    "pagination": {
-      "rowsPerPage": "Lignes par page",
-      "page": "Page {current} sur {total}",
-      "results": "{count, plural, one {# résultat} other {# résultats}}"
-    }
-  },
-  "settings": {
-    "theme": {
-      "light": "Clair",
-      "dark": "Sombre",
-      "system": "Système"
-    }
   }
 }

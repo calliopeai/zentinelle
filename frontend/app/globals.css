@@ -1,6 +1,4 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 /* Tokens, the Tailwind theme map, `dark:` on data-mode and the base layer:
  * the shared library, painted with the Zentinelle brand by AppearanceScript. */
 @import "@calliopelabs/ui/preset.css";

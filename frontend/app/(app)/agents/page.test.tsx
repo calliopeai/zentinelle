@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CapabilityProvider } from "@/components/PermissionGuard";
 import type { EndpointData } from "@/graphql/agents/types";
-import { ConfirmProvider } from "@/hooks/use-confirm";
 import messages from "@/messages/en.json";
 
 import AgentsPage from "./page";
@@ -75,9 +74,7 @@ function renderPage() {
             capabilities: ["view"],
           }}
         >
-          <ConfirmProvider>
-            <AgentsPage />
-          </ConfirmProvider>
+          <AgentsPage />
         </CapabilityProvider>
       </NextIntlClientProvider>
     </MockedProvider>,
