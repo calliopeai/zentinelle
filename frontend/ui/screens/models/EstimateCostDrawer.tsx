@@ -8,11 +8,11 @@ import {
   DrawerTitle,
   Field,
   Textarea,
+  DefinitionList,
 } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
-import { FactList } from "../../shared/FactList";
 import { Meter } from "../../shared/Meter";
 import { SelectField } from "../../shared/SelectField";
 import {
@@ -124,39 +124,51 @@ export function EstimateCostDrawer({
                       estimated
                     </span>
                   </p>
-                  <FactList
+                  <DefinitionList
                     items={[
                       {
                         term: t("input"),
-                        value: t("tokensCost", {
-                          tokens: formatCount(tokens, locale),
-                          cost: formatUsd(cost.input, locale),
-                        }),
-                        mono: true,
+                        description: (
+                          <span className="font-mono text-xs">
+                            {t("tokensCost", {
+                              tokens: formatCount(tokens, locale),
+                              cost: formatUsd(cost.input, locale),
+                            })}
+                          </span>
+                        ),
                       },
                       {
                         term: t("reply"),
-                        value: t("tokensCost", {
-                          tokens: formatCount(cost.outputTokens, locale),
-                          cost: formatUsd(cost.output, locale),
-                        }),
-                        mono: true,
+                        description: (
+                          <span className="font-mono text-xs">
+                            {t("tokensCost", {
+                              tokens: formatCount(cost.outputTokens, locale),
+                              cost: formatUsd(cost.output, locale),
+                            })}
+                          </span>
+                        ),
                       },
                       {
                         term: t("inputPrice"),
-                        value: formatPerMillion(
-                          model.inputPricePerMillion,
-                          locale,
+                        description: (
+                          <span className="font-mono text-xs">
+                            {formatPerMillion(
+                              model.inputPricePerMillion,
+                              locale,
+                            )}
+                          </span>
                         ),
-                        mono: true,
                       },
                       {
                         term: t("outputPrice"),
-                        value: formatPerMillion(
-                          model.outputPricePerMillion,
-                          locale,
+                        description: (
+                          <span className="font-mono text-xs">
+                            {formatPerMillion(
+                              model.outputPricePerMillion,
+                              locale,
+                            )}
+                          </span>
                         ),
-                        mono: true,
                       },
                     ]}
                   />

@@ -8,11 +8,11 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
+  Stat,
   useUI,
 } from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
 
-import { StatTile } from "./components/StatTile";
 import { usePolicyLabels } from "./labels";
 import type { PolicyAnalysis } from "./map";
 
@@ -60,18 +60,18 @@ export function AnalyzePanel({
     body = (
       <div className="flex flex-col gap-5">
         <div className="grid grid-cols-2 gap-2">
-          <StatTile
+          <Stat
             label={t("enforced")}
             value={analysis.enforced}
             hint={t("ofTotal", { total: analysis.total })}
           />
-          <StatTile label={t("auditOnly")} value={analysis.auditOnly} />
-          <StatTile
+          <Stat label={t("auditOnly")} value={analysis.auditOnly} />
+          <Stat
             label={t("offOrDisabled")}
             value={analysis.disabled}
             tone={analysis.disabled ? "warn" : undefined}
           />
-          <StatTile
+          <Stat
             label={t("typesCovered")}
             value={analysis.coveredTypes.length}
             hint={t("missingHint", { count: analysis.missingTypes.length })}

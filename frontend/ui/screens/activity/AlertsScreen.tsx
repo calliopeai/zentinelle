@@ -24,7 +24,7 @@ import { formatDateTime, humanize } from "../../shared/format";
 import {
   useListController,
   type ListSource,
-} from "./components/list-controller";
+} from "../../shared/list-controller";
 import { AlertDrawer, isAlertActive } from "./AlertDrawer";
 import { activityCrumb } from "./nav";
 import { notificationHref } from "./notification-href";

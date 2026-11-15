@@ -1,6 +1,7 @@
 import {
   Button,
   Checkbox,
+  DefinitionList,
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -22,7 +23,6 @@ import type {
 
 import { ANY } from "../../../shared/select-any";
 import { CodeBlock } from "../../../shared/CodeBlock";
-import { DefinitionList } from "../components/DefinitionList";
 import { usePolicyLabels } from "../labels";
 
 export interface ContentRuleDrawerProps {
@@ -147,7 +147,7 @@ function RuleBody({
       {!canEdit && rule ? (
         <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-4">
           <DefinitionList
-            layout="stacked"
+            columns={1}
             items={[
               {
                 term: t("type"),

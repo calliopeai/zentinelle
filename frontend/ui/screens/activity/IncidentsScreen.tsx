@@ -16,7 +16,7 @@ import { formatDateTime, humanize } from "../../shared/format";
 import {
   useListController,
   type ListSource,
-} from "./components/list-controller";
+} from "../../shared/list-controller";
 import { activityCrumb } from "./nav";
 import { ReportIncidentDialog } from "./ReportIncidentDialog";
 import {

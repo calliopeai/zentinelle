@@ -1,6 +1,7 @@
 import {
   Button,
   DataTable,
+  useLocalTable,
   PageFrame,
   StatusBadge,
   type Column,
@@ -10,7 +11,6 @@ import { useTranslations } from "next-intl";
 
 import type { ComplianceReportData } from "@/graphql/compliance-reports/types";
 
-import { useListController } from "../../patterns/list-controller";
 import { ViewSwitch } from "../../patterns/ViewSwitch";
 import {
   IN_FLIGHT_REPORT,
@@ -196,7 +196,7 @@ export function ReportsScreen({
   const editable = canMutate(capabilities);
   const shown =
     view === "all" ? reports : reports.filter((r) => r.type === view);
-  const controller = useListController(shown, {
+  const controller = useLocalTable(shown, {
     loading,
     error,
     retry: onRetry,

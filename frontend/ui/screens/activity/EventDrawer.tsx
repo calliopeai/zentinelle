@@ -1,4 +1,5 @@
 import {
+  DefinitionList,
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -10,7 +11,6 @@ import { useTranslations } from "next-intl";
 
 import type { EventData } from "@/graphql/events/types";
 
-import { DefinitionList } from "./components/DefinitionList";
 import { formatDateTime } from "../../shared/format";
 import { JsonBlock } from "./JsonBlock";
 import { EVENT_STATUS_TONE, toneOf, useActivityLabels } from "./tones";
@@ -52,21 +52,36 @@ export function EventDrawer({ event, onClose }: EventDrawerProps) {
                 items={[
                   {
                     term: t("occurred"),
-                    value: formatDateTime(event.occurredAt),
+                    description: formatDateTime(event.occurredAt),
                   },
                   {
                     term: t("processed"),
-                    value: event.processedAt
+                    description: event.processedAt
                       ? formatDateTime(event.processedAt)
                       : t("notYet"),
                   },
-                  { term: t("user"), value: event.userIdentifier, mono: true },
+                  {
+                    term: t("user"),
+                    description: event.userIdentifier ? (
+                      <span className="font-mono text-xs">
+                        {event.userIdentifier}
+                      </span>
+                    ) : null,
+                  },
                   {
                     term: t("correlation"),
-                    value: event.correlationId,
-                    mono: true,
+                    description: event.correlationId ? (
+                      <span className="font-mono text-xs">
+                        {event.correlationId}
+                      </span>
+                    ) : null,
                   },
-                  { term: t("id"), value: event.id, mono: true },
+                  {
+                    term: t("id"),
+                    description: (
+                      <span className="font-mono text-xs">{event.id}</span>
+                    ),
+                  },
                 ]}
               />
               <JsonBlock label={t("payload")} value={event.payload} />

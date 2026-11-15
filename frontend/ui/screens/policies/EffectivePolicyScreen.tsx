@@ -1,10 +1,12 @@
 import type * as React from "react";
 import {
+  DefinitionList,
   EmptyState,
   ErrorState,
   Field,
   LoadingState,
   PageFrame,
+  Panel,
   Section,
   Select,
   StatusBadge,
@@ -13,9 +15,7 @@ import {
 import { BotIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { Card } from "./components/Card";
 import { CodeBlock } from "../../shared/CodeBlock";
-import { DefinitionList } from "./components/DefinitionList";
 import { areaCrumb, workspaceTabs } from "./frame";
 import { ENFORCEMENT_TONE, scopeRank, usePolicyLabels } from "./labels";
 import type { EffectivePolicyResponse } from "./rest-types";
@@ -182,7 +182,7 @@ export function EffectivePolicyScreen({
         </Section>
         <Section title={t("resolvedConfiguration")}>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card title={t("tools")}>
+            <Panel title={t("tools")}>
               <DefinitionList
                 items={[
                   {
@@ -201,8 +201,8 @@ export function EffectivePolicyScreen({
                   },
                 ]}
               />
-            </Card>
-            <Card title={t("secrets")}>
+            </Panel>
+            <Panel title={t("secrets")}>
               <DefinitionList
                 items={[
                   {
@@ -219,13 +219,13 @@ export function EffectivePolicyScreen({
                   },
                 ]}
               />
-            </Card>
+            </Panel>
             {other.map(([title, value]) => (
-              <Card key={title} title={title}>
+              <Panel key={title} title={title}>
                 <CodeBlock label={title} value={value} maxHeight="sm" />
-              </Card>
+              </Panel>
             ))}
-            <Card title={t("systemPrompt")} className="lg:col-span-2">
+            <Panel title={t("systemPrompt")} className="lg:col-span-2">
               {r.system_prompt ? (
                 <CodeBlock
                   label={t("systemPrompt")}
@@ -237,7 +237,7 @@ export function EffectivePolicyScreen({
                   {t("noSystemPromptPolicyApplies")}
                 </p>
               )}
-            </Card>
+            </Panel>
           </div>
         </Section>
       </div>

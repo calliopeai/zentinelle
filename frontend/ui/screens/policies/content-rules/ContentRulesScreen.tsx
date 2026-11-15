@@ -90,8 +90,8 @@ export function ContentRulesScreen({
     onRetry,
     search,
     onSearchChange,
-    filtered: Boolean(search || ruleType || severity),
-    onClearFilters: () => {
+    isFiltered: Boolean(search || ruleType || severity),
+    clearFilters: () => {
       onSearchChange("");
       onRuleTypeChange("");
       onSeverityChange("");

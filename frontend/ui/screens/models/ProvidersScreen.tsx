@@ -12,6 +12,7 @@ import {
   Section,
   StatusBadge,
   Switch,
+  Stat,
 } from "@calliopelabs/ui";
 import { PlugIcon } from "lucide-react";
 import * as React from "react";
@@ -19,7 +20,6 @@ import { useTranslations } from "next-intl";
 
 import { AccessDenied } from "../../shared/AccessDenied";
 import { SelectField } from "../../shared/SelectField";
-import { KpiTile, KpiRow } from "../../shared/KpiTile";
 import { formatDay } from "../../shared/figures";
 import { areaCrumbs, can } from "./frame";
 import { ProviderKeyDialog } from "./ProviderKeyDialog";
@@ -258,20 +258,24 @@ export function ProvidersScreen({
       ) : (
         <>
           {!error && (
-            <KpiRow label={t("providerKeys")}>
-              <KpiTile
+            <div
+              role="group"
+              aria-label={t("providerKeys")}
+              className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+            >
+              <Stat
                 label={t("configured")}
                 value={`${configured} of ${providers.length}`}
                 hint={t("withAUsableKeyStored")}
                 loading={loading && providers.length === 0}
               />
-              <KpiTile
+              <Stat
                 label={t("keysStoredHere")}
                 value={String(stored)}
                 hint={t("encryptedAtRest")}
                 loading={loading && providers.length === 0}
               />
-            </KpiRow>
+            </div>
           )}
           {body()}
           <ProviderKeyDialog

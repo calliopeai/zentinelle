@@ -1,10 +1,9 @@
 "use client";
 
-import { Field, Input, Section } from "@calliopelabs/ui";
+import { Field, Input, Section, DefinitionList } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
-import { DefinitionList } from "./components/DefinitionList";
 import { FormActions, useSaveState } from "./components/FormField";
 import {
   type Organization,
@@ -101,11 +100,25 @@ export function OrganizationForm({
       >
         <DefinitionList
           items={[
-            { term: t("slug"), value: organization.slug, mono: true },
-            { term: t("plan"), value: organization.tier },
-            { term: t("zentinelleAiTier"), value: organization.zentinelleTier },
-            { term: t("deployment"), value: organization.deploymentModel },
-            { term: t("created"), value: formatDay(organization.createdAt) },
+            {
+              term: t("slug"),
+              description: organization.slug ? (
+                <span className="font-mono text-xs">{organization.slug}</span>
+              ) : null,
+            },
+            { term: t("plan"), description: organization.tier },
+            {
+              term: t("zentinelleAiTier"),
+              description: organization.zentinelleTier,
+            },
+            {
+              term: t("deployment"),
+              description: organization.deploymentModel,
+            },
+            {
+              term: t("created"),
+              description: formatDay(organization.createdAt) || null,
+            },
           ]}
         />
       </Section>

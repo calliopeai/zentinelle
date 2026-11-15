@@ -1,12 +1,14 @@
 import {
   Button,
   Checkbox,
+  DefinitionList,
   EmptyState,
   ErrorState,
   Field,
   Input,
   LoadingState,
   PageFrame,
+  Panel,
   Section,
   Select,
   Tabs,
@@ -26,8 +28,6 @@ import type {
   PolicyOptions,
 } from "@/graphql/policies/types";
 
-import { Card } from "./components/Card";
-import { DefinitionList } from "./components/DefinitionList";
 import { accessOf } from "./access";
 import { areaCrumb } from "./frame";
 import { usePolicyLabels } from "./labels";
@@ -327,14 +327,14 @@ export function PolicyEditorScreen({
         title={t("configuration")}
         description={typeOption ? typeLabel(policyType) : undefined}
       >
-        <Card>
+        <Panel>
           <PolicyConfigFields
             key={policyType}
             schema={typeOption?.configSchema}
             value={(form.config as Record<string, unknown>) ?? {}}
             onChange={(v) => set("config", v)}
           />
-        </Card>
+        </Panel>
       </Section>
       <Section title={t("whenItMatches")}>
         <div className="grid gap-4 sm:grid-cols-2">

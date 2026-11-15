@@ -16,7 +16,7 @@ import { useTranslations } from "next-intl";
 
 import { SelectField } from "../../shared/SelectField";
 import { formatPerMillion, formatTokens } from "../../shared/figures";
-import { fixedList } from "../../shared/table";
+import { useListController } from "../../shared/list-controller";
 import { EstimateCostDrawer } from "./EstimateCostDrawer";
 import { areaCrumbs, can, useModelsFrame } from "./frame";
 import { MAX_COMPARE, compareHref, type Model, type Option } from "./models";
@@ -76,6 +76,16 @@ export function ModelsScreen({
   const { Link } = useUI();
   const selection = useRowSelection();
 
+  const controller = useListController({
+    rows: models,
+    loading,
+    error,
+    onRetry,
+    search,
+    onSearchChange,
+    isFiltered: provider !== "",
+    clearFilters: () => onProviderChange(""),
+  });
   const columns: Column<Model>[] = [
     {
       id: "model",
@@ -178,16 +188,7 @@ export function ModelsScreen({
     >
       <DataTable
         label={t("models")}
-        controller={fixedList({
-          rows: models,
-          loading,
-          error,
-          onRetry,
-          search,
-          onSearchChange,
-          filtered: provider !== "",
-          onClearFilters: () => onProviderChange(""),
-        })}
+        controller={controller}
         columns={columns}
         getRowId={(m) => m.id}
         rowLabel={(m) => m.name}

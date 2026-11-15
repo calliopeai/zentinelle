@@ -37,7 +37,7 @@ import type {
 } from "@/graphql/risks/types";
 
 import type { DateRange } from "../../shared/DateRangeFilter";
-import type { ListSource } from "./components/list-controller";
+import type { ListSource } from "../../shared/list-controller";
 import { useDebounced } from "../../shared/use-debounced";
 import { useHeldRows } from "../../shared/use-held-rows";
 import {

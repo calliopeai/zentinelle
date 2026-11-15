@@ -8,11 +8,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DefinitionList,
 } from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
 
 import { CopyField } from "../../shared/CopyField";
-import { DefinitionList } from "./components/DefinitionList";
 import { type EnrollmentCode, useSettingsLabels } from "./model";
 
 export interface EnrollmentCodeDialogProps {
@@ -47,7 +47,10 @@ export function EnrollmentCodeDialog({
             <CopyField label={t("copyZentinelleAiUrl")} value={zentinelleUrl} />
             <DefinitionList
               items={[
-                { term: t("expires"), value: formatDate(code.expires_at) },
+                {
+                  term: t("expires"),
+                  description: formatDate(code.expires_at) || null,
+                },
               ]}
             />
           </div>

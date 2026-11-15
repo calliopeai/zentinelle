@@ -136,9 +136,6 @@
       "copyTheGenerateCommand": "Copy the generate command",
       "generateIntro": "Generate a token for this organization:"
     },
-    "definitionList": {
-      "none": "None"
-    },
     "formField": {
       "theChangeWasNotSaved": "The change was not saved."
     },
@@ -459,6 +456,11 @@
       "working": "Working",
       "failed": "That did not work. Try again.",
       "reasonRequired": "A reason is required."
+    },
+    "data": {
+      "noValue": "No data",
+      "notSet": "Not set",
+      "removeTag": "Remove {label}"
     },
     "user": {
       "accountMenu": "{initials}, account menu for {name}",
@@ -2933,6 +2935,7 @@
     },
     "usageOverviewScreen": {
       "usage": "Usage",
+      "estimated": "Estimated",
       "tokensCostAndLatencyAcross": "Tokens, cost and latency across every agent, from the metering records.",
       "usageTabs": "Usage tabs",
       "period": "Period",

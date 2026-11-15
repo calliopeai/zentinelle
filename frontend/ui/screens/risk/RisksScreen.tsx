@@ -1,12 +1,15 @@
 import {
   Button,
   DataTable,
+  useLocalTable,
   DropdownMenuItem,
   PageFrame,
+  Select,
   Section,
   StatusBadge,
   useUI,
   type Column,
+  type SelectOption,
 } from "@calliopelabs/ui";
 import { PlusIcon, ShieldAlertIcon } from "lucide-react";
 import * as React from "react";
@@ -14,8 +17,8 @@ import { useTranslations } from "next-intl";
 
 import type { RiskData, RiskListVariables } from "@/graphql/risks/types";
 
-import { FilterBar, type FilterSpec } from "../../patterns/FilterBar";
-import { useListController } from "../../patterns/list-controller";
+import { FilterBar } from "../../shared/FilterBar";
+import { ANY, fromSelectValue, toSelectValue } from "../../shared/select-any";
 import { ViewSwitch } from "../../patterns/ViewSwitch";
 import { RiskLevelBadge } from "./components/RiskLevelBadge";
 import { RiskMatrix } from "./components/RiskMatrix";
@@ -61,7 +64,13 @@ const VIEWS = (t: Translate) =>
 const FILTERS = (
   t: Translate,
   labels: ReturnType<typeof useRiskLabels>,
-): FilterSpec[] => [
+): {
+  key: "category" | "status" | "riskLevel";
+  /** The select's accessible name, and its "any" option ("Any status"). */
+  label: string;
+  anyLabel: string;
+  options: readonly SelectOption[];
+}[] => [
   {
     key: "category",
     label: t("category"),
@@ -230,18 +239,20 @@ export function RisksScreen({
     filters.search || filters.category || filters.status || filters.riskLevel,
   );
   const clearFilters = () => onFiltersChange({});
-  const shown =
-    view === "matrix" && cell
-      ? risks.filter(
-          (r) => r.likelihood === cell.likelihood && r.impact === cell.impact,
-        )
-      : risks;
-  const controller = useListController(shown, {
+  const inCell = view === "matrix" && cell !== null;
+  const controller = useLocalTable(risks, {
+    // The server has applied the search and filters; the predicate adds the
+    // matrix cell, and passing one marks the list as narrowed.
+    filter:
+      isFiltered || inCell
+        ? (r) =>
+            !inCell ||
+            (r.likelihood === cell.likelihood && r.impact === cell.impact)
+        : undefined,
     loading,
     error,
     retry: onRetry,
-    isFiltered: isFiltered || (view === "matrix" && cell !== null),
-    clearFilters: () => {
+    onClearFilters: () => {
       setCell(null);
       clearFilters();
     },
@@ -315,17 +326,13 @@ export function RisksScreen({
       }
       filters={
         <FilterBar
+          label="Filters"
           searchLabel={t("searchRisks")}
           search={filters.search ?? ""}
           onSearchChange={(search) =>
             onFiltersChange({ ...filters, search: search || null })
           }
-          filters={FILTERS(t, labels)}
-          values={filters as Record<string, string>}
-          onChange={(key, value) =>
-            onFiltersChange({ ...filters, [key]: value || null })
-          }
-          onClear={clearFilters}
+          onClear={isFiltered ? clearFilters : undefined}
           trailing={
             <ViewSwitch
               label={t("registerViews")}
@@ -333,7 +340,25 @@ export function RisksScreen({
               active={view}
             />
           }
-        />
+        >
+          {FILTERS(t, labels).map((filter) => (
+            <Select
+              key={filter.key}
+              aria-label={filter.label}
+              options={[
+                { value: ANY, label: filter.anyLabel },
+                ...filter.options,
+              ]}
+              value={toSelectValue(filters[filter.key] ?? "")}
+              onValueChange={(next) =>
+                onFiltersChange({
+                  ...filters,
+                  [filter.key]: fromSelectValue(next) || null,
+                })
+              }
+            />
+          ))}
+        </FilterBar>
       }
     >
       {view === "matrix" && !loading && !error && risks.length > 0 ? (

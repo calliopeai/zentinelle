@@ -1,5 +1,6 @@
 import {
   Button,
+  DefinitionList,
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -12,7 +13,6 @@ import { useTranslations } from "next-intl";
 
 import type { ComplianceAlertData } from "@/graphql/alerts/types";
 
-import { DefinitionList } from "./components/DefinitionList";
 import { formatDateTime, humanize } from "../../shared/format";
 import { ALERT_STATUS_TONE, SEVERITY_TONE, toneOf } from "./tones";
 
@@ -72,41 +72,49 @@ export function AlertDrawer({
                 items={[
                   {
                     term: t("drawer.type"),
-                    value: alert.alertTypeDisplay ?? humanize(alert.alertType),
+                    description:
+                      (alert.alertTypeDisplay ?? humanize(alert.alertType)) ||
+                      null,
                   },
-                  { term: t("drawer.agent"), value: alert.endpointName },
+                  {
+                    term: t("drawer.agent"),
+                    description: alert.endpointName || null,
+                  },
                   {
                     term: t("drawer.user"),
-                    value: alert.userIdentifier,
-                    mono: true,
+                    description: alert.userIdentifier ? (
+                      <span className="font-mono text-xs">
+                        {alert.userIdentifier}
+                      </span>
+                    ) : null,
                   },
                   {
                     term: t("drawer.violations"),
-                    value: alert.violationCount,
+                    description: alert.violationCount,
                   },
                   {
                     term: t("drawer.first"),
-                    value: formatDateTime(alert.firstViolationAt),
+                    description: formatDateTime(alert.firstViolationAt),
                   },
                   {
                     term: t("drawer.last"),
-                    value: formatDateTime(alert.lastViolationAt),
+                    description: formatDateTime(alert.lastViolationAt),
                   },
                   {
                     term: t("drawer.acknowledged"),
-                    value: alert.acknowledgedAt
+                    description: alert.acknowledgedAt
                       ? by(alert.acknowledgedAt, alert.acknowledgedByUsername)
                       : null,
                   },
                   {
                     term: t("drawer.resolved"),
-                    value: alert.resolvedAt
+                    description: alert.resolvedAt
                       ? by(alert.resolvedAt, alert.resolvedByUsername)
                       : null,
                   },
                   {
                     term: t("drawer.notes"),
-                    value: alert.resolutionNotes,
+                    description: alert.resolutionNotes || null,
                   },
                 ]}
               />

@@ -3,6 +3,7 @@ import {
   DataTable,
   PageFrame,
   Select,
+  Stat,
   StatusBadge,
   type Column,
 } from "@calliopelabs/ui";
@@ -21,7 +22,6 @@ import {
 } from "../../../shared/select-any";
 import { FilterBar } from "../../../shared/FilterBar";
 import { useListController } from "../../../shared/list-controller";
-import { StatTile } from "../components/StatTile";
 import { areaCrumb, rulesTabs } from "../frame";
 import { SEVERITY_TONE, usePolicyLabels } from "../labels";
 
@@ -83,8 +83,8 @@ export function DetectionsScreen({
     loading,
     error,
     onRetry,
-    filtered,
-    onClearFilters: () => {
+    isFiltered: filtered,
+    clearFilters: () => {
       onSeverityChange("");
       onRuleTypeChange("");
     },
@@ -151,23 +151,23 @@ export function DetectionsScreen({
     >
       {ready && (
         <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <StatTile
+          <Stat
             label={t("detections")}
             value={violations.length.toLocaleString()}
           />
-          <StatTile
+          <Stat
             label={t("blocked")}
             value={violations
               .filter((v) => v.wasBlocked)
               .length.toLocaleString()}
           />
-          <StatTile
+          <Stat
             label={t("redacted")}
             value={violations
               .filter((v) => v.wasRedacted)
               .length.toLocaleString()}
           />
-          <StatTile
+          <Stat
             label={t("scansFlagged")}
             value={flagged.toLocaleString()}
             hint={t("ofScanned", { count: scans.length.toLocaleString() })}

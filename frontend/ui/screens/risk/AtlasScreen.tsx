@@ -1,7 +1,6 @@
-import { DataTable, type Column } from "@calliopelabs/ui";
+import { DataTable, useLocalTable, type Column } from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
 
-import { useListController } from "../../patterns/list-controller";
 import { EvidenceFrame } from "./components/EvidenceFrame";
 import { EvidenceStatusBadge } from "./components/EvidenceStatusBadge";
 import { formatDate, formatDateTime, type QueryState } from "./model";
@@ -89,7 +88,7 @@ export function AtlasScreen({
   onRetry,
 }: AtlasScreenProps) {
   const t = useTranslations("risk.atlasScreen");
-  const controller = useListController(atlas?.techniques ?? [], {
+  const controller = useLocalTable(atlas?.techniques ?? [], {
     loading,
     error,
     retry: onRetry,

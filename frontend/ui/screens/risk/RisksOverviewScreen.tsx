@@ -5,15 +5,16 @@ import {
   LoadingState,
   PageFrame,
   Section,
+  Panel,
+  Stat,
+  StatGrid,
 } from "@calliopelabs/ui";
 import { ShieldAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import type { RiskStatsData } from "@/graphql/risks/types";
 
-import { Card } from "../../patterns/Card";
-import { Meter } from "../../patterns/Meter";
-import { StatGrid, StatTile } from "../../patterns/StatTile";
+import { Meter } from "../../shared/Meter";
 import { RiskTrendChart } from "./components/RiskTrendChart";
 import {
   RISK_LEVEL_TONE,
@@ -88,14 +89,14 @@ export function RisksOverviewScreen({
   return frame(
     <>
       <StatGrid>
-        <StatTile
+        <Stat
           label={t("openRisks")}
           href="/risks"
           loading={loading}
           value={stats?.openRisks ?? null}
           hint={t("ofRegister", { total })}
         />
-        <StatTile
+        <Stat
           label={t("critical")}
           href="/risks?riskLevel=critical"
           loading={loading}
@@ -103,7 +104,7 @@ export function RisksOverviewScreen({
           tone={stats?.criticalRisks ? "error" : "ok"}
           hint={t("rpn200OrMore")}
         />
-        <StatTile
+        <Stat
           label={t("high")}
           href="/risks?riskLevel=high"
           loading={loading}
@@ -111,7 +112,7 @@ export function RisksOverviewScreen({
           tone={stats?.highRisks ? "warn" : "ok"}
           hint={t("rpn75To199")}
         />
-        <StatTile
+        <Stat
           label={t("openIncidents")}
           href="/incidents"
           loading={loading}
@@ -128,7 +129,7 @@ export function RisksOverviewScreen({
         />
       </StatGrid>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title={t("byLevel")}>
+        <Panel title={t("byLevel")}>
           {loading ? (
             <LoadingState rows={4} label={t("loadingLevels")} />
           ) : (
@@ -148,8 +149,8 @@ export function RisksOverviewScreen({
               );
             })
           )}
-        </Card>
-        <Card title={t("byCategory")}>
+        </Panel>
+        <Panel title={t("byCategory")}>
           {loading ? (
             <LoadingState rows={4} label={t("loadingCategories")} />
           ) : (
@@ -166,13 +167,13 @@ export function RisksOverviewScreen({
               />
             ))
           )}
-        </Card>
+        </Panel>
       </div>
       <Section
         title={t("riskIndexLast30Days")}
         description={t("theOpenRisksRpnAs")}
       >
-        <Card>
+        <Panel>
           {trendState.error ? (
             <ErrorState
               title={t("couldNotLoadTheTrend")}
@@ -186,7 +187,7 @@ export function RisksOverviewScreen({
           ) : (
             <RiskTrendChart points={trend} />
           )}
-        </Card>
+        </Panel>
       </Section>
     </>,
   );

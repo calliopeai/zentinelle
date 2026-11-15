@@ -1,5 +1,6 @@
 import {
   Button,
+  DefinitionList,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -12,7 +13,6 @@ import {
 } from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
 
-import { DefinitionList } from "./components/DefinitionList";
 import type { AuditChainVerification } from "./types";
 
 export interface VerifyChainDialogProps {
@@ -60,13 +60,14 @@ export function VerifyChainDialog({
               items={[
                 {
                   term: t("checked"),
-                  value: result.records_checked.toLocaleString("en"),
+                  description: result.records_checked.toLocaleString("en"),
                 },
                 ...(result.unverifiable_records
                   ? [
                       {
                         term: t("unverifiable"),
-                        value: result.unverifiable_records.toLocaleString("en"),
+                        description:
+                          result.unverifiable_records.toLocaleString("en"),
                       },
                     ]
                   : []),
@@ -74,18 +75,31 @@ export function VerifyChainDialog({
                   ? [
                       {
                         term: t("brokenAt"),
-                        value: result.broken_at_sequence,
-                        mono: true,
+                        description: (
+                          <span className="font-mono text-xs">
+                            {result.broken_at_sequence}
+                          </span>
+                        ),
                       },
                     ]
                   : []),
-                { term: t("root"), value: result.root_hash, mono: true },
+                {
+                  term: t("root"),
+                  description: result.root_hash ? (
+                    <span className="font-mono text-xs">
+                      {result.root_hash}
+                    </span>
+                  ) : null,
+                },
                 ...(result.expected_hash
                   ? [
                       {
                         term: t("expected"),
-                        value: result.expected_hash,
-                        mono: true,
+                        description: (
+                          <span className="font-mono text-xs">
+                            {result.expected_hash}
+                          </span>
+                        ),
                       },
                     ]
                   : []),
@@ -93,8 +107,11 @@ export function VerifyChainDialog({
                   ? [
                       {
                         term: t("actual"),
-                        value: result.actual_hash,
-                        mono: true,
+                        description: (
+                          <span className="font-mono text-xs">
+                            {result.actual_hash}
+                          </span>
+                        ),
                       },
                     ]
                   : []),

@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 import { useAIModels } from "@/graphql/models/hooks";
 import { useUsageMetrics } from "@/graphql/usage/hooks";
 
-import { fixedList } from "../../shared/table";
 import { formatUsd } from "../../shared/figures";
 import {
   FIXTURE_END,
@@ -185,22 +184,6 @@ describe("providers", () => {
 });
 
 describe("shared helpers", () => {
-  it("keeps empty and empty-after-filtering apart", () => {
-    expect(fixedList({ rows: [] }).state).toBe("empty");
-    expect(
-      fixedList({ rows: [], search: "x", onSearchChange: () => {} }).state,
-    ).toBe("emptyFiltered");
-    expect(fixedList({ rows: [], filtered: true }).state).toBe("emptyFiltered");
-    expect(fixedList({ rows: [], loading: true }).state).toBe("loading");
-    expect(fixedList({ rows: [1], loading: true })).toMatchObject({
-      state: "ready",
-      isStale: true,
-    });
-    expect(fixedList({ rows: [1], error: { message: "x" } }).state).toBe(
-      "error",
-    );
-  });
-
   it("formats money as metering records it", () => {
     expect(formatUsd(412.88)).toBe("$412.88");
     expect(formatUsd(0.018)).toBe("$0.0180");

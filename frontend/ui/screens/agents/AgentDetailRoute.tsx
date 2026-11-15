@@ -10,7 +10,7 @@ import { useInteractionLogs } from "@/graphql/interactions/hooks";
 import { useUsageMetrics } from "@/graphql/usage/hooks";
 import { authenticatedFetch } from "@/lib/auth/fetch";
 
-import { useArrayTable } from "../../shared/array-table";
+import { useListController } from "../../shared/list-controller";
 import { AgentActivityTab } from "./AgentActivityTab";
 import { AgentComplianceTab } from "./AgentComplianceTab";
 import {
@@ -98,8 +98,6 @@ export const restClient: AgentRestClient = {
   },
 };
 
-const NO_FILTER = { isFiltered: false, clearFilters: () => {} };
-
 function useRest<T>(load: () => Promise<T>, key: string) {
   const [result, setResult] = React.useState<{
     key: string;
@@ -141,12 +139,11 @@ function ActivityPanel({ endpointId }: { endpointId: string }) {
     { endpointId },
     { pollInterval: 10000 },
   );
-  const table = useArrayTable({
+  const table = useListController({
     rows: events,
     loading,
     error,
-    retry: () => void refetch(),
-    ...NO_FILTER,
+    onRetry: () => void refetch(),
   });
   return <AgentActivityTab table={table} />;
 }
@@ -155,12 +152,11 @@ function InteractionsPanel({ endpointId }: { endpointId: string }) {
   const { interactions, loading, error, refetch } = useInteractionLogs({
     endpointId,
   });
-  const table = useArrayTable({
+  const table = useListController({
     rows: interactions,
     loading,
     error,
-    retry: () => void refetch(),
-    ...NO_FILTER,
+    onRetry: () => void refetch(),
   });
   return <AgentInteractionsTab table={table} />;
 }
@@ -196,12 +192,11 @@ function CompliancePanel({
   const { violations, loading, error, refetch } = useContentViolations({
     endpointId,
   });
-  const table = useArrayTable({
+  const table = useListController({
     rows: violations,
     loading,
     error,
-    retry: () => void refetch(),
-    ...NO_FILTER,
+    onRetry: () => void refetch(),
   });
   return (
     <AgentComplianceTab
@@ -264,12 +259,11 @@ function PoliciesPanel({
 }) {
   const t = useTranslations("agents.detail.errors");
   const effective = useRest(() => client.effective(endpointId), endpointId);
-  const table = useArrayTable({
+  const table = useListController({
     rows: effective.value?.policies ?? [],
     loading: effective.loading,
     error: described(effective.error, t("policies")),
-    retry: effective.retry,
-    ...NO_FILTER,
+    onRetry: effective.retry,
   });
   return (
     <AgentPoliciesTab

@@ -6,13 +6,13 @@ import {
   StatusBadge,
   areaSwitcher,
   type TabNavItem,
+  DefinitionList,
 } from "@calliopelabs/ui";
 import { BotIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type * as React from "react";
 
 import { navFor } from "../../product";
-import { DefinitionList } from "../../shared/DefinitionList";
 import {
   AGENT_HEALTH_TONE,
   AGENT_STATUS_TONE,
@@ -144,39 +144,51 @@ export function AgentDetailScreen({
     >
       {agent ? (
         <DefinitionList
-          columns={3}
-          fallback={c("none")}
+          columns={2}
           items={[
-            { term: t("facts.type"), value: labels.type(agent.agentType) },
-            { term: t("facts.group"), value: agent.groupName },
+            {
+              term: t("facts.type"),
+              description: labels.type(agent.agentType) || null,
+            },
+            { term: t("facts.group"), description: agent.groupName || null },
             {
               term: t("facts.deployment"),
-              value: agent.deploymentName,
-              mono: true,
+              description: agent.deploymentName ? (
+                <span className="font-mono text-xs">
+                  {agent.deploymentName}
+                </span>
+              ) : null,
             },
             {
               term: t("facts.heartbeat"),
-              value: agent.lastHeartbeat
-                ? formatTime(agent.lastHeartbeat)
-                : c("never"),
-              mono: true,
+              description: (
+                <span className="font-mono text-xs">
+                  {agent.lastHeartbeat
+                    ? formatTime(agent.lastHeartbeat)
+                    : c("never")}
+                </span>
+              ),
             },
-            { term: t("facts.owner"), value: agent.owner },
+            { term: t("facts.owner"), description: agent.owner || null },
             {
               term: t("facts.apiKey"),
-              value: agent.apiKeyPrefix ? `${agent.apiKeyPrefix}…` : null,
-              mono: true,
+              description: agent.apiKeyPrefix ? (
+                <span className="font-mono text-xs">{`${agent.apiKeyPrefix}…`}</span>
+              ) : null,
             },
             {
               term: t("facts.capabilities"),
-              value: agent.capabilities.length
+              description: agent.capabilities.length
                 ? agent.capabilities.join(", ")
                 : null,
             },
             {
               term: t("facts.registered"),
-              value: formatTime(agent.createdAt),
-              mono: true,
+              description: agent.createdAt ? (
+                <span className="font-mono text-xs">
+                  {formatTime(agent.createdAt)}
+                </span>
+              ) : null,
             },
           ]}
         />

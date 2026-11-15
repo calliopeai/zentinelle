@@ -6,13 +6,13 @@ import {
   LoadingState,
   Section,
   StatusBadge,
+  DefinitionList,
+  Panel,
 } from "@calliopelabs/ui";
 import { LockIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import * as React from "react";
 
-import { Card } from "../../shared/Card";
-import { DefinitionList } from "../../shared/DefinitionList";
 import { SEVERITY_TONE, formatTime, toneOf, words } from "./format";
 
 /** GET /agents/{agent_id}/control (backend/zentinelle/api/views/agent_control.py), as the tab reads it. */
@@ -142,37 +142,40 @@ export function AgentControlsTab({
         }
       >
         <div className="grid gap-4 md:grid-cols-2">
-          <Card title={t("cards.tools")}>
+          <Panel title={t("cards.tools")}>
             <Values values={agent.tools} none={none} />
-          </Card>
-          <Card title={t("cards.modelRoutes")}>
+          </Panel>
+          <Panel title={t("cards.modelRoutes")}>
             <Values values={agent.model_routes} none={none} />
-          </Card>
-          <Card title={t("cards.dataAccess")}>
+          </Panel>
+          <Panel title={t("cards.dataAccess")}>
             <Values values={agent.data_access} none={none} />
-          </Card>
-          <Card title={t("cards.authorityTags")}>
+          </Panel>
+          <Panel title={t("cards.authorityTags")}>
             <Values values={agent.authority} none={none} />
-          </Card>
-          <Card title={t("cards.contained")}>
+          </Panel>
+          <Panel title={t("cards.contained")}>
             <Values
               values={agent.containment?.denied_tools}
               none={t("nothingContained")}
             />
-          </Card>
-          <Card title={t("cards.budget")}>
+          </Panel>
+          <Panel title={t("cards.budget")}>
             {budget ? (
               <DefinitionList
-                items={Object.entries(budget).map(([term, value]) => ({
-                  term: words(term),
-                  value: show(value),
-                  mono: true,
-                }))}
+                items={Object.entries(budget)
+                  .filter(([, value]) => value != null && value !== "")
+                  .map(([term, value]) => ({
+                    term: words(term),
+                    description: (
+                      <span className="font-mono text-xs">{show(value)}</span>
+                    ),
+                  }))}
               />
             ) : (
               <p className="text-muted-foreground text-sm">{t("noBudget")}</p>
             )}
-          </Card>
+          </Panel>
         </div>
       </Section>
       <Section title={t("incidents.title")}>

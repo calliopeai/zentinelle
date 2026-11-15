@@ -6,14 +6,15 @@ import {
   LoadingState,
   PageFrame,
   Section,
+  Panel,
+  Segmented,
+  Stat,
+  Tag,
 } from "@calliopelabs/ui";
 import { BarChart3Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { BarList } from "../../shared/BarList";
-import { Panel } from "../../shared/Panel";
-import { Segmented } from "../../shared/Segmented";
-import { KpiTile, KpiRow } from "../../shared/KpiTile";
 import { TrendChart } from "../../shared/TrendChart";
 import {
   formatCompact,
@@ -73,7 +74,7 @@ export function UsageOverviewScreen({
           label={t("period")}
           value={period}
           options={PERIODS}
-          onChange={onPeriodChange}
+          onValueChange={onPeriodChange}
         />
       }
     >
@@ -117,20 +118,27 @@ function UsageBody({
   const { totals } = overview;
   return (
     <>
-      <KpiRow label={`Usage, ${periodLabel.toLowerCase()}`}>
-        <KpiTile
+      <div
+        role="group"
+        aria-label={`Usage, ${periodLabel.toLowerCase()}`}
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+      >
+        <Stat
           label={t("tokens")}
           value={formatCompact(totals.tokens, locale)}
           hint={periodLabel}
         />
-        <KpiTile
-          label={t("cost")}
+        <Stat
+          label={
+            <>
+              {t("cost")} <Tag>{t("estimated")}</Tag>
+            </>
+          }
           value={formatUsd(totals.cost, locale)}
           hint={t("meteredAtRegistryPrices")}
-          estimated
           href="/usage/budgets"
         />
-        <KpiTile
+        <Stat
           label={t("requests")}
           value={formatCount(totals.requests, locale)}
           hint={t("activeAgents", {
@@ -138,7 +146,7 @@ function UsageBody({
           })}
           href="/agents"
         />
-        <KpiTile
+        <Stat
           label={t("averageLatency")}
           value={formatMs(overview.avgLatencyMs, locale)}
           hint={
@@ -147,7 +155,7 @@ function UsageBody({
               : t("noEndpointMeasuredLatency")
           }
         />
-      </KpiRow>
+      </div>
 
       <Section title={t("byDay")}>
         <div className="grid min-w-0 gap-3 lg:grid-cols-2">

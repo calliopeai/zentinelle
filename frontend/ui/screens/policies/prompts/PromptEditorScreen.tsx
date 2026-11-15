@@ -6,6 +6,7 @@ import {
   Input,
   LoadingState,
   PageFrame,
+  Panel,
   Section,
   Select,
   StatusBadge,
@@ -21,7 +22,6 @@ import type {
   SystemPromptData,
 } from "@/graphql/prompts/types";
 
-import { Card } from "../components/Card";
 import { CodeBlock } from "../../../shared/CodeBlock";
 import { accessOf } from "../access";
 import { areaCrumb } from "../frame";
@@ -468,7 +468,7 @@ export function PromptEditorScreen({
           className="flex min-w-0 flex-col gap-4"
           aria-label={t("promptChecks")}
         >
-          <Card title={t("variables")}>
+          <Panel title={t("variables")}>
             {variables.length ? (
               <ul className="flex flex-wrap gap-1">
                 {variables.map((v) => (
@@ -484,10 +484,10 @@ export function PromptEditorScreen({
                 {t("noneThePromptIsThe")}
               </p>
             )}
-          </Card>
-          <Card
+          </Panel>
+          <Panel
             title={t("analysis")}
-            action={
+            actions={
               canEdit ? (
                 <Button
                   size="xs"
@@ -511,7 +511,7 @@ export function PromptEditorScreen({
                 </p>
               )}
             </div>
-          </Card>
+          </Panel>
         </aside>
       </div>
     </PageFrame>

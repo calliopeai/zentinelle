@@ -78,8 +78,8 @@ export function PromptLibraryScreen({
     onRetry,
     search,
     onSearchChange,
-    filtered: Boolean(search || type || featuredOnly),
-    onClearFilters: () => {
+    isFiltered: Boolean(search || type || featuredOnly),
+    clearFilters: () => {
       onSearchChange("");
       onTypeChange("");
       onFeaturedOnlyChange(false);

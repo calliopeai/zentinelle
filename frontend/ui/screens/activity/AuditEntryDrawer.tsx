@@ -1,4 +1,5 @@
 import {
+  DefinitionList,
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -10,7 +11,6 @@ import { useTranslations } from "next-intl";
 
 import type { AuditLogData } from "@/graphql/events/types";
 
-import { DefinitionList } from "./components/DefinitionList";
 import { formatDateTime } from "../../shared/format";
 import { JsonBlock } from "./JsonBlock";
 import { AUDIT_STATUS_TONE, toneOf, useActivityLabels } from "./tones";
@@ -66,24 +66,37 @@ export function AuditEntryDrawer({ entry, onClose }: AuditEntryDrawerProps) {
                 items={[
                   {
                     term: t("drawer.when"),
-                    value: formatDateTime(entry.timestamp),
+                    description: formatDateTime(entry.timestamp),
                   },
-                  { term: t("drawer.actor"), value: actorLabel(entry, t) },
-                  { term: t("drawer.email"), value: entry.actor?.email },
+                  {
+                    term: t("drawer.actor"),
+                    description: actorLabel(entry, t) || null,
+                  },
+                  {
+                    term: t("drawer.email"),
+                    description: entry.actor?.email || null,
+                  },
                   {
                     term: t("drawer.resource"),
-                    value: `${entry.resourceType} ${entry.resourceId}`,
-                    mono: true,
+                    description: (
+                      <span className="font-mono text-xs">{`${entry.resourceType} ${entry.resourceId}`}</span>
+                    ),
                   },
                   {
                     term: t("drawer.ip"),
-                    value: entry.ipAddress,
-                    mono: true,
+                    description: entry.ipAddress ? (
+                      <span className="font-mono text-xs">
+                        {entry.ipAddress}
+                      </span>
+                    ) : null,
                   },
                   {
                     term: t("drawer.userAgent"),
-                    value: entry.userAgent,
-                    mono: true,
+                    description: entry.userAgent ? (
+                      <span className="font-mono text-xs">
+                        {entry.userAgent}
+                      </span>
+                    ) : null,
                   },
                 ]}
               />

@@ -9,6 +9,7 @@ import {
   Field,
   LoadingState,
   Select,
+  Stat,
   Textarea,
   type SelectOption,
 } from "@calliopelabs/ui";
@@ -16,8 +17,6 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 
 import type { SimulatePolicyResult } from "@/graphql/policies/simulate";
-
-import { StatTile } from "./components/StatTile";
 
 export type Simulation = SimulatePolicyResult["simulatePolicy"];
 
@@ -192,24 +191,24 @@ export function SimulatePanel({
                     })}
                   </p>
                   <div className="grid grid-cols-2 gap-2">
-                    <StatTile
+                    <Stat
                       label={t("wouldBlock")}
                       value={result.wouldBlock.toLocaleString()}
                       hint={percent(result.wouldBlock, result.totalEvents)}
                       tone={result.wouldBlock ? "error" : undefined}
                     />
-                    <StatTile
+                    <Stat
                       label={t("wouldWarn")}
                       value={result.wouldWarn.toLocaleString()}
                       hint={percent(result.wouldWarn, result.totalEvents)}
                       tone={result.wouldWarn ? "warn" : undefined}
                     />
-                    <StatTile
+                    <Stat
                       label={t("wouldPass")}
                       value={result.wouldPass.toLocaleString()}
                       hint={percent(result.wouldPass, result.totalEvents)}
                     />
-                    <StatTile
+                    <Stat
                       label={t("inconclusive")}
                       value={result.inconclusive.toLocaleString()}
                       hint={t("theEventLackedTheFields")}

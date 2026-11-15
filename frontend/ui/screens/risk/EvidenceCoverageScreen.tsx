@@ -1,9 +1,15 @@
-import { DataTable, Section, StatusBadge, type Column } from "@calliopelabs/ui";
+import {
+  DataTable,
+  useLocalTable,
+  Section,
+  StatusBadge,
+  type Column,
+  Stat,
+  StatGrid,
+} from "@calliopelabs/ui";
 import { FileCheckIcon, RadarIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { useListController } from "../../patterns/list-controller";
-import { StatGrid, StatTile } from "../../patterns/StatTile";
 import { EvidenceFrame } from "./components/EvidenceFrame";
 import { EvidenceStatusBadge } from "./components/EvidenceStatusBadge";
 import { formatDateTime, type QueryState, useRiskLabels } from "./model";
@@ -119,12 +125,12 @@ export function EvidenceCoverageScreen({
   const t = useTranslations("risk.evidenceCoverageScreen");
   const { EVIDENCE_LABEL } = useRiskLabels();
   const runtime = evidence?.runtime_coverage;
-  const workloads = useListController(runtime?.workloads ?? [], {
+  const workloads = useLocalTable(runtime?.workloads ?? [], {
     loading,
     error,
     retry: onRetry,
   });
-  const records = useListController(evidence?.evidence ?? [], {
+  const records = useLocalTable(evidence?.evidence ?? [], {
     loading,
     error,
     retry: onRetry,
@@ -144,12 +150,12 @@ export function EvidenceCoverageScreen({
       onRetry={onRetry}
     >
       <StatGrid>
-        <StatTile
+        <Stat
           label={t("registeredWorkloads")}
           loading={loading}
           value={runtime?.registered_workloads ?? null}
         />
-        <StatTile
+        <Stat
           label={t("observedAtRuntime")}
           loading={loading}
           value={runtime?.observed_workloads ?? null}
@@ -162,14 +168,14 @@ export function EvidenceCoverageScreen({
               : undefined
           }
         />
-        <StatTile
+        <Stat
           label={t("neverObserved")}
           loading={loading}
           value={runtime?.unobserved_workloads ?? null}
           tone={runtime?.unobserved_workloads ? "warn" : undefined}
           hint={t("registeredWithNoRuntimeEvent")}
         />
-        <StatTile
+        <Stat
           label={t("verifiedOperating")}
           loading={loading}
           value={evidence ? `${operating} of ${total}` : null}

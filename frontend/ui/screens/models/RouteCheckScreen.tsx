@@ -9,15 +9,15 @@ import {
   StatusBadge,
   type Column,
   type StatusTone,
+  Panel,
 } from "@calliopelabs/ui";
 import { RouteIcon } from "lucide-react";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
 import { AccessDenied } from "../../shared/AccessDenied";
-import { Panel } from "../../shared/Panel";
 import { formatMoment } from "../../shared/figures";
-import { fixedList } from "../../shared/table";
+import { useListController } from "../../shared/list-controller";
 import { areaCrumbs, can, useModelsFrame } from "./frame";
 import type { CanaryResult } from "./providers";
 
@@ -75,6 +75,12 @@ export function RouteCheckScreen({
   const modelId = React.useId();
   const admin = can(capabilities, "admin");
 
+  const controller = useListController({
+    rows: results,
+    loading,
+    error,
+    onRetry,
+  });
   const columns: Column<CanaryResult>[] = [
     {
       id: "route",
@@ -202,7 +208,7 @@ export function RouteCheckScreen({
             <DataTable
               label={t("recentRouteChecks")}
               chrome="table"
-              controller={fixedList({ rows: results, loading, error, onRetry })}
+              controller={controller}
               columns={columns}
               getRowId={(r) => r.id}
               empty={{

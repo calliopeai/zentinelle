@@ -8,6 +8,8 @@ import {
   PageFrame,
   Section,
   StatusBadge,
+  Stat,
+  StatGrid,
 } from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
 
@@ -16,8 +18,7 @@ import type {
   ComplianceOverview,
 } from "@/graphql/compliance/types";
 
-import { Meter } from "../../patterns/Meter";
-import { StatGrid, StatTile } from "../../patterns/StatTile";
+import { Meter } from "../../shared/Meter";
 import { ConfigurationNote } from "./ComplianceScreen";
 import {
   areaCrumb,
@@ -147,7 +148,7 @@ export function FrameworkDetailScreen({
       }
     >
       <StatGrid>
-        <StatTile
+        <Stat
           label={t("requiredConfigured")}
           value={`${framework.requiredCovered} of ${framework.requiredTotal}`}
           tone={coverageTone(
@@ -155,7 +156,7 @@ export function FrameworkDetailScreen({
             framework.requiredTotal,
           )}
         />
-        <StatTile
+        <Stat
           label={t("recommendedConfigured")}
           value={`${recommendedCovered} of ${recommendedTotal}`}
         />

@@ -5,11 +5,11 @@ import {
   type Column,
   type StatusTone,
   type TableController,
+  Panel,
 } from "@calliopelabs/ui";
 import { ShieldCheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { Card } from "../../shared/Card";
 import { toneOf, words } from "./format";
 
 /** GET /effective-policy?endpoint= (backend/zentinelle/api/views), as the tab reads it. */
@@ -77,7 +77,7 @@ function columns(
 function Tools({ title, tools }: { title: string; tools: string[] }) {
   const c = useTranslations("common");
   return (
-    <Card title={title}>
+    <Panel title={title}>
       {tools.length ? (
         <ul className="flex flex-wrap gap-1">
           {tools.map((tool) => (
@@ -92,7 +92,7 @@ function Tools({ title, tools }: { title: string; tools: string[] }) {
       ) : (
         <p className="text-muted-foreground text-sm">{c("none")}</p>
       )}
-    </Card>
+    </Panel>
   );
 }
 
