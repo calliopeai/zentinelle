@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { ApolloWrapper } from "@/lib/apollo";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { ConfirmProvider } from "@/hooks/use-confirm";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/Toaster";
@@ -35,11 +33,7 @@ export default async function RootLayout({
         <AppearanceRoot>
           <Toaster />
           <NextIntlClientProvider locale={locale} messages={messages}>
-            <ApolloWrapper>
-              <TooltipProvider>
-                <ConfirmProvider>{children}</ConfirmProvider>
-              </TooltipProvider>
-            </ApolloWrapper>
+            <ApolloWrapper>{children}</ApolloWrapper>
           </NextIntlClientProvider>
         </AppearanceRoot>
       </body>

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 import { AlertCircleIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@calliopelabs/ui";
 
 export default function Error({
   error,

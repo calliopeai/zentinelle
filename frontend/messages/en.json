@@ -9,31 +9,7 @@
     "it": "Italian",
     "pt": "Portuguese"
   },
-  "dataTable": {
-    "search": "Search…",
-    "filters": "Filters",
-    "clearAll": "Clear all",
-    "noResults": "No results.",
-    "panel": {
-      "title": "Filters",
-      "clearAll": "Clear all",
-      "all": "All",
-      "cancel": "Cancel",
-      "apply": "Apply",
-      "placeholder": "Filter by {label}…"
-    },
-    "pagination": {
-      "rowsPerPage": "Rows per page",
-      "page": "Page {current} of {total}",
-      "results": "{count, plural, one {# result} other {# results}}"
-    }
-  },
   "settings": {
-    "theme": {
-      "light": "Light",
-      "dark": "Dark",
-      "system": "System"
-    },
     "labels": {
       "enforcementModes": {
         "monitor": "Monitor (record only)",

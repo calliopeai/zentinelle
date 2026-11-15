@@ -1,25 +1,25 @@
 "use client";
 
-import { useCapability } from "@/components/PermissionGuard";
-
+import {
+  Button,
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@calliopelabs/ui";
+import { SparklesIcon, XIcon, Trash2Icon, LoaderIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import * as React from "react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { SparklesIcon, XIcon, Trash2Icon, LoaderIcon } from "lucide-react";
+
+import { useCapability } from "@/components/PermissionGuard";
 import { useChat, useAvailableModels } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
 import { ChatInput } from "@/ui/screens/overview/components/ChatInput";
 import { MessageList } from "@/ui/screens/overview/components/MessageList";
 import { ModelSelector } from "@/ui/screens/overview/components/ModelSelector";
 
-/* Inside the sheet, so the models load when someone opens the assistant. */
+/* Inside the drawer, so the models load when someone opens the assistant. */
 function BubbleModelSelector(props: {
   value: string;
   onValueChange: (value: string) => void;
@@ -69,26 +69,26 @@ export function ChatBubble() {
         <SparklesIcon className="size-5" />
       </button>
 
-      {/* Sheet panel */}
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
+      {/* Drawer panel */}
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerContent
           side="right"
-          showCloseButton={false}
+          hideCloseButton
           className="flex w-full flex-col p-0 sm:max-w-[400px]"
         >
           {/* Header */}
-          <SheetHeader className="flex-row items-center justify-between gap-2 border-b px-4 py-3">
+          <DrawerHeader className="flex-row items-center justify-between gap-2 border-b px-4 py-3">
             <div className="flex items-center gap-2">
               <div className="flex size-7 items-center justify-center rounded-full bg-[#37efed]/15">
                 <SparklesIcon className="size-3.5 text-[#37efed]" />
               </div>
-              <SheetTitle className="text-sm font-semibold">
+              <DrawerTitle className="text-sm font-semibold">
                 Zentinelle AI
-              </SheetTitle>
+              </DrawerTitle>
             </div>
-            <SheetDescription className="sr-only">
+            <DrawerDescription className="sr-only">
               {t("bubble.description")}
-            </SheetDescription>
+            </DrawerDescription>
             <div className="flex items-center gap-1">
               <BubbleModelSelector value={model} onValueChange={setModel} />
               {messages.length > 0 && (
@@ -110,7 +110,7 @@ export function ChatBubble() {
                 <XIcon className="size-3.5" />
               </Button>
             </div>
-          </SheetHeader>
+          </DrawerHeader>
 
           {/* Messages */}
           <MessageList
@@ -148,8 +148,8 @@ export function ChatBubble() {
               )}
             </p>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }
