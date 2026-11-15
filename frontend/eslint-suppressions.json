@@ -1,9 +1,4 @@
 {
-  "app/(app)/usage/budgets/page.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
   "app/(app)/compliance/gaps/page.tsx": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
@@ -30,9 +25,17 @@
       "count": 1
     }
   },
-  "app/(app)/incidents/page.tsx": {
+  "app/(app)/models/providers/manage-models-dialog.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "app/(app)/models/providers/page.tsx": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
     }
   },
   "app/(app)/models/routes/page.tsx": {
@@ -70,20 +73,7 @@
       "count": 1
     }
   },
-  "app/(app)/models/providers/manage-models-dialog.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "app/(app)/models/providers/page.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    },
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "components/AppSidebar.tsx": {
+  "app/(app)/usage/budgets/page.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
     }
@@ -92,11 +82,6 @@
     "react-hooks/immutability": {
       "count": 1
     },
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "components/notes-dialog.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
     }
