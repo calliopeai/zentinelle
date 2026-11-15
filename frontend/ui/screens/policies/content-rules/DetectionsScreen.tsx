@@ -2,6 +2,7 @@ import {
   Button,
   DataTable,
   PageFrame,
+  Select,
   StatusBadge,
   type Column,
 } from "@calliopelabs/ui";
@@ -13,9 +14,13 @@ import type {
   ContentViolationData,
 } from "@/graphql/content-scanner/types";
 
+import {
+  ANY,
+  fromSelectValue,
+  toSelectValue,
+} from "../../../shared/select-any";
 import { FilterBar } from "../../../shared/FilterBar";
 import { useListController } from "../../../shared/list-controller";
-import { Select } from "../../../shared/Select";
 import { StatTile } from "../components/StatTile";
 import { areaCrumb, rulesTabs } from "../frame";
 import { SEVERITY_TONE, usePolicyLabels } from "../labels";
@@ -186,18 +191,18 @@ export function DetectionsScreen({
             <Select
               aria-label={t("severity")}
               options={SEVERITY_OPTIONS}
-              value={severity}
-              onValueChange={onSeverityChange}
+              value={toSelectValue(severity)}
+              onValueChange={(v) => onSeverityChange(fromSelectValue(v))}
               className="w-36"
             />
             <Select
               aria-label={t("ruleType")}
               options={[
-                { value: "", label: t("allTypes") },
+                { value: ANY, label: t("allTypes") },
                 ...RULE_TYPE_OPTIONS,
               ]}
-              value={ruleType}
-              onValueChange={onRuleTypeChange}
+              value={toSelectValue(ruleType)}
+              onValueChange={(v) => onRuleTypeChange(fromSelectValue(v))}
               className="w-48"
             />
           </FilterBar>

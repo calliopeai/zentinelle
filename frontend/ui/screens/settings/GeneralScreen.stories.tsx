@@ -13,6 +13,7 @@ import {
   organizationMocks,
   runtime,
 } from "../../storybook/fixtures/settings";
+import { chooseOption } from "../../storybook/select";
 import { ShellStory } from "../../storybook/ShellStory";
 import {
   GeneralScreen,
@@ -202,9 +203,9 @@ export const SavesThroughTheTab: Story = {
   args: { tab: "enforcement" },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.selectOptions(
+    await chooseOption(
       canvas.getByLabelText("Default enforcement mode"),
-      "block",
+      "Block (enforce)",
     );
     await userEvent.click(
       canvas.getByRole("button", { name: "Save enforcement" }),

@@ -8,6 +8,7 @@ import {
   prompts,
 } from "../../../storybook/fixtures/prompts";
 import { capabilitiesOf } from "../../../storybook/session";
+import { chooseOption } from "../../../storybook/select";
 import { ShellStory } from "../../../storybook/ShellStory";
 import { NARROW, resolved } from "../story-helpers";
 import {
@@ -78,9 +79,9 @@ export const FromTemplate: S = {
   render: () => <Story mode="template" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.selectOptions(
+    await chooseOption(
       canvas.getByRole("combobox", { name: "Template" }),
-      "p-support",
+      "Support agent",
     );
     await expect(
       await canvas.findByDisplayValue("Support agent (copy)"),

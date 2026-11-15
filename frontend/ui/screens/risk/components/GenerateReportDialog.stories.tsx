@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
+import { chooseOption } from "../../../storybook/select";
 import { GenerateReportDialog } from "./GenerateReportDialog";
 
 const FRAMEWORKS = [
@@ -26,9 +27,9 @@ type Story = StoryObj<typeof meta>;
 export const Compliance: Story = {
   play: async ({ args }) => {
     const dialog = within(document.body).getByRole("dialog");
-    await userEvent.selectOptions(
+    await chooseOption(
       within(dialog).getByLabelText("Framework"),
-      "SOC2",
+      "SOC 2 Type II",
     );
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Generate" }),
@@ -45,14 +46,8 @@ export const Compliance: Story = {
 export const ExportJob: Story = {
   play: async ({ args }) => {
     const dialog = within(document.body).getByRole("dialog");
-    await userEvent.selectOptions(
-      within(dialog).getByLabelText("Report"),
-      "audit_trail",
-    );
-    await userEvent.selectOptions(
-      within(dialog).getByLabelText("Format"),
-      "ndjson",
-    );
+    await chooseOption(within(dialog).getByLabelText("Report"), "Audit trail");
+    await chooseOption(within(dialog).getByLabelText("Format"), "NDJSON");
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Generate" }),
     );

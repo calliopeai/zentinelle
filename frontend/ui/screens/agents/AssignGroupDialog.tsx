@@ -6,11 +6,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Field,
+  Select,
 } from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
 import * as React from "react";
-
-import { SelectField } from "../../shared/FormField";
 
 export interface AssignGroupDialogProps {
   open: boolean;
@@ -74,18 +74,19 @@ function AssignGroupDialogContent({
         {none ? (
           <p className="text-muted-foreground text-sm">{t("noGroups")}</p>
         ) : (
-          <SelectField
-            label={t("group")}
-            required
-            value={groupId}
-            onChange={(e) => setGroupId(e.target.value)}
-            options={(groups ?? []).map((g) => ({
-              value: g.id,
-              label: g.name,
-            }))}
-            placeholder={loading ? t("loading") : t("placeholder")}
-            disabled={loading || pending}
-          />
+          <Field label={t("group")} required>
+            <Select
+              className="w-full"
+              value={groupId}
+              onValueChange={setGroupId}
+              options={(groups ?? []).map((g) => ({
+                value: g.id,
+                label: g.name,
+              }))}
+              placeholder={loading ? t("loading") : t("placeholder")}
+              disabled={loading || pending}
+            />
+          </Field>
         )}
         {failure && (
           <p

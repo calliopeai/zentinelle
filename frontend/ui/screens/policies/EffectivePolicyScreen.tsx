@@ -2,9 +2,11 @@ import type * as React from "react";
 import {
   EmptyState,
   ErrorState,
+  Field,
   LoadingState,
   PageFrame,
   Section,
+  Select,
   StatusBadge,
   useUI,
 } from "@calliopelabs/ui";
@@ -14,8 +16,6 @@ import { useTranslations } from "next-intl";
 import { Card } from "./components/Card";
 import { CodeBlock } from "../../shared/CodeBlock";
 import { DefinitionList } from "./components/DefinitionList";
-import { Field } from "../../shared/Field";
-import { Select } from "../../shared/Select";
 import { areaCrumb, workspaceTabs } from "./frame";
 import { ENFORCEMENT_TONE, scopeRank, usePolicyLabels } from "./labels";
 import type { EffectivePolicyResponse } from "./rest-types";
@@ -82,21 +82,14 @@ export function EffectivePolicyScreen({
       hint={t("effectivePolicyIsResolvedFor")}
       className="max-w-sm"
     >
-      {(control) => (
-        <Select
-          {...control}
-          disabled={agentsLoading || agents.length === 0}
-          options={[
-            {
-              value: "",
-              label: agentsLoading ? t("loadingAgents") : t("chooseAnAgent"),
-            },
-            ...agents.map((a) => ({ value: a.id, label: a.name })),
-          ]}
-          value={agentId}
-          onValueChange={onAgentChange}
-        />
-      )}
+      <Select
+        className="w-full"
+        disabled={agentsLoading || agents.length === 0}
+        placeholder={agentsLoading ? t("loadingAgents") : t("chooseAnAgent")}
+        options={agents.map((a) => ({ value: a.id, label: a.name }))}
+        value={agentId}
+        onValueChange={onAgentChange}
+      />
     </Field>
   );
 

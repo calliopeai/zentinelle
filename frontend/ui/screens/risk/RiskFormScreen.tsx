@@ -1,9 +1,12 @@
 import {
   Button,
   ErrorState,
+  Field,
   Input,
   PageFrame,
   Section,
+  Select,
+  Textarea,
   useUI,
 } from "@calliopelabs/ui";
 import * as React from "react";
@@ -12,7 +15,7 @@ import { useTranslations } from "next-intl";
 import type { CreateRiskInput, RiskData } from "@/graphql/risks/types";
 
 import { AccessState } from "../../patterns/AccessState";
-import { Field, Select, Textarea } from "../../patterns/form";
+import { ANY, fromSelectValue, toSelectValue } from "../../shared/select-any";
 import { RiskLevelBadge } from "./components/RiskLevelBadge";
 import { areaCrumb, canMutate, useRiskLabels } from "./model";
 
@@ -98,12 +101,10 @@ export function RiskFormScreen({
 
   const set =
     (key: keyof typeof values) =>
-    (
-      event: React.ChangeEvent<
-        HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-      >,
-    ) =>
+    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setValues((v) => ({ ...v, [key]: event.target.value }));
+  const choose = (key: keyof typeof values) => (value: string) =>
+    setValues((v) => ({ ...v, [key]: value }));
   const errors = {
     name: values.name.trim() ? null : t("aRiskNeedsAName"),
     description: values.description.trim()
@@ -180,6 +181,7 @@ export function RiskFormScreen({
             error={show(errors.description)}
           >
             <Textarea
+              className="min-h-24 px-3 py-1.5 text-sm"
               value={values.description}
               onChange={set("description")}
             />
@@ -187,16 +189,18 @@ export function RiskFormScreen({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("category")}>
               <Select
+                className="w-full"
                 options={RISK_CATEGORIES}
                 value={values.category}
-                onChange={set("category")}
+                onValueChange={choose("category")}
               />
             </Field>
             <Field label={t("status")}>
               <Select
+                className="w-full"
                 options={RISK_STATUSES}
                 value={values.status}
-                onChange={set("status")}
+                onValueChange={choose("status")}
               />
             </Field>
           </div>
@@ -209,16 +213,18 @@ export function RiskFormScreen({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("likelihood")}>
               <Select
+                className="w-full"
                 options={scale(LIKELIHOOD)}
                 value={values.likelihood}
-                onChange={set("likelihood")}
+                onValueChange={choose("likelihood")}
               />
             </Field>
             <Field label={t("impact")}>
               <Select
+                className="w-full"
                 options={scale(IMPACT)}
                 value={values.impact}
-                onChange={set("impact")}
+                onValueChange={choose("impact")}
               />
             </Field>
           </div>
@@ -229,6 +235,7 @@ export function RiskFormScreen({
         >
           <Field label={t("plan")}>
             <Textarea
+              className="min-h-24 px-3 py-1.5 text-sm"
               value={values.mitigationPlan}
               onChange={set("mitigationPlan")}
             />
@@ -246,18 +253,28 @@ export function RiskFormScreen({
               error={show(errors.residual)}
             >
               <Select
-                options={scale(LIKELIHOOD)}
-                placeholder={t("notAssessed")}
-                value={values.residualLikelihood}
-                onChange={set("residualLikelihood")}
+                className="w-full"
+                options={[
+                  { value: ANY, label: t("notAssessed") },
+                  ...scale(LIKELIHOOD),
+                ]}
+                value={toSelectValue(values.residualLikelihood)}
+                onValueChange={(v) =>
+                  choose("residualLikelihood")(fromSelectValue(v))
+                }
               />
             </Field>
             <Field label={t("residualImpact")}>
               <Select
-                options={scale(IMPACT)}
-                placeholder={t("notAssessed")}
-                value={values.residualImpact}
-                onChange={set("residualImpact")}
+                className="w-full"
+                options={[
+                  { value: ANY, label: t("notAssessed") },
+                  ...scale(IMPACT),
+                ]}
+                value={toSelectValue(values.residualImpact)}
+                onValueChange={(v) =>
+                  choose("residualImpact")(fromSelectValue(v))
+                }
               />
             </Field>
           </div>

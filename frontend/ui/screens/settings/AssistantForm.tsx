@@ -1,11 +1,10 @@
 "use client";
 
-import { Input, Section } from "@calliopelabs/ui";
+import { Field, Input, Section, Switch } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
-import { FormActions, FormField, useSaveState } from "./components/FormField";
-import { SwitchField } from "../../shared/SwitchField";
+import { FormActions, useSaveState } from "./components/FormField";
 import {
   changedKeys,
   splitList,
@@ -68,56 +67,50 @@ export function AssistantForm({ snapshot, onStage }: AssistantFormProps) {
         }}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
+          <Field
             label={t("provider")}
             hint={hint("assistant_provider") ?? t("aProviderSetUpUnder")}
           >
-            {(control) => (
-              <Input
-                {...control}
-                placeholder="lmstudio"
-                value={values.assistant_provider}
-                onChange={(e) => update("assistant_provider", e.target.value)}
-              />
-            )}
-          </FormField>
-          <FormField label={t("model")} hint={hint("assistant_model")}>
-            {(control) => (
-              <Input
-                {...control}
-                placeholder={t("theProviderSDefault")}
-                value={values.assistant_model}
-                onChange={(e) => update("assistant_model", e.target.value)}
-              />
-            )}
-          </FormField>
+            <Input
+              placeholder="lmstudio"
+              value={values.assistant_provider}
+              onChange={(e) => update("assistant_provider", e.target.value)}
+            />
+          </Field>
+          <Field label={t("model")} hint={hint("assistant_model")}>
+            <Input
+              placeholder={t("theProviderSDefault")}
+              value={values.assistant_model}
+              onChange={(e) => update("assistant_model", e.target.value)}
+            />
+          </Field>
         </div>
-        <FormField
+        <Field
           label={t("allowedTopics")}
           hint={
             hint("assistant_allowed_topics") ??
             t("commaSeparatedTheAssistantDeclines")
           }
         >
-          {(control) => (
-            <Input
-              {...control}
-              placeholder={t("governancePoliciesIncidents")}
-              value={values.assistant_allowed_topics}
-              onChange={(e) =>
-                update("assistant_allowed_topics", e.target.value)
-              }
-            />
-          )}
-        </FormField>
-        <SwitchField
+          <Input
+            placeholder={t("governancePoliciesIncidents")}
+            value={values.assistant_allowed_topics}
+            onChange={(e) => update("assistant_allowed_topics", e.target.value)}
+          />
+        </Field>
+        <Field
           label={t("policyDrafting")}
-          description={t("theAssistantMayDraftPolicy")}
-          checked={values.policy_copilot_enabled}
-          onCheckedChange={(checked) =>
-            update("policy_copilot_enabled", checked)
-          }
-        />
+          hint={t("theAssistantMayDraftPolicy")}
+          orientation="horizontal"
+          className="py-2"
+        >
+          <Switch
+            checked={values.policy_copilot_enabled}
+            onCheckedChange={(checked) =>
+              update("policy_copilot_enabled", checked)
+            }
+          />
+        </Field>
         <FormActions
           submitLabel={t("stageChanges")}
           pendingLabel="Staging"

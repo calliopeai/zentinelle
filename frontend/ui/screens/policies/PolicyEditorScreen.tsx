@@ -3,14 +3,17 @@ import {
   Checkbox,
   EmptyState,
   ErrorState,
+  Field,
   Input,
   LoadingState,
   PageFrame,
   Section,
+  Select,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
+  Textarea,
   useUI,
 } from "@calliopelabs/ui";
 import { LockIcon } from "lucide-react";
@@ -25,9 +28,6 @@ import type {
 
 import { Card } from "./components/Card";
 import { DefinitionList } from "./components/DefinitionList";
-import { Field } from "../../shared/Field";
-import { Select } from "../../shared/Select";
-import { Textarea } from "../../shared/Textarea";
 import { accessOf } from "./access";
 import { areaCrumb } from "./frame";
 import { usePolicyLabels } from "./labels";
@@ -251,55 +251,50 @@ export function PolicyEditorScreen({
                 hint={typeOption?.description ?? undefined}
                 error={errors.policyType}
               >
-                {(c) => (
-                  <Select
-                    {...c}
-                    options={[...options.policyTypes]
-                      .filter((t) => t.value)
-                      .sort(
-                        (a, b) =>
-                          (a.category ?? "").localeCompare(b.category ?? "") ||
-                          (a.label ?? "").localeCompare(b.label ?? ""),
-                      )
-                      .map((t) => ({
-                        value: t.value!,
-                        label: `${t.category ? `${t.category}: ` : ""}${typeLabel(t.value!)}`,
-                      }))}
-                    value={policyType}
-                    onValueChange={(v) =>
-                      setForm((f) => ({ ...f, policyType: v, config: {} }))
-                    }
-                  />
-                )}
+                <Select
+                  className="w-full"
+                  options={[...options.policyTypes]
+                    .filter((t) => t.value)
+                    .sort(
+                      (a, b) =>
+                        (a.category ?? "").localeCompare(b.category ?? "") ||
+                        (a.label ?? "").localeCompare(b.label ?? ""),
+                    )
+                    .map((t) => ({
+                      value: t.value!,
+                      label: `${t.category ? `${t.category}: ` : ""}${typeLabel(t.value!)}`,
+                    }))}
+                  value={policyType}
+                  onValueChange={(v) =>
+                    setForm((f) => ({ ...f, policyType: v, config: {} }))
+                  }
+                />
               </Field>
               <Field label={t("appliesTo")}>
-                {(c) => (
-                  <Select
-                    {...c}
-                    options={options.scopeTypes
-                      .filter((s) => s.value)
-                      .map((s) => ({
-                        value: s.value!,
-                        label: scopeLabel(s.value!),
-                      }))}
-                    value={form.scopeType ?? "organization"}
-                    onValueChange={(v) => set("scopeType", v)}
-                  />
-                )}
+                <Select
+                  className="w-full"
+                  options={options.scopeTypes
+                    .filter((s) => s.value)
+                    .map((s) => ({
+                      value: s.value!,
+                      label: scopeLabel(s.value!),
+                    }))}
+                  value={form.scopeType ?? "organization"}
+                  onValueChange={(v) => set("scopeType", v)}
+                />
               </Field>
               {form.scopeType === "endpoint" && (
                 <Field label={t("agent")} error={errors.scopeEndpointId}>
-                  {(c) => (
-                    <Select
-                      {...c}
-                      options={[
-                        { value: "", label: t("chooseAnAgent") },
-                        ...agents.map((a) => ({ value: a.id, label: a.name })),
-                      ]}
-                      value={form.scopeEndpointId ?? ""}
-                      onValueChange={(v) => set("scopeEndpointId", v || null)}
-                    />
-                  )}
+                  <Select
+                    className="w-full"
+                    placeholder={t("chooseAnAgent")}
+                    options={agents.map((a) => ({
+                      value: a.id,
+                      label: a.name,
+                    }))}
+                    value={form.scopeEndpointId ?? ""}
+                    onValueChange={(v) => set("scopeEndpointId", v || null)}
+                  />
                 </Field>
               )}
             </>
@@ -309,27 +304,22 @@ export function PolicyEditorScreen({
             error={errors.name}
             className="sm:col-span-2"
           >
-            {(c) => (
-              <Input
-                {...c}
-                value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-              />
-            )}
+            <Input
+              value={form.name}
+              onChange={(e) => set("name", e.target.value)}
+            />
           </Field>
           <Field
             label={t("description")}
             hint={t("whyThePolicyExistsReviewers")}
             className="sm:col-span-2"
           >
-            {(c) => (
-              <Textarea
-                {...c}
-                rows={2}
-                value={form.description ?? ""}
-                onChange={(e) => set("description", e.target.value)}
-              />
-            )}
+            <Textarea
+              className="min-h-24 py-2"
+              rows={2}
+              value={form.description ?? ""}
+              onChange={(e) => set("description", e.target.value)}
+            />
           </Field>
         </div>
       </Section>
@@ -349,35 +339,29 @@ export function PolicyEditorScreen({
       <Section title={t("whenItMatches")}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("mode")} hint={enforcementHint ?? undefined}>
-            {(c) => (
-              <Select
-                {...c}
-                options={enforcementOptions}
-                value={form.enforcement ?? "enforce"}
-                onValueChange={(v) => set("enforcement", v)}
-              />
-            )}
+            <Select
+              className="w-full"
+              options={enforcementOptions}
+              value={form.enforcement ?? "enforce"}
+              onValueChange={(v) => set("enforcement", v)}
+            />
           </Field>
           <Field label={t("action")}>
-            {(c) => (
-              <Select
-                {...c}
-                options={ACTION_OPTIONS}
-                value={form.action ?? "block"}
-                onValueChange={(v) => set("action", v)}
-              />
-            )}
+            <Select
+              className="w-full"
+              options={ACTION_OPTIONS}
+              value={form.action ?? "block"}
+              onValueChange={(v) => set("action", v)}
+            />
           </Field>
           {form.action === "block" && (
             <Field label={t("whatABlockStops")}>
-              {(c) => (
-                <Select
-                  {...c}
-                  options={BLOCK_LEVEL_OPTIONS}
-                  value={form.blockLevel ?? "turn"}
-                  onValueChange={(v) => set("blockLevel", v)}
-                />
-              )}
+              <Select
+                className="w-full"
+                options={BLOCK_LEVEL_OPTIONS}
+                value={form.blockLevel ?? "turn"}
+                onValueChange={(v) => set("blockLevel", v)}
+              />
             </Field>
           )}
           {form.action === "steer" && (
@@ -387,14 +371,12 @@ export function PolicyEditorScreen({
               error={errors.steerMessage}
               className="sm:col-span-2"
             >
-              {(c) => (
-                <Textarea
-                  {...c}
-                  rows={2}
-                  value={form.steerMessage ?? ""}
-                  onChange={(e) => set("steerMessage", e.target.value)}
-                />
-              )}
+              <Textarea
+                className="min-h-24 py-2"
+                rows={2}
+                value={form.steerMessage ?? ""}
+                onChange={(e) => set("steerMessage", e.target.value)}
+              />
             </Field>
           )}
           <Field
@@ -402,19 +384,16 @@ export function PolicyEditorScreen({
             hint={t("higherWinsWithinATier")}
             error={errors.priority}
           >
-            {(c) => (
-              <Input
-                {...c}
-                inputMode="numeric"
-                value={String(form.priority ?? "")}
-                onChange={(e) =>
-                  set(
-                    "priority",
-                    e.target.value === "" ? Number.NaN : Number(e.target.value),
-                  )
-                }
-              />
-            )}
+            <Input
+              inputMode="numeric"
+              value={String(form.priority ?? "")}
+              onChange={(e) =>
+                set(
+                  "priority",
+                  e.target.value === "" ? Number.NaN : Number(e.target.value),
+                )
+              }
+            />
           </Field>
           <div className="flex items-center gap-2 self-end pb-1.5">
             <Checkbox
@@ -464,14 +443,12 @@ export function PolicyEditorScreen({
               label={t("policyDocument")}
               hint={t("pasteThePolicyAsWritten")}
             >
-              {(c) => (
-                <Textarea
-                  {...c}
-                  rows={10}
-                  value={doc}
-                  onChange={(e) => setDoc(e.target.value)}
-                />
-              )}
+              <Textarea
+                className="min-h-24 py-2"
+                rows={10}
+                value={doc}
+                onChange={(e) => setDoc(e.target.value)}
+              />
             </Field>
             {docNote && (
               <p role="status" className="text-sm text-muted-foreground">

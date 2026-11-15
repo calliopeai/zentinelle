@@ -1,11 +1,10 @@
 "use client";
 
-import { Input, Section } from "@calliopelabs/ui";
+import { Field, Input, Section, Switch } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
-import { FormActions, FormField, useSaveState } from "./components/FormField";
-import { SwitchField } from "../../shared/SwitchField";
+import { FormActions, useSaveState } from "./components/FormField";
 import type { Organization, OrganizationUpdate, Save } from "./model";
 
 export interface NotificationsFormProps {
@@ -61,45 +60,52 @@ export function NotificationsForm({
           );
         }}
       >
-        <SwitchField
+        <Field
           label={t("email")}
-          description={
+          hint={
             contact ? t("sendTo", { contact }) : t("sendAlertsAndIncidentsTo")
           }
-          checked={values.emailNotifications}
-          onCheckedChange={(emailNotifications) => {
-            save.reset();
-            setValues({ ...values, emailNotifications });
-          }}
-        />
-        <SwitchField
+          orientation="horizontal"
+          className="py-2"
+        >
+          <Switch
+            checked={values.emailNotifications}
+            onCheckedChange={(emailNotifications) => {
+              save.reset();
+              setValues({ ...values, emailNotifications });
+            }}
+          />
+        </Field>
+        <Field
           label={t("slack")}
-          description={t("postAlertsAndIncidentsTo")}
-          checked={values.slackNotifications}
-          onCheckedChange={(slackNotifications) => {
-            save.reset();
-            setValues({ ...values, slackNotifications });
-          }}
-        />
-        <FormField
+          hint={t("postAlertsAndIncidentsTo")}
+          orientation="horizontal"
+          className="py-2"
+        >
+          <Switch
+            checked={values.slackNotifications}
+            onCheckedChange={(slackNotifications) => {
+              save.reset();
+              setValues({ ...values, slackNotifications });
+            }}
+          />
+        </Field>
+        <Field
           label={t("webhookUrl")}
           error={dirty ? error : null}
           className="pt-2"
         >
-          {(control) => (
-            <Input
-              {...control}
-              type="url"
-              inputMode="url"
-              placeholder="https://hooks.slack.com/services/..."
-              value={values.webhookUrl}
-              onChange={(event) => {
-                save.reset();
-                setValues({ ...values, webhookUrl: event.target.value });
-              }}
-            />
-          )}
-        </FormField>
+          <Input
+            type="url"
+            inputMode="url"
+            placeholder="https://hooks.slack.com/services/..."
+            value={values.webhookUrl}
+            onChange={(event) => {
+              save.reset();
+              setValues({ ...values, webhookUrl: event.target.value });
+            }}
+          />
+        </Field>
         <FormActions
           submitLabel={t("saveNotifications")}
           disabled={!dirty || Boolean(error)}

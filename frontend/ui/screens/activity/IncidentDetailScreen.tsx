@@ -7,11 +7,13 @@ import {
   DropdownMenuTrigger,
   EmptyState,
   ErrorState,
+  Field,
   LoadingState,
   PageFrame,
   Section,
   StatusBadge,
   type TabNavItem,
+  Textarea,
 } from "@calliopelabs/ui";
 import { DownloadIcon, MoreHorizontalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -148,7 +150,6 @@ function CommentBox({
   const [body, setBody] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const id = React.useId();
   return (
     <form
       className="flex flex-col gap-2"
@@ -169,16 +170,13 @@ function CommentBox({
         }
       }}
     >
-      <label htmlFor={id} className="text-sm">
-        {t("comments.add")}
-      </label>
-      <textarea
-        id={id}
-        rows={3}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        className="rounded-lg border border-input bg-transparent dark:bg-input/30 px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-      />
+      <Field label={t("comments.add")}>
+        <Textarea
+          rows={3}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+        />
+      </Field>
       {error && (
         <p role="alert" className="text-sm text-danger-fg">
           {error}

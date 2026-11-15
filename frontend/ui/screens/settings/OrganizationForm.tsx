@@ -1,11 +1,11 @@
 "use client";
 
-import { Input, Section } from "@calliopelabs/ui";
+import { Field, Input, Section } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
 import { DefinitionList } from "./components/DefinitionList";
-import { FormActions, FormField, useSaveState } from "./components/FormField";
+import { FormActions, useSaveState } from "./components/FormField";
 import {
   type Organization,
   type OrganizationUpdate,
@@ -64,40 +64,28 @@ export function OrganizationForm({
             );
           }}
         >
-          <FormField label={t("name")} error={dirty ? nameError : null}>
-            {(control) => (
-              <Input
-                {...control}
-                value={values.name}
-                onChange={set("name")}
-                autoComplete="organization"
-              />
-            )}
-          </FormField>
+          <Field label={t("name")} error={dirty ? nameError : null}>
+            <Input
+              value={values.name}
+              onChange={set("name")}
+              autoComplete="organization"
+            />
+          </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
+            <Field
               label={t("contactEmail")}
               hint={t("alertsAndIncidentNoticesGo")}
             >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="email"
-                  value={values.contactEmail}
-                  onChange={set("contactEmail")}
-                  autoComplete="email"
-                />
-              )}
-            </FormField>
-            <FormField label={t("timeZone")} hint={t("anIanaNameSuchAs")}>
-              {(control) => (
-                <Input
-                  {...control}
-                  value={values.timezone}
-                  onChange={set("timezone")}
-                />
-              )}
-            </FormField>
+              <Input
+                type="email"
+                value={values.contactEmail}
+                onChange={set("contactEmail")}
+                autoComplete="email"
+              />
+            </Field>
+            <Field label={t("timeZone")} hint={t("anIanaNameSuchAs")}>
+              <Input value={values.timezone} onChange={set("timezone")} />
+            </Field>
           </div>
           <FormActions
             submitLabel={t("saveOrganization")}

@@ -1,9 +1,7 @@
-import { Checkbox, Input } from "@calliopelabs/ui";
+import { Checkbox, Field, Input, Textarea } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
-import { Field } from "../../shared/Field";
-import { Textarea } from "../../shared/Textarea";
 import {
   configFieldsOf,
   fromFieldText,
@@ -106,32 +104,28 @@ export function PolicyConfigFields({
             }
             className={field.kind === "list" ? "sm:col-span-2" : undefined}
           >
-            {(c) =>
-              field.kind === "list" ? (
-                <Textarea
-                  {...c}
-                  mono
-                  rows={4}
-                  disabled={disabled}
-                  value={text[field.key] ?? ""}
-                  onChange={(e) => set(field, e.target.value)}
-                />
-              ) : (
-                <Input
-                  {...c}
-                  inputMode={
-                    field.kind === "int"
-                      ? "numeric"
-                      : field.kind === "float"
-                        ? "decimal"
-                        : undefined
-                  }
-                  disabled={disabled}
-                  value={text[field.key] ?? ""}
-                  onChange={(e) => set(field, e.target.value)}
-                />
-              )
-            }
+            {field.kind === "list" ? (
+              <Textarea
+                className="min-h-24 py-2 font-mono text-xs md:text-xs"
+                rows={4}
+                disabled={disabled}
+                value={text[field.key] ?? ""}
+                onChange={(e) => set(field, e.target.value)}
+              />
+            ) : (
+              <Input
+                inputMode={
+                  field.kind === "int"
+                    ? "numeric"
+                    : field.kind === "float"
+                      ? "decimal"
+                      : undefined
+                }
+                disabled={disabled}
+                value={text[field.key] ?? ""}
+                onChange={(e) => set(field, e.target.value)}
+              />
+            )}
           </Field>
         ),
       )}

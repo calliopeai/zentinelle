@@ -4,6 +4,7 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import type { Role } from "../../product";
 import { NARROW, longRisk, risks } from "../../storybook/fixtures/risk";
 import { capabilitiesOf } from "../../storybook/session";
+import { chooseOption } from "../../storybook/select";
 import { ShellStory } from "../../storybook/ShellStory";
 import { RiskFormScreen, type RiskFormScreenProps } from "./RiskFormScreen";
 
@@ -43,7 +44,7 @@ export const New: Story = {
       canvas.getByLabelText(/^Description/),
       "The outreach agent can send mail directly.",
     );
-    await userEvent.selectOptions(canvas.getByLabelText("Likelihood"), "5");
+    await chooseOption(canvas.getByLabelText("Likelihood"), /\(5\)$/);
     await userEvent.click(canvas.getByRole("button", { name: "Create risk" }));
     await expect(args.onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({

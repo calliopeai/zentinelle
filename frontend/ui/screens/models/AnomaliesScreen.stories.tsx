@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import * as React from "react";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, waitFor, within } from "storybook/test";
 
+import { chooseOption } from "../../storybook/select";
 import { useUsageMetrics } from "@/graphql/usage/hooks";
 
 import { ShellStory } from "../../storybook/ShellStory";
@@ -49,7 +50,7 @@ export const Full: Story = {
     await expect(
       canvas.getByRole("link", { name: "support-bot" }),
     ).toHaveAttribute("href", "/agents/support-bot/usage");
-    await expect(canvas.getAllByText("Endpoint latency")).toHaveLength(2);
+    await expect(canvas.getAllByText("Endpoint latency")).toHaveLength(1);
   },
 };
 
@@ -95,9 +96,9 @@ export const Narrow: Story = { ...NARROW };
 export const FiltersByKind: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.selectOptions(
+    await chooseOption(
       canvas.getByRole("combobox", { name: "Kind" }),
-      "latency",
+      "Endpoint latency",
     );
     await expect(args.onFilterChange).toHaveBeenCalledWith("latency");
   },

@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   PageFrame,
+  Select,
   useUI,
   type Column,
 } from "@calliopelabs/ui";
@@ -17,9 +18,9 @@ import { useTranslations } from "next-intl";
 
 import type { PolicyData } from "@/graphql/policies/types";
 
+import { fromSelectValue, toSelectValue } from "../../shared/select-any";
 import { FilterBar } from "../../shared/FilterBar";
 import { useListController } from "../../shared/list-controller";
-import { Select } from "../../shared/Select";
 import { accessOf } from "./access";
 import { areaCrumb, workspaceTabs } from "./frame";
 import { usePolicyLabels } from "./labels";
@@ -229,15 +230,15 @@ export function PoliciesScreen({
               <Select
                 aria-label={t("policyType")}
                 options={typeOptions()}
-                value={type}
-                onValueChange={onTypeChange}
+                value={toSelectValue(type)}
+                onValueChange={(v) => onTypeChange(fromSelectValue(v))}
                 className="w-44"
               />
               <Select
                 aria-label={t("scope")}
                 options={SCOPE_OPTIONS}
-                value={scope}
-                onValueChange={onScopeChange}
+                value={toSelectValue(scope)}
+                onValueChange={(v) => onScopeChange(fromSelectValue(v))}
                 className="w-40"
               />
             </FilterBar>

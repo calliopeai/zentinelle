@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 
+import { chooseOption } from "../storybook/select";
 import { SelectField } from "./SelectField";
 
 const meta = {
@@ -24,9 +25,9 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.selectOptions(
+    await chooseOption(
       canvas.getByRole("combobox", { name: "Group by" }),
-      "team",
+      "Team",
     );
     await expect(args.onChange).toHaveBeenCalledWith("team");
   },

@@ -5,6 +5,7 @@ import {
   bareOrganization,
   organization,
 } from "../../storybook/fixtures/settings";
+import { chooseOption } from "../../storybook/select";
 import { EnforcementForm } from "./EnforcementForm";
 
 const meta = {
@@ -29,9 +30,9 @@ export const Defaults: Story = {
 export const ChangesMode: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.selectOptions(
+    await chooseOption(
       canvas.getByLabelText("Default enforcement mode"),
-      "block",
+      "Block (enforce)",
     );
     await userEvent.click(
       canvas.getByRole("switch", { name: "Audit logging" }),

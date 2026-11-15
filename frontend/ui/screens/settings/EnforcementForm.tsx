@@ -1,16 +1,10 @@
 "use client";
 
-import { Section } from "@calliopelabs/ui";
+import { Field, Section, Select, Switch } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
-import {
-  FormActions,
-  FormField,
-  Select,
-  useSaveState,
-} from "./components/FormField";
-import { SwitchField } from "../../shared/SwitchField";
+import { FormActions, useSaveState } from "./components/FormField";
 import {
   type Organization,
   type OrganizationUpdate,
@@ -52,32 +46,35 @@ export function EnforcementForm({
           void save.run(() => onSave(values));
         }}
       >
-        <FormField
+        <Field
           label={t("defaultEnforcementMode")}
           hint={t("newPoliciesStartInThis")}
           className="sm:max-w-sm"
         >
-          {(control) => (
-            <Select
-              {...control}
-              value={values.defaultPolicyMode}
-              options={ENFORCEMENT_MODES}
-              onChange={(event) => {
-                save.reset();
-                setValues({ ...values, defaultPolicyMode: event.target.value });
-              }}
-            />
-          )}
-        </FormField>
-        <SwitchField
+          <Select
+            value={values.defaultPolicyMode}
+            options={ENFORCEMENT_MODES}
+            onValueChange={(defaultPolicyMode) => {
+              save.reset();
+              setValues({ ...values, defaultPolicyMode });
+            }}
+            className="w-full"
+          />
+        </Field>
+        <Field
           label={t("auditLogging")}
-          description={t("recordEveryPolicyDecisionIn")}
-          checked={values.auditLogging}
-          onCheckedChange={(auditLogging) => {
-            save.reset();
-            setValues({ ...values, auditLogging });
-          }}
-        />
+          hint={t("recordEveryPolicyDecisionIn")}
+          orientation="horizontal"
+          className="py-2"
+        >
+          <Switch
+            checked={values.auditLogging}
+            onCheckedChange={(auditLogging) => {
+              save.reset();
+              setValues({ ...values, auditLogging });
+            }}
+          />
+        </Field>
         <FormActions
           submitLabel={t("saveEnforcement")}
           disabled={!dirty}

@@ -1,66 +1,15 @@
-import { Input } from "@calliopelabs/ui";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import * as React from "react";
 import { expect, userEvent, within } from "storybook/test";
 
-import { FormActions, FormField, Select, useSaveState } from "./FormField";
+import { FormActions, useSaveState } from "./FormField";
 
 const meta = {
-  title: "Settings/Components/Form field",
+  title: "Settings/Components/Form actions",
   parameters: { layout: "padded" },
 } satisfies Meta;
 export default meta;
 
 type Story = StoryObj;
-
-export const WithHint: Story = {
-  render: () => (
-    <FormField label="Contact email" hint="Alerts and incidents go here.">
-      {(control) => (
-        <Input type="email" defaultValue="ops@acme.example" {...control} />
-      )}
-    </FormField>
-  ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(
-      canvas.getByLabelText("Contact email"),
-    ).toHaveAccessibleDescription("Alerts and incidents go here.");
-  },
-};
-
-export const WithError: Story = {
-  render: () => (
-    <FormField
-      label="Webhook URL"
-      error="Enter a URL that starts with https://."
-    >
-      {(control) => <Input defaultValue="hooks.slack.com" {...control} />}
-    </FormField>
-  ),
-  play: async ({ canvasElement }) => {
-    const input = within(canvasElement).getByLabelText("Webhook URL");
-    await expect(input).toHaveAttribute("aria-invalid", "true");
-  },
-};
-
-export const NativeSelect: Story = {
-  render: () => (
-    <FormField label="Default enforcement">
-      {(control) => (
-        <Select
-          {...control}
-          defaultValue="warn"
-          options={[
-            { value: "monitor", label: "Monitor (record only)" },
-            { value: "warn", label: "Warn (record and notify)" },
-            { value: "block", label: "Block (enforce)" },
-          ]}
-        />
-      )}
-    </FormField>
-  ),
-};
 
 function SaveDemo({ fail }: { fail?: boolean }) {
   const save = useSaveState();
@@ -79,6 +28,10 @@ function SaveDemo({ fail }: { fail?: boolean }) {
     </form>
   );
 }
+
+export const Idle: Story = {
+  render: () => <SaveDemo />,
+};
 
 export const Saves: Story = {
   render: () => <SaveDemo />,

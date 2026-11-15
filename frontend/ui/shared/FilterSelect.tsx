@@ -1,8 +1,8 @@
-import { cn } from "@calliopelabs/ui";
+import { Select, type SelectOption, cn } from "@calliopelabs/ui";
 import { useTranslations } from "next-intl";
 import * as React from "react";
 
-import type { SelectOption } from "./FormField";
+import { ANY, fromSelectValue, toSelectValue } from "./select-any";
 
 export interface FilterSelectProps {
   /** Names the filter ("Status"); visible, so the bar reads without opening anything. */
@@ -17,8 +17,7 @@ export interface FilterSelectProps {
 
 /**
  * One filter in a list's filter bar, for a query variable the server
- * filters on. The empty value means "no filter". Candidate for
- * @calliopelabs/ui, as part of a FilterBar (Astrolift's list pattern).
+ * filters on. The empty value means "no filter".
  */
 export function FilterSelect({
   label,
@@ -35,19 +34,12 @@ export function FilterSelect({
       <label htmlFor={id} className="text-muted-foreground text-xs">
         {label}
       </label>
-      <select
+      <Select
         id={id}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 rounded-lg border px-2 text-sm outline-none focus-visible:ring-3"
-      >
-        <option value="">{allLabel ?? t("all")}</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        value={toSelectValue(value)}
+        onValueChange={(next) => onChange(fromSelectValue(next))}
+        options={[{ value: ANY, label: allLabel ?? t("all") }, ...options]}
+      />
     </div>
   );
 }

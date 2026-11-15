@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 
+import { chooseOption } from "../../storybook/select";
 import { capabilitiesOf } from "../../storybook/session";
 import { ShellStory } from "../../storybook/ShellStory";
 import { narrow } from "../../storybook/viewport";
@@ -141,7 +142,7 @@ export const FilterByStatus: Story = {
     const select = within(canvasElement).getByRole("combobox", {
       name: "Status",
     });
-    await userEvent.selectOptions(select, "suspended");
+    await chooseOption(select, "Suspended");
     await expect(args.onFiltersChange).toHaveBeenCalledWith({
       status: "suspended",
       agentType: "",

@@ -5,6 +5,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  Field,
+  Textarea,
 } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
@@ -12,8 +14,6 @@ import { useTranslations } from "next-intl";
 import type { TestContentRulePayload } from "@/graphql/content-rules/types";
 
 import { CodeBlock } from "../../../shared/CodeBlock";
-import { Field } from "../../../shared/Field";
-import { Textarea } from "../../../shared/Textarea";
 
 export interface TestRuleDialogProps {
   open: boolean;
@@ -65,14 +65,12 @@ export function TestRuleDialog({
         </DialogHeader>
         <form onSubmit={run} className="flex flex-col gap-3">
           <Field label={t("sampleText")}>
-            {(c) => (
-              <Textarea
-                {...c}
-                rows={5}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-              />
-            )}
+            <Textarea
+              className="min-h-24 py-2"
+              rows={5}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+            />
           </Field>
           <Button
             type="submit"

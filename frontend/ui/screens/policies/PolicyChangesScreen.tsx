@@ -9,6 +9,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   PageFrame,
+  Select,
   StatusBadge,
   type Column,
 } from "@calliopelabs/ui";
@@ -16,11 +17,11 @@ import { GitPullRequestArrowIcon } from "lucide-react";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
+import { fromSelectValue, toSelectValue } from "../../shared/select-any";
 import { CodeBlock } from "../../shared/CodeBlock";
 import { DefinitionList } from "./components/DefinitionList";
 import { FilterBar } from "../../shared/FilterBar";
 import { useListController } from "../../shared/list-controller";
-import { Select } from "../../shared/Select";
 import { accessOf } from "./access";
 import { areaCrumb, workspaceTabs } from "./frame";
 import {
@@ -169,8 +170,8 @@ export function PolicyChangesScreen({
             <Select
               aria-label={t("status")}
               options={CHANGE_STATUS_OPTIONS}
-              value={status}
-              onValueChange={onStatusChange}
+              value={toSelectValue(status)}
+              onValueChange={(v) => onStatusChange(fromSelectValue(v))}
               className="w-40"
             />
           </FilterBar>

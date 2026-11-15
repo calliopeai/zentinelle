@@ -6,17 +6,18 @@ import {
   DrawerHeader,
   DrawerTitle,
   ErrorState,
+  Field,
   LoadingState,
+  Select,
+  Textarea,
+  type SelectOption,
 } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
 import type { SimulatePolicyResult } from "@/graphql/policies/simulate";
 
-import { Field } from "../../shared/Field";
-import { Select, type SelectOption } from "../../shared/Select";
 import { StatTile } from "./components/StatTile";
-import { Textarea } from "../../shared/Textarea";
 
 export type Simulation = SimulatePolicyResult["simulatePolicy"];
 
@@ -120,50 +121,41 @@ export function SimulatePanel({
         <div className="flex flex-col gap-5 overflow-y-auto px-4 pb-4">
           <form onSubmit={submit} className="flex flex-col gap-3">
             <Field label={t("policyType")}>
-              {(c) => (
-                <Select
-                  {...c}
-                  options={types}
-                  value={policyType}
-                  onValueChange={setPolicyType}
-                />
-              )}
+              <Select
+                className="w-full"
+                options={types}
+                value={policyType}
+                onValueChange={setPolicyType}
+              />
             </Field>
             <Field
               label={t("configuration")}
               hint={t("jsonAsThePolicyStores")}
               error={configError}
             >
-              {(c) => (
-                <Textarea
-                  {...c}
-                  mono
-                  rows={6}
-                  value={config}
-                  onChange={(e) => setConfig(e.target.value)}
-                />
-              )}
+              <Textarea
+                className="min-h-24 py-2 font-mono text-xs md:text-xs"
+                rows={6}
+                value={config}
+                onChange={(e) => setConfig(e.target.value)}
+              />
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label={t("mode")}>
-                {(c) => (
-                  <Select
-                    {...c}
-                    options={enforcementOptions(t)}
-                    value={enforcement}
-                    onValueChange={setEnforcement}
-                  />
-                )}
+                <Select
+                  className="w-full"
+                  options={enforcementOptions(t)}
+                  value={enforcement}
+                  onValueChange={setEnforcement}
+                />
               </Field>
               <Field label={t("window")}>
-                {(c) => (
-                  <Select
-                    {...c}
-                    options={lookbackOptions(t)}
-                    value={lookback}
-                    onValueChange={setLookback}
-                  />
-                )}
+                <Select
+                  className="w-full"
+                  options={lookbackOptions(t)}
+                  value={lookback}
+                  onValueChange={setLookback}
+                />
               </Field>
             </div>
             <Button

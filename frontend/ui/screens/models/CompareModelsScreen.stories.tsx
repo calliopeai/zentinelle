@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import * as React from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 
+import { chooseOption } from "../../storybook/select";
 import { ShellStory } from "../../storybook/ShellStory";
 import { aiModels, longAiModels } from "../../storybook/fixtures/models";
 import { capabilitiesOf } from "../../storybook/session";
@@ -82,9 +83,9 @@ export const AddsAndRemoves: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.selectOptions(
+    await chooseOption(
       canvas.getByRole("combobox", { name: "Add a model" }),
-      "m2",
+      /Claude Haiku 4\.5/,
     );
     await expect(args.onSelectedChange).toHaveBeenLastCalledWith(["m1", "m2"]);
     await userEvent.click(

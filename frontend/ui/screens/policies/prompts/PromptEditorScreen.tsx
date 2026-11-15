@@ -2,11 +2,14 @@ import {
   Button,
   EmptyState,
   ErrorState,
+  Field,
   Input,
   LoadingState,
   PageFrame,
   Section,
+  Select,
   StatusBadge,
+  Textarea,
   useUI,
 } from "@calliopelabs/ui";
 import { LockIcon, SearchXIcon } from "lucide-react";
@@ -20,9 +23,6 @@ import type {
 
 import { Card } from "../components/Card";
 import { CodeBlock } from "../../../shared/CodeBlock";
-import { Field } from "../../../shared/Field";
-import { Select } from "../../../shared/Select";
-import { Textarea } from "../../../shared/Textarea";
 import { accessOf } from "../access";
 import { areaCrumb } from "../frame";
 import { usePolicyLabels } from "../labels";
@@ -342,38 +342,28 @@ export function PromptEditorScreen({
             )}
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("name")} error={nameError}>
-                {(c) => (
-                  <Input
-                    {...c}
-                    value={draft.name}
-                    onChange={(e) =>
-                      setDraft({ ...draft, name: e.target.value })
-                    }
-                  />
-                )}
+                <Input
+                  value={draft.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                />
               </Field>
               <Field label={t("type")}>
-                {(c) => (
-                  <Select
-                    {...c}
-                    options={PROMPT_TYPE_OPTIONS}
-                    value={draft.promptType}
-                    onValueChange={(v) => setDraft({ ...draft, promptType: v })}
-                  />
-                )}
+                <Select
+                  className="w-full"
+                  options={PROMPT_TYPE_OPTIONS}
+                  value={draft.promptType}
+                  onValueChange={(v) => setDraft({ ...draft, promptType: v })}
+                />
               </Field>
             </div>
             {!editing && (
               <Field label={t("description")} hint={t("whatThePromptIsFor")}>
-                {(c) => (
-                  <Input
-                    {...c}
-                    value={draft.description}
-                    onChange={(e) =>
-                      setDraft({ ...draft, description: e.target.value })
-                    }
-                  />
-                )}
+                <Input
+                  value={draft.description}
+                  onChange={(e) =>
+                    setDraft({ ...draft, description: e.target.value })
+                  }
+                />
               </Field>
             )}
             {mode === "template" && (
@@ -381,28 +371,23 @@ export function PromptEditorScreen({
                 label={t("template")}
                 hint={t("featuredPromptsInYourLibrary")}
               >
-                {(c) => (
-                  <Select
-                    {...c}
-                    disabled={templatesLoading}
-                    options={[
-                      {
-                        value: "",
-                        label: templatesLoading
-                          ? t("loadingTemplates")
-                          : templates.length
-                            ? t("chooseATemplate")
-                            : t("noFeaturedPromptsYet"),
-                      },
-                      ...templates.map((t) => ({
-                        value: t.id,
-                        label: t.name ?? t.id,
-                      })),
-                    ]}
-                    value={template}
-                    onValueChange={(v) => void pick(v)}
-                  />
-                )}
+                <Select
+                  className="w-full"
+                  disabled={templatesLoading}
+                  placeholder={
+                    templatesLoading
+                      ? t("loadingTemplates")
+                      : templates.length
+                        ? t("chooseATemplate")
+                        : t("noFeaturedPromptsYet")
+                  }
+                  options={templates.map((t) => ({
+                    value: t.id,
+                    label: t.name ?? t.id,
+                  }))}
+                  value={template}
+                  onValueChange={(v) => void pick(v)}
+                />
               </Field>
             )}
             {mode === "guided" ? (
@@ -413,26 +398,23 @@ export function PromptEditorScreen({
                     label={q.label}
                     hint={t("forExample", { hint: q.hint })}
                   >
-                    {(c) =>
-                      q.rows > 1 ? (
-                        <Textarea
-                          {...c}
-                          rows={q.rows}
-                          value={answers[q.key]}
-                          onChange={(e) =>
-                            setAnswers({ ...answers, [q.key]: e.target.value })
-                          }
-                        />
-                      ) : (
-                        <Input
-                          {...c}
-                          value={answers[q.key]}
-                          onChange={(e) =>
-                            setAnswers({ ...answers, [q.key]: e.target.value })
-                          }
-                        />
-                      )
-                    }
+                    {q.rows > 1 ? (
+                      <Textarea
+                        className="min-h-24 py-2"
+                        rows={q.rows}
+                        value={answers[q.key]}
+                        onChange={(e) =>
+                          setAnswers({ ...answers, [q.key]: e.target.value })
+                        }
+                      />
+                    ) : (
+                      <Input
+                        value={answers[q.key]}
+                        onChange={(e) =>
+                          setAnswers({ ...answers, [q.key]: e.target.value })
+                        }
+                      />
+                    )}
                   </Field>
                 ))}
                 <Section title={t("draft")} headingLevel="h3">
@@ -458,17 +440,14 @@ export function PromptEditorScreen({
                 hint={t("variableHint")}
                 error={textError}
               >
-                {(c) => (
-                  <Textarea
-                    {...c}
-                    mono
-                    rows={12}
-                    value={draft.promptText}
-                    onChange={(e) =>
-                      setDraft({ ...draft, promptText: e.target.value })
-                    }
-                  />
-                )}
+                <Textarea
+                  className="min-h-24 py-2 font-mono text-xs md:text-xs"
+                  rows={12}
+                  value={draft.promptText}
+                  onChange={(e) =>
+                    setDraft({ ...draft, promptText: e.target.value })
+                  }
+                />
               </Field>
             )}
             <div className="flex flex-wrap gap-2">

@@ -1,7 +1,8 @@
+import { Select } from "@calliopelabs/ui";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { FilterBar } from "./FilterBar";
-import { Select } from "./Select";
+import { ANY } from "./select-any";
 
 const meta = {
   title: "Shared/FilterBar",
@@ -12,15 +13,15 @@ const meta = {
       <>
         <Select
           aria-label="Type"
-          options={[{ value: "", label: "All types" }]}
-          value=""
+          options={[{ value: ANY, label: "All types" }]}
+          value={ANY}
           onValueChange={() => {}}
           className="w-40"
         />
         <Select
           aria-label="Scope"
-          options={[{ value: "", label: "All scopes" }]}
-          value=""
+          options={[{ value: ANY, label: "All scopes" }]}
+          value={ANY}
           onValueChange={() => {}}
           className="w-40"
         />

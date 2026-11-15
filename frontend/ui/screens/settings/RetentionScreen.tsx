@@ -6,18 +6,20 @@ import {
   DataTable,
   DropdownMenuItem,
   PageFrame,
+  Select,
   StatusBadge,
+  Switch,
   useUI,
   type Column,
+  type SelectOption,
   type TabNavItem,
 } from "@calliopelabs/ui";
 import { ArchiveIcon, ScaleIcon } from "lucide-react";
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
-import { Select, type SelectOption } from "./components/FormField";
 import { listController } from "./components/list-controller";
-import { SwitchField } from "../../shared/SwitchField";
+import { ANY, fromSelectValue, toSelectValue } from "../../shared/select-any";
 import { LegalHoldDialog } from "./LegalHoldDialog";
 import {
   HOLD_TONE,
@@ -172,10 +174,9 @@ function PoliciesTab({
       header: t("enabled"),
       width: "w-24",
       cell: (p) => (
-        <SwitchField
-          label={<span className="sr-only">Enable {p.name}</span>}
+        <Switch
+          aria-label={`Enable ${p.name}`}
           checked={p.enabled}
-          className="py-0"
           onCheckedChange={async (enabled) => {
             setToggleError(null);
             try {
@@ -353,22 +354,22 @@ function HoldsTab({
             <Select
               aria-label={t("holdType")}
               className="w-40"
-              options={[{ value: "", label: t("allTypes") }, ...holdTypes]}
-              value={filters.holdType}
-              onChange={(e) =>
-                onFiltersChange({ ...filters, holdType: e.target.value })
+              options={[{ value: ANY, label: t("allTypes") }, ...holdTypes]}
+              value={toSelectValue(filters.holdType)}
+              onValueChange={(next) =>
+                onFiltersChange({ ...filters, holdType: fromSelectValue(next) })
               }
             />
             <Select
               aria-label={t("holdStatus")}
               className="w-36"
               options={[
-                { value: "", label: t("allStatuses") },
+                { value: ANY, label: t("allStatuses") },
                 ...holdStatuses,
               ]}
-              value={filters.status}
-              onChange={(e) =>
-                onFiltersChange({ ...filters, status: e.target.value })
+              value={toSelectValue(filters.status)}
+              onValueChange={(next) =>
+                onFiltersChange({ ...filters, status: fromSelectValue(next) })
               }
             />
           </div>

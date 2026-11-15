@@ -6,6 +6,8 @@ import {
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
+  Field,
+  Textarea,
 } from "@calliopelabs/ui";
 import * as React from "react";
 import { useTranslations } from "next-intl";
@@ -60,7 +62,6 @@ export function EstimateCostDrawer({
   const [text, setText] = React.useState("");
   const [selected, setSelected] = React.useState(modelId ?? "");
   const [ratio, setRatio] = React.useState("1");
-  const textId = React.useId();
   const model = priced.find((m) => m.id === selected) ?? priced[0];
   const tokens = text ? estimateTokens(text) : 0;
   const cost = model ? estimateCost(model, tokens, Number(ratio)) : null;
@@ -92,17 +93,15 @@ export function EstimateCostDrawer({
                 }))}
               />
               <div className="flex flex-col gap-1.5">
-                <label htmlFor={textId} className="text-sm font-medium">
-                  {t("prompt")}
-                </label>
-                <textarea
-                  id={textId}
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  rows={8}
-                  placeholder={t("pasteAPromptADocument")}
-                  className="w-full rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                />
+                <Field label={t("prompt")}>
+                  <Textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    rows={8}
+                    placeholder={t("pasteAPromptADocument")}
+                    className="font-mono text-xs md:text-xs"
+                  />
+                </Field>
                 <p className="text-xs text-muted-foreground">
                   {formatCount(text.length, locale)} characters, about{" "}
                   {formatCount(tokens, locale)} tokens
