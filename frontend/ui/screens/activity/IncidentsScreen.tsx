@@ -6,6 +6,7 @@ import {
   type Column,
 } from "@calliopelabs/ui";
 import { PlusIcon, SirenIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import type { CreateIncidentInput, IncidentData } from "@/graphql/risks/types";
@@ -19,13 +20,11 @@ import {
 import { activityCrumb } from "./nav";
 import { ReportIncidentDialog } from "./ReportIncidentDialog";
 import {
-  INCIDENT_SEVERITIES,
-  INCIDENT_STATUSES,
   INCIDENT_STATUS_TONE,
-  INCIDENT_TYPES,
   SEVERITY_TONE,
   SLA_TONE,
   toneOf,
+  useActivityLabels,
 } from "./tones";
 
 export interface IncidentFilters {
@@ -56,10 +55,13 @@ export interface IncidentsScreenProps {
 export const incidentHref = (i: Pick<IncidentData, "id">) =>
   `/incidents/${encodeURIComponent(i.id)}`;
 
-const COLUMNS: Column<IncidentData>[] = [
+const columns = (
+  t: ReturnType<typeof useTranslations>,
+  sla: (value: string) => string,
+): Column<IncidentData>[] => [
   {
     id: "incident",
-    header: "Incident",
+    header: t("columns.incident"),
     cell: (i) => (
       <div className="flex min-w-0 flex-col">
         <span className="truncate font-medium">{i.title}</span>
@@ -73,7 +75,7 @@ const COLUMNS: Column<IncidentData>[] = [
   },
   {
     id: "severity",
-    header: "Severity",
+    header: t("columns.severity"),
     width: "w-28",
     cell: (i) => (
       <StatusBadge tone={toneOf(SEVERITY_TONE, i.severity)}>
@@ -83,15 +85,17 @@ const COLUMNS: Column<IncidentData>[] = [
   },
   {
     id: "assignee",
-    header: "Assignee",
+    header: t("columns.assignee"),
     width: "w-36",
     cell: (i) => (
-      <span className="block truncate">{i.assignedToName ?? "Unassigned"}</span>
+      <span className="block truncate">
+        {i.assignedToName ?? t("unassigned")}
+      </span>
     ),
   },
   {
     id: "occurred",
-    header: "Occurred",
+    header: t("columns.occurred"),
     width: "w-44",
     cell: (i) => (
       <span className="font-mono text-xs">
@@ -101,12 +105,12 @@ const COLUMNS: Column<IncidentData>[] = [
   },
   {
     id: "sla",
-    header: "SLA",
+    header: t("columns.sla"),
     width: "w-28",
     cell: (i) =>
       i.slaStatus ? (
         <StatusBadge tone={toneOf(SLA_TONE, i.slaStatus)}>
-          {humanize(i.slaStatus).toLowerCase()}
+          {sla(i.slaStatus)}
         </StatusBadge>
       ) : (
         "–"
@@ -114,7 +118,7 @@ const COLUMNS: Column<IncidentData>[] = [
   },
   {
     id: "status",
-    header: "Status",
+    header: t("columns.status"),
     width: "w-32",
     cell: (i) => (
       <StatusBadge tone={toneOf(INCIDENT_STATUS_TONE, i.status)}>
@@ -134,6 +138,8 @@ export function IncidentsScreen({
   canMutate,
   onReport,
 }: IncidentsScreenProps) {
+  const t = useTranslations("activity.incidents");
+  const labels = useActivityLabels();
   const [reporting, setReporting] = React.useState(false);
   const controller = useListController({
     ...incidents,
@@ -148,53 +154,52 @@ export function IncidentsScreen({
   return (
     <PageFrame
       crumbs={[activityCrumb("incidents")]}
-      title="Incidents"
-      description="What went wrong, who owns it, and how far it is from resolved."
+      title={t("title")}
+      description={t("description")}
       primaryAction={
         canMutate ? (
           <Button size="sm" onClick={() => setReporting(true)}>
             <PlusIcon aria-hidden />
-            Report incident
+            {t("report")}
           </Button>
         ) : undefined
       }
     >
       <DataTable
-        label="Incidents"
+        label={t("tableLabel")}
         controller={controller}
-        columns={COLUMNS}
+        columns={columns(t, labels.sla)}
         getRowId={(i) => i.id}
         rowHref={incidentHref}
         rowLabel={(i) => i.title}
-        searchPlaceholder="Search incidents"
+        searchPlaceholder={t("search")}
         empty={{
           icon: <SirenIcon className="size-5" aria-hidden />,
-          title: "No incidents",
-          description:
-            "Incidents open from critical alerts and anomalies, or when someone reports one.",
+          title: t("empty.title"),
+          description: t("empty.description"),
         }}
         emptyFiltered={{
-          title: "No incidents match",
-          description: "Change the search or clear the filters.",
+          title: t("emptyFiltered.title"),
+          description: t("emptyFiltered.description"),
         }}
         toolbar={
           <>
             <FilterSelect
-              label="Status"
+              label={t("filters.status")}
               value={filters.status}
-              options={INCIDENT_STATUSES}
+              options={labels.incidentStatuses}
               onChange={(status) => onFiltersChange({ ...filters, status })}
             />
             <FilterSelect
-              label="Severity"
+              label={t("filters.severity")}
               value={filters.severity}
-              options={INCIDENT_SEVERITIES}
+              options={labels.incidentSeverities}
               onChange={(severity) => onFiltersChange({ ...filters, severity })}
             />
             <FilterSelect
-              label="Type"
+              label={t("filters.type")}
               value={filters.incidentType}
-              options={INCIDENT_TYPES}
+              options={labels.incidentTypes}
               onChange={(incidentType) =>
                 onFiltersChange({ ...filters, incidentType })
               }

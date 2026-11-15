@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@calliopelabs/ui";
 import { DownloadIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type * as React from "react";
 
 export interface ExportFormat {
@@ -34,20 +35,21 @@ export interface ExportMenuProps {
  */
 export function ExportMenu({
   formats,
-  label = "Export",
+  label,
   scope,
   disabled,
 }: ExportMenuProps) {
+  const t = useTranslations("common");
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
         <Button variant="outline" size="sm">
           <DownloadIcon aria-hidden />
-          {label}
+          {label ?? t("export")}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel>Format</DropdownMenuLabel>
+        <DropdownMenuLabel>{t("exportFormat")}</DropdownMenuLabel>
         {formats.map((format) => (
           <DropdownMenuItem key={format.key} asChild>
             <a

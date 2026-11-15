@@ -8,6 +8,7 @@ import {
   DrawerTitle,
   StatusBadge,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import type { ComplianceAlertData } from "@/graphql/alerts/types";
 
@@ -40,7 +41,12 @@ export function AlertDrawer({
   onResolve,
   onDismiss,
 }: AlertDrawerProps) {
+  const t = useTranslations("activity.alerts");
   const active = alert ? isAlertActive(alert.status) : false;
+  const by = (at: string, name: string | null | undefined) =>
+    name
+      ? t("drawer.by", { time: formatDateTime(at), name })
+      : formatDateTime(at);
   return (
     <Drawer open={alert !== null} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="sm:max-w-lg">
@@ -57,7 +63,7 @@ export function AlertDrawer({
               </div>
               <DrawerTitle className="break-words">{alert.title}</DrawerTitle>
               <DrawerDescription className="break-words">
-                {alert.description || "No description."}
+                {alert.description || t("drawer.noDescription")}
               </DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
@@ -65,50 +71,62 @@ export function AlertDrawer({
                 columns={1}
                 items={[
                   {
-                    term: "Type",
+                    term: t("drawer.type"),
                     value: alert.alertTypeDisplay ?? humanize(alert.alertType),
                   },
-                  { term: "Agent", value: alert.endpointName },
-                  { term: "User", value: alert.userIdentifier, mono: true },
-                  { term: "Violations", value: alert.violationCount },
+                  { term: t("drawer.agent"), value: alert.endpointName },
                   {
-                    term: "First violation",
+                    term: t("drawer.user"),
+                    value: alert.userIdentifier,
+                    mono: true,
+                  },
+                  {
+                    term: t("drawer.violations"),
+                    value: alert.violationCount,
+                  },
+                  {
+                    term: t("drawer.first"),
                     value: formatDateTime(alert.firstViolationAt),
                   },
                   {
-                    term: "Last violation",
+                    term: t("drawer.last"),
                     value: formatDateTime(alert.lastViolationAt),
                   },
                   {
-                    term: "Acknowledged",
+                    term: t("drawer.acknowledged"),
                     value: alert.acknowledgedAt
-                      ? `${formatDateTime(alert.acknowledgedAt)}${alert.acknowledgedByUsername ? ` by ${alert.acknowledgedByUsername}` : ""}`
+                      ? by(alert.acknowledgedAt, alert.acknowledgedByUsername)
                       : null,
                   },
                   {
-                    term: "Resolved",
+                    term: t("drawer.resolved"),
                     value: alert.resolvedAt
-                      ? `${formatDateTime(alert.resolvedAt)}${alert.resolvedByUsername ? ` by ${alert.resolvedByUsername}` : ""}`
+                      ? by(alert.resolvedAt, alert.resolvedByUsername)
                       : null,
                   },
-                  { term: "Resolution notes", value: alert.resolutionNotes },
+                  {
+                    term: t("drawer.notes"),
+                    value: alert.resolutionNotes,
+                  },
                 ]}
               />
             </div>
             {canMutate && active && (
               <DrawerFooter className="flex-row flex-wrap justify-end gap-2">
                 <Button variant="ghost" onClick={() => onDismiss?.(alert)}>
-                  Dismiss
+                  {t("dismiss")}
                 </Button>
                 {alert.status === "open" && (
                   <Button
                     variant="outline"
                     onClick={() => onAcknowledge?.(alert)}
                   >
-                    Acknowledge
+                    {t("acknowledge")}
                   </Button>
                 )}
-                <Button onClick={() => onResolve?.(alert)}>Resolve</Button>
+                <Button onClick={() => onResolve?.(alert)}>
+                  {t("resolve")}
+                </Button>
               </DrawerFooter>
             )}
           </>

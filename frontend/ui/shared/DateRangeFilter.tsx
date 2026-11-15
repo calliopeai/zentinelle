@@ -1,4 +1,5 @@
 import { Input, cn } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 export interface DateRange {
@@ -19,15 +20,16 @@ export interface DateRangeFilterProps {
 export function DateRangeFilter({
   value,
   onChange,
-  fromLabel = "From",
-  toLabel = "To",
+  fromLabel,
+  toLabel,
   className,
 }: DateRangeFilterProps) {
+  const t = useTranslations("common");
   const id = React.useId();
   return (
     <div className={cn("flex items-center gap-1.5", className)}>
       <label htmlFor={`${id}-from`} className="text-xs text-muted-foreground">
-        {fromLabel}
+        {fromLabel ?? t("from")}
       </label>
       <Input
         id={`${id}-from`}
@@ -38,7 +40,7 @@ export function DateRangeFilter({
         className="w-36"
       />
       <label htmlFor={`${id}-to`} className="text-xs text-muted-foreground">
-        {toLabel}
+        {toLabel ?? t("to")}
       </label>
       <Input
         id={`${id}-to`}

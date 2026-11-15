@@ -4,8 +4,11 @@
  * and Severity, Event.Status, and the audit record's status.
  */
 import type { StatusTone } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 
 import type { NotificationKind } from "@/graphql/notifications/types";
+
+import { humanize } from "../../shared/format";
 
 export const SEVERITY_TONE: Record<string, StatusTone> = {
   critical: "error",
@@ -74,54 +77,58 @@ export function notificationTone(type: NotificationKind): StatusTone {
   }
 }
 
+/** Severity values, most severe first; named by `activity.severities`. */
 export const ALERT_SEVERITIES = [
-  { value: "critical", label: "Critical" },
-  { value: "high", label: "High" },
-  { value: "medium", label: "Medium" },
-  { value: "low", label: "Low" },
-  { value: "info", label: "Info" },
+  "critical",
+  "high",
+  "medium",
+  "low",
+  "info",
 ] as const;
 
 export const INCIDENT_SEVERITIES = ALERT_SEVERITIES.slice(0, 4);
 
+/** ComplianceAlert.AlertType; named by `activity.alertTypes`. */
 export const ALERT_TYPES = [
-  { value: "single_violation", label: "Single violation" },
-  { value: "repeated_violations", label: "Repeated violations" },
-  { value: "threshold_exceeded", label: "Threshold exceeded" },
-  { value: "anomaly_detected", label: "Anomaly detected" },
-  { value: "critical_violation", label: "Critical violation" },
-  { value: "compliance_drift", label: "Compliance drift" },
-  { value: "violation_spike", label: "Violation rate spike" },
-  { value: "policy_health", label: "Policy health issue" },
-  { value: "repeat_violations", label: "Repeat violations by user" },
+  "single_violation",
+  "repeated_violations",
+  "threshold_exceeded",
+  "anomaly_detected",
+  "critical_violation",
+  "compliance_drift",
+  "violation_spike",
+  "policy_health",
+  "repeat_violations",
 ] as const;
 
+/** Incident.Status; named by `activity.incidentStatuses`. */
 export const INCIDENT_STATUSES = [
-  { value: "open", label: "Open" },
-  { value: "investigating", label: "Investigating" },
-  { value: "mitigating", label: "Mitigating" },
-  { value: "resolved", label: "Resolved" },
-  { value: "closed", label: "Closed" },
+  "open",
+  "investigating",
+  "mitigating",
+  "resolved",
+  "closed",
 ] as const;
 
+/** Incident.IncidentType; named by `activity.incidentTypes`. */
 export const INCIDENT_TYPES = [
-  { value: "policy_violation", label: "Policy violation" },
-  { value: "security_breach", label: "Security breach" },
-  { value: "data_leak", label: "Data leak" },
-  { value: "service_disruption", label: "Service disruption" },
-  { value: "compliance_breach", label: "Compliance breach" },
-  { value: "cost_overrun", label: "Cost overrun" },
-  { value: "harmful_output", label: "Harmful output" },
-  { value: "other", label: "Other" },
+  "policy_violation",
+  "security_breach",
+  "data_leak",
+  "service_disruption",
+  "compliance_breach",
+  "cost_overrun",
+  "harmful_output",
+  "other",
 ] as const;
 
-export const EVENT_CATEGORIES = [
-  { value: "telemetry", label: "Telemetry" },
-  { value: "audit", label: "Audit" },
-  { value: "alert", label: "Alert" },
-] as const;
+/** Event.EventCategory; named by `activity.eventCategories`. */
+export const EVENT_CATEGORIES = ["telemetry", "audit", "alert"] as const;
 
-/** Event.EventType in backend/zentinelle/models/event.py. SDKs may send others. */
+/**
+ * Event.EventType in backend/zentinelle/models/event.py, named by
+ * `activity.eventTypes`. SDKs may send others.
+ */
 export const EVENT_TYPES = [
   "heartbeat",
   "metrics",
@@ -140,7 +147,33 @@ export const EVENT_TYPES = [
   "endpoint_unhealthy",
   "security_threat",
   "error",
-].map((value) => ({
-  value,
-  label: value.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()),
-}));
+] as const;
+
+/**
+ * The area's value names in the reader's language, and the options its
+ * filters offer. A value the catalog does not name reads as its words.
+ */
+export function useActivityLabels() {
+  const t = useTranslations("activity");
+  const name = (group: string, value: string | null | undefined) =>
+    value && t.has(`${group}.${value}`)
+      ? t(`${group}.${value}`)
+      : humanize(value);
+  const options = (group: string, values: readonly string[]) =>
+    values.map((value) => ({ value, label: t(`${group}.${value}`) }));
+  return {
+    name,
+    eventType: (value: string) => name("eventTypes", value),
+    eventCategory: (value: string) => name("eventCategories", value),
+    eventStatus: (value: string) => name("eventStatuses", value),
+    auditStatus: (value: string) => name("auditStatuses", value),
+    sla: (value: string) => name("sla", value),
+    alertSeverities: options("severities", ALERT_SEVERITIES),
+    incidentSeverities: options("severities", INCIDENT_SEVERITIES),
+    alertTypes: options("alertTypes", ALERT_TYPES),
+    incidentStatuses: options("incidentStatuses", INCIDENT_STATUSES),
+    incidentTypes: options("incidentTypes", INCIDENT_TYPES),
+    eventCategories: options("eventCategories", EVENT_CATEGORIES),
+    eventTypes: options("eventTypes", EVENT_TYPES),
+  };
+}

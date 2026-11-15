@@ -134,7 +134,6 @@ export const ZENTINELLE_NAV: NavModel = [
             label: "Alerts",
             href: "/alerts",
             icon: BellIcon,
-            also: ["/notifications"],
           },
           {
             key: "incidents",
@@ -330,9 +329,6 @@ export const INTERIM_PAGES: Readonly<Record<string, readonly InterimPage[]>> = {
       label: "Generator",
       href: "/system-prompts/generator",
     },
-  ],
-  alerts: [
-    { key: "notifications", label: "Notifications", href: "/notifications" },
   ],
   risks: [
     { key: "overview", label: "Overview", href: "/risks/overview" },

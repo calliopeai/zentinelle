@@ -8,11 +8,12 @@ import {
   DialogTitle,
   Input,
 } from "@calliopelabs/ui";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import type { CreateIncidentInput } from "@/graphql/risks/types";
 
-import { INCIDENT_SEVERITIES, INCIDENT_TYPES } from "./tones";
+import { useActivityLabels } from "./tones";
 
 export interface ReportIncidentDialogProps {
   open: boolean;
@@ -31,6 +32,9 @@ export function ReportIncidentDialog({
   onOpenChange,
   onSubmit,
 }: ReportIncidentDialogProps) {
+  const t = useTranslations("activity.incidents");
+  const c = useTranslations("common");
+  const labels = useActivityLabels();
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [severity, setSeverity] = React.useState("medium");
@@ -50,7 +54,7 @@ export function ReportIncidentDialog({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!title.trim() || !description.trim()) {
-      setError("A title and a description are required.");
+      setError(t("reportDialog.required"));
       return;
     }
     setPending(true);
@@ -65,7 +69,9 @@ export function ReportIncidentDialog({
       reset();
       onOpenChange(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The incident was not saved.");
+      setError(
+        e instanceof Error && e.message ? e.message : t("errors.report"),
+      );
     } finally {
       setPending(false);
     }
@@ -83,14 +89,15 @@ export function ReportIncidentDialog({
       <DialogContent>
         <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
           <DialogHeader>
-            <DialogTitle>Report an incident</DialogTitle>
+            <DialogTitle>{t("reportDialog.title")}</DialogTitle>
             <DialogDescription>
-              Opens an incident and notifies the people on call. Link it to an
-              agent or a risk from the incident page.
+              {t("reportDialog.description")}
             </DialogDescription>
           </DialogHeader>
           <div className={FIELD}>
-            <label htmlFor={`${id}-title`}>Title</label>
+            <label htmlFor={`${id}-title`}>
+              {t("reportDialog.titleField")}
+            </label>
             <Input
               id={`${id}-title`}
               value={title}
@@ -100,7 +107,9 @@ export function ReportIncidentDialog({
             />
           </div>
           <div className={FIELD}>
-            <label htmlFor={`${id}-description`}>What happened</label>
+            <label htmlFor={`${id}-description`}>
+              {t("reportDialog.what")}
+            </label>
             <textarea
               id={`${id}-description`}
               value={description}
@@ -113,14 +122,16 @@ export function ReportIncidentDialog({
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className={FIELD}>
-              <label htmlFor={`${id}-severity`}>Severity</label>
+              <label htmlFor={`${id}-severity`}>
+                {t("reportDialog.severity")}
+              </label>
               <select
                 id={`${id}-severity`}
                 value={severity}
                 onChange={(e) => setSeverity(e.target.value)}
                 className={SELECT}
               >
-                {INCIDENT_SEVERITIES.map((o) => (
+                {labels.incidentSeverities.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
@@ -128,14 +139,14 @@ export function ReportIncidentDialog({
               </select>
             </div>
             <div className={FIELD}>
-              <label htmlFor={`${id}-type`}>Type</label>
+              <label htmlFor={`${id}-type`}>{t("reportDialog.type")}</label>
               <select
                 id={`${id}-type`}
                 value={incidentType}
                 onChange={(e) => setIncidentType(e.target.value)}
                 className={SELECT}
               >
-                {INCIDENT_TYPES.map((o) => (
+                {labels.incidentTypes.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
@@ -155,10 +166,10 @@ export function ReportIncidentDialog({
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {c("cancel")}
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Reporting…" : "Report incident"}
+              {pending ? t("reportDialog.pending") : t("reportDialog.submit")}
             </Button>
           </DialogFooter>
         </form>

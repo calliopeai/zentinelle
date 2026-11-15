@@ -355,7 +355,6 @@
         "detections": "Detections",
         "builder": "Builder",
         "generator": "Generator",
-        "notifications": "Notifications",
         "overview": "Overview",
         "fmea": "FMEA",
         "reports": "Reports",
@@ -398,7 +397,13 @@
       "copied": "Copied",
       "copiedStatus": "Copied to the clipboard.",
       "failed": "Copy failed. Select the key and copy it by hand."
-    }
+    },
+    "from": "From",
+    "to": "To",
+    "export": "Export",
+    "exportFormat": "Format",
+    "timelineEmpty": "Nothing has happened yet.",
+    "nothing": "No {label}."
   },
   "agents": {
     "statuses": {
@@ -822,6 +827,429 @@
           "delegationDepth": "Delegation depth",
           "placement": "Placement"
         }
+      }
+    }
+  },
+  "activity": {
+    "severities": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "info": "Info"
+    },
+    "alertTypes": {
+      "single_violation": "Single violation",
+      "repeated_violations": "Repeated violations",
+      "threshold_exceeded": "Threshold exceeded",
+      "anomaly_detected": "Anomaly detected",
+      "critical_violation": "Critical violation",
+      "compliance_drift": "Compliance drift",
+      "violation_spike": "Violation rate spike",
+      "policy_health": "Policy health issue",
+      "repeat_violations": "Repeat violations by user"
+    },
+    "incidentStatuses": {
+      "open": "Open",
+      "investigating": "Investigating",
+      "mitigating": "Mitigating",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    },
+    "incidentTypes": {
+      "policy_violation": "Policy violation",
+      "security_breach": "Security breach",
+      "data_leak": "Data leak",
+      "service_disruption": "Service disruption",
+      "compliance_breach": "Compliance breach",
+      "cost_overrun": "Cost overrun",
+      "harmful_output": "Harmful output",
+      "other": "Other"
+    },
+    "eventCategories": {
+      "telemetry": "Telemetry",
+      "audit": "Audit",
+      "alert": "Alert"
+    },
+    "eventTypes": {
+      "heartbeat": "Heartbeat",
+      "metrics": "Metrics",
+      "usage": "Usage",
+      "spawn": "Spawn",
+      "stop": "Stop",
+      "login": "Login",
+      "logout": "Logout",
+      "config_change": "Config change",
+      "secret_access": "Secret access",
+      "ai_request": "AI request",
+      "ai_response": "AI response",
+      "tool_call": "Tool call",
+      "policy_violation": "Policy violation",
+      "budget_exceeded": "Budget exceeded",
+      "endpoint_unhealthy": "Endpoint unhealthy",
+      "security_threat": "Security threat",
+      "error": "Error"
+    },
+    "eventStatuses": {
+      "pending": "pending",
+      "processing": "processing",
+      "processed": "processed",
+      "failed": "failed"
+    },
+    "auditStatuses": {
+      "success": "success",
+      "failure": "failure",
+      "denied": "denied"
+    },
+    "sla": {
+      "on_track": "on track",
+      "met": "met",
+      "at_risk": "at risk",
+      "breached": "breached"
+    },
+    "alerts": {
+      "title": "Alerts",
+      "description": "Content rule and policy violations, grouped into alerts.",
+      "mineDescription": "Notifications for you: assignments, budget warnings and risks that rise.",
+      "markAllRead": "Mark all read",
+      "tabsLabel": "Alert views",
+      "views": {
+        "open": "Open",
+        "all": "All",
+        "mine": "Mine",
+        "mineUnread": "Mine ({count})"
+      },
+      "tableLabel": "Alerts",
+      "columns": {
+        "severity": "Severity",
+        "alert": "Alert",
+        "agent": "Agent",
+        "violations": "Violations",
+        "last": "Last seen",
+        "status": "Status"
+      },
+      "filters": {
+        "severity": "Severity",
+        "type": "Type"
+      },
+      "emptyOpen": {
+        "title": "No open alerts",
+        "description": "Alerts open when an agent breaks a content rule or a policy threshold. Resolved and dismissed alerts are under All.",
+        "action": "See all alerts"
+      },
+      "emptyAll": {
+        "title": "No alerts yet",
+        "description": "Alerts open when an agent breaks a content rule or a policy threshold.",
+        "action": "Review content rules"
+      },
+      "emptyFiltered": {
+        "title": "No alerts match these filters",
+        "description": "Clear the filters to see every alert in this view."
+      },
+      "acknowledge": "Acknowledge",
+      "resolveMenu": "Resolve…",
+      "resolve": "Resolve",
+      "dismiss": "Dismiss",
+      "noActions": "No actions left",
+      "resolveDialog": {
+        "title": "Resolve this alert?",
+        "notes": "Resolution notes",
+        "placeholder": "What was done, for the audit log"
+      },
+      "errors": {
+        "acknowledge": "The alert was not acknowledged.",
+        "resolve": "The alert was not resolved.",
+        "dismiss": "The alert was not dismissed.",
+        "markRead": "The notification was not updated.",
+        "markAllRead": "The notifications were not marked read."
+      },
+      "drawer": {
+        "noDescription": "No description.",
+        "type": "Type",
+        "agent": "Agent",
+        "user": "User",
+        "violations": "Violations",
+        "first": "First violation",
+        "last": "Last violation",
+        "acknowledged": "Acknowledged",
+        "resolved": "Resolved",
+        "notes": "Resolution notes",
+        "by": "{time} by {name}"
+      },
+      "mine": {
+        "tableLabel": "Your notifications",
+        "columns": {
+          "notification": "Notification",
+          "received": "Received",
+          "status": "Status"
+        },
+        "unread": "unread",
+        "read": "read",
+        "empty": {
+          "title": "Nothing for you",
+          "description": "Incidents assigned to you, budget warnings and risks that rise land here."
+        },
+        "emptyUnread": "You have read everything",
+        "emptyFiltered": {
+          "title": "No notifications match",
+          "description": "Show every notification to see the rest."
+        },
+        "show": "Show",
+        "every": "Every notification",
+        "unreadOption": "Unread",
+        "readOption": "Read",
+        "markRead": "Mark read",
+        "markUnread": "Mark unread"
+      }
+    },
+    "incidents": {
+      "title": "Incidents",
+      "description": "What went wrong, who owns it, and how far it is from resolved.",
+      "report": "Report incident",
+      "tableLabel": "Incidents",
+      "search": "Search incidents",
+      "columns": {
+        "incident": "Incident",
+        "severity": "Severity",
+        "assignee": "Assignee",
+        "occurred": "Occurred",
+        "sla": "SLA",
+        "status": "Status"
+      },
+      "unassigned": "Unassigned",
+      "empty": {
+        "title": "No incidents",
+        "description": "Incidents open from critical alerts and anomalies, or when someone reports one."
+      },
+      "emptyFiltered": {
+        "title": "No incidents match",
+        "description": "Change the search or clear the filters."
+      },
+      "filters": {
+        "status": "Status",
+        "severity": "Severity",
+        "type": "Type"
+      },
+      "errors": {
+        "report": "The incident was not saved.",
+        "acknowledge": "The incident was not acknowledged.",
+        "resolve": "The incident was not resolved.",
+        "close": "The incident was not closed.",
+        "comments": "Comments could not be loaded.",
+        "comment": "The comment was not saved."
+      },
+      "reportDialog": {
+        "title": "Report an incident",
+        "description": "Opens an incident and notifies the people on call. Link it to an agent or a risk from the incident page.",
+        "titleField": "Title",
+        "what": "What happened",
+        "severity": "Severity",
+        "type": "Type",
+        "required": "A title and a description are required.",
+        "pending": "Reporting…",
+        "submit": "Report incident"
+      }
+    },
+    "incident": {
+      "crumb": "Incidents",
+      "title": "Incident",
+      "notFoundTitle": "Incident not found",
+      "loading": "Loading the incident",
+      "error": "Could not load the incident",
+      "notFound": {
+        "title": "This incident does not exist",
+        "description": "It may belong to another organization, or the link is wrong.",
+        "action": "Back to Incidents"
+      },
+      "tabs": {
+        "timeline": "Timeline",
+        "evidence": "Evidence",
+        "comments": "Comments",
+        "commentsCount": "Comments ({count})"
+      },
+      "tabsLabel": "Incident",
+      "acknowledge": "Acknowledge",
+      "resolve": "Resolve",
+      "close": "Close",
+      "actions": "Incident actions",
+      "downloadEvidence": "Download evidence",
+      "resolveDirect": "Resolve without acknowledging",
+      "summary": "Summary",
+      "tta": "Time to acknowledge",
+      "notAcknowledged": "Not acknowledged",
+      "ttr": "Time to resolve",
+      "stillOpen": "Still open",
+      "sla": "SLA",
+      "facts": {
+        "type": "Type",
+        "agent": "Agent",
+        "policy": "Triggering policy",
+        "risk": "Related risk",
+        "assignee": "Assignee",
+        "reportedBy": "Reported by",
+        "affected": "Affected",
+        "affectedUsers": "{count, plural, one {# user} other {# users}}",
+        "tags": "Tags",
+        "rootCause": "Root cause",
+        "impact": "Impact",
+        "resolution": "Resolution"
+      },
+      "timeline": {
+        "title": "Timeline",
+        "label": "Incident timeline",
+        "occurred": "Occurred",
+        "detected": "Detected",
+        "acknowledged": "Acknowledged",
+        "resolved": "Resolved",
+        "closed": "Closed",
+        "comment": "Comment"
+      },
+      "evidence": {
+        "title": "Evidence",
+        "description": "A signed NDJSON bundle of the audit records tied to this incident and to the correlation chain of the event that raised it.",
+        "download": "Download bundle"
+      },
+      "comments": {
+        "title": "Comments",
+        "loading": "Loading comments",
+        "error": "Could not load comments",
+        "empty": "No comments yet.",
+        "add": "Add a comment",
+        "posting": "Posting…",
+        "post": "Post comment",
+        "author": "User {id}"
+      },
+      "resolveDialog": {
+        "title": "Resolve this incident?",
+        "description": "The resolution goes on the incident and into the audit log.",
+        "label": "Resolution",
+        "placeholder": "What fixed it"
+      },
+      "closeDialog": {
+        "title": "Close this incident?",
+        "description": "A closed incident leaves the open queue. Its timeline and evidence stay.",
+        "confirm": "Close incident"
+      },
+      "commentFailed": "The comment was not saved."
+    },
+    "events": {
+      "title": "Events",
+      "description": "Telemetry, audit and alert events as agents report them.",
+      "pause": "Pause live updates",
+      "resume": "Resume live updates",
+      "newRows": "{count, plural, one {# new event} other {# new events}}",
+      "tableLabel": "Events",
+      "rowLabel": "{event} at {time}",
+      "columns": {
+        "occurred": "Occurred",
+        "event": "Event",
+        "agent": "Agent",
+        "status": "Status"
+      },
+      "empty": {
+        "title": "No events yet",
+        "description": "Agents report heartbeats, requests and violations once they run with the Zentinelle AI SDK.",
+        "action": "See agents"
+      },
+      "emptyFiltered": {
+        "title": "No events match",
+        "description": "Clear the filters to see every event."
+      },
+      "filters": {
+        "category": "Category",
+        "type": "Type"
+      },
+      "drawer": {
+        "description": "{category} event from {agent}",
+        "unknownAgent": "an unknown agent",
+        "occurred": "Occurred",
+        "processed": "Processed",
+        "notYet": "Not yet",
+        "user": "User",
+        "correlation": "Correlation id",
+        "id": "Event id",
+        "payload": "Payload"
+      }
+    },
+    "audit": {
+      "title": "Audit log",
+      "description": "Who changed what, when, and from where. Records are hash-chained.",
+      "verify": "Verify chain",
+      "tableLabel": "Audit log",
+      "rowLabel": "{action} at {time}",
+      "search": "Search actions, resources and actors",
+      "columns": {
+        "when": "When",
+        "action": "Action",
+        "actor": "Actor",
+        "result": "Result"
+      },
+      "empty": {
+        "title": "No audit records",
+        "description": "Changes to policies, agents, keys and settings are recorded here as they happen."
+      },
+      "emptyFiltered": {
+        "title": "No records match",
+        "description": "Change the search or widen the dates."
+      },
+      "range": {
+        "between": "Exports every record from {from} to {to}. The search does not apply.",
+        "from": "Exports every record from {from} on. The search does not apply.",
+        "to": "Exports every record up to {to}. The search does not apply.",
+        "all": "Exports every record of every date. The search does not apply."
+      },
+      "formats": {
+        "csv": {
+          "label": "CSV",
+          "description": "One row per record, for a spreadsheet"
+        },
+        "ndjson": {
+          "label": "NDJSON",
+          "description": "One JSON record per line, with hashes"
+        },
+        "cef": {
+          "label": "CEF",
+          "description": "For a SIEM (Splunk, Sentinel, QRadar)"
+        },
+        "bundle": {
+          "label": "Evidence bundle",
+          "description": "Signed NDJSON with a chain checkpoint"
+        }
+      },
+      "actor": {
+        "apiKey": "API key {prefix}",
+        "system": "System"
+      },
+      "errors": {
+        "verify": "The chain could not be verified."
+      },
+      "drawer": {
+        "description": "{actor} on {resource}",
+        "when": "When",
+        "actor": "Actor",
+        "email": "Actor email",
+        "resource": "Resource",
+        "ip": "IP address",
+        "userAgent": "User agent",
+        "changes": "Changes",
+        "field": "Field",
+        "before": "Before",
+        "after": "After",
+        "details": "Details"
+      },
+      "verifyDialog": {
+        "title": "Audit chain",
+        "description": "Every record carries the hash of the one before it. A break means a record was changed or removed after it was written.",
+        "loading": "Verifying the audit chain",
+        "error": "Could not verify the chain",
+        "intact": "intact",
+        "broken": "broken",
+        "checked": "Records checked",
+        "unverifiable": "Written before hashing",
+        "brokenAt": "Broken at sequence",
+        "root": "Root hash",
+        "expected": "Expected hash",
+        "actual": "Actual hash"
       }
     }
   }

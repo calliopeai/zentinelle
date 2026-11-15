@@ -6,12 +6,13 @@ import {
   type Column,
 } from "@calliopelabs/ui";
 import { ActivityIcon, PauseIcon, PlayIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import type { EventData } from "@/graphql/events/types";
 
 import { FilterSelect } from "../../shared/FilterSelect";
-import { formatDateTime, humanize } from "../../shared/format";
+import { formatDateTime } from "../../shared/format";
 import {
   useListController,
   type ListSource,
@@ -19,12 +20,7 @@ import {
 import { NewRowsPill } from "../../shared/NewRowsPill";
 import { EventDrawer } from "./EventDrawer";
 import { activityCrumb } from "./nav";
-import {
-  EVENT_CATEGORIES,
-  EVENT_STATUS_TONE,
-  EVENT_TYPES,
-  toneOf,
-} from "./tones";
+import { EVENT_STATUS_TONE, toneOf, useActivityLabels } from "./tones";
 
 export interface EventFilters {
   category: string;
@@ -46,10 +42,13 @@ export interface EventsScreenProps {
   onShowHeld: () => void;
 }
 
-const COLUMNS: Column<EventData>[] = [
+const columns = (
+  t: ReturnType<typeof useTranslations>,
+  labels: ReturnType<typeof useActivityLabels>,
+): Column<EventData>[] => [
   {
     id: "occurred",
-    header: "Occurred",
+    header: t("columns.occurred"),
     width: "w-44",
     cell: (e) => (
       <span className="font-mono text-xs">{formatDateTime(e.occurredAt)}</span>
@@ -57,12 +56,14 @@ const COLUMNS: Column<EventData>[] = [
   },
   {
     id: "event",
-    header: "Event",
+    header: t("columns.event"),
     cell: (e) => (
       <div className="flex min-w-0 flex-col">
-        <span className="truncate font-medium">{humanize(e.eventType)}</span>
+        <span className="truncate font-medium">
+          {labels.eventType(e.eventType)}
+        </span>
         <span className="truncate text-xs text-muted-foreground">
-          {humanize(e.eventCategory)}
+          {labels.eventCategory(e.eventCategory)}
           {e.userIdentifier ? ` · ${e.userIdentifier}` : ""}
         </span>
       </div>
@@ -70,7 +71,7 @@ const COLUMNS: Column<EventData>[] = [
   },
   {
     id: "agent",
-    header: "Agent",
+    header: t("columns.agent"),
     width: "w-48",
     cell: (e) => (
       <span className="block truncate">{e.endpointName ?? "–"}</span>
@@ -78,14 +79,14 @@ const COLUMNS: Column<EventData>[] = [
   },
   {
     id: "status",
-    header: "Status",
+    header: t("columns.status"),
     width: "w-28",
     cell: (e) => (
       <StatusBadge
         tone={toneOf(EVENT_STATUS_TONE, e.status)}
         pulse={e.status === "processing"}
       >
-        {e.status}
+        {labels.eventStatus(e.status)}
       </StatusBadge>
     ),
   },
@@ -105,6 +106,8 @@ export function EventsScreen({
   heldCount,
   onShowHeld,
 }: EventsScreenProps) {
+  const t = useTranslations("activity.events");
+  const labels = useActivityLabels();
   const [open, setOpen] = React.useState<EventData | null>(null);
   const controller = useListController({
     ...events,
@@ -115,8 +118,8 @@ export function EventsScreen({
   return (
     <PageFrame
       crumbs={[activityCrumb("events")]}
-      title="Events"
-      description="Telemetry, audit and alert events as agents report them."
+      title={t("title")}
+      description={t("description")}
       primaryAction={
         <Button
           size="sm"
@@ -125,49 +128,51 @@ export function EventsScreen({
           onClick={() => onLiveChange(!live)}
         >
           {live ? <PauseIcon aria-hidden /> : <PlayIcon aria-hidden />}
-          {live ? "Pause live updates" : "Resume live updates"}
+          {live ? t("pause") : t("resume")}
         </Button>
       }
     >
       <NewRowsPill
         count={heldCount}
         onShow={onShowHeld}
-        label={(n) => `${n} new ${n === 1 ? "event" : "events"}`}
+        label={(n) => t("newRows", { count: n })}
         className="mb-2"
       />
       <DataTable
-        label="Events"
+        label={t("tableLabel")}
         controller={controller}
-        columns={COLUMNS}
+        columns={columns(t, labels)}
         getRowId={(e) => e.id}
         onRowActivate={setOpen}
         rowLabel={(e) =>
-          `${humanize(e.eventType)} at ${formatDateTime(e.occurredAt)}`
+          t("rowLabel", {
+            event: labels.eventType(e.eventType),
+            time: formatDateTime(e.occurredAt),
+          })
         }
         empty={{
           icon: <ActivityIcon className="size-5" aria-hidden />,
-          title: "No events yet",
-          description:
-            "Agents report heartbeats, requests and violations once they run with the Zentinelle AI SDK.",
+          title: t("empty.title"),
+          description: t("empty.description"),
           actionHref: "/agents",
-          actionLabel: "See agents",
+          actionLabel: t("empty.action"),
         }}
         emptyFiltered={{
-          title: "No events match",
-          description: "Clear the filters to see every event.",
+          title: t("emptyFiltered.title"),
+          description: t("emptyFiltered.description"),
         }}
         toolbar={
           <>
             <FilterSelect
-              label="Category"
+              label={t("filters.category")}
               value={filters.category}
-              options={EVENT_CATEGORIES}
+              options={labels.eventCategories}
               onChange={(category) => onFiltersChange({ ...filters, category })}
             />
             <FilterSelect
-              label="Type"
+              label={t("filters.type")}
               value={filters.eventType}
-              options={EVENT_TYPES}
+              options={labels.eventTypes}
               onChange={(eventType) =>
                 onFiltersChange({ ...filters, eventType })
               }

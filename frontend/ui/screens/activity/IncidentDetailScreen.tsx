@@ -14,6 +14,7 @@ import {
   type TabNavItem,
 } from "@calliopelabs/ui";
 import { DownloadIcon, MoreHorizontalIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 import type { IncidentData } from "@/graphql/risks/types";
@@ -25,7 +26,13 @@ import { StatTile } from "./components/StatTile";
 import { Timeline, type TimelineEntry } from "../../shared/Timeline";
 import { incidentHref } from "./IncidentsScreen";
 import { activityCrumb } from "./nav";
-import { INCIDENT_STATUS_TONE, SEVERITY_TONE, SLA_TONE, toneOf } from "./tones";
+import {
+  INCIDENT_STATUS_TONE,
+  SEVERITY_TONE,
+  SLA_TONE,
+  toneOf,
+  useActivityLabels,
+} from "./tones";
 import type { IncidentComment } from "./types";
 
 /** The incident's tabs (ui-overhaul-ia §4.2), each a path under `/incidents/{id}`. */
@@ -40,7 +47,7 @@ export interface IncidentDetailScreenProps {
   onRetry?: () => void;
   /** REST `incidents/{id}/comments/`. */
   comments: ListSource<IncidentComment>;
-  /** A name for a comment's `author_id`; the endpoint sends only the id. */
+  /** A name for a comment's `author_id`; the endpoint sends only the id. Defaults to "User {id}". */
   authorName?: (authorId: string) => string;
   /** REST `incidents/{id}/evidence/`: the signed bundle, as a download. */
   evidenceHref: string;
@@ -54,26 +61,30 @@ export interface IncidentDetailScreenProps {
   onComment?: (body: string) => Promise<unknown> | void;
 }
 
-const TABS: { key: IncidentTab; label: string; path: string }[] = [
-  { key: "timeline", label: "Timeline", path: "" },
-  { key: "evidence", label: "Evidence", path: "/evidence" },
-  { key: "comments", label: "Comments", path: "/comments" },
+const TABS: { key: IncidentTab; path: string }[] = [
+  { key: "timeline", path: "" },
+  { key: "evidence", path: "/evidence" },
+  { key: "comments", path: "/comments" },
 ];
 
 const ACTIVE = new Set(["open", "investigating", "mitigating"]);
 
-/** The incident's moments and its comments, oldest first. */
+type Moment =
+  "occurred" | "detected" | "acknowledged" | "resolved" | "closed" | "comment";
+
+/** The incident's moments and its comments, oldest first; `title` names each kind. */
 export function incidentTimeline(
   incident: IncidentData,
   comments: readonly IncidentComment[],
   authorName: (id: string) => string,
+  title: (moment: Moment) => string,
 ): TimelineEntry[] {
   const moments: (TimelineEntry | null)[] = [
     incident.occurredAt
       ? {
           id: "occurred",
           at: incident.occurredAt,
-          title: "Occurred",
+          title: title("occurred"),
           tone: toneOf(SEVERITY_TONE, incident.severity),
         }
       : null,
@@ -81,7 +92,7 @@ export function incidentTimeline(
       ? {
           id: "detected",
           at: incident.detectedAt,
-          title: "Detected",
+          title: title("detected"),
           actor: incident.reportedByName ?? undefined,
           tone: "warn",
         }
@@ -90,7 +101,7 @@ export function incidentTimeline(
       ? {
           id: "acknowledged",
           at: incident.acknowledgedAt,
-          title: "Acknowledged",
+          title: title("acknowledged"),
           actor: incident.assignedToName ?? undefined,
           tone: "info",
         }
@@ -99,13 +110,18 @@ export function incidentTimeline(
       ? {
           id: "resolved",
           at: incident.resolvedAt,
-          title: "Resolved",
+          title: title("resolved"),
           body: incident.resolution ?? undefined,
           tone: "ok",
         }
       : null,
     incident.closedAt
-      ? { id: "closed", at: incident.closedAt, title: "Closed", tone: "muted" }
+      ? {
+          id: "closed",
+          at: incident.closedAt,
+          title: title("closed"),
+          tone: "muted",
+        }
       : null,
   ];
   const notes: TimelineEntry[] = comments
@@ -113,7 +129,7 @@ export function incidentTimeline(
     .map((c) => ({
       id: `comment-${c.id}`,
       at: c.created_at as string,
-      title: "Comment",
+      title: title("comment"),
       actor: authorName(c.author_id),
       body: c.body,
     }));
@@ -128,6 +144,7 @@ function CommentBox({
 }: {
   onComment: (body: string) => Promise<unknown> | void;
 }) {
+  const t = useTranslations("activity.incident");
   const [body, setBody] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -145,7 +162,7 @@ function CommentBox({
           setBody("");
         } catch (e) {
           setError(
-            e instanceof Error ? e.message : "The comment was not saved.",
+            e instanceof Error && e.message ? e.message : t("commentFailed"),
           );
         } finally {
           setPending(false);
@@ -153,7 +170,7 @@ function CommentBox({
       }}
     >
       <label htmlFor={id} className="text-sm">
-        Add a comment
+        {t("comments.add")}
       </label>
       <textarea
         id={id}
@@ -169,7 +186,7 @@ function CommentBox({
       )}
       <div className="flex justify-end">
         <Button type="submit" size="sm" disabled={pending || !body.trim()}>
-          {pending ? "Posting…" : "Post comment"}
+          {pending ? t("comments.posting") : t("comments.post")}
         </Button>
       </div>
     </form>
@@ -184,12 +201,13 @@ function Comments({
 }: Pick<IncidentDetailScreenProps, "comments" | "canMutate" | "onComment"> & {
   authorName: (id: string) => string;
 }) {
+  const t = useTranslations("activity.incident");
   if (comments.loading && comments.rows.length === 0)
-    return <LoadingState label="Loading comments" rows={2} />;
+    return <LoadingState label={t("comments.loading")} rows={2} />;
   if (comments.error && comments.rows.length === 0)
     return (
       <ErrorState
-        title="Could not load comments"
+        title={t("comments.error")}
         error={comments.error}
         onRetry={comments.onRetry}
       />
@@ -197,8 +215,8 @@ function Comments({
   return (
     <div className="flex flex-col gap-4">
       <Timeline
-        label="Comments"
-        emptyLabel="No comments yet."
+        label={t("comments.title")}
+        emptyLabel={t("comments.empty")}
         entries={comments.rows
           .filter((c) => c.created_at)
           .map((c) => ({
@@ -226,7 +244,7 @@ export function IncidentDetailScreen({
   error,
   onRetry,
   comments,
-  authorName = (id) => `User ${id}`,
+  authorName,
   evidenceHref,
   canMutate,
   onAcknowledge,
@@ -234,34 +252,34 @@ export function IncidentDetailScreen({
   onClose,
   onComment,
 }: IncidentDetailScreenProps) {
+  const t = useTranslations("activity.incident");
+  const tIncidents = useTranslations("activity.incidents");
+  const labels = useActivityLabels();
+  const nameOf = authorName ?? ((id: string) => t("comments.author", { id }));
   const [confirm, setConfirm] = React.useState<"resolve" | "close" | null>(
     null,
   );
   const crumbs = [
     activityCrumb("incidents"),
-    { label: "Incidents", href: "/incidents" },
+    { label: t("crumb"), href: "/incidents" },
   ];
 
   if (!incident) {
     return (
       <PageFrame
         crumbs={crumbs}
-        title={loading ? "Incident" : error ? "Incident" : "Incident not found"}
+        title={loading || error ? t("title") : t("notFoundTitle")}
       >
         {loading ? (
-          <LoadingState label="Loading the incident" variant="page" />
+          <LoadingState label={t("loading")} variant="page" />
         ) : error ? (
-          <ErrorState
-            title="Could not load the incident"
-            error={error}
-            onRetry={onRetry}
-          />
+          <ErrorState title={t("error")} error={error} onRetry={onRetry} />
         ) : (
           <EmptyState
-            title="This incident does not exist"
-            description="It may belong to another organization, or the link is wrong."
+            title={t("notFound.title")}
+            description={t("notFound.description")}
             actionHref="/incidents"
-            actionLabel="Back to Incidents"
+            actionLabel={t("notFound.action")}
           />
         )}
       </PageFrame>
@@ -269,28 +287,28 @@ export function IncidentDetailScreen({
   }
 
   const base = incidentHref(incident);
-  const tabs: TabNavItem[] = TABS.map((t) => ({
-    key: t.key,
+  const tabs: TabNavItem[] = TABS.map((item) => ({
+    key: item.key,
     label:
-      t.key === "comments" && comments.rows.length
-        ? `${t.label} (${comments.rows.length})`
-        : t.label,
-    href: `${base}${t.path}`,
-    active: t.key === tab,
+      item.key === "comments" && comments.rows.length
+        ? t("tabs.commentsCount", { count: comments.rows.length })
+        : t(`tabs.${item.key}`),
+    href: `${base}${item.path}`,
+    active: item.key === tab,
   }));
   const active = ACTIVE.has(incident.status);
   const primaryAction = !canMutate ? undefined : active &&
     !incident.acknowledgedAt ? (
     <Button size="sm" onClick={onAcknowledge}>
-      Acknowledge
+      {t("acknowledge")}
     </Button>
   ) : active ? (
     <Button size="sm" onClick={() => setConfirm("resolve")}>
-      Resolve
+      {t("resolve")}
     </Button>
   ) : incident.status === "resolved" ? (
     <Button size="sm" variant="outline" onClick={() => setConfirm("close")}>
-      Close
+      {t("close")}
     </Button>
   ) : undefined;
 
@@ -314,11 +332,7 @@ export function IncidentDetailScreen({
       menu={
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Incident actions"
-            >
+            <Button variant="ghost" size="icon-sm" aria-label={t("actions")}>
               <MoreHorizontalIcon aria-hidden />
             </Button>
           </DropdownMenuTrigger>
@@ -326,35 +340,39 @@ export function IncidentDetailScreen({
             <DropdownMenuItem asChild>
               <a href={evidenceHref} download>
                 <DownloadIcon aria-hidden />
-                Download evidence
+                {t("downloadEvidence")}
               </a>
             </DropdownMenuItem>
             {canMutate && active && incident.acknowledgedAt === null && (
               <DropdownMenuItem onSelect={() => setConfirm("resolve")}>
-                Resolve without acknowledging
+                {t("resolveDirect")}
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
       }
       tabs={tabs}
-      tabsLabel="Incident"
+      tabsLabel={t("tabsLabel")}
     >
-      <Section title="Summary" headingLevel="h2">
+      <Section title={t("summary")} headingLevel="h2">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <StatTile
-            label="Time to acknowledge"
+            label={t("tta")}
             value={formatDuration(incident.timeToAcknowledgeSeconds)}
-            hint={incident.acknowledgedAt ? undefined : "Not acknowledged"}
+            hint={incident.acknowledgedAt ? undefined : t("notAcknowledged")}
           />
           <StatTile
-            label="Time to resolve"
+            label={t("ttr")}
             value={formatDuration(incident.timeToResolveSeconds)}
-            hint={incident.resolvedAt ? undefined : "Still open"}
+            hint={incident.resolvedAt ? undefined : t("stillOpen")}
           />
           <StatTile
-            label="SLA"
-            value={humanize(incident.slaStatus)}
+            label={t("sla")}
+            value={
+              incident.slaStatus
+                ? labels.sla(incident.slaStatus)
+                : humanize(null)
+            }
             tone={
               incident.slaStatus
                 ? toneOf(SLA_TONE, incident.slaStatus)
@@ -366,50 +384,57 @@ export function IncidentDetailScreen({
           className="mt-3"
           items={[
             {
-              term: "Type",
+              term: t("facts.type"),
               value:
                 incident.incidentTypeDisplay ?? humanize(incident.incidentType),
             },
-            { term: "Agent", value: incident.endpointName },
-            { term: "Triggering policy", value: incident.triggeringPolicyName },
-            { term: "Related risk", value: incident.relatedRiskName },
+            { term: t("facts.agent"), value: incident.endpointName },
             {
-              term: "Assignee",
-              value: incident.assignedToName ?? "Unassigned",
+              term: t("facts.policy"),
+              value: incident.triggeringPolicyName,
             },
-            { term: "Reported by", value: incident.reportedByName },
+            { term: t("facts.risk"), value: incident.relatedRiskName },
             {
-              term: "Affected",
+              term: t("facts.assignee"),
+              value: incident.assignedToName ?? tIncidents("unassigned"),
+            },
+            { term: t("facts.reportedBy"), value: incident.reportedByName },
+            {
+              term: t("facts.affected"),
               value:
                 incident.affectedUser ??
                 (incident.affectedUserCount !== null
-                  ? `${incident.affectedUserCount.toLocaleString("en")} users`
+                  ? t("facts.affectedUsers", {
+                      count: incident.affectedUserCount,
+                    })
                   : null),
             },
             {
-              term: "Tags",
+              term: t("facts.tags"),
               value: incident.tags.length ? incident.tags.join(", ") : null,
             },
           ]}
         />
       </Section>
       {tab === "timeline" && (
-        <Section title="Timeline">
+        <Section title={t("timeline.title")}>
           <Timeline
-            label="Incident timeline"
-            entries={incidentTimeline(incident, comments.rows, authorName)}
+            label={t("timeline.label")}
+            entries={incidentTimeline(incident, comments.rows, nameOf, (m) =>
+              t(`timeline.${m}`),
+            )}
           />
         </Section>
       )}
       {tab === "evidence" && (
         <Section
-          title="Evidence"
-          description="A signed NDJSON bundle of the audit records tied to this incident and to the correlation chain of the event that raised it."
+          title={t("evidence.title")}
+          description={t("evidence.description")}
           action={
             <Button size="sm" variant="outline" asChild>
               <a href={evidenceHref} download>
                 <DownloadIcon aria-hidden />
-                Download bundle
+                {t("evidence.download")}
               </a>
             </Button>
           }
@@ -417,18 +442,18 @@ export function IncidentDetailScreen({
           <DefinitionList
             columns={1}
             items={[
-              { term: "Root cause", value: incident.rootCause },
-              { term: "Impact", value: incident.impactAssessment },
-              { term: "Resolution", value: incident.resolution },
+              { term: t("facts.rootCause"), value: incident.rootCause },
+              { term: t("facts.impact"), value: incident.impactAssessment },
+              { term: t("facts.resolution"), value: incident.resolution },
             ]}
           />
         </Section>
       )}
       {tab === "comments" && (
-        <Section title="Comments">
+        <Section title={t("comments.title")}>
           <Comments
             comments={comments}
-            authorName={authorName}
+            authorName={nameOf}
             canMutate={canMutate}
             onComment={onComment}
           />
@@ -437,18 +462,21 @@ export function IncidentDetailScreen({
       <ConfirmDialog
         open={confirm === "resolve"}
         onOpenChange={(o) => !o && setConfirm(null)}
-        title="Resolve this incident?"
-        description="The resolution goes on the incident and into the audit log."
-        confirmLabel="Resolve"
-        reason={{ label: "Resolution", placeholder: "What fixed it" }}
+        title={t("resolveDialog.title")}
+        description={t("resolveDialog.description")}
+        confirmLabel={t("resolve")}
+        reason={{
+          label: t("resolveDialog.label"),
+          placeholder: t("resolveDialog.placeholder"),
+        }}
         onConfirm={(resolution) => onResolve?.(resolution)}
       />
       <ConfirmDialog
         open={confirm === "close"}
         onOpenChange={(o) => !o && setConfirm(null)}
-        title="Close this incident?"
-        description="A closed incident leaves the open queue. Its timeline and evidence stay."
-        confirmLabel="Close incident"
+        title={t("closeDialog.title")}
+        description={t("closeDialog.description")}
+        confirmLabel={t("closeDialog.confirm")}
         onConfirm={() => onClose?.()}
       />
     </PageFrame>
