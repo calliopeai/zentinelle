@@ -1,6 +1,6 @@
 services:
   nginx:
-    image: nginx:alpine
+    image: nginx:1.29
     ports:
       - "${NGINX_PORT:-8080}:80"
     volumes:
@@ -122,7 +122,7 @@ services:
     command: npm run dev -- --port 3000
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-bookworm
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-zentinelle}
       POSTGRES_USER: ${POSTGRES_USER:-zentinelle}
@@ -139,7 +139,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-bookworm
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -182,7 +182,7 @@ services:
   # Enable with: docker compose --profile analytics up
   clickhouse:
     profiles: ["analytics"]
-    image: clickhouse/clickhouse-server:24-alpine
+    image: clickhouse/clickhouse-server:24
     environment:
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: default

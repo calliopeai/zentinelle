@@ -1,5 +1,5 @@
 # Build stage
-FROM node:24-alpine AS builder
+FROM node:24-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -28,7 +28,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # Production stage - run Next.js server
-FROM node:24-alpine AS runner
+FROM node:24-bookworm-slim AS runner
 
 WORKDIR /app
 
@@ -36,7 +36,9 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Install wget for health checks and create non-root user
-RUN apk add --no-cache wget && \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends wget && \
+    rm -rf /var/lib/apt/lists/* && \
     addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
